@@ -29,6 +29,7 @@ watcher:RegisterEvent('PLAYER_REGEN_ENABLED')
 watcher:SetScript('OnEvent', function()
 	for frame in next, looseFrames do
 		frame:SetParent(hiddenParent)
+		frame:Hide()
 	end
 
 	table.wipe(looseFrames)
@@ -75,7 +76,12 @@ local function handleFrame(baseName, doNotReparent, isNamePlate, hookShow)
 		-- This is crucial for preventing GROUP_ROSTER_UPDATE from re-showing frames
 		if hookShow and not frame.__showHooked then
 			hooksecurefunc(frame, 'Show', function(self)
-				self:Hide()
+				if InCombatLockdown() and self:IsProtected() then
+					-- Can't Hide() protected frames in combat, defer to out-of-combat handler
+					looseFrames[self] = true
+				else
+					self:Hide()
+				end
 			end)
 			frame.__showHooked = true
 		end
