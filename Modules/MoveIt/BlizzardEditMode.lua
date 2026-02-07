@@ -246,6 +246,11 @@ function BlizzardEditMode:HookDefaultPositions()
 
 	-- Override GetDefaultSystemAnchorInfo to return SpartanUI positions when appropriate
 	EditModePresetLayoutManager.GetDefaultSystemAnchorInfo = function(self, systemIndex)
+		-- During combat, always use original to avoid tainting protected calls
+		if InCombatLockdown() then
+			return originalGetDefaultSystemAnchorInfo(self, systemIndex)
+		end
+
 		-- Get the original default first
 		local originalInfo = originalGetDefaultSystemAnchorInfo(self, systemIndex)
 
@@ -848,6 +853,9 @@ function BlizzardEditMode:GetEditModeState()
 		available = EditModeManagerFrame ~= nil,
 		active = false,
 		currentLayout = nil,
+		currentLayoutName = nil,
+		isOnPresetLayout = false,
+		isOnSpartanUILayout = false,
 		libEMOAvailable = self.LibEMO ~= nil,
 	}
 
@@ -857,6 +865,11 @@ function BlizzardEditMode:GetEditModeState()
 
 	if self.LibEMO then
 		state.currentLayout = self.LibEMO:GetActiveLayout()
+		state.currentLayoutName = state.currentLayout
+		if state.currentLayout then
+			state.isOnPresetLayout = self:IsPresetLayout(state.currentLayout)
+			state.isOnSpartanUILayout = self:IsSpartanUILayout(state.currentLayout)
+		end
 	end
 
 	return state
