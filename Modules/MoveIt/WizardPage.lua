@@ -24,6 +24,46 @@ function WizardPage:IsMigrationInProgress()
 	return migrationInProgress
 end
 
+---Get the character key for per-character EditMode tracking (e.g., "Libbi - Thrall")
+---@return string charKey The character-realm key
+function WizardPage:GetCharacterKey()
+	return SUI.SpartanUIDB.keys.char
+end
+
+---Get the per-character EditMode setup record from global DB
+---@return table|nil record The setup record for this character, or nil if not set up
+function WizardPage:GetCharacterSetupRecord()
+	if not MoveIt.DBG or not MoveIt.DBG.EditModeSetupCharacters then
+		return nil
+	end
+	return MoveIt.DBG.EditModeSetupCharacters[self:GetCharacterKey()]
+end
+
+---Mark this character's EditMode setup as complete in global DB
+---@param editModeProfile string The EditMode profile name assigned to this character
+---@param migrationOption? string The migration option used ('apply_current', 'copy_new', 'do_nothing')
+function WizardPage:SetCharacterSetupDone(editModeProfile, migrationOption)
+	if not MoveIt.DBG then
+		return
+	end
+	if not MoveIt.DBG.EditModeSetupCharacters then
+		MoveIt.DBG.EditModeSetupCharacters = {}
+	end
+	MoveIt.DBG.EditModeSetupCharacters[self:GetCharacterKey()] = {
+		setupDone = true,
+		editModeProfile = editModeProfile,
+		migrationOption = migrationOption,
+		timestamp = time(),
+	}
+end
+
+---Check if this character has completed EditMode setup (checks global per-character record)
+---@return boolean done True if setup is complete for this character
+function WizardPage:IsCharacterSetupDone()
+	local record = self:GetCharacterSetupRecord()
+	return record and record.setupDone == true
+end
+
 ---Check if user is using another character's SUI profile (not a proper shared profile)
 ---@return boolean isUsingOtherCharProfile True if using another character's profile
 ---@return string|nil otherCharName The name of the other character if applicable
@@ -184,6 +224,7 @@ local function EnsureCorrectProfile()
 		end)
 		MoveIt.DB.EditModeControl.CurrentProfile = expectedProfileName
 		MoveIt.DB.EditModeWizard.SetupDone = true
+		WizardPage:SetCharacterSetupDone(expectedProfileName)
 		MoveIt.BlizzardEditMode.initialSetupComplete = true
 		migrationInProgress = false
 		if MoveIt.logger then
@@ -225,6 +266,7 @@ local function EnsureCorrectProfile()
 
 		MoveIt.DB.EditModeControl.CurrentProfile = expectedProfileName
 		MoveIt.DB.EditModeWizard.SetupDone = true
+		WizardPage:SetCharacterSetupDone(expectedProfileName)
 		MoveIt.BlizzardEditMode.initialSetupComplete = true
 
 		if MoveIt.logger then
@@ -285,7 +327,67 @@ local function ShouldShowWizard()
 		state = MoveIt.BlizzardEditMode:GetEditModeState()
 	end
 
-	-- Check global preference for auto-apply (before SetupDone check)
+	-- Migrate existing users: if per-profile SetupDone is true but no per-character record exists,
+	-- backfill the global record — but ONLY if this character is actually on a SpartanUI EditMode layout.
+	-- A shared SUI profile may have SetupDone=true from another character, but EditMode profiles
+	-- are per-character in WoW, so we can't trust SetupDone from a shared profile.
+	if not WizardPage:IsCharacterSetupDone() and MoveIt.DB and MoveIt.DB.EditModeWizard and MoveIt.DB.EditModeWizard.SetupDone then
+		if state and state.isOnSpartanUILayout then
+			-- Character is already on a SpartanUI EditMode layout — safe to backfill
+			local existingProfile = state.currentLayoutName or (MoveIt.DB.EditModeControl and MoveIt.DB.EditModeControl.CurrentProfile) or 'SpartanUI'
+			local existingOption = MoveIt.DB.EditModeWizard.MigrationOption or 'migrated'
+			WizardPage:SetCharacterSetupDone(existingProfile, existingOption)
+			if MoveIt.logger then
+				MoveIt.logger.info(('ShouldShowWizard: Migrated existing setup record for %s (profile: %s)'):format(WizardPage:GetCharacterKey(), existingProfile))
+			end
+		else
+			-- Character is NOT on a SpartanUI layout despite shared profile saying SetupDone=true
+			-- This means another character set it up — this character still needs setup
+			if MoveIt.logger then
+				MoveIt.logger.info(
+					('ShouldShowWizard: Shared profile has SetupDone=true but %s is on "%s", not SpartanUI — needs setup'):format(
+						WizardPage:GetCharacterKey(),
+						state and state.currentLayoutName or 'unknown'
+					)
+				)
+			end
+		end
+	end
+
+	-- If user is already on a SpartanUI layout, mark setup complete and skip
+	if state and state.isOnSpartanUILayout then
+		if MoveIt.BlizzardEditMode then
+			MoveIt.BlizzardEditMode.initialSetupComplete = true
+		end
+		-- Record per-character setup in global DB
+		WizardPage:SetCharacterSetupDone(state.currentLayoutName, 'already_on_sui')
+		if MoveIt.DB and MoveIt.DB.EditModeControl then
+			MoveIt.DB.EditModeControl.CurrentProfile = state.currentLayoutName
+		end
+		if MoveIt.logger then
+			MoveIt.logger.info(('ShouldShowWizard: User already on SpartanUI layout "%s", skipping wizard'):format(state.currentLayoutName))
+		end
+		return false
+	end
+
+	-- Skip if this character already completed EditMode setup (per-character global check)
+	if WizardPage:IsCharacterSetupDone() then
+		-- Ensure we're on the correct profile (handles profile mismatch after login)
+		C_Timer.After(0.1, function()
+			EnsureCorrectProfile()
+		end)
+		-- Mark initial setup as complete since wizard was already done previously
+		if MoveIt.BlizzardEditMode then
+			MoveIt.BlizzardEditMode.initialSetupComplete = true
+		end
+		if MoveIt.logger then
+			local record = WizardPage:GetCharacterSetupRecord()
+			MoveIt.logger.debug(('ShouldShowWizard: Character already set up (profile: %s), skipping'):format(record and record.editModeProfile or 'unknown'))
+		end
+		return false
+	end
+
+	-- Check global preference for auto-apply (only for characters that haven't been set up yet)
 	if MoveIt.DBG and MoveIt.DBG.EditModePreferences and MoveIt.DBG.EditModePreferences.ApplyToAllCharacters then
 		local defaultOption = MoveIt.DBG.EditModePreferences.DefaultMigrationOption
 		if defaultOption then
@@ -297,24 +399,7 @@ local function ShouldShowWizard()
 		end
 	end
 
-	-- If user is already on a SpartanUI layout, mark setup complete and skip
-	if state and state.isOnSpartanUILayout then
-		if MoveIt.BlizzardEditMode then
-			MoveIt.BlizzardEditMode.initialSetupComplete = true
-		end
-		-- Also update DB to mark setup as done
-		if MoveIt.DB and MoveIt.DB.EditModeWizard then
-			MoveIt.DB.EditModeWizard.SetupDone = true
-			MoveIt.DB.EditModeControl.CurrentProfile = state.currentLayoutName
-		end
-		if MoveIt.logger then
-			MoveIt.logger.info(('ShouldShowWizard: User already on SpartanUI layout "%s", skipping wizard'):format(state.currentLayoutName))
-		end
-		return false
-	end
-
 	-- For preset layouts (Modern/Classic), silently apply - no wizard needed
-	-- This runs even if SetupDone is true (upgrade scenario)
 	if state and state.isOnPresetLayout then
 		if MoveIt.logger then
 			MoveIt.logger.info(('ShouldShowWizard: User on preset layout "%s", scheduling silent setup'):format(state.currentLayoutName))
@@ -322,19 +407,6 @@ local function ShouldShowWizard()
 		C_Timer.After(0.1, function()
 			TrySilentPresetSetup()
 		end)
-		return false
-	end
-
-	-- Skip if already completed setup (only after checking preset/SpartanUI layouts above)
-	if MoveIt.DB and MoveIt.DB.EditModeWizard and MoveIt.DB.EditModeWizard.SetupDone then
-		-- Ensure we're on the correct profile (handles Test 4 scenario)
-		C_Timer.After(0.1, function()
-			EnsureCorrectProfile()
-		end)
-		-- Mark initial setup as complete since wizard was already done previously
-		if MoveIt.BlizzardEditMode then
-			MoveIt.BlizzardEditMode.initialSetupComplete = true
-		end
 		return false
 	end
 
@@ -385,13 +457,16 @@ function WizardPage:ApplyMigration(option, saveGlobal)
 	-- Handle "do nothing" option - just mark setup as done without changes
 	if option == 'do_nothing' then
 		if MoveIt.logger then
-			MoveIt.logger.info(('WizardPage: User chose to keep current profile "%s" without changes'):format(currentLayoutName))
+			MoveIt.logger.info(('WizardPage: User chose to keep current profile "%s" without changes'):format(currentLayoutName or 'unknown'))
 		end
 
 		MoveIt.DB.EditModeWizard.SetupDone = true
 		MoveIt.DB.EditModeControl.CurrentProfile = currentLayoutName
 		-- Disable EditMode management since user doesn't want us to manage it
 		MoveIt.DB.EditModeControl.Enabled = false
+
+		-- Record per-character setup
+		WizardPage:SetCharacterSetupDone(currentLayoutName or 'none', 'do_nothing')
 
 		-- Save global preference if requested
 		if saveGlobal and MoveIt.DBG then
@@ -422,12 +497,14 @@ function WizardPage:ApplyMigration(option, saveGlobal)
 
 			-- Mark setup as done
 			MoveIt.DB.EditModeWizard.SetupDone = true
+			WizardPage:SetCharacterSetupDone(currentLayoutName, 'apply_current')
 
 			-- Save global preference if requested
 			if saveGlobal and MoveIt.DBG then
 				MoveIt.DBG.EditModePreferences.ApplyToAllCharacters = true
 				MoveIt.DBG.EditModePreferences.DefaultMigrationOption = option
 			end
+			migrationInProgress = false
 			return
 		end
 	end
@@ -503,6 +580,7 @@ function WizardPage:ApplyMigration(option, saveGlobal)
 
 	-- Mark setup as done
 	MoveIt.DB.EditModeWizard.SetupDone = true
+	WizardPage:SetCharacterSetupDone(MoveIt.DB.EditModeControl.CurrentProfile or 'SpartanUI', option)
 
 	-- Save global preference if requested
 	if saveGlobal and MoveIt.DBG then
@@ -542,6 +620,7 @@ function WizardPage:RegisterPage()
 					MoveIt.DB.EditModeWizard.SetupDone = true
 					MoveIt.DB.EditModeControl.CurrentProfile = state.currentLayoutName
 				end
+				WizardPage:SetCharacterSetupDone(state.currentLayoutName, 'already_on_sui')
 				if MoveIt.BlizzardEditMode then
 					MoveIt.BlizzardEditMode.initialSetupComplete = true
 				end

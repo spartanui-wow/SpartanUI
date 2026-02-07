@@ -286,6 +286,10 @@ function MoveIt:OnInitialize()
 				ApplyToAllCharacters = false, -- Auto-apply choices on other characters
 				DefaultMigrationOption = nil, -- 'apply_current' | 'copy_new'
 			},
+			-- Per-character EditMode setup tracking (keyed by "CharName - Realm")
+			-- Stored globally because EditMode profiles are per-character in WoW,
+			-- independent of shared SUI profiles
+			EditModeSetupCharacters = {},
 		},
 	}
 	---@type MoveItDB

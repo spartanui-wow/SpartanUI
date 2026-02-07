@@ -90,6 +90,15 @@ function BlizzardEditMode:Initialize()
 			end
 		end)
 	end
+
+	-- Register combat-end handler to process deferred EditMode changes
+	if not self.combatFrame then
+		self.combatFrame = CreateFrame('Frame')
+		self.combatFrame:RegisterEvent('PLAYER_REGEN_ENABLED')
+		self.combatFrame:SetScript('OnEvent', function()
+			BlizzardEditMode:PLAYER_REGEN_ENABLED()
+		end)
+	end
 end
 
 ---Create or ensure the SpartanUI EditMode profile exists
@@ -780,6 +789,16 @@ function BlizzardEditMode:SafeApplyChanges(suppressMovers)
 		return
 	end
 
+	-- Defer if in combat to avoid tainting protected frames (party frames, player frame, etc.)
+	if InCombatLockdown() then
+		if MoveIt.logger then
+			MoveIt.logger.warning('SafeApplyChanges: In combat, deferring until combat ends')
+		end
+		self.pendingApplyChanges = self.pendingApplyChanges or {}
+		table.insert(self.pendingApplyChanges, { suppressMovers = suppressMovers })
+		return
+	end
+
 	local success, err = pcall(function()
 		self.LibEMO:ApplyChanges()
 	end)
@@ -801,7 +820,18 @@ end
 
 ---Handle PLAYER_REGEN_ENABLED (leaving combat)
 function BlizzardEditMode:PLAYER_REGEN_ENABLED()
-	-- If we have pending applications that were blocked by combat, process them now
+	-- Process deferred SafeApplyChanges calls that were blocked by combat
+	if self.pendingApplyChanges and #self.pendingApplyChanges > 0 then
+		if MoveIt.logger then
+			MoveIt.logger.info(('PLAYER_REGEN_ENABLED: Processing %d deferred ApplyChanges calls'):format(#self.pendingApplyChanges))
+		end
+		local lastEntry = self.pendingApplyChanges[#self.pendingApplyChanges]
+		self.pendingApplyChanges = {}
+		-- Only need to apply once with the most recent settings
+		self:SafeApplyChanges(lastEntry.suppressMovers)
+	end
+
+	-- If we have pending frame applications that were blocked by combat, process them now
 	if self.pendingApplications and #self.pendingApplications > 0 then
 		self:ProcessPendingApplications()
 	end
