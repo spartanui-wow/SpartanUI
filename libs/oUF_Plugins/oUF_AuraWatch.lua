@@ -41,19 +41,25 @@ local function createAuraIcon(element, index)
 	button.count = count
 	button.cd = cd
 
-	if element.PostCreateIcon then element:PostCreateIcon(button) end
+	if element.PostCreateIcon then
+		element:PostCreateIcon(button)
+	end
 
 	return button
 end
 
 local function customFilter(element, _, button, AuraData)
 	local setting = element.watched[button.spellID]
-	if not setting then return false end
+	if not setting then
+		return false
+	end
 
 	button.onlyShowMissing = setting.onlyShowMissing
 	button.anyUnit = setting.anyUnit
 
-	if setting.enabled and ((not setting.anyUnit and button.isPlayer) or (setting.anyUnit and button.castByPlayer)) then return not setting.onlyShowMissing end
+	if setting.enabled and ((not setting.anyUnit and button.isPlayer) or (setting.anyUnit and button.castByPlayer)) then
+		return not setting.onlyShowMissing
+	end
 
 	return false
 end
@@ -109,7 +115,9 @@ local function handleElements(element, unit, button, setting, icon, count, durat
 		end
 	end
 
-	if button.icon then button.icon:SetTexture(icon) end
+	if button.icon then
+		button.icon:SetTexture(icon)
+	end
 
 	button.setting = setting
 
@@ -129,7 +137,9 @@ local function preOnlyMissing(element)
 	wipe(missing)
 
 	for spellID, setting in pairs(element.watched) do
-		if setting.onlyShowMissing then missing[spellID] = setting end
+		if setting.onlyShowMissing then
+			missing[spellID] = setting
+		end
 	end
 end
 
@@ -143,7 +153,9 @@ local function postOnlyMissing(element, unit, offset)
 		local icon = C_Spell.GetSpellTexture(spellID)
 		handleElements(element, unit, button, setting, icon)
 
-		if element.PostUpdateIcon then element:PostUpdateIcon(unit, button, nil, position) end
+		if element.PostUpdateIcon then
+			element:PostUpdateIcon(unit, button, nil, position)
+		end
 
 		visible = visible + 1
 	end
@@ -154,15 +166,34 @@ end
 local function updateIcon(element, unit, index, offset, filter, isDebuff, visible)
 	local AuraData = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
 
-	if not AuraData then return end
+	if not AuraData then
+		return
+	end
+
+	-- In Retail instanced content, aura data fields are "secret values" that cannot be
+	-- read, compared, or tested as booleans. Use SUI.BlizzAPI wrappers for version safety.
+	local BlizzAPI = SUI and SUI.BlizzAPI
+	local isSecret = BlizzAPI and BlizzAPI.issecretvalue(AuraData.spellId) or false
 
 	local button, position = getIcon(element, visible, offset)
+
+	if isSecret then
+		-- Secret values: only set safe defaults, skip filtering
+		button.caster = nil
+		button.filter = filter
+		button.spellID = nil
+		button.isDebuff = isDebuff
+		button.castByPlayer = nil
+		button.isPlayer = nil
+		button:SetID(index)
+		-- Cannot filter or match watched spells with secret data, skip this aura
+		return HIDDEN
+	end
 
 	button.caster = AuraData.sourceUnit
 	button.filter = filter
 	button.spellID = AuraData.spellId
 	button.isDebuff = isDebuff
-	-- button.debuffType = debuffType
 	button.castByPlayer = AuraData.isFromPlayerOrPlayerPet
 	button.isPlayer = AuraData.sourceUnit == 'player'
 
@@ -171,12 +202,16 @@ local function updateIcon(element, unit, index, offset, filter, isDebuff, visibl
 	local show = (element.CustomFilter or customFilter)(element, unit, button, AuraData)
 
 	local setting = element.watched[AuraData.spellId]
-	if setting and setting.onlyShowMissing then missing[AuraData.spellId] = nil end
+	if setting and setting.onlyShowMissing then
+		missing[AuraData.spellId] = nil
+	end
 
 	if show then
 		handleElements(element, unit, button, setting, AuraData.icon, AuraData.charges or 1, AuraData.duration, AuraData.expirationTime, isDebuff, AuraData.isStealable, AuraData.timeMod)
 
-		if element.PostUpdateIcon then element:PostUpdateIcon(unit, button, index, position, AuraData.duration, AuraData.expirationTime, AuraData.isStealable) end
+		if element.PostUpdateIcon then
+			element:PostUpdateIcon(unit, button, index, position, AuraData.duration, AuraData.expirationTime, AuraData.isStealable)
+		end
 
 		return VISIBLE
 	else
@@ -185,7 +220,9 @@ local function updateIcon(element, unit, index, offset, filter, isDebuff, visibl
 end
 
 local function filterIcons(element, unit, filter, limit, isDebuff, offset, dontHide)
-	if not offset then offset = 0 end
+	if not offset then
+		offset = 0
+	end
 
 	local index, visible, hidden = 1, 0, 0
 	while visible < limit do
@@ -211,11 +248,15 @@ local function filterIcons(element, unit, filter, limit, isDebuff, offset, dontH
 end
 
 local function UpdateAuras(self, event, unit, isFullUpdate, updatedAuras)
-	if not unit or self.unit ~= unit then return end
+	if not unit or self.unit ~= unit then
+		return
+	end
 
 	local element = self.AuraWatch
 	if element then
-		if element.PreUpdate then element:PreUpdate(unit) end
+		if element.PreUpdate then
+			element:PreUpdate(unit)
+		end
 
 		preOnlyMissing(element)
 
@@ -235,12 +276,16 @@ local function UpdateAuras(self, event, unit, isFullUpdate, updatedAuras)
 
 		element.allAuras = visibleBuffs + visibleDebuffs + hiddenBuffs + hiddenDebuffs + visibleMissing
 
-		if element.PostUpdate then element:PostUpdate(unit) end
+		if element.PostUpdate then
+			element:PostUpdate(unit)
+		end
 	end
 end
 
 local function Update(self, event, unit)
-	if self.unit ~= unit then return end
+	if self.unit ~= unit then
+		return
+	end
 
 	UpdateAuras(self, event, unit)
 end
@@ -277,7 +322,9 @@ local function Disable(self)
 	if self.AuraWatch then
 		self:UnregisterEvent('UNIT_AURA', UpdateAuras)
 
-		if self.AuraWatch then self.AuraWatch:Hide() end
+		if self.AuraWatch then
+			self.AuraWatch:Hide()
+		end
 	end
 end
 
