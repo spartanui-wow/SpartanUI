@@ -93,11 +93,12 @@ end
 ```
 
 **Critical Rules:**
+
 - **Read from** `module.CurrentSettings` (merged defaults + user changes)
 - **Write to** `module.DB` (only stores changes from defaults)
 - **Call** `SUI.DBM:RefreshSettings(module)` after any DB write
 
-See `Core/Handlers/Database.md` for full documentation.
+See `.context/Database.md` for full documentation.
 
 ##### 4. Ace3 Module Lifecycle
 
@@ -174,6 +175,7 @@ end,
 ##### 6. File Organization
 
 Standard module structure:
+
 ```
 Modules/ModuleName/
 ├── ModuleName.lua      # Main logic, lifecycle hooks

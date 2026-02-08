@@ -16,17 +16,34 @@ end
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	frame.HealthDeficit = frame:CreateFontString(nil, 'OVERLAY')
-	SUI.Font:Format(frame.HealthDeficit, DB.textSize or 10, 'UnitFrames')
-	frame:Tag(frame.HealthDeficit, GetTagText(DB))
+	if not DB.enabled then
+		return
+	end
+
+	local element = frame:CreateFontString(nil, 'OVERLAY')
+	element:SetWidth(frame:GetWidth())
+	SUI.Font:Format(element, DB.textSize or 10, 'UnitFrames')
+	frame:Tag(element, GetTagText(DB))
+	frame.HealthDeficit = element
 end
 
 ---@param frame table
 local function Update(frame)
 	local element = frame.HealthDeficit
+	if not element then
+		return
+	end
+
 	local DB = element.DB
-	SUI.Font:Format(frame.HealthDeficit, DB.textSize or 10, 'UnitFrames')
-	frame:Tag(frame.HealthDeficit, GetTagText(DB))
+	if not DB or not DB.enabled then
+		element:Hide()
+		return
+	end
+
+	element:SetWidth(frame:GetWidth())
+	SUI.Font:Format(element, DB.textSize or 10, 'UnitFrames')
+	frame:Tag(element, GetTagText(DB))
+	element:Show()
 end
 
 ---@param frameName string
