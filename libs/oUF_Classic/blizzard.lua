@@ -166,15 +166,9 @@ function oUF:DisableBlizzard(unit)
 				end
 			end
 
-			-- Disable the CompactRaidFrameContainer which controls visibility
-			-- This is crucial for TBC with Edit Mode backport
-			if CompactRaidFrameManager_SetSetting then
-				CompactRaidFrameManager_SetSetting('IsShown', '0')
-			end
-
-			-- Unregister GROUP_ROSTER_UPDATE from UIParent to prevent party frame updates
-			-- This event constantly triggers party frame visibility updates in TBC
-			UIParent:UnregisterEvent('GROUP_ROSTER_UPDATE')
+			-- Note: CompactRaidFrameManager_SetSetting('IsShown', '0') was previously called here
+			-- but that hides the raid frame manager even when only party frames are being replaced.
+			-- It should only be called when raid frames are also being replaced by oUF.
 		end
 	elseif unit:match('arena%d?$') then
 		local id = unit:match('arena(%d)')

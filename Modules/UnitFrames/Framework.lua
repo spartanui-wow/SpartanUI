@@ -258,37 +258,46 @@ function UF:OnEnable()
 	end
 
 	-- Ensure Blizzard party/raid frames stay hidden even after roster updates
-	-- This is a safety measure in case other addons or Blizzard code tries to re-show the frames
-	local function EnsureBlizzardFramesHidden()
-		if not InCombatLockdown() then
-			pcall(function()
-				if PartyFrame then
-					PartyFrame:Hide()
-					PartyFrame:SetAlpha(0)
-				end
-				if CompactPartyFrame then
-					CompactPartyFrame:Hide()
-					CompactPartyFrame:SetAlpha(0)
-				end
-				if CompactRaidFrameManager then
-					CompactRaidFrameManager:Hide()
-					CompactRaidFrameManager:SetAlpha(0)
-				end
-				if CompactRaidFrameContainer then
-					CompactRaidFrameContainer:Hide()
-					CompactRaidFrameContainer:SetAlpha(0)
-				end
-			end)
-		end
-	end
+	-- Only hide frames that SUI is actually replacing (i.e. where the unit type is enabled)
+	local partyEnabled = UF.CurrentSettings.party and UF.CurrentSettings.party.enabled
+	local raidEnabled = UF.CurrentSettings.raid and UF.CurrentSettings.raid.enabled
 
-	-- Register GROUP_ROSTER_UPDATE on our own watcher to re-hide frames
-	-- (in case other code tries to show them)
-	local RosterWatcher = CreateFrame('Frame')
-	RosterWatcher:SetScript('OnEvent', function()
-		C_Timer.After(0.1, EnsureBlizzardFramesHidden) -- Small delay to let other code finish
-	end)
-	RosterWatcher:RegisterEvent('GROUP_ROSTER_UPDATE')
+	if partyEnabled or raidEnabled then
+		local function EnsureBlizzardFramesHidden()
+			if not InCombatLockdown() then
+				pcall(function()
+					if partyEnabled then
+						if PartyFrame then
+							PartyFrame:Hide()
+							PartyFrame:SetAlpha(0)
+						end
+						if CompactPartyFrame then
+							CompactPartyFrame:Hide()
+							CompactPartyFrame:SetAlpha(0)
+						end
+					end
+					if raidEnabled then
+						if CompactRaidFrameManager then
+							CompactRaidFrameManager:Hide()
+							CompactRaidFrameManager:SetAlpha(0)
+						end
+						if CompactRaidFrameContainer then
+							CompactRaidFrameContainer:Hide()
+							CompactRaidFrameContainer:SetAlpha(0)
+						end
+					end
+				end)
+			end
+		end
+
+		-- Register GROUP_ROSTER_UPDATE on our own watcher to re-hide frames
+		-- (in case other code tries to show them)
+		local RosterWatcher = CreateFrame('Frame')
+		RosterWatcher:SetScript('OnEvent', function()
+			C_Timer.After(0.1, EnsureBlizzardFramesHidden) -- Small delay to let other code finish
+		end)
+		RosterWatcher:RegisterEvent('GROUP_ROSTER_UPDATE')
+	end
 
 	SUI:AddChatCommand('BuffDebug', function(args)
 		local unit, spellId = strsplit(' ', args)
@@ -322,8 +331,47 @@ function UF:OnEnable()
 end
 
 function UF:Update()
+	-- Capture group visibility before settings reload so style switches
+	-- don't lose showSolo/showParty/showRaid (pre-existing bug fix)
+	local prevGroupVis = {}
+	for frameName, config in pairs(UF.Unit.defaultConfigs) do
+		if config.config and config.config.IsGroup and UF.CurrentSettings[frameName] then
+			prevGroupVis[frameName] = {
+				showSolo = UF.CurrentSettings[frameName].showSolo,
+				showParty = UF.CurrentSettings[frameName].showParty,
+				showRaid = UF.CurrentSettings[frameName].showRaid,
+				showPlayer = UF.CurrentSettings[frameName].showPlayer,
+			}
+		end
+	end
+
 	-- Refresh Settings
 	LoadDB()
+
+	-- Seed group visibility into the new style's UserSettings when not yet customized.
+	-- This prevents party/raid frames from vanishing when switching to a style
+	-- the user hasn't configured visibility for yet.
+	local reloadNeeded = false
+	for frameName, prev in pairs(prevGroupVis) do
+		local us = UF.DB.UserSettings[UF.DB.Style]
+		if us then
+			local hasUserVis = us[frameName] and (us[frameName].showSolo ~= nil or us[frameName].showParty ~= nil or us[frameName].showRaid ~= nil)
+			if not hasUserVis then
+				if not us[frameName] then
+					us[frameName] = {}
+				end
+				us[frameName].showSolo = prev.showSolo
+				us[frameName].showParty = prev.showParty
+				us[frameName].showRaid = prev.showRaid
+				us[frameName].showPlayer = prev.showPlayer
+				reloadNeeded = true
+			end
+		end
+	end
+	if reloadNeeded then
+		LoadDB()
+	end
+
 	-- Update positions
 	UF:PositionFrame()
 	--Send Custom change event

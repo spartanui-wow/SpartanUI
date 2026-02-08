@@ -217,9 +217,9 @@ function oUF:DisableBlizzard(unit)
 				end
 			end
 
-			-- Unregister GROUP_ROSTER_UPDATE from UIParent to prevent party frame updates
-			-- This event constantly triggers party frame visibility updates
-			UIParent:UnregisterEvent('GROUP_ROSTER_UPDATE')
+			-- Note: UIParent:UnregisterEvent('GROUP_ROSTER_UPDATE') was previously called here
+			-- but it breaks all Blizzard UI functionality that depends on roster updates,
+			-- including raid frames when only party frames are being replaced by oUF.
 		end
 	elseif unit:match('raid%d?$') then
 		if not isRaidHooked then
