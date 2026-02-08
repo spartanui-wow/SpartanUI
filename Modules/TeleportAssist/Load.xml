@@ -7,5 +7,6 @@
 	<Script file="SpellBookTab.lua" />
 	<Script file="DataBroker.lua" />
 	<Script file="WorldMapIntegration.lua" />
+	<Script file="ChallengesIntegration.lua" />
 	<Script file="Options.lua" />
 </Ui>

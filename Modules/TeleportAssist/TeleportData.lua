@@ -7,6 +7,7 @@ local module = SUI:GetModule('TeleportAssist')
 module.EXPANSION_ORDER = {
 	'Home',
 	'Class',
+	'MID', -- Midnight (12.x)
 	'TWW', -- The War Within (11.x)
 	'DF', -- Dragonflight (10.x)
 	'SL', -- Shadowlands (9.x)
@@ -23,6 +24,7 @@ module.EXPANSION_ORDER = {
 module.EXPANSION_NAMES = {
 	Home = 'Home',
 	Class = 'Class',
+	MID = EXPANSION_NAME11 or 'Midnight',
 	TWW = EXPANSION_NAME10 or 'The War Within',
 	DF = EXPANSION_NAME9 or 'Dragonflight',
 	SL = EXPANSION_NAME8 or 'Shadowlands',
@@ -121,6 +123,13 @@ module.TELEPORT_DATA = {
 	-- Vulpera Camp
 	{ id = 312372, type = 'spell', name = 'Make Camp', expansion = 'Class', race = 'Vulpera', minExpansion = 7 },
 
+	-- ==================== MIDNIGHT (12.x) ====================
+	-- Dungeons
+	{ id = 1254572, type = 'spell', name = "Magisters' Terrace", expansion = 'MID', minExpansion = 11 },
+	{ id = 1254559, type = 'spell', name = 'Maisara Caverns', expansion = 'MID', minExpansion = 11 },
+	{ id = 1254563, type = 'spell', name = 'Nexus-Point Xenas', expansion = 'MID', minExpansion = 11 },
+	{ id = 1254400, type = 'spell', name = 'Windrunner Spire', expansion = 'MID', minExpansion = 11 },
+
 	-- ==================== THE WAR WITHIN (11.x) ====================
 	-- Dungeons
 	{ id = 445269, type = 'spell', name = 'Stonevault', expansion = 'TWW', minExpansion = 10, mapId = 2274, mapX = 0.535, mapY = 0.432 },
@@ -138,6 +147,9 @@ module.TELEPORT_DATA = {
 	{ id = 446534, type = 'spell', name = 'Portal: Dornogal', expansion = 'TWW', class = 'MAGE', isPortal = true, minExpansion = 10, mapId = 2274, mapX = 0.689, mapY = 0.202 },
 	-- Engineering
 	{ id = 448126, spellId = 448126, type = 'toy', name = 'Wormhole Generator: Khaz Algar', expansion = 'TWW', isEngineering = true, minExpansion = 10 },
+	-- Raids
+	{ id = 1226482, type = 'spell', name = 'Liberation of Undermine', expansion = 'TWW', minExpansion = 10 },
+	{ id = 1239155, type = 'spell', name = 'Manaforge Omega', expansion = 'TWW', minExpansion = 10 },
 	-- Delve Hearthstones
 	{ id = 230850, type = 'toy', name = "Delver's Dirigible", expansion = 'TWW', isHearthstone = true, minExpansion = 10 },
 	{ id = 243056, type = 'toy', name = 'Radiant Remnant', expansion = 'TWW', isHearthstone = true, minExpansion = 10 },
@@ -156,6 +168,10 @@ module.TELEPORT_DATA = {
 	-- Mage Teleports
 	{ id = 395277, type = 'spell', name = 'Teleport: Valdrakken', expansion = 'DF', class = 'MAGE', minExpansion = 9, mapId = 1978, mapX = 0.563, mapY = 0.500 },
 	{ id = 395289, type = 'spell', name = 'Portal: Valdrakken', expansion = 'DF', class = 'MAGE', isPortal = true, minExpansion = 9, mapId = 1978, mapX = 0.563, mapY = 0.500 },
+	-- Raids
+	{ id = 432254, type = 'spell', name = 'Vault of the Incarnates', expansion = 'DF', minExpansion = 9 },
+	{ id = 432257, type = 'spell', name = 'Aberrus, the Shadowed Crucible', expansion = 'DF', minExpansion = 9 },
+	{ id = 432258, type = 'spell', name = 'Amirdrassil, the Dreams Hope', expansion = 'DF', minExpansion = 9 },
 	-- Engineering
 	{ id = 198156, type = 'toy', name = 'Wyrmhole Generator', expansion = 'DF', isEngineering = true, minExpansion = 9 },
 
@@ -170,6 +186,10 @@ module.TELEPORT_DATA = {
 	{ id = 354468, type = 'spell', name = 'De Other Side', expansion = 'SL', minExpansion = 8, mapId = 1550, mapX = 0.541, mapY = 0.844 },
 	{ id = 354469, type = 'spell', name = 'Sanguine Depths', expansion = 'SL', minExpansion = 8, mapId = 1550, mapX = 0.250, mapY = 0.482 },
 	{ id = 367416, type = 'spell', name = 'Tazavesh', expansion = 'SL', minExpansion = 8, mapId = 1550, mapX = 0.332, mapY = 0.716 },
+	-- Raids
+	{ id = 373190, type = 'spell', name = 'Castle Nathria', expansion = 'SL', minExpansion = 8 },
+	{ id = 373191, type = 'spell', name = 'Sanctum of Domination', expansion = 'SL', minExpansion = 8 },
+	{ id = 373192, type = 'spell', name = 'Sepulcher of the First Ones', expansion = 'SL', minExpansion = 8 },
 	-- Mage Teleports
 	{ id = 344587, type = 'spell', name = 'Teleport: Oribos', expansion = 'SL', class = 'MAGE', minExpansion = 8, mapId = 1550, mapX = 0.466, mapY = 0.516 },
 	{ id = 344597, type = 'spell', name = 'Portal: Oribos', expansion = 'SL', class = 'MAGE', isPortal = true, minExpansion = 8, mapId = 1550, mapX = 0.466, mapY = 0.516 },
@@ -308,7 +328,7 @@ module.TELEPORT_DATA = {
 
 	-- ==================== WRATH OF THE LICH KING (3.x) ====================
 	-- Dungeons
-	{ id = 1254555, type = 'spell', name = 'The Nexus', expansion = 'WotLK', minExpansion = 2 },
+	{ id = 1254555, type = 'spell', name = 'Pit of Saron', expansion = 'WotLK', minExpansion = 2 },
 	-- Mage Teleports
 	{ id = 53140, type = 'spell', name = 'Teleport: Dalaran (Northrend)', expansion = 'WotLK', class = 'MAGE', minExpansion = 2, mapId = 113, mapX = 0.480, mapY = 0.406 },
 	{ id = 53142, type = 'spell', name = 'Portal: Dalaran (Northrend)', expansion = 'WotLK', class = 'MAGE', isPortal = true, minExpansion = 2, mapId = 113, mapX = 0.480, mapY = 0.406 },

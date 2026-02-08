@@ -24,6 +24,7 @@ local DBDefaults = {
 	showAllHearthstones = true,
 	showMapPins = true,
 	mapPinSize = 20,
+	showChallengesButtons = true,
 	collapsedCategories = {},
 	position = {
 		point = 'CENTER',
@@ -115,6 +116,11 @@ function module:OnEnable()
 	-- Initialize World Map integration (Retail only - from WorldMapIntegration.lua)
 	if SUI.IsRetail and WorldMapFrame and module.InitializeWorldMapIntegration then
 		module:InitializeWorldMapIntegration()
+	end
+
+	-- Initialize Challenges UI integration (Retail only - from ChallengesIntegration.lua)
+	if SUI.IsRetail and module.InitializeChallengesIntegration then
+		module:InitializeChallengesIntegration()
 	end
 
 	-- Initialize SpellBook tab (Classic clients only - from SpellBookTab.lua)

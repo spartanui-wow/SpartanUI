@@ -286,6 +286,29 @@ function module:BuildOptions()
 					end)
 				end,
 			},
+			challengesHeader = {
+				type = 'header',
+				name = L['Mythic+ Integration'],
+				order = 24.8,
+				hidden = function()
+					return not SUI.IsRetail
+				end,
+			},
+			showChallengesButtons = {
+				name = L['M+ Teleport Buttons'],
+				desc = L['Show teleport buttons on dungeon icons in the Mythic+ window'],
+				type = 'toggle',
+				order = 24.9,
+				hidden = function()
+					return not SUI.IsRetail
+				end,
+				get = function()
+					return SUI.DBM:Get(module, 'showChallengesButtons')
+				end,
+				set = function(_, val)
+					SUI.DBM:Set(module, 'showChallengesButtons', val)
+				end,
+			},
 			minimapHeader = {
 				type = 'header',
 				name = L['Minimap Button'],
