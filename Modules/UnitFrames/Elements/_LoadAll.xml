@@ -10,12 +10,14 @@
 	<Script file="ClassIcon.lua"/>
 	<Script file="ClassPower.lua"/>
 	<Script file="CombatIndicator.lua"/>
+	<Script file="CornerIndicators.lua"/>
 	<Script file="Debuffs.lua"/>
 	<Script file="DefensiveIndicator.lua"/>
 	<Script file="Dispel.lua"/>
 	<Script file="EclipseBar.lua"/>
 	<Script file="GroupRoleIndicator.lua"/>
 	<Script file="Health.lua"/>
+	<Script file="HealthDeficit.lua"/>
 	<Script file="LeaderIndicator.lua"/>
 	<Script file="Name.lua"/>
 	<Script file="HappinessIndicator.lua"/>

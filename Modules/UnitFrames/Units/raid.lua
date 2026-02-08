@@ -30,6 +30,8 @@ local elementList = {
 	'AuraWatch',
 	'DefensiveIndicator',
 	'RaidDebuffs',
+	'CornerIndicators',
+	'HealthDeficit',
 }
 
 local function groupingOrder()

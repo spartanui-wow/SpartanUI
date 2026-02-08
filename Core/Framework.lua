@@ -1013,6 +1013,168 @@ local DBdefault = {
 				},
 			},
 		},
+		Grid = {
+			Frames = {
+				raid = {
+					width = 72,
+					maxColumns = 8,
+					unitsPerColumn = 5,
+					columnSpacing = 2,
+					xOffset = 0,
+					yOffset = -2,
+					elements = {
+						Health = {
+							height = 28,
+						},
+						Power = {
+							height = 2,
+							text = {
+								['1'] = {
+									enabled = false,
+								},
+							},
+						},
+						Name = {
+							textSize = 9,
+							text = '[SUI_ColorClass][name]',
+							height = 10,
+						},
+						Portrait = {
+							enabled = false,
+						},
+						Castbar = {
+							enabled = false,
+						},
+						SpartanArt = {
+							enabled = false,
+						},
+						Buffs = {
+							enabled = false,
+						},
+						Debuffs = {
+							enabled = true,
+							size = 10,
+							number = 3,
+							rows = 1,
+						},
+						CornerIndicators = {
+							enabled = true,
+						},
+						HealthDeficit = {
+							enabled = true,
+							textSize = 10,
+						},
+						Dispel = {
+							enabled = true,
+						},
+						RaidDebuffs = {
+							enabled = true,
+							size = 22,
+						},
+						DefensiveIndicator = {
+							enabled = true,
+							size = 16,
+							position = {
+								anchor = 'BOTTOMRIGHT',
+								x = -2,
+								y = 2,
+							},
+						},
+						GroupRoleIndicator = {
+							enabled = true,
+							size = 10,
+							position = {
+								anchor = 'TOPLEFT',
+								x = 1,
+								y = -1,
+							},
+						},
+						ThreatIndicator = {
+							enabled = true,
+						},
+						Range = {
+							enabled = true,
+						},
+					},
+				},
+				party = {
+					width = 90,
+					elements = {
+						Health = {
+							height = 34,
+						},
+						Power = {
+							height = 3,
+							text = {
+								['1'] = {
+									enabled = false,
+								},
+							},
+						},
+						Name = {
+							textSize = 10,
+							text = '[SUI_ColorClass][name]',
+						},
+						Portrait = {
+							enabled = false,
+						},
+						Castbar = {
+							enabled = false,
+						},
+						SpartanArt = {
+							enabled = false,
+						},
+						Buffs = {
+							enabled = false,
+						},
+						Debuffs = {
+							enabled = true,
+							size = 12,
+							number = 4,
+							rows = 1,
+						},
+						CornerIndicators = {
+							enabled = true,
+						},
+						HealthDeficit = {
+							enabled = true,
+							textSize = 11,
+						},
+						Dispel = {
+							enabled = true,
+						},
+						RaidDebuffs = {
+							enabled = true,
+							size = 26,
+						},
+						DefensiveIndicator = {
+							enabled = true,
+							size = 20,
+							position = {
+								anchor = 'BOTTOMRIGHT',
+								x = -2,
+								y = 2,
+							},
+						},
+						GroupRoleIndicator = {
+							enabled = true,
+							size = 12,
+							position = {
+								anchor = 'TOPLEFT',
+								x = 1,
+								y = -1,
+							},
+						},
+						ThreatIndicator = {
+							enabled = true,
+						},
+						Range = {
+							enabled = true,
+						},
+					},
+				},
+			},
+		},
 	},
 	Artwork = {
 		Style = 'War',

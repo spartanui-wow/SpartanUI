@@ -43,6 +43,23 @@ if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
 	end
 end
 
+-- Health deficit tag: shows missing health as negative abbreviated value (e.g., "-15K")
+-- Returns empty at full health. Uses red color (no comparison of secret values possible)
+oUF.Tags.Events['SUIHealthDeficit'] = 'UNIT_HEALTH UNIT_MAXHEALTH'
+oUF.Tags.Methods['SUIHealthDeficit'] = function(unit)
+	if not unit or UnitIsDeadOrGhost(unit) then
+		return ''
+	end
+	local missing = UnitHealthMissing(unit)
+	-- Hide when at full health (missing == 0)
+	local truncated = C_StringUtil.TruncateWhenZero(missing)
+	if not truncated then
+		return ''
+	end
+	-- Secret values cannot be compared, so use a fixed color
+	return '|cffff4444-' .. AbbreviateNumbers(missing) .. '|r'
+end
+
 --[[ WoW 12.0 UPDATED: Custom health/power tags rebuilt using secret-safe APIs
 
      OLD APPROACH (Broken in 12.0):

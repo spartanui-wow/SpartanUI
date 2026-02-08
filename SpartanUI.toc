@@ -83,6 +83,7 @@ Core\oUF_Plugins\SUI_RaidGroup.lua
 Core\oUF_Plugins\oUF_SpartanArt.lua
 Core\oUF_Plugins\oUF_DefensiveIndicator.lua [AllowLoadGameType mainline]
 Core\oUF_Plugins\oUF_RaidDebuffs.lua
+Core\oUF_Plugins\oUF_CornerIndicators.lua
 
 # oUF Plugins - Third-party
 libs\oUF_Plugins\oUF_AuraBars.lua [AllowLoadGameType vanilla, tbc, wrath, cata, mists]
