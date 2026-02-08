@@ -38,7 +38,7 @@ libs\LibDBIcon-1.0\lib.xml
 libs\TaintLess\TaintLess.xml [AllowLoadGameType mainline]
 libs\LibEditModeOverride\LibEditModeOverride.xml [AllowLoadGameType mainline]
 libs\LibDualSpec-1.0\LibDualSpec-1.0.lua [AllowLoadGameType mainline]
-libs\LibQTip-1.0\lib.xml [AllowLoadGameType mainline]
+libs\LibQTip-2.0\Manifest.xml [AllowLoadGameType mainline]
 
 # ============================================
 # ERROR HANDLING (Custom SUI minimap icon using LibAT error handler)

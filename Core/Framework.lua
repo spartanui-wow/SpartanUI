@@ -82,7 +82,7 @@ end
 ---@field LibBase64 LibBase64-1.0
 ---@field LSM LibSharedMedia-3.0
 ---@field LEM LibEditMode
----@field LibQTip LibQTip-1.0
+---@field LibQTip LibQTip-2.0
 SUI.Lib = {}
 SUI.Handlers = {}
 
@@ -116,7 +116,7 @@ if SUI.IsRetail then
 end
 -- Retail-only libraries (loaded conditionally via TOC)
 if SUI.IsRetail then
-	SUI.AddLib('LibQTip', 'LibQTip-1.0', true)
+	SUI.AddLib('LibQTip', 'LibQTip-2.0', true)
 end
 
 ---Safely reload the UI with instance+combat check

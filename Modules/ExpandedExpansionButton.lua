@@ -572,7 +572,7 @@ end
 ---Create menu using LibQTip
 local function CreateLibQTipMenu()
 	if menuFrame then
-		menuFrame:Release()
+		LibQTip:ReleaseTooltip(menuFrame)
 		menuFrame = nil
 	end
 
@@ -582,7 +582,7 @@ local function CreateLibQTipMenu()
 		ExpansionLandingPageMinimapButton.tooltip:Hide()
 	end
 
-	menuFrame = LibQTip:Acquire('SUI_ExpandedExpansionMenu', 2, 'LEFT', 'LEFT')
+	menuFrame = LibQTip:AcquireTooltip('SUI_ExpandedExpansionMenu', 2, 'LEFT', 'LEFT')
 
 	if not menuFrame then
 		return
@@ -595,7 +595,6 @@ local function CreateLibQTipMenu()
 
 	-- Apply SpartanUI theming with modern backdrop support
 	if BackdropTemplateMixin then
-		Mixin(menuFrame, BackdropTemplateMixin)
 		menuFrame:SetBackdrop({
 			bgFile = 'Interface\\ChatFrame\\ChatFrameBackground',
 			edgeFile = 'Interface\\DialogFrame\\UI-DialogBox-Border',
@@ -609,9 +608,9 @@ local function CreateLibQTipMenu()
 	end
 
 	-- Add sparkly header with colored text
-	local headerLine = menuFrame:AddHeader()
-	menuFrame:SetCell(headerLine, 1, '|cffFFD700|r', 'CENTER', 1, nil, nil, nil, 18, 18)
-	menuFrame:SetCell(headerLine, 2, '|cffFFD700Expansion Features|r', 'LEFT')
+	local headerRow = menuFrame:AddHeadingRow()
+	headerRow:GetCell(1):SetText('|cffFFD700|r')
+	headerRow:GetCell(2):SetText('|cffFFD700Expansion Features|r')
 
 	-- Add separator
 	menuFrame:AddSeparator()
@@ -648,6 +647,49 @@ local function CreateLibQTipMenu()
 		return orderA < orderB
 	end)
 
+	-- Helper to show tooltip for a menu item
+	local function ShowItemTooltip(frame, item, isItemDisabled)
+		if isItemDisabled and item.disabledTooltip then
+			GameTooltip:SetOwner(frame, 'ANCHOR_CURSOR')
+			GameTooltip:SetText(item.disabledTooltip, 1, 0.8, 0, 1, true)
+			GameTooltip:SetFrameStrata('TOOLTIP')
+			GameTooltip:Show()
+		elseif not isItemDisabled and item.tooltipFunc then
+			local tooltipLines = item.tooltipFunc()
+			if tooltipLines and #tooltipLines > 0 then
+				GameTooltip:SetOwner(frame, 'ANCHOR_CURSOR')
+				for i, ttline in ipairs(tooltipLines) do
+					if i == 1 then
+						GameTooltip:SetText(ttline, 1, 1, 1, 1, true)
+					else
+						GameTooltip:AddLine(ttline, 1, 1, 1, true)
+					end
+				end
+				GameTooltip:SetFrameStrata('TOOLTIP')
+				GameTooltip:Show()
+			end
+		end
+	end
+
+	-- Helper to handle click on a menu item
+	local function HandleItemClick(frame, item, isItemDisabled, button)
+		if isItemDisabled then
+			return
+		end
+		if not button or button == 'LeftButton' then
+			if menuFrame then
+				LibQTip:ReleaseTooltip(menuFrame)
+				menuFrame = nil
+			end
+			C_Timer.After(0.1, function()
+				local success, errorMsg = pcall(item.onClick)
+				if not success then
+					SUI:Print('Error executing ' .. item.displayText .. ': ' .. tostring(errorMsg))
+				end
+			end)
+		end
+	end
+
 	-- Display expansions in sorted order
 	for _, expansionData in ipairs(sortedExpansions) do
 		if not firstGroup then
@@ -661,8 +703,6 @@ local function CreateLibQTipMenu()
 			local requirementMet = item.requirementCheck()
 			local isItemDisabled = (item.isDisabled and item.isDisabled()) or not requirementMet
 
-			local line = menuFrame:AddLine()
-
 			-- Use actual texture icons if available, otherwise fall back to symbols
 			local iconContent
 			local iconPath = item.icon
@@ -675,10 +715,8 @@ local function CreateLibQTipMenu()
 			if iconPath and iconPath ~= '' then
 				-- Check if it's an atlas texture (no Interface\ prefix) or regular texture
 				if iconPath:find('^Interface\\') then
-					-- Regular texture path
 					iconContent = '|T' .. iconPath .. ':16:16:0:0|t'
 				else
-					-- Atlas texture
 					iconContent = '|A:' .. iconPath .. ':16:16:0:0|a'
 				end
 			else
@@ -705,8 +743,6 @@ local function CreateLibQTipMenu()
 				iconContent = '|cff666666' .. iconContent .. '|r'
 			end
 
-			menuFrame:SetCell(line, 1, iconContent, 'CENTER')
-
 			-- Color code expansion names
 			local coloredText = item.displayText
 			if isItemDisabled then
@@ -725,120 +761,17 @@ local function CreateLibQTipMenu()
 				coloredText = '|cffAA6C39' .. item.displayText .. '|r'
 			end
 
-			menuFrame:SetCell(line, 2, coloredText, 'LEFT')
+			local row = menuFrame:AddRow(iconContent, coloredText)
 
-			-- Add hover effects and tooltip handling
-			menuFrame:SetLineScript(line, 'OnEnter', function(self)
-				-- Show tooltip if item is disabled
-				if isItemDisabled and item.disabledTooltip then
-					-- Show custom tooltip if item has tooltipFunc
-					GameTooltip:SetOwner(self, 'ANCHOR_CURSOR')
-					GameTooltip:SetText(item.disabledTooltip, 1, 0.8, 0, 1, true)
-					-- Set higher strata to appear above menu
-					GameTooltip:SetFrameStrata('TOOLTIP')
-					GameTooltip:Show()
-				elseif not isItemDisabled and item.tooltipFunc then
-					local tooltipLines = item.tooltipFunc()
-					if tooltipLines and #tooltipLines > 0 then
-						GameTooltip:SetOwner(self, 'ANCHOR_CURSOR')
-						for i, ttline in ipairs(tooltipLines) do
-							if i == 1 then
-								GameTooltip:SetText(ttline, 1, 1, 1, 1, true)
-							else
-								GameTooltip:AddLine(ttline, 1, 1, 1, true)
-							end
-						end
-						-- Set higher strata to appear above menu
-						GameTooltip:SetFrameStrata('TOOLTIP')
-						GameTooltip:Show()
-					end
-				end
+			-- Set row scripts for hover and click
+			row:SetScript('OnEnter', function(self)
+				ShowItemTooltip(self, item, isItemDisabled)
 			end)
-
-			-- Also set cell scripts to ensure tooltip works over entire line
-			for cellIndex = 1, 2 do
-				menuFrame:SetCellScript(line, cellIndex, 'OnEnter', function(self)
-					-- Show tooltip if item is disabled
-					if isItemDisabled and item.disabledTooltip then
-						-- Show custom tooltip if item has tooltipFunc
-						GameTooltip:SetOwner(self, 'ANCHOR_CURSOR')
-						GameTooltip:SetText(item.disabledTooltip, 1, 0.8, 0, 1, true)
-						-- Set higher strata to appear above menu
-						GameTooltip:SetFrameStrata('TOOLTIP')
-						GameTooltip:Show()
-					elseif not isItemDisabled and item.tooltipFunc then
-						local tooltipLines = item.tooltipFunc()
-						if tooltipLines and #tooltipLines > 0 then
-							GameTooltip:SetOwner(self, 'ANCHOR_CURSOR')
-							for i, ttline in ipairs(tooltipLines) do
-								if i == 1 then
-									GameTooltip:SetText(ttline, 1, 1, 1, 1, true)
-								else
-									GameTooltip:AddLine(ttline, 1, 1, 1, true)
-								end
-							end
-							-- Set higher strata to appear above menu
-							GameTooltip:SetFrameStrata('TOOLTIP')
-							GameTooltip:Show()
-						end
-					end
-				end)
-
-				menuFrame:SetCellScript(line, cellIndex, 'OnLeave', function(self)
-					GameTooltip:Hide()
-				end)
-			end
-
-			menuFrame:SetLineScript(line, 'OnLeave', function(self)
+			row:SetScript('OnLeave', function()
 				GameTooltip:Hide()
 			end)
-
-			-- Set up click handler using LibQTip's cell click method
-			-- LibQTip specific cell click handler
-			menuFrame:SetCellScript(line, 2, 'OnMouseUp', function(self, button)
-				-- Don't execute if item is disabled
-				if isItemDisabled then
-					return
-				end
-
-				-- LibQTip might pass button differently
-				if not button or button == 'LeftButton' then
-					-- Hide menu first
-					if menuFrame then
-						menuFrame:Release()
-						menuFrame = nil
-					end
-
-					-- Execute the function with a small delay to ensure menu is hidden
-					C_Timer.After(0.1, function()
-						local success, errorMsg = pcall(item.onClick)
-						if not success then
-							SUI:Print('Error executing ' .. item.displayText .. ': ' .. tostring(errorMsg))
-						end
-					end)
-				end
-			end)
-
-			-- Also set line script as fallback
-			menuFrame:SetLineScript(line, 'OnMouseUp', function(self, button)
-				-- Don't execute if item is disabled
-				if isItemDisabled then
-					return
-				end
-
-				if not button or button == 'LeftButton' then
-					if menuFrame then
-						menuFrame:Release()
-						menuFrame = nil
-					end
-
-					C_Timer.After(0.1, function()
-						local success, errorMsg = pcall(item.onClick)
-						if not success then
-							SUI:Print('Error executing ' .. item.displayText .. ': ' .. tostring(errorMsg))
-						end
-					end)
-				end
+			row:SetScript('OnMouseUp', function(self, button)
+				HandleItemClick(self, item, isItemDisabled, button)
 			end)
 		end
 	end
@@ -846,19 +779,14 @@ local function CreateLibQTipMenu()
 	-- Add settings line with sparkle
 	if #registeredExpansions > 0 then
 		menuFrame:AddSeparator()
-		local line = menuFrame:AddLine()
-		menuFrame:SetCell(line, 1, '|A:mechagon-projects:16:16:0:0|a', 'CENTER')
-		menuFrame:SetCell(line, 2, '|cff999999Settings...|r', 'LEFT')
-		-- Use both cell and line scripts for settings too
-		menuFrame:SetCellScript(line, 2, 'OnMouseUp', function(self, button)
+		local row = menuFrame:AddRow('|A:mechagon-projects:16:16:0:0|a', '|cff999999Settings...|r')
+
+		row:SetScript('OnMouseUp', function(self, button)
 			if not button or button == 'LeftButton' then
-				-- Hide menu first
 				if menuFrame then
-					menuFrame:Release()
+					LibQTip:ReleaseTooltip(menuFrame)
 					menuFrame = nil
 				end
-
-				-- Open settings with a small delay
 				C_Timer.After(0.1, function()
 					local success, errorMsg = pcall(module.OpenSettings, module)
 					if not success then
@@ -866,28 +794,6 @@ local function CreateLibQTipMenu()
 					end
 				end)
 			end
-		end)
-
-		menuFrame:SetLineScript(line, 'OnMouseUp', function(self, button)
-			if not button or button == 'LeftButton' then
-				if menuFrame then
-					menuFrame:Release()
-					menuFrame = nil
-				end
-
-				C_Timer.After(0.1, function()
-					local success, errorMsg = pcall(module.OpenSettings, module)
-					if not success then
-						SUI:Print('Error opening settings: ' .. tostring(errorMsg))
-					end
-				end)
-			end
-		end)
-		menuFrame:SetLineScript(line, 'OnEnter', function(self)
-			-- LibQTip will handle highlighting
-		end)
-		menuFrame:SetLineScript(line, 'OnLeave', function(self)
-			-- LibQTip will handle highlighting
 		end)
 	end
 
