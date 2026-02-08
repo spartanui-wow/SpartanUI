@@ -35,6 +35,81 @@ local highestILVL = function()
 	return CurrentHighestILVL
 end
 
+-- Default blacklist (excluded from sparse DB pattern - always stored fully in module.DB)
+local DEFAULT_BLACKLIST = {
+	Items = {
+		-- Shadowlands
+		180276, --Locked Toolbox Key
+		175757, --Construct Supply Key
+		27944, --Talisman of True Treasure Tracking
+		156725, --red-crystal-monocle
+		156726, --yellow-crystal-monocle
+		156727, --green-crystal-monocle
+		156724, --blue-crystal-monocle
+		-- BFA
+		168135, --Titans Blood
+		166846, --spare parts
+		168327, --chain ignitercoil
+		166971, --empty energy cell
+		170500, --energy cell
+		166970, --energy cell
+		169475, --Barnacled Lockbox
+		137642, --Mark Of Honor
+		168217, --Hardened Spring
+		168136, --Azerokk's Fist
+		168216, --Tempered Plating
+		168215, --Machined Gear Assembly
+		169334, --Strange Oceanic Sediment
+		170193, --Sea Totem
+		168802, --Nazjatar Battle Commendation
+		171090, --Battleborn Sigil
+		153647, --Tome of the quiet mind
+		-- Cata
+		71141, -- Eternal Ember
+		-- Legion
+		129276, -- Beginner's Guide to Dimensional Rifting
+		-- MOP
+		80914, -- Mourning Glory
+		-- Misc Items
+		141446, --Tome of the Tranquil Mind
+		81055, -- Darkmoon ride ticket
+		150372, -- Arsenal: The Warglaives of Azzinoth
+		32837, -- Warglaive of Azzinoth
+		--Professions
+		6219, -- Arclight Spanner
+		140209, --imported blacksmith hammer
+		5956, -- Blacksmith Hammer
+		7005, --skinning knife
+		2901, --mining pick
+		-- Classic WoW
+		6256, -- Fishing Pole
+		--Start Shredder Operating Manual pages
+		16645,
+		16646,
+		16647,
+		16648,
+		16649,
+		16650,
+		16651,
+		16652,
+		16653,
+		16654,
+		16655,
+		16656,
+		2730,
+		--End Shredder Operating Manual pages
+		63207, -- Wrap of unity
+		63206, -- Wrap of unity
+	},
+	Types = {
+		'Container',
+		'Companions',
+		'Holiday',
+		'Mounts',
+		'Quest',
+	},
+}
+
 ---@class SUI.Module.AutoSell.DB
 local DbDefaults = {
 	FirstLaunch = true,
@@ -42,7 +117,7 @@ local DbDefaults = {
 	NotConsumables = true,
 	NotInGearset = true,
 	MaximumiLVL = 500,
-	MaxILVL = highestILVL() * 0.8,
+	MaxILVL = 0,
 	LastWowProjectID = WOW_PROJECT_ID,
 	Gray = true,
 	White = false,
@@ -53,84 +128,50 @@ local DbDefaults = {
 	AutoRepair = false,
 	UseGuildBankRepair = false,
 	ShowBagMarking = true,
-	Blacklist = {
-		Items = {
-			-- Shadowlands
-			180276, --Locked Toolbox Key
-			175757, --Construct Supply Key
-			27944, --Talisman of True Treasure Tracking
-			156725, --red-crystal-monocle
-			156726, --yellow-crystal-monocle
-			156727, --green-crystal-monocle
-			156724, --blue-crystal-monocle
-			-- BFA
-			168135, --Titans Blood
-			166846, --spare parts
-			168327, --chain ignitercoil
-			166971, --empty energy cell
-			170500, --energy cell
-			166970, --energy cell
-			169475, --Barnacled Lockbox
-			137642, --Mark Of Honor
-			168217, --Hardened Spring
-			168136, --Azerokk's Fist
-			168216, --Tempered Plating
-			168215, --Machined Gear Assembly
-			169334, --Strange Oceanic Sediment
-			170193, --Sea Totem
-			168802, --Nazjatar Battle Commendation
-			171090, --Battleborn Sigil
-			153647, --Tome of the quiet mind
-			-- Cata
-			71141, -- Eternal Ember
-			-- Legion
-			129276, -- Beginner's Guide to Dimensional Rifting
-			-- MOP
-			80914, -- Mourning Glory
-			-- Misc Items
-			141446, --Tome of the Tranquil Mind
-			81055, -- Darkmoon ride ticket
-			150372, -- Arsenal: The Warglaives of Azzinoth
-			32837, -- Warglaive of Azzinoth
-			--Professions
-			6219, -- Arclight Spanner
-			140209, --imported blacksmith hammer
-			5956, -- Blacksmith Hammer
-			7005, --skinning knife
-			2901, --mining pick
-			-- Classic WoW
-			6256, -- Fishing Pole
-			--Start Shredder Operating Manual pages
-			16645,
-			16646,
-			16647,
-			16648,
-			16649,
-			16650,
-			16651,
-			16652,
-			16653,
-			16654,
-			16655,
-			16656,
-			2730,
-			--End Shredder Operating Manual pages
-			63207, -- Wrap of unity
-			63206, -- Wrap of unity
-		},
-		Types = {
-			'Container',
-			'Companions',
-			'Holiday',
-			'Mounts',
-			'Quest',
-		},
-	},
 }
 
 ---@class SUI.Module.AutoSell.CharDB
 ---@field Whitelist table<number, boolean> Character-specific whitelist items
 ---@field Blacklist table<number, boolean> Character-specific blacklist items
+
+-- One-time migration: strip values matching old defaults so DB becomes sparse
+local function MigrateToDBM(profileDB)
+	if profileDB._dbm_migrated then
+		return
+	end
+
+	-- Old defaults for comparison (must match what DbDefaults had before migration)
+	local oldDefaults = {
+		FirstLaunch = true,
+		NotCrafting = true,
+		NotConsumables = true,
+		NotInGearset = true,
+		MaximumiLVL = 500,
+		MaxILVL = 0,
+		LastWowProjectID = WOW_PROJECT_ID,
+		Gray = true,
+		White = false,
+		Green = false,
+		Blue = false,
+		Purple = false,
+		GearTokens = false,
+		AutoRepair = false,
+		UseGuildBankRepair = false,
+		ShowBagMarking = true,
+	}
+
+	-- Strip values that match defaults (they'll come from CurrentSettings instead)
+	for key, defaultVal in pairs(oldDefaults) do
+		if profileDB[key] == defaultVal then
+			profileDB[key] = nil
+		end
+	end
+
+	-- Blacklist stays fully in DB (not part of sparse pattern)
+	-- Don't touch it during migration
+
+	profileDB._dbm_migrated = true
+end
 
 local function debugMsg(msg, level)
 	if module.log then
@@ -171,7 +212,7 @@ function module:InvalidateBlacklistCache()
 	invalidateBlacklistLookup()
 
 	-- Refresh bag markings when cache is invalidated
-	if module.DB.ShowBagMarking and module.markItems then
+	if module.CurrentSettings.ShowBagMarking and module.markItems then
 		debugMsg('Refreshing bag markings after blacklist cache invalidation', 'debug')
 		module.markItems()
 	end
@@ -262,22 +303,22 @@ function module:IsSellable(item, ilink, bag, slot)
 
 	-- Quality check
 	if
-		(quality == 0 and not module.DB.Gray)
-		or (quality == 1 and not module.DB.White)
-		or (quality == 2 and not module.DB.Green)
-		or (quality == 3 and not module.DB.Blue)
-		or (quality == 4 and not module.DB.Purple)
-		or (iLevel and iLevel > module.DB.MaxILVL)
+		(quality == 0 and not module.CurrentSettings.Gray)
+		or (quality == 1 and not module.CurrentSettings.White)
+		or (quality == 2 and not module.CurrentSettings.Green)
+		or (quality == 3 and not module.CurrentSettings.Blue)
+		or (quality == 4 and not module.CurrentSettings.Purple)
+		or (iLevel and iLevel > module.CurrentSettings.MaxILVL)
 	then
 		return false
 	end
 
 	--Gearset detection
-	if module.DB.NotInGearset and C_EquipmentSet.CanUseEquipmentSets() and IsInGearset(bag, slot) then
+	if module.CurrentSettings.NotInGearset and C_EquipmentSet.CanUseEquipmentSets() and IsInGearset(bag, slot) then
 		return false
 	end
 	-- Gear Tokens
-	if quality == 4 and itemType == 'Miscellaneous' and itemSubType == 'Junk' and equipSlot == '' and not module.DB.GearTokens then
+	if quality == 4 and itemType == 'Miscellaneous' and itemSubType == 'Junk' and equipSlot == '' and not module.CurrentSettings.GearTokens then
 		return false
 	end
 
@@ -288,7 +329,7 @@ function module:IsSellable(item, ilink, bag, slot)
 			or (itemType == 'Miscellaneous' and itemSubType == 'Reagent')
 			or (itemType == 'Item Enhancement')
 			or isCraftingReagent
-		) and module.DB.NotCrafting
+		) and module.CurrentSettings.NotCrafting
 	then
 		return false
 	end
@@ -303,7 +344,7 @@ function module:IsSellable(item, ilink, bag, slot)
 	end
 
 	--Consumables
-	if module.DB.NotConsumables and (itemType == 'Consumable' or itemSubType == 'Consumables') and quality ~= 0 then
+	if module.CurrentSettings.NotConsumables and (itemType == 'Consumable' or itemSubType == 'Consumables') and quality ~= 0 then
 		return false
 	end --Some junk is labeled as consumable
 
@@ -410,9 +451,10 @@ function module:SellTrash()
 	debugMsg('Finished scanning bags. Found ' .. #ItemToSell .. ' items to sell.', 'info')
 
 	-- Auto-increase MaximumiLVL if we detected higher iLVL items
-	if highestILVL > 0 and (highestILVL + 50) > module.DB.MaximumiLVL then
+	if highestILVL > 0 and (highestILVL + 50) > module.CurrentSettings.MaximumiLVL then
 		module.DB.MaximumiLVL = highestILVL + 50
-		debugMsg('Auto-increased MaximumiLVL to: ' .. module.DB.MaximumiLVL .. ' (highest detected: ' .. highestILVL .. ')', 'info')
+		SUI.DBM:RefreshSettings(module)
+		debugMsg('Auto-increased MaximumiLVL to: ' .. module.CurrentSettings.MaximumiLVL .. ' (highest detected: ' .. highestILVL .. ')', 'info')
 	end
 
 	--Sell Items if needed
@@ -451,9 +493,10 @@ function module:SellAdditionalItems()
 	end
 
 	-- Auto-increase MaximumiLVL if we detected higher iLVL items
-	if highestILVL > 0 and (highestILVL + 50) > module.DB.MaximumiLVL then
+	if highestILVL > 0 and (highestILVL + 50) > module.CurrentSettings.MaximumiLVL then
 		module.DB.MaximumiLVL = highestILVL + 50
-		debugMsg('Auto-increased MaximumiLVL to: ' .. module.DB.MaximumiLVL .. ' (highest detected: ' .. highestILVL .. ')', 'info')
+		SUI.DBM:RefreshSettings(module)
+		debugMsg('Auto-increased MaximumiLVL to: ' .. module.CurrentSettings.MaximumiLVL .. ' (highest detected: ' .. highestILVL .. ')', 'info')
 	end
 
 	--Sell Items if needed
@@ -492,11 +535,11 @@ end
 ---@param personalFunds? boolean
 function module:Repair(personalFunds)
 	-- First see if this vendor can repair & we need to
-	if not module.DB.AutoRepair or not CanMerchantRepair() or GetRepairAllCost() == 0 then
+	if not module.CurrentSettings.AutoRepair or not CanMerchantRepair() or GetRepairAllCost() == 0 then
 		return
 	end
 
-	if CanGuildBankRepair() and module.DB.UseGuildBankRepair and not personalFunds then
+	if CanGuildBankRepair() and module.CurrentSettings.UseGuildBankRepair and not personalFunds then
 		debugMsg('Repairing with guild funds for ' .. SUI:GoldFormattedValue(GetRepairAllCost()), 'info')
 		SUI:Print(L['Auto repair cost'] .. ': ' .. SUI:GoldFormattedValue(GetRepairAllCost()) .. ' ' .. L['used guild funds'])
 		RepairAllItems(true)
@@ -527,8 +570,8 @@ end
 
 local function HandleItemLevelSquish()
 	-- Check if the WOW_PROJECT_ID has changed (indicating potential expansion change)
-	if module.DB.LastWowProjectID ~= WOW_PROJECT_ID then
-		debugMsg('Detected WOW_PROJECT_ID change from ' .. (module.DB.LastWowProjectID or 'unknown') .. ' to ' .. WOW_PROJECT_ID, 'info')
+	if module.CurrentSettings.LastWowProjectID ~= WOW_PROJECT_ID then
+		debugMsg('Detected WOW_PROJECT_ID change from ' .. (module.CurrentSettings.LastWowProjectID or 'unknown') .. ' to ' .. WOW_PROJECT_ID, 'info')
 
 		-- Scan all items to find the new highest item level
 		local newHighestILVL = highestILVL()
@@ -537,9 +580,9 @@ local function HandleItemLevelSquish()
 		local newMaximumiLVL = newHighestILVL + 50
 
 		-- Check if this represents a squish (new max is significantly lower than old max)
-		if newMaximumiLVL > 0 and newMaximumiLVL < (module.DB.MaximumiLVL * 0.8) then
-			local squishRatio = newMaximumiLVL / module.DB.MaximumiLVL
-			local oldMaxILVL = module.DB.MaxILVL
+		if newMaximumiLVL > 0 and newMaximumiLVL < (module.CurrentSettings.MaximumiLVL * 0.8) then
+			local squishRatio = newMaximumiLVL / module.CurrentSettings.MaximumiLVL
+			local oldMaxILVL = module.CurrentSettings.MaxILVL
 			local newMaxILVL = math.floor(oldMaxILVL * squishRatio)
 
 			-- Ensure we don't go below 1
@@ -548,7 +591,7 @@ local function HandleItemLevelSquish()
 			end
 
 			debugMsg('Item level squish detected!', 'warning')
-			debugMsg('Old MaximumiLVL: ' .. module.DB.MaximumiLVL .. ' -> New: ' .. newMaximumiLVL, 'info')
+			debugMsg('Old MaximumiLVL: ' .. module.CurrentSettings.MaximumiLVL .. ' -> New: ' .. newMaximumiLVL, 'info')
 			debugMsg('Old MaxILVL: ' .. oldMaxILVL .. ' -> New: ' .. newMaxILVL .. ' (ratio: ' .. string.format('%.2f', squishRatio) .. ')', 'info')
 
 			-- Apply the adjustments
@@ -556,7 +599,7 @@ local function HandleItemLevelSquish()
 			module.DB.MaxILVL = newMaxILVL
 
 			SUI:Print('Item level squish detected! Adjusted sell threshold from ' .. oldMaxILVL .. ' to ' .. newMaxILVL)
-		elseif newMaximumiLVL > module.DB.MaximumiLVL then
+		elseif newMaximumiLVL > module.CurrentSettings.MaximumiLVL then
 			-- Normal case: just increase the maximum if we found higher level items
 			module.DB.MaximumiLVL = newMaximumiLVL
 			debugMsg('Increased MaximumiLVL to: ' .. newMaximumiLVL, 'info')
@@ -564,6 +607,7 @@ local function HandleItemLevelSquish()
 
 		-- Update the stored project ID
 		module.DB.LastWowProjectID = WOW_PROJECT_ID
+		SUI.DBM:RefreshSettings(module)
 	end
 end
 
@@ -687,19 +731,19 @@ function module:DebugItemSellability(link)
 
 	-- Quality checks
 	local qualityBlocked = false
-	if quality == 0 and not module.DB.Gray then
+	if quality == 0 and not module.CurrentSettings.Gray then
 		print('|cffFF0000BLOCKED:|r Gray quality disabled')
 		qualityBlocked = true
-	elseif quality == 1 and not module.DB.White then
+	elseif quality == 1 and not module.CurrentSettings.White then
 		print('|cffFF0000BLOCKED:|r White quality disabled')
 		qualityBlocked = true
-	elseif quality == 2 and not module.DB.Green then
+	elseif quality == 2 and not module.CurrentSettings.Green then
 		print('|cffFF0000BLOCKED:|r Green quality disabled')
 		qualityBlocked = true
-	elseif quality == 3 and not module.DB.Blue then
+	elseif quality == 3 and not module.CurrentSettings.Blue then
 		print('|cffFF0000BLOCKED:|r Blue quality disabled')
 		qualityBlocked = true
-	elseif quality == 4 and not module.DB.Purple then
+	elseif quality == 4 and not module.CurrentSettings.Purple then
 		print('|cffFF0000BLOCKED:|r Purple quality disabled')
 		qualityBlocked = true
 	else
@@ -707,11 +751,11 @@ function module:DebugItemSellability(link)
 	end
 
 	-- iLevel check
-	if iLevel and iLevel > module.DB.MaxILVL then
-		print(string.format('|cffFF0000BLOCKED:|r iLevel %d > max %d', iLevel, module.DB.MaxILVL))
+	if iLevel and iLevel > module.CurrentSettings.MaxILVL then
+		print(string.format('|cffFF0000BLOCKED:|r iLevel %d > max %d', iLevel, module.CurrentSettings.MaxILVL))
 		qualityBlocked = true
 	else
-		print(string.format('|cff00FF00PASSED:|r iLevel check (max: %d)', module.DB.MaxILVL))
+		print(string.format('|cff00FF00PASSED:|r iLevel check (max: %d)', module.CurrentSettings.MaxILVL))
 	end
 
 	if qualityBlocked then
@@ -722,7 +766,7 @@ function module:DebugItemSellability(link)
 	print('|cffFFFFFF SKIPPED:|r Gearset check (requires bag position)')
 
 	-- Gear tokens check
-	if quality == 4 and itemType == 'Miscellaneous' and itemSubType == 'Junk' and equipSlot == '' and not module.DB.GearTokens then
+	if quality == 4 and itemType == 'Miscellaneous' and itemSubType == 'Junk' and equipSlot == '' and not module.CurrentSettings.GearTokens then
 		print('|cffFF0000BLOCKED:|r Gear tokens disabled')
 		return
 	else
@@ -735,11 +779,11 @@ function module:DebugItemSellability(link)
 		or (itemType == 'Item Enhancement')
 		or isCraftingReagent
 
-	if isCraftingItem and module.DB.NotCrafting then
-		print('|cffFF0000BLOCKED:|r Crafting items disabled (NotCrafting = ' .. tostring(module.DB.NotCrafting) .. ')')
+	if isCraftingItem and module.CurrentSettings.NotCrafting then
+		print('|cffFF0000BLOCKED:|r Crafting items disabled (NotCrafting = ' .. tostring(module.CurrentSettings.NotCrafting) .. ')')
 		return
 	else
-		print('|cff00FF00PASSED:|r Crafting check (NotCrafting = ' .. tostring(module.DB.NotCrafting) .. ')')
+		print('|cff00FF00PASSED:|r Crafting check (NotCrafting = ' .. tostring(module.CurrentSettings.NotCrafting) .. ')')
 	end
 
 	-- Pet check
@@ -759,11 +803,11 @@ function module:DebugItemSellability(link)
 	end
 
 	-- Consumables check
-	if module.DB.NotConsumables and (itemType == 'Consumable' or itemSubType == 'Consumables') and quality ~= 0 then
-		print('|cffFF0000BLOCKED:|r Consumables disabled (NotConsumables = ' .. tostring(module.DB.NotConsumables) .. ')')
+	if module.CurrentSettings.NotConsumables and (itemType == 'Consumable' or itemSubType == 'Consumables') and quality ~= 0 then
+		print('|cffFF0000BLOCKED:|r Consumables disabled (NotConsumables = ' .. tostring(module.CurrentSettings.NotConsumables) .. ')')
 		return
 	else
-		print('|cff00FF00PASSED:|r Consumables check (NotConsumables = ' .. tostring(module.DB.NotConsumables) .. ')')
+		print('|cff00FF00PASSED:|r Consumables check (NotConsumables = ' .. tostring(module.CurrentSettings.NotConsumables) .. ')')
 	end
 
 	-- Use text check
@@ -883,7 +927,7 @@ function module:HandleItemClick(link)
 	end
 
 	-- Refresh bag markings if enabled
-	if module.DB.ShowBagMarking and module.markItems then
+	if module.CurrentSettings.ShowBagMarking and module.markItems then
 		debugMsg('Refreshing bag markings after item list changes', 'debug')
 		module.markItems()
 	end
@@ -905,14 +949,34 @@ function module:SetupClickHandler()
 end
 
 function module:OnInitialize()
-	local CharDbDefaults = {
-		Whitelist = {},
-		Blacklist = {},
-	}
+	-- Setup database with Configuration Override Pattern (sparse DB)
+	SUI.DBM:SetupModule(module, DbDefaults, nil, { autoCalculateDepth = true })
 
-	module.Database = SUI.SpartanUIDB:RegisterNamespace('AutoSell', { profile = DbDefaults, char = CharDbDefaults })
-	module.DB = module.Database.profile ---@type SUI.Module.AutoSell.DB
+	-- CharDB is not supported by SetupModule - handle manually
 	module.CharDB = module.Database.char ---@type SUI.Module.AutoSell.CharDB
+	if not module.CharDB.Whitelist then
+		module.CharDB.Whitelist = {}
+	end
+	if not module.CharDB.Blacklist then
+		module.CharDB.Blacklist = {}
+	end
+
+	-- One-time migration: strip old pre-populated defaults from DB
+	if not module.DB._dbm_migrated then
+		MigrateToDBM(module.DB)
+		SUI.DBM:RefreshSettings(module)
+	end
+
+	-- Seed Blacklist from DEFAULT_BLACKLIST for new profiles (or if missing)
+	if not module.DB.Blacklist then
+		module.DB.Blacklist = SUI:CopyData({}, DEFAULT_BLACKLIST)
+	end
+	if not module.DB.Blacklist.Items then
+		module.DB.Blacklist.Items = SUI:CopyData({}, DEFAULT_BLACKLIST.Items)
+	end
+	if not module.DB.Blacklist.Types then
+		module.DB.Blacklist.Types = SUI:CopyData({}, DEFAULT_BLACKLIST.Types)
+	end
 
 	-- Setup logging system for AutoSell
 	if SUI.logger then
@@ -934,13 +998,23 @@ function module:OnEnable()
 		return
 	end
 
+	-- Calculate MaxILVL from bag contents if still at default sentinel (0)
+	if module.CurrentSettings.MaxILVL == 0 then
+		local detectedILVL = highestILVL()
+		if detectedILVL > 0 then
+			module.DB.MaxILVL = math.floor(detectedILVL * 0.8)
+			SUI.DBM:RefreshSettings(module)
+			debugMsg('Set initial MaxILVL to ' .. module.CurrentSettings.MaxILVL .. ' (80% of highest: ' .. detectedILVL .. ')', 'info')
+		end
+	end
+
 	module:RegisterEvent('MERCHANT_SHOW')
 	module:RegisterEvent('MERCHANT_CLOSED')
 
 	module:CreateMiniVendorPanels()
 
 	-- Initialize bag marking system if enabled
-	if module.DB.ShowBagMarking then
+	if module.CurrentSettings.ShowBagMarking then
 		debugMsg('Initializing bag marking system', 'info')
 		module:InitializeBagMarking()
 	end

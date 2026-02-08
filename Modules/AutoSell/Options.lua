@@ -18,7 +18,7 @@ local function SetupPage()
 		SubTitle = L['Auto sell'],
 		Desc1 = L['Automatically vendor items when you visit a merchant.'],
 		Desc2 = L['Crafting, consumables, and gearset items will not be sold by default.'],
-		RequireDisplay = module.DB.FirstLaunch,
+		RequireDisplay = module.CurrentSettings.FirstLaunch,
 		Display = function()
 			local SUI_Win = SUI.Setup.window.content
 
@@ -42,8 +42,8 @@ local function SetupPage()
 
 				-- Max iLVL
 				AutoSell.iLVLDesc = LibAT.UI.CreateLabel(AutoSell, L['Maximum iLVL to sell'])
-				AutoSell.iLVLLabel = LibAT.UI.CreateNumericBox(AutoSell, 80, 20, 1, module.DB.MaximumiLVL)
-				AutoSell.iLVLLabel:SetValue(module.DB.MaxILVL)
+				AutoSell.iLVLLabel = LibAT.UI.CreateNumericBox(AutoSell, 80, 20, 1, module.CurrentSettings.MaximumiLVL)
+				AutoSell.iLVLLabel:SetValue(module.CurrentSettings.MaxILVL)
 				AutoSell.iLVLLabel:SetScript('OnTextChanged', function(self)
 					local value = self:GetValue()
 					if value and AutoSell.iLVLSlider then
@@ -53,8 +53,8 @@ local function SetupPage()
 					end
 				end)
 
-				AutoSell.iLVLSlider = LibAT.UI.CreateSlider(AutoSell, module.DB.MaximumiLVL, 20, 1, module.DB.MaximumiLVL, 1)
-				AutoSell.iLVLSlider:SetValue(module.DB.MaxILVL)
+				AutoSell.iLVLSlider = LibAT.UI.CreateSlider(AutoSell, module.CurrentSettings.MaximumiLVL, 20, 1, module.CurrentSettings.MaximumiLVL, 1)
+				AutoSell.iLVLSlider:SetValue(module.CurrentSettings.MaxILVL)
 				AutoSell.iLVLSlider:SetScript('OnValueChanged', function(self, value)
 					if AutoSell.iLVLLabel then
 						if math.floor(AutoSell.iLVLLabel:GetValue()) ~= math.floor(value) then
@@ -81,13 +81,13 @@ local function SetupPage()
 				SUI_Win.AutoSell = AutoSell
 
 				-- Defaults
-				AutoSell.SellGray:SetChecked(module.DB.Gray)
-				AutoSell.SellWhite:SetChecked(module.DB.White)
-				AutoSell.SellGreen:SetChecked(module.DB.Green)
-				AutoSell.SellBlue:SetChecked(module.DB.Blue)
-				AutoSell.SellPurple:SetChecked(module.DB.Purple)
-				AutoSell.AutoRepair:SetChecked(module.DB.AutoRepair)
-				AutoSell.iLVLLabel:SetValue(module.DB.MaxILVL)
+				AutoSell.SellGray:SetChecked(module.CurrentSettings.Gray)
+				AutoSell.SellWhite:SetChecked(module.CurrentSettings.White)
+				AutoSell.SellGreen:SetChecked(module.CurrentSettings.Green)
+				AutoSell.SellBlue:SetChecked(module.CurrentSettings.Blue)
+				AutoSell.SellPurple:SetChecked(module.CurrentSettings.Purple)
+				AutoSell.AutoRepair:SetChecked(module.CurrentSettings.AutoRepair)
+				AutoSell.iLVLLabel:SetValue(module.CurrentSettings.MaxILVL)
 			end
 		end,
 		Next = function()
@@ -103,9 +103,11 @@ local function SetupPage()
 				module.DB.MaxILVL = SUI_Win.iLVLLabel:GetValue()
 			end
 			module.DB.FirstLaunch = false
+			SUI.DBM:RefreshSettings(module)
 		end,
 		Skip = function()
 			module.DB.FirstLaunch = false
+			SUI.DBM:RefreshSettings(module)
 		end,
 	}
 	SUI.Setup:AddPage(PageData)
@@ -226,10 +228,11 @@ local function BuildOptions()
 		type = 'group',
 		name = L['Auto sell'],
 		get = function(info)
-			return module.DB[info[#info]]
+			return module.CurrentSettings[info[#info]]
 		end,
 		set = function(info, val)
 			module.DB[info[#info]] = val
+			SUI.DBM:RefreshSettings(module)
 		end,
 		disabled = function()
 			return SUI:IsModuleDisabled(module)
@@ -268,7 +271,7 @@ local function BuildOptions()
 			order = 10,
 			width = 'full',
 			min = 1,
-			max = module.DB.MaximumiLVL,
+			max = module.CurrentSettings.MaximumiLVL,
 			step = 1,
 		},
 		Gray = {
@@ -319,6 +322,7 @@ local function BuildOptions()
 			order = 203,
 			set = function(info, val)
 				module.DB[info[#info]] = val
+				SUI.DBM:RefreshSettings(module)
 				if val then
 					module:InitializeBagMarking()
 				else
@@ -561,7 +565,7 @@ function module:CreateMiniVendorPanels()
 					if itemInfo then
 						-- Check if Blizzard will sell this item
 						local _, _, quality = C_Item.GetItemInfo(itemInfo.itemID)
-						if module:WouldBlizzardSell(itemInfo.itemID, quality) and module.DB.Gray then
+						if module:WouldBlizzardSell(itemInfo.itemID, quality) and module.CurrentSettings.Gray then
 							blizzardCount = blizzardCount + 1
 						else
 							-- Use pcall to safely handle any tooltip-related errors
@@ -599,32 +603,32 @@ function module:CreateMiniVendorPanels()
 
 				-- Update checkboxes
 				if opts.AutoRepair then
-					opts.AutoRepair:SetChecked(module.DB.AutoRepair)
+					opts.AutoRepair:SetChecked(module.CurrentSettings.AutoRepair)
 				end
 				if opts.Green then
-					opts.Green:SetChecked(module.DB.Green)
+					opts.Green:SetChecked(module.CurrentSettings.Green)
 				end
 				if opts.Blue then
-					opts.Blue:SetChecked(module.DB.Blue)
+					opts.Blue:SetChecked(module.CurrentSettings.Blue)
 				end
 				if opts.Purple then
-					opts.Purple:SetChecked(module.DB.Purple)
+					opts.Purple:SetChecked(module.CurrentSettings.Purple)
 				end
 
 				-- Update slider and input values
 				if opts.MaxILVLSlider then
-					opts.MaxILVLSlider:SetValue(module.DB.MaxILVL)
+					opts.MaxILVLSlider:SetValue(module.CurrentSettings.MaxILVL)
 				end
 				if opts.MaxILVLInput and opts.MaxILVLInput.SetValue then
-					opts.MaxILVLInput:SetValue(module.DB.MaxILVL)
+					opts.MaxILVLInput:SetValue(module.CurrentSettings.MaxILVL)
 				end
 
 				-- Update slider maximum if it has changed
 				if opts.MaxILVLSlider and opts.MaxILVLSlider.SetMaxValue then
-					opts.MaxILVLSlider:SetMaxValue(module.DB.MaximumiLVL)
+					opts.MaxILVLSlider:SetMaxValue(module.CurrentSettings.MaximumiLVL)
 				end
 				if opts.MaxILVLInput and opts.MaxILVLInput.SetMaxValue then
-					opts.MaxILVLInput:SetMaxValue(module.DB.MaximumiLVL)
+					opts.MaxILVLInput:SetMaxValue(module.CurrentSettings.MaximumiLVL)
 				end
 			end
 		end
@@ -692,66 +696,53 @@ function module:CreateMiniVendorPanels()
 
 		-- Max iLVL slider and input (adjusted for smaller panel width)
 		options.MaxILVLLabel = LibAT.UI.CreateLabel(Panel, L['Maximum iLVL to sell'])
-		options.MaxILVLSlider = LibAT.UI.CreateSlider(Panel, Panel:GetWidth() - 70, 20, 1, module.DB.MaximumiLVL, 1)
-		options.MaxILVLSlider:SetValue(module.DB.MaxILVL)
-		options.MaxILVLInput = LibAT.UI.CreateNumericBox(Panel, 50, 20, 1, module.DB.MaximumiLVL)
-		options.MaxILVLInput:SetValue(module.DB.MaxILVL)
+		options.MaxILVLSlider = LibAT.UI.CreateSlider(Panel, Panel:GetWidth() - 70, 20, 1, module.CurrentSettings.MaximumiLVL, 1)
+		options.MaxILVLSlider:SetValue(module.CurrentSettings.MaxILVL)
+		options.MaxILVLInput = LibAT.UI.CreateNumericBox(Panel, 50, 20, 1, module.CurrentSettings.MaximumiLVL)
+		options.MaxILVLInput:SetValue(module.CurrentSettings.MaxILVL)
 
 		-- Quality checkboxes
 		options.Green = LibAT.UI.CreateCheckbox(Panel, L['Sell green'])
 		options.Blue = LibAT.UI.CreateCheckbox(Panel, L['Sell blue'])
 		options.Purple = LibAT.UI.CreateCheckbox(Panel, L['Sell purple'])
 
-		-- Set up event handlers
+		-- Set up event handlers for slider
+		options.MaxILVLSlider:SetScript('OnValueChanged', function(self, value)
+			value = math.floor(value)
+			module.DB.MaxILVL = value
+			SUI.DBM:RefreshSettings(module)
+			if options.MaxILVLInput then
+				options.MaxILVLInput:SetValue(value)
+			end
+			module:InvalidateBlacklistCache()
+			UpdateSellButton()
+		end)
+
+		-- Set up event handlers for numeric input
+		options.MaxILVLInput:HookScript('OnTextChanged', function(self, userInput)
+			if not userInput then
+				return
+			end
+			local value = self:GetValue()
+			if value then
+				value = math.floor(value)
+				module.DB.MaxILVL = value
+				SUI.DBM:RefreshSettings(module)
+				options.MaxILVLSlider:SetValue(value)
+				module:InvalidateBlacklistCache()
+				UpdateSellButton()
+			end
+		end)
+
+		-- Set up event handlers for checkboxes
 		for setting, control in pairs(options) do
-			if setting == 'MaxILVLSlider' then
-				control:SetValue(module.DB.MaxILVL)
-				control.OnValueChanged = function()
-					-- Stop any current selling operation
-					if module:TimeLeft('SellTrashInBag') and module:TimeLeft('SellTrashInBag') > 0 then
-						module:CancelAllTimers()
-						SUI:Print('AutoSell operation interrupted by settings change')
-					end
-
-					local value = math.floor(control:GetValue())
-					module.DB.MaxILVL = value
-					if options.MaxILVLInput.SetValue then
-						options.MaxILVLInput:SetValue(value)
-					end
-					module:InvalidateBlacklistCache()
-					UpdateSellButton() -- Update sell button when slider changes
-				end
-			elseif setting == 'MaxILVLInput' then
-				if control.SetValue then
-					control:SetValue(module.DB.MaxILVL)
-				end
-				control.OnValueChanged = function()
-					if control.GetValue then
-						-- Stop any current selling operation
-						if module:TimeLeft('SellTrashInBag') and module:TimeLeft('SellTrashInBag') > 0 then
-							module:CancelAllTimers()
-							SUI:Print('AutoSell operation interrupted by settings change')
-						end
-
-						local value = math.floor(control:GetValue())
-						module.DB.MaxILVL = value
-						options.MaxILVLSlider:SetValue(value)
-						module:InvalidateBlacklistCache()
-						UpdateSellButton() -- Update sell button when input changes
-					end
-				end
-			elseif setting ~= 'MaxILVLLabel' and setting ~= 'openSettingsButton' and setting ~= 'sellItemsButton' then
-				control:SetChecked(module.DB[setting])
+			if setting ~= 'MaxILVLSlider' and setting ~= 'MaxILVLInput' and setting ~= 'MaxILVLLabel' and setting ~= 'openSettingsButton' and setting ~= 'sellItemsButton' then
+				control:SetChecked(module.CurrentSettings[setting])
 				control:HookScript('OnClick', function()
-					-- Stop any current selling operation
-					if module:TimeLeft('SellTrashInBag') and module:TimeLeft('SellTrashInBag') > 0 then
-						module:CancelAllTimers()
-						SUI:Print('AutoSell operation interrupted by settings change')
-					end
-
 					module.DB[setting] = control:GetChecked()
+					SUI.DBM:RefreshSettings(module)
 					module:InvalidateBlacklistCache()
-					UpdateSellButton() -- Update sell button when checkboxes change
+					UpdateSellButton()
 				end)
 			end
 		end
