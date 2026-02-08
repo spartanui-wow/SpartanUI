@@ -471,25 +471,30 @@ if [ "$IS_TAG" = false ]; then
 
         # Get commit subjects for changelog display
         get_commits_subjects "$LATEST_TAG..HEAD" "$TEMP_ALPHA_COMMITS"
+    else
+        log_info "No tags found, collecting all commits as unreleased..."
 
-        if [ -s "$TEMP_ALPHA_COMMITS" ]; then
-            ALPHA_COUNT=$(grep -c "." "$TEMP_ALPHA_COMMITS" 2>/dev/null || echo "0")
-            log_info "Found $ALPHA_COUNT unreleased commits"
+        # No tags exist yet — treat all commits as unreleased
+        git log --pretty=format:"%s" --no-merges > "$TEMP_ALPHA_COMMITS" 2>/dev/null
+    fi
 
-            echo "## ⚡ Alpha Build - Unreleased Changes" >> "$OUTPUT_FILE"
-            echo "" >> "$OUTPUT_FILE"
-            echo "_These changes are not yet in a release. This is a development build._" >> "$OUTPUT_FILE"
-            echo "" >> "$OUTPUT_FILE"
-            echo "$RELEASE_SUMMARY_MARKER" >> "$OUTPUT_FILE"
-            echo "" >> "$OUTPUT_FILE"
+    if [ -s "$TEMP_ALPHA_COMMITS" ]; then
+        ALPHA_COUNT=$(grep -c "." "$TEMP_ALPHA_COMMITS" 2>/dev/null || echo "0")
+        log_info "Found $ALPHA_COUNT unreleased commits"
 
-            # Format and add categorized commits
-            format_categorized_commits "$TEMP_ALPHA_COMMITS" >> "$OUTPUT_FILE"
-            echo "" >> "$OUTPUT_FILE"
+        echo "## ⚡ Alpha Build - Unreleased Changes" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
+        echo "_These changes are not yet in a release. This is a development build._" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
+        echo "$RELEASE_SUMMARY_MARKER" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
 
-            # Save for AI summary
-            cat "$TEMP_ALPHA_COMMITS" > "$TEMP_RELEASE_COMMITS"
-        fi
+        # Format and add categorized commits
+        format_categorized_commits "$TEMP_ALPHA_COMMITS" >> "$OUTPUT_FILE"
+        echo "" >> "$OUTPUT_FILE"
+
+        # Save for AI summary
+        cat "$TEMP_ALPHA_COMMITS" > "$TEMP_RELEASE_COMMITS"
     fi
 fi
 

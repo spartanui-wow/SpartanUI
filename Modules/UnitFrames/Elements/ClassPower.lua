@@ -13,6 +13,13 @@ local function Build(frame, DB)
 		local Bar = CreateFrame('StatusBar', nil, frame)
 		Bar:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 
+		-- Create background texture
+		local bg = Bar:CreateTexture(nil, 'BACKGROUND')
+		bg:SetAllPoints(Bar)
+		bg:SetTexture(UF:FindStatusBarTexture(DB.texture))
+		bg:SetAlpha(0.3) -- Darken the background
+		Bar.bg = bg
+
 		-- Position and size.
 		if index == 1 then
 			Bar:SetPoint('LEFT', frame.CPAnchor, 'RIGHT', (index - 1) * Bar:GetWidth(), -1)
@@ -20,6 +27,70 @@ local function Build(frame, DB)
 			Bar:SetPoint('LEFT', ClassPower[index - 1], 'RIGHT', 3, 0)
 		end
 		ClassPower[index] = Bar
+	end
+
+	-- Add PostUpdate callback to handle percentage-fill resources
+	ClassPower.PostUpdate = function(element, cur, max, hasMaxChanged, powerType)
+		if not element.DB then
+			return
+		end
+
+		-- Check if this is a percentage-fill resource (max = 1 bar)
+		local isPercentageFill = max == 1
+
+		-- Debug: show actual soul fragment count
+		local actualFragments = 'N/A'
+		if isPercentageFill and powerType == 'SOUL_FRAGMENTS' then
+			local metamorphosis = C_UnitAuras.GetPlayerAuraBySpellID(1217607) -- SPELL_VOID_METAMORPHOSIS
+			local spell = metamorphosis and 1227702 or 1225789 -- SPELL_SILENCE_THE_WHISPERS or SPELL_DARK_HEART
+			local auraInfo = C_UnitAuras.GetPlayerAuraBySpellID(spell)
+			if auraInfo then
+				actualFragments = string.format('%d/%d', auraInfo.applications, metamorphosis and GetCollapsingStarCost() or C_Spell.GetSpellMaxCumulativeAuraApplications(1225789))
+			end
+		end
+
+		if isPercentageFill then
+			-- For percentage-fill resources (like soul fragments), make the bar full frame width
+			local DB = element.DB
+			local frame = element.__owner
+
+			if frame then
+				element[1]:ClearAllPoints()
+
+				-- Span full frame width, positioned relative to configured element
+				local relativeFrame = frame[DB.position.relativeTo] or frame
+
+				-- Anchor left side to left edge of frame, right side to right edge of frame
+				-- Vertically position below the relative element
+				element[1]:SetPoint('LEFT', frame, 'LEFT', 0, 0)
+				element[1]:SetPoint('RIGHT', frame, 'RIGHT', 0, 0)
+				element[1]:SetPoint('TOP', relativeFrame, 'BOTTOM', 0, DB.position.y or -5)
+				element[1]:SetHeight(DB.height)
+
+				-- Update background to match
+				if element[1].bg then
+					element[1].bg:SetAllPoints(element[1])
+				end
+			end
+		else
+			-- Normal discrete bars - restore standard positioning
+			local DB = element.DB
+			local frame = element.__owner
+			if frame then
+				element[1]:ClearAllPoints()
+				if DB.position.relativeTo == 'Frame' then
+					element[1]:SetPoint(DB.position.anchor, frame, DB.position.relativePoint or DB.position.anchor, DB.position.x, DB.position.y)
+				else
+					element[1]:SetPoint(DB.position.anchor, frame[DB.position.relativeTo], DB.position.relativePoint or DB.position.anchor, DB.position.x, DB.position.y)
+				end
+				element[1]:SetSize(DB.width, DB.height)
+
+				-- Update background to match
+				if element[1].bg then
+					element[1].bg:SetAllPoints(element[1])
+				end
+			end
+		end
 	end
 
 	-- Register with oUF
@@ -37,8 +108,28 @@ local function Update(frame)
 		element[1]:SetPoint(DB.position.anchor, frame[DB.position.relativeTo], DB.position.relativePoint or DB.position.anchor, DB.position.x, DB.position.y)
 	end
 
+	-- Check if this is a percentage-fill resource (like soul fragments)
+	-- oUF sets element.__max to track the maximum number of bars to show
+	local isPercentageFill = element.__max and element.__max == 1
+	local barWidth = DB.width
+	local spacing = DB.spacing or 3
+
+	-- For percentage-fill resources, make the single bar wider
+	-- Calculate width as if showing 5 bars (width * 5 + spacing * 4)
+	if isPercentageFill then
+		barWidth = (DB.width * 5) + (spacing * 4)
+		if SUI.logger then
+			SUI.logger.debug(string.format('ClassPower: Percentage fill mode - __max=%s, width=%d->%d', tostring(element.__max), DB.width, barWidth))
+		end
+	end
+
 	for i = 1, #element do
-		element[i]:SetSize(DB.width, DB.height)
+		-- Set size based on whether it's the primary bar in percentage mode
+		if i == 1 and isPercentageFill then
+			element[i]:SetSize(barWidth, DB.height)
+		else
+			element[i]:SetSize(DB.width, DB.height)
+		end
 		element[i]:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 	end
 end
@@ -159,6 +250,7 @@ local Settings = {
 	enabled = true,
 	width = 16,
 	height = 5,
+	spacing = 3,
 	position = {
 		anchor = 'TOPLEFT',
 		relativeTo = 'Name',
@@ -169,7 +261,7 @@ local Settings = {
 		NoBulkUpdate = true,
 		type = 'Indicator',
 		DisplayName = 'Class Power',
-		Description = 'Controls the display of Combo Points, Arcane Charges, Chi Orbs, Holy Power, and Soul Shards',
+		Description = 'Controls the display of Combo Points, Arcane Charges, Chi Orbs, Holy Power, Soul Shards, and Soul Fragments',
 	},
 }
 
