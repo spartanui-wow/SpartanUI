@@ -140,16 +140,16 @@ module.TELEPORT_DATA = {
 	{ id = 1237215, type = 'spell', name = 'Ara-Kara, City of Echoes', expansion = 'TWW', minExpansion = 10, mapId = 2274, mapX = 0.467, mapY = 0.851 },
 	{ id = 445440, type = 'spell', name = 'Darkflame Cleft', expansion = 'TWW', minExpansion = 10, mapId = 2274, mapX = 0.574, mapY = 0.490 },
 	{ id = 445444, type = 'spell', name = 'The Rookery', expansion = 'TWW', minExpansion = 10, mapId = 2274, mapX = 0.693, mapY = 0.212 },
-	{ id = 445441, type = 'spell', name = 'The Necrotic Wake', expansion = 'TWW', minExpansion = 10 },
-	{ id = 445443, type = 'spell', name = 'Grim Batol', expansion = 'TWW', minExpansion = 10 },
+	{ id = 445441, type = 'spell', name = 'The Necrotic Wake', expansion = 'TWW', minExpansion = 10, mapId = 1533, mapX = 0.401, mapY = 0.455 },
+	{ id = 445443, type = 'spell', name = 'Grim Batol', expansion = 'TWW', minExpansion = 10, mapId = 241, mapX = 0.192, mapY = 0.541 },
 	-- Mage Teleports
 	{ id = 446540, type = 'spell', name = 'Teleport: Dornogal', expansion = 'TWW', class = 'MAGE', minExpansion = 10, mapId = 2274, mapX = 0.689, mapY = 0.202 },
 	{ id = 446534, type = 'spell', name = 'Portal: Dornogal', expansion = 'TWW', class = 'MAGE', isPortal = true, minExpansion = 10, mapId = 2274, mapX = 0.689, mapY = 0.202 },
 	-- Engineering
 	{ id = 448126, spellId = 448126, type = 'toy', name = 'Wormhole Generator: Khaz Algar', expansion = 'TWW', isEngineering = true, minExpansion = 10 },
 	-- Raids
-	{ id = 1226482, type = 'spell', name = 'Liberation of Undermine', expansion = 'TWW', minExpansion = 10 },
-	{ id = 1239155, type = 'spell', name = 'Manaforge Omega', expansion = 'TWW', minExpansion = 10 },
+	{ id = 1226482, type = 'spell', name = 'Liberation of Undermine', expansion = 'TWW', minExpansion = 10, mapId = 2346, mapX = 0.420, mapY = 0.503 },
+	{ id = 1239155, type = 'spell', name = 'Manaforge Omega', expansion = 'TWW', minExpansion = 10, mapId = 2371, mapX = 0.417, mapY = 0.622 },
 	-- Delve Hearthstones
 	{ id = 230850, type = 'toy', name = "Delver's Dirigible", expansion = 'TWW', isHearthstone = true, minExpansion = 10 },
 	{ id = 243056, type = 'toy', name = 'Radiant Remnant', expansion = 'TWW', isHearthstone = true, minExpansion = 10 },
@@ -169,9 +169,9 @@ module.TELEPORT_DATA = {
 	{ id = 395277, type = 'spell', name = 'Teleport: Valdrakken', expansion = 'DF', class = 'MAGE', minExpansion = 9, mapId = 1978, mapX = 0.563, mapY = 0.500 },
 	{ id = 395289, type = 'spell', name = 'Portal: Valdrakken', expansion = 'DF', class = 'MAGE', isPortal = true, minExpansion = 9, mapId = 1978, mapX = 0.563, mapY = 0.500 },
 	-- Raids
-	{ id = 432254, type = 'spell', name = 'Vault of the Incarnates', expansion = 'DF', minExpansion = 9 },
-	{ id = 432257, type = 'spell', name = 'Aberrus, the Shadowed Crucible', expansion = 'DF', minExpansion = 9 },
-	{ id = 432258, type = 'spell', name = 'Amirdrassil, the Dreams Hope', expansion = 'DF', minExpansion = 9 },
+	{ id = 432254, type = 'spell', name = 'Vault of the Incarnates', expansion = 'DF', minExpansion = 9, mapId = 2025, mapX = 0.749, mapY = 0.555 },
+	{ id = 432257, type = 'spell', name = 'Aberrus, the Shadowed Crucible', expansion = 'DF', minExpansion = 9, mapId = 2133, mapX = 0.484, mapY = 0.119 },
+	{ id = 432258, type = 'spell', name = 'Amirdrassil, the Dreams Hope', expansion = 'DF', minExpansion = 9, mapId = 2200, mapX = 0.273, mapY = 0.310 },
 	-- Engineering
 	{ id = 198156, type = 'toy', name = 'Wyrmhole Generator', expansion = 'DF', isEngineering = true, minExpansion = 9 },
 
@@ -187,9 +187,9 @@ module.TELEPORT_DATA = {
 	{ id = 354469, type = 'spell', name = 'Sanguine Depths', expansion = 'SL', minExpansion = 8, mapId = 1550, mapX = 0.250, mapY = 0.482 },
 	{ id = 367416, type = 'spell', name = 'Tazavesh', expansion = 'SL', minExpansion = 8, mapId = 1550, mapX = 0.332, mapY = 0.716 },
 	-- Raids
-	{ id = 373190, type = 'spell', name = 'Castle Nathria', expansion = 'SL', minExpansion = 8 },
-	{ id = 373191, type = 'spell', name = 'Sanctum of Domination', expansion = 'SL', minExpansion = 8 },
-	{ id = 373192, type = 'spell', name = 'Sepulcher of the First Ones', expansion = 'SL', minExpansion = 8 },
+	{ id = 373190, type = 'spell', name = 'Castle Nathria', expansion = 'SL', minExpansion = 8, mapId = 1525, mapX = 0.464, mapY = 0.414 },
+	{ id = 373191, type = 'spell', name = 'Sanctum of Domination', expansion = 'SL', minExpansion = 8, mapId = 1543, mapX = 0.697, mapY = 0.320 },
+	{ id = 373192, type = 'spell', name = 'Sepulcher of the First Ones', expansion = 'SL', minExpansion = 8, mapId = 1970, mapX = 0.805, mapY = 0.534 },
 	-- Mage Teleports
 	{ id = 344587, type = 'spell', name = 'Teleport: Oribos', expansion = 'SL', class = 'MAGE', minExpansion = 8, mapId = 1550, mapX = 0.466, mapY = 0.516 },
 	{ id = 344597, type = 'spell', name = 'Portal: Oribos', expansion = 'SL', class = 'MAGE', isPortal = true, minExpansion = 8, mapId = 1550, mapX = 0.466, mapY = 0.516 },
@@ -205,10 +205,10 @@ module.TELEPORT_DATA = {
 	{ id = 373274, type = 'spell', name = 'Operation: Mechagon', expansion = 'BFA', minExpansion = 7, mapId = 876, mapX = 0.199, mapY = 0.281 },
 	{ id = 424167, type = 'spell', name = 'Waycrest Manor', expansion = 'BFA', minExpansion = 7, mapId = 876, mapX = 0.298, mapY = 0.555 },
 	{ id = 424187, type = 'spell', name = "Atal'Dazar", expansion = 'BFA', minExpansion = 7, mapId = 875, mapX = 0.488, mapY = 0.611 },
-	{ id = 445418, type = 'spell', name = 'Siege of Boralus', expansion = 'BFA', faction = 'Alliance', minExpansion = 7 },
-	{ id = 464256, type = 'spell', name = 'Siege of Boralus', expansion = 'BFA', faction = 'Horde', minExpansion = 7 },
-	{ id = 467553, type = 'spell', name = 'Motherlode', expansion = 'BFA', faction = 'Alliance', minExpansion = 7 },
-	{ id = 467555, type = 'spell', name = 'Motherlode', expansion = 'BFA', faction = 'Horde', minExpansion = 7 },
+	{ id = 445418, type = 'spell', name = 'Siege of Boralus', expansion = 'BFA', faction = 'Alliance', minExpansion = 7, mapId = 895, mapX = 0.734, mapY = 0.233 },
+	{ id = 464256, type = 'spell', name = 'Siege of Boralus', expansion = 'BFA', faction = 'Horde', minExpansion = 7, mapId = 895, mapX = 0.734, mapY = 0.233 },
+	{ id = 467553, type = 'spell', name = 'Motherlode', expansion = 'BFA', faction = 'Alliance', minExpansion = 7, mapId = 862, mapX = 0.561, mapY = 0.598 },
+	{ id = 467555, type = 'spell', name = 'Motherlode', expansion = 'BFA', faction = 'Horde', minExpansion = 7, mapId = 862, mapX = 0.561, mapY = 0.598 },
 	-- Mage Teleports - Alliance
 	{ id = 281403, type = 'spell', name = 'Teleport: Boralus', expansion = 'BFA', class = 'MAGE', faction = 'Alliance', minExpansion = 7, mapId = 876, mapX = 0.578, mapY = 0.557 },
 	{ id = 281400, type = 'spell', name = 'Portal: Boralus', expansion = 'BFA', class = 'MAGE', faction = 'Alliance', isPortal = true, minExpansion = 7, mapId = 876, mapX = 0.578, mapY = 0.557 },
@@ -242,14 +242,14 @@ module.TELEPORT_DATA = {
 
 	-- ==================== WARLORDS OF DRAENOR (6.x) ====================
 	-- Dungeons
-	{ id = 159897, type = 'spell', name = 'Auchindoun', expansion = 'WoD', minExpansion = 5 },
-	{ id = 159895, type = 'spell', name = 'Bloodmaul Slag Mines', expansion = 'WoD', minExpansion = 5 },
-	{ id = 159901, type = 'spell', name = 'Everbloom', expansion = 'WoD', minExpansion = 5 },
-	{ id = 159900, type = 'spell', name = 'Grimrail Depot', expansion = 'WoD', minExpansion = 5 },
-	{ id = 159896, type = 'spell', name = 'Iron Docks', expansion = 'WoD', minExpansion = 5 },
-	{ id = 159899, type = 'spell', name = 'Shadowmoon Burial Grounds', expansion = 'WoD', minExpansion = 5 },
-	{ id = 159898, type = 'spell', name = 'Skyreach', expansion = 'WoD', minExpansion = 5 },
-	{ id = 159902, type = 'spell', name = 'Upper Blackrock Spire', expansion = 'WoD', minExpansion = 5 },
+	{ id = 159897, type = 'spell', name = 'Auchindoun', expansion = 'WoD', minExpansion = 5, mapId = 535, mapX = 0.462, mapY = 0.739 },
+	{ id = 159895, type = 'spell', name = 'Bloodmaul Slag Mines', expansion = 'WoD', minExpansion = 5, mapId = 525, mapX = 0.500, mapY = 0.250 },
+	{ id = 159901, type = 'spell', name = 'Everbloom', expansion = 'WoD', minExpansion = 5, mapId = 543, mapX = 0.595, mapY = 0.456 },
+	{ id = 159900, type = 'spell', name = 'Grimrail Depot', expansion = 'WoD', minExpansion = 5, mapId = 543, mapX = 0.551, mapY = 0.317 },
+	{ id = 159896, type = 'spell', name = 'Iron Docks', expansion = 'WoD', minExpansion = 5, mapId = 543, mapX = 0.454, mapY = 0.113 },
+	{ id = 159899, type = 'spell', name = 'Shadowmoon Burial Grounds', expansion = 'WoD', minExpansion = 5, mapId = 539, mapX = 0.318, mapY = 0.425 },
+	{ id = 159898, type = 'spell', name = 'Skyreach', expansion = 'WoD', minExpansion = 5, mapId = 542, mapX = 0.355, mapY = 0.336 },
+	{ id = 159902, type = 'spell', name = 'Upper Blackrock Spire', expansion = 'WoD', minExpansion = 5, mapId = 33, mapX = 0.790, mapY = 0.337 },
 	-- Mage Teleports - Alliance
 	{ id = 176248, type = 'spell', name = 'Teleport: Stormshield', expansion = 'WoD', class = 'MAGE', faction = 'Alliance', minExpansion = 5, mapId = 572, mapX = 0.733, mapY = 0.470 },
 	{ id = 176246, type = 'spell', name = 'Portal: Stormshield', expansion = 'WoD', class = 'MAGE', faction = 'Alliance', isPortal = true, minExpansion = 5, mapId = 572, mapX = 0.733, mapY = 0.470 },
@@ -264,15 +264,15 @@ module.TELEPORT_DATA = {
 
 	-- ==================== MISTS OF PANDARIA (5.x) ====================
 	-- Dungeons
-	{ id = 131225, type = 'spell', name = 'Gate of the Setting Sun', expansion = 'MoP', minExpansion = 4 },
-	{ id = 131222, type = 'spell', name = "Mogu'shan Palace", expansion = 'MoP', minExpansion = 4 },
-	{ id = 131232, type = 'spell', name = 'Scholomance', expansion = 'MoP', minExpansion = 4 },
-	{ id = 131231, type = 'spell', name = 'Scarlet Halls', expansion = 'MoP', minExpansion = 4 },
-	{ id = 131229, type = 'spell', name = 'Scarlet Monastery', expansion = 'MoP', minExpansion = 4 },
-	{ id = 131228, type = 'spell', name = 'Siege of Niuzao Temple', expansion = 'MoP', minExpansion = 4 },
-	{ id = 131206, type = 'spell', name = 'Shado-Pan Monastery', expansion = 'MoP', minExpansion = 4 },
-	{ id = 131205, type = 'spell', name = 'Stormstout Brewery', expansion = 'MoP', minExpansion = 4 },
-	{ id = 131204, type = 'spell', name = 'Temple of the Jade Serpent', expansion = 'MoP', minExpansion = 4 },
+	{ id = 131225, type = 'spell', name = 'Gate of the Setting Sun', expansion = 'MoP', minExpansion = 4, mapId = 388, mapX = 0.759, mapY = 0.202 },
+	{ id = 131222, type = 'spell', name = "Mogu'shan Palace", expansion = 'MoP', minExpansion = 4, mapId = 379, mapX = 0.590, mapY = 0.730 },
+	{ id = 131232, type = 'spell', name = 'Scholomance', expansion = 'MoP', minExpansion = 4, mapId = 22, mapX = 0.686, mapY = 0.730 },
+	{ id = 131231, type = 'spell', name = 'Scarlet Halls', expansion = 'MoP', minExpansion = 4, mapId = 18, mapX = 0.838, mapY = 0.347 },
+	{ id = 131229, type = 'spell', name = 'Scarlet Monastery', expansion = 'MoP', minExpansion = 4, mapId = 18, mapX = 0.838, mapY = 0.347 },
+	{ id = 131228, type = 'spell', name = 'Siege of Niuzao Temple', expansion = 'MoP', minExpansion = 4, mapId = 388, mapX = 0.346, mapY = 0.815 },
+	{ id = 131206, type = 'spell', name = 'Shado-Pan Monastery', expansion = 'MoP', minExpansion = 4, mapId = 379, mapX = 0.369, mapY = 0.488 },
+	{ id = 131205, type = 'spell', name = 'Stormstout Brewery', expansion = 'MoP', minExpansion = 4, mapId = 376, mapX = 0.359, mapY = 0.692 },
+	{ id = 131204, type = 'spell', name = 'Temple of the Jade Serpent', expansion = 'MoP', minExpansion = 4, mapId = 371, mapX = 0.561, mapY = 0.578 },
 	-- Mage Teleports - Alliance
 	{ id = 132621, type = 'spell', name = 'Teleport: Vale of Eternal Blossoms', expansion = 'MoP', class = 'MAGE', faction = 'Alliance', minExpansion = 4, mapId = 424, mapX = 0.569, mapY = 0.553 },
 	{
@@ -328,7 +328,7 @@ module.TELEPORT_DATA = {
 
 	-- ==================== WRATH OF THE LICH KING (3.x) ====================
 	-- Dungeons
-	{ id = 1254555, type = 'spell', name = 'Pit of Saron', expansion = 'WotLK', minExpansion = 2 },
+	{ id = 1254555, type = 'spell', name = 'Pit of Saron', expansion = 'WotLK', minExpansion = 2, mapId = 118, mapX = 0.547, mapY = 0.291 },
 	-- Mage Teleports
 	{ id = 53140, type = 'spell', name = 'Teleport: Dalaran (Northrend)', expansion = 'WotLK', class = 'MAGE', minExpansion = 2, mapId = 113, mapX = 0.480, mapY = 0.406 },
 	{ id = 53142, type = 'spell', name = 'Portal: Dalaran (Northrend)', expansion = 'WotLK', class = 'MAGE', isPortal = true, minExpansion = 2, mapId = 113, mapX = 0.480, mapY = 0.406 },

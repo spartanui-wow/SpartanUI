@@ -903,8 +903,10 @@ function TeleportPinMixin:OnLoad()
 	self:SetScalingLimits(1, 1.0, 1.2)
 end
 
-function TeleportPinMixin:OnAcquired(entry)
-	self:SetPosition(entry.mapX, entry.mapY)
+---@param pinData SUI.TeleportAssist.PinData
+function TeleportPinMixin:OnAcquired(pinData)
+	self:SetPosition(pinData.projectedX, pinData.projectedY)
+	local entry = pinData.entry
 	self.entry = entry
 
 	-- Create or update the action button child
@@ -1027,6 +1029,104 @@ function TeleportPinMixin:OnReleased()
 	self.entry = nil
 end
 
+-- ==================== MULTI-LEVEL PIN PROJECTION ====================
+-- Allows pins to display at any zoom level by projecting coordinates
+-- between parent and child maps using Blizzard's C_Map APIs.
+
+---@type table<number, table<number, boolean>>
+local ancestorCache = {}
+
+---Build the set of ancestor mapIDs for a given map (walks parentMapID chain)
+---@param mapId number
+---@return table<number, boolean>
+local function BuildAncestorSet(mapId)
+	if ancestorCache[mapId] then
+		return ancestorCache[mapId]
+	end
+	local ancestors = {}
+	local current = mapId
+	for _ = 1, 20 do -- safety limit
+		local info = C_Map.GetMapInfo(current)
+		if not info or not info.parentMapID or info.parentMapID == 0 then
+			break
+		end
+		ancestors[info.parentMapID] = true
+		current = info.parentMapID
+	end
+	ancestorCache[mapId] = ancestors
+	return ancestors
+end
+
+---@type table<number, boolean>
+local descendantCache = {}
+
+---Check if childMapId is a descendant of parentMapId
+---@param childMapId number
+---@param parentMapId number
+---@return boolean
+local function IsDescendantOf(childMapId, parentMapId)
+	if childMapId == parentMapId then
+		return true
+	end
+	local cacheKey = childMapId * 100000 + parentMapId
+	if descendantCache[cacheKey] ~= nil then
+		return descendantCache[cacheKey]
+	end
+	local ancestors = BuildAncestorSet(childMapId)
+	local result = ancestors[parentMapId] or false
+	descendantCache[cacheKey] = result
+	return result
+end
+
+---Transform coordinates from one map to another (parent/child projection)
+---Returns projected x, y or nil if the maps are not related or pin is out of bounds
+---@param entryMapId number The map the entry's coordinates are defined on
+---@param entryX number Normalized 0-1 X coordinate on the entry's map
+---@param entryY number Normalized 0-1 Y coordinate on the entry's map
+---@param targetMapId number The map we want to display the pin on
+---@return number|nil projectedX
+---@return number|nil projectedY
+local function TransformCoordinates(entryMapId, entryX, entryY, targetMapId)
+	-- Same map: no transform needed
+	if entryMapId == targetMapId then
+		return entryX, entryY
+	end
+
+	-- Case 1: Entry is on a child map, target is a parent (e.g., zone pin on continent)
+	-- Forward projection: zone coords -> continent coords
+	if IsDescendantOf(entryMapId, targetMapId) then
+		local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(entryMapId, targetMapId)
+		if minX and maxX and minY and maxY then
+			local projX = minX + entryX * (maxX - minX)
+			local projY = minY + entryY * (maxY - minY)
+			return projX, projY
+		end
+		return nil, nil
+	end
+
+	-- Case 2: Target is a child map, entry is on a parent (e.g., continent pin on zone view)
+	-- Inverse projection: continent coords -> zone coords
+	if IsDescendantOf(targetMapId, entryMapId) then
+		local minX, maxX, minY, maxY = C_Map.GetMapRectOnMap(targetMapId, entryMapId)
+		if minX and maxX and minY and maxY then
+			local width = maxX - minX
+			local height = maxY - minY
+			if width > 0 and height > 0 then
+				local projX = (entryX - minX) / width
+				local projY = (entryY - minY) / height
+				-- Reject pins that fall outside the zone bounds (with small margin)
+				if projX >= -0.05 and projX <= 1.05 and projY >= -0.05 and projY <= 1.05 then
+					return projX, projY
+				end
+			end
+		end
+		return nil, nil
+	end
+
+	-- No parent/child relationship: maps are unrelated
+	return nil, nil
+end
+
 -- Data provider mixin - manages pin lifecycle
 local TeleportDataProvider = CreateFromMixins(MapCanvasDataProviderMixin)
 
@@ -1051,32 +1151,44 @@ function TeleportDataProvider:RefreshAllData(fromOnShow)
 		return
 	end
 
-	-- Build a lookup of portal entries keyed by destination for mage right-click
+	-- Build a lookup of portal entries keyed by original mapId + coordinates for mage right-click
 	local portalLookup = {}
 	for _, expansion in ipairs(module.EXPANSION_ORDER) do
 		local catEntries = module.teleportsByCategory[expansion]
 		if catEntries then
 			for _, entry in ipairs(catEntries) do
-				if entry.isPortal and entry.available and entry.mapId == mapId and entry.mapX and entry.mapY then
-					-- Key by coordinates to match with teleport entry
-					local key = tostring(entry.mapX) .. ':' .. tostring(entry.mapY)
+				if entry.isPortal and entry.available and entry.mapId and entry.mapX and entry.mapY then
+					-- Key by original mapId + coordinates to avoid cross-map false matches
+					local key = entry.mapId .. ':' .. tostring(entry.mapX) .. ':' .. tostring(entry.mapY)
 					portalLookup[key] = entry
 				end
 			end
 		end
 	end
 
-	-- Create pins for non-portal teleport entries
+	-- Create pins for non-portal teleport entries, projecting coordinates to current map
 	for _, expansion in ipairs(module.EXPANSION_ORDER) do
 		local catEntries = module.teleportsByCategory[expansion]
 		if catEntries then
 			for _, entry in ipairs(catEntries) do
-				if entry.mapId == mapId and entry.available and entry.mapX and entry.mapY and not entry.isPortal then
-					-- Attach portal variant if available (for mage right-click)
-					local key = tostring(entry.mapX) .. ':' .. tostring(entry.mapY)
-					entry.portalEntry = portalLookup[key]
+				if entry.available and entry.mapId and entry.mapX and entry.mapY and not entry.isPortal then
+					local projX, projY = TransformCoordinates(entry.mapId, entry.mapX, entry.mapY, mapId)
+					if projX and projY then
+						-- Attach portal variant if available (for mage right-click)
+						local portalKey = entry.mapId .. ':' .. tostring(entry.mapX) .. ':' .. tostring(entry.mapY)
+						entry.portalEntry = portalLookup[portalKey]
 
-					self:GetMap():AcquirePin(PIN_TEMPLATE, entry)
+						---@class SUI.TeleportAssist.PinData
+						---@field entry SUI.TeleportAssist.TeleportEntry
+						---@field projectedX number
+						---@field projectedY number
+						local pinData = {
+							entry = entry,
+							projectedX = projX,
+							projectedY = projY,
+						}
+						self:GetMap():AcquirePin(PIN_TEMPLATE, pinData)
+					end
 				end
 			end
 		end
