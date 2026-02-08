@@ -48,7 +48,7 @@ local Settings = {
 		y = -2,
 	},
 	config = {
-		type = 'Text',
+		type = 'Indicator',
 		DisplayName = 'Health Deficit',
 	},
 }
