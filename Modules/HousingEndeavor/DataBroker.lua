@@ -68,7 +68,8 @@ local function CreateDataObject()
 
 				-- Milestones
 				for i, threshold in ipairs(progress.milestones) do
-					local icon = progress.currentXP >= threshold and '|cff00ff00\226\156\147|r' or '|cff666666\226\151\139|r'
+					local icon = progress.currentXP >= threshold and CreateAtlasMarkup('housing-dashboard-small-checkmark', 14, 14)
+						or CreateAtlasMarkup('housing-dashboard-timertag-clock-icon', 14, 14)
 					local color = progress.currentXP >= threshold and { 0.5, 0.5, 0.5 } or { 1, 1, 1 }
 					tooltip:AddDoubleLine(icon .. ' ' .. L['Milestone'] .. ' ' .. i .. ':', string.format('%.0f XP', threshold), color[1], color[2], color[3], color[1], color[2], color[3])
 				end
