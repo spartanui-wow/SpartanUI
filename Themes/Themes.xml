@@ -5,8 +5,8 @@
 	<Include file="Digital\Style.xml"/>
 	<Include file="Fel\Style.xml"/>
 	<Include file="Minimal\Style.xml"/>
-	<Include file="Gale\Style.xml"/>
+	<!-- <Include file="Gale\Style.xml"/> -->
 	<Include file="Transparent\Style.xml"/>
 	<Include file="Tribal\Style.xml"/>
-	<Script file="Grid\Style.lua"/>
+	<!-- <Script file="Grid\Style.lua"/> -->
 </Ui>
