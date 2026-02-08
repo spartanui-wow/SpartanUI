@@ -174,7 +174,11 @@ local function CreateMenuSkin()
 	-- Logo Button
 	MenuSkin.LogoButton = CreateFrame('Button', nil, MenuSkin)
 	MenuSkin.LogoButton:SetSize(80, 80)
+	-- if SUI.IsTBC then
+	-- 	MenuSkin.LogoButton:SetPoint('BOTTOM', 0, -10)
+	-- else
 	MenuSkin.LogoButton:SetPoint('BOTTOM', 0, -25)
+	-- end
 
 	MenuSkin.LogoButton.texture = MenuSkin.LogoButton:CreateTexture(nil, 'ARTWORK')
 	MenuSkin.LogoButton.texture:SetTexture('Interface\\AddOns\\SpartanUI\\images\\Menu\\SUILogo_white.png')
@@ -274,7 +278,11 @@ end
 
 function MenuSkin:OnFrameShown(showMenu)
 	if showMenu then
-		GameMenuFrame:SetScale(SUI.Skins.DB.Blizzard.GameMenu.Scale or 0.8)
+		if SUI.IsTBC then
+			GameMenuFrame:SetScale(SUI.Skins.DB.Blizzard.GameMenu.Scale or 0.6)
+		else
+			GameMenuFrame:SetScale(SUI.Skins.DB.Blizzard.GameMenu.Scale or 0.8)
+		end
 		self:ResetAnimation()
 		self:OnDataLoaded()
 		self:InterpolatePoints(GameMenuFrame)
@@ -428,6 +436,9 @@ function MenuSkin:InterpolatePoints(center)
 		return
 	end
 	local heightOffset = SUI.IsRetail and 0 or -100
+	if SUI.IsTBC then
+		heightOffset = -50
+	end
 
 	local MainFramePosition = { self:GetPoint() }
 	local gradientEndPoint = { self.Gradient:GetPoint(1) }
