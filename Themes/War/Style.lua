@@ -216,9 +216,6 @@ end
 
 function module:SetupVehicleUI()
 	if SUI.DB.Artwork.VehicleUI then
-		SUI_Art_War:HookScript('OnShow', function()
-			Artwork_Core:trayWatcherEvents()
-		end)
 		RegisterStateDriver(SUI_Art_War, 'visibility', '[overridebar][vehicleui] hide; show')
 	end
 end

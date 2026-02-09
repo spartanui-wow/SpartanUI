@@ -61,10 +61,15 @@ local SetBarVisibility = function(side, state)
 	end
 end
 
+local pendingTrayUpdate = false
+
 local trayWatcherEvents = function()
 	if InCombatLockdown() then
+		pendingTrayUpdate = true
 		return
 	end
+
+	pendingTrayUpdate = false
 
 	-- Make sure we are in the right spot
 	module:updateOffset()
@@ -302,7 +307,15 @@ function module:SlidingTrays(StyleSettings)
 		end
 	end
 
-	trayWatcher:SetScript('OnEvent', trayWatcherEvents)
+	trayWatcher:SetScript('OnEvent', function(self, event)
+		if event == 'PLAYER_REGEN_ENABLED' then
+			if pendingTrayUpdate then
+				trayWatcherEvents()
+			end
+			return
+		end
+		trayWatcherEvents()
+	end)
 	trayWatcher:RegisterEvent('PLAYER_LOGIN')
 	trayWatcher:RegisterEvent('PLAYER_ENTERING_WORLD')
 	trayWatcher:RegisterEvent('ZONE_CHANGED')
@@ -310,6 +323,7 @@ function module:SlidingTrays(StyleSettings)
 	trayWatcher:RegisterEvent('ZONE_CHANGED_NEW_AREA')
 	trayWatcher:RegisterEvent('UNIT_EXITED_VEHICLE')
 	trayWatcher:RegisterEvent('PET_BATTLE_CLOSE')
+	trayWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
 
 	return module.Trays
 end
