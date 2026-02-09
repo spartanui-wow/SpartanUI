@@ -36,11 +36,11 @@ load_addon_config() {
     if [ ! -f "$config" ]; then return; fi
 
     log_info "Loading config from $config..."
-    [ -z "$ADDON_NAME" ] && ADDON_NAME=$(grep "^addon-name:" "$config" | sed 's/^addon-name: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
-    [ -z "$CF_URL" ] && CF_URL=$(grep "  curseforge:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
-    [ -z "$WAGO_URL" ] && WAGO_URL=$(grep "  wago:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
-    [ -z "$DISCORD_SUPPORT" ] && DISCORD_SUPPORT=$(grep "  discord:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
-    [ -z "$GH_PROJECT" ] && GH_PROJECT=$(grep "  roadmap:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | xargs)
+    [ -z "$ADDON_NAME" ] && ADDON_NAME=$(grep "^addon-name:" "$config" | sed 's/^addon-name: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$CF_URL" ] && CF_URL=$(grep "  curseforge:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$WAGO_URL" ] && WAGO_URL=$(grep "  wago:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$DISCORD_SUPPORT" ] && DISCORD_SUPPORT=$(grep "  discord:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$GH_PROJECT" ] && GH_PROJECT=$(grep "  roadmap:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
 }
 
 # Auto-detect addon name from repo metadata
@@ -51,7 +51,7 @@ detect_addon_name() {
     if [ -n "$ADDON_NAME" ]; then return; fi
 
     if [ -f ".pkgmeta" ]; then
-        ADDON_NAME=$(grep "^package-as:" .pkgmeta | sed 's/^package-as: *//' | xargs)
+        ADDON_NAME=$(grep "^package-as:" .pkgmeta | sed 's/^package-as: *//' | sed 's/^ *//;s/ *$//')
     fi
     if [ -n "$ADDON_NAME" ]; then return; fi
 
