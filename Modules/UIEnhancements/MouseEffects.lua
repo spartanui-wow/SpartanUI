@@ -18,10 +18,11 @@ local GCD_SPELL_ID = 61304 -- Global cooldown detection spell
 
 -- Circle style definitions: 1=file texture, 2-4=atlas textures
 local CIRCLE_STYLES = {
-	[1] = { type = 'file', texture = 'Interface\\AddOns\\SpartanUI\\images\\circle' },
+	[1] = { type = 'file', texture = 'Interface\\AddOns\\SpartanUI\\images\\circle.tga' },
 	[2] = { type = 'atlas', atlas = 'ChallengeMode-KeystoneSlotFrameGlow' },
 	[3] = { type = 'atlas', atlas = 'GarrLanding-CircleGlow' },
 	[4] = { type = 'atlas', atlas = 'ShipMission-RedGlowRing' },
+	[5] = { type = 'file', texture = 'Interface\\AddOns\\SpartanUI\\images\\circle.png' },
 }
 
 -- State
@@ -34,9 +35,55 @@ local timeAccumulator = 0
 local isOnUpdateActive = false
 local updateFrame = nil
 
+---Get image data for a circle style (resolves atlas textures to file+coords for AceConfig image buttons)
+---@param styleNum number The circle style number
+---@return string|number texture The texture file path or ID
+---@return number width Display width
+---@return number height Display height
+function module:GetCircleStyleImage(styleNum)
+	local style = CIRCLE_STYLES[styleNum]
+	if not style then
+		return '', 48, 48
+	end
+
+	if style.type == 'atlas' and C_Texture and C_Texture.GetAtlasInfo then
+		local info = C_Texture.GetAtlasInfo(style.atlas)
+		if info then
+			return info.file, 48, 48
+		end
+	end
+
+	return style.texture or '', 48, 48
+end
+
+---Get image coords for a circle style (for atlas textures that need cropping)
+---@param styleNum number The circle style number
+---@return table|nil coords {left, right, top, bottom} or nil for full texture
+function module:GetCircleStyleImageCoords(styleNum)
+	local style = CIRCLE_STYLES[styleNum]
+	if not style then
+		return nil
+	end
+
+	if style.type == 'atlas' and C_Texture and C_Texture.GetAtlasInfo then
+		local info = C_Texture.GetAtlasInfo(style.atlas)
+		if info then
+			return { info.leftTexCoord, info.rightTexCoord, info.topTexCoord, info.bottomTexCoord }
+		end
+	end
+
+	return nil
+end
+
+---Get the number of available circle styles
+---@return number count
+function module:GetCircleStyleCount()
+	return #CIRCLE_STYLES
+end
+
 ---Apply circle style to a texture object
 ---@param tex Texture The texture to apply the style to
----@param styleNum number The circle style number (1-4)
+---@param styleNum number The circle style number
 local function ApplyCircleStyle(tex, styleNum)
 	local style = CIRCLE_STYLES[styleNum] or CIRCLE_STYLES[1]
 	if style.type == 'atlas' then

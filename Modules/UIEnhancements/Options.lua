@@ -131,42 +131,14 @@ function module:BuildOptions()
 							module:ApplyMouseEffectSettings()
 						end,
 					},
-					mouseRingCircleStylePreview = {
-						name = function()
-							return '|cffffffffCircle Style Preview:|r\n'
-								.. '|TInterface\\AddOns\\SpartanUI\\images\\circle:32:32|t  1    '
-								.. '|A:ChallengeMode-KeystoneSlotFrameGlow:32:32|a  2    '
-								.. '|A:GarrLanding-CircleGlow:32:32|a  3    '
-								.. '|A:ShipMission-RedGlowRing:32:32|a  4'
-						end,
+					mouseRingCircleStyleLabel = {
+						name = L['Circle Style'],
 						type = 'description',
 						order = 2.1,
 						fontSize = 'medium',
 						width = 'full',
 					},
-					mouseRingCircleStyle = {
-						name = L['Circle Style'],
-						desc = L['Visual style of the ring texture'],
-						type = 'select',
-						order = 2.2,
-						disabled = function()
-							return not DB.mouseRing.enabled
-						end,
-						values = {
-							[1] = '1',
-							[2] = '2',
-							[3] = '3',
-							[4] = '4',
-						},
-						sorting = { 1, 2, 3, 4 },
-						get = function()
-							return DB.mouseRing.circleStyle or 1
-						end,
-						set = function(_, val)
-							DB.mouseRing.circleStyle = val
-							module:UpdateCircleStyle()
-						end,
-					},
+					-- Circle style image buttons are injected dynamically below
 					mouseRingSize = {
 						name = L['Ring Size'],
 						desc = L['Size of the ring in pixels'],
@@ -477,6 +449,36 @@ function module:BuildOptions()
 			},
 		},
 	}
+
+	-- Inject clickable circle style image buttons into the mouseEffects args
+	local styleArgs = OptionTable.args.mouseEffects.args
+	local styleCount = module:GetCircleStyleCount()
+	for i = 1, styleCount do
+		styleArgs['mouseRingCircleStyle' .. i] = {
+			name = function()
+				local current = DB.mouseRing.circleStyle or 1
+				if current == i then
+					return '|cff00ff00Style ' .. i .. '|r'
+				end
+				return 'Style ' .. i
+			end,
+			type = 'execute',
+			order = 2.1 + (i * 0.01),
+			disabled = function()
+				return not DB.mouseRing.enabled
+			end,
+			image = function()
+				return module:GetCircleStyleImage(i)
+			end,
+			imageCoords = function()
+				return module:GetCircleStyleImageCoords(i)
+			end,
+			func = function()
+				DB.mouseRing.circleStyle = i
+				module:UpdateCircleStyle()
+			end,
+		}
+	end
 
 	SUI.Options:AddOptions(OptionTable, 'UIEnhancements')
 end
