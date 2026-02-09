@@ -8,7 +8,7 @@
 ## X-Curse-Project-ID: 4575
 ## X-WoWI-ID: 18206
 ## X-Wago-ID: vEGPqeN1
-## X-Github: https://github.com/Wutname1/SpartanUI
+## X-Github: https://github.com/spartanui-wow/SpartanUI
 ## X-oUF: SUIUF
 ## RequiredDeps: Libs-AddonTools
 ## OptionalDeps: Bartender4

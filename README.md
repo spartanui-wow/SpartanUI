@@ -5,10 +5,10 @@ SpartanUI (SUI) was originally designed to free your screen by moving a majority
 ---
 
 [![](https://img.shields.io/badge/Patreon-Donate-important?style=for-the-badge&logo=Patreon)](https://www.patreon.com/SpartanUI)
-[![Issues](https://img.shields.io/github/issues/wutname1/SpartanUI?style=for-the-badge)](https://github.com/Wutname1/SpartanUI/issues)
+[![Issues](https://img.shields.io/github/issues/spartanui-wow/SpartanUI?style=for-the-badge)](https://github.com/spartanui-wow/SpartanUI/issues)
 [![Discord](https://img.shields.io/discord/265564257347829771.svg?logo=discord&style=for-the-badge)](https://discord.gg/Qc9TRBv)
-[![GitHub release](https://img.shields.io/github/release/wutname1/spartanui.svg?&style=for-the-badge)](https://www.curseforge.com/wow/addons/spartan-ui)
-[![Package and release](https://img.shields.io/github/workflow/status/Wutname1/SpartanUI/Package%20and%20release?style=for-the-badge)](https://github.com/Wutname1/SpartanUI/actions)
+[![GitHub release](https://img.shields.io/github/release/spartanui-wow/spartanui.svg?&style=for-the-badge)](https://www.curseforge.com/wow/addons/spartan-ui)
+[![Package and release](https://img.shields.io/github/workflow/status/spartanui-wow/SpartanUI/Package%20and%20release?style=for-the-badge)](https://github.com/spartanui-wow/SpartanUI/actions)
 [![YouTube](https://img.shields.io/badge/-Youtube-red?style=for-the-badge&logo=youtube)](https://www.youtube.com/@wutname1Gaming/)
 
 ---
@@ -36,7 +36,7 @@ SpartanUI is designed to free your screen by moving a majority of the interface 
 
 **Notes**
 
-- Please submit bugs and feature requests at [GitHub.](https://github.com/Wutname1/SpartanUI/issues)
+- Please submit bugs and feature requests at [GitHub.](https://github.com/spartanui-wow/SpartanUI/issues)
 - For Support please join the [SpartanUI Discord](https://discord.gg/Qc9TRBv) or join one of the SpartanUI [Dev Streams on Twitch](https://www.twitch.tv/wutname1)
 
 **Required Addons**
@@ -45,7 +45,7 @@ SpartanUI is designed to free your screen by moving a majority of the interface 
 
 Chat Commands
 
-- /sui (Main options window) **See a [list of all](https://github.com/Wutname1/SpartanUI/wiki/Slash-Commands) commands on the [Github Wiki](https://github.com/Wutname1/SpartanUI/wiki/Slash-Commands)**
+- /sui (Main options window) **See a [list of all](https://github.com/spartanui-wow/SpartanUI/wiki/Slash-Commands) commands on the [Github Wiki](https://github.com/spartanui-wow/SpartanUI/wiki/Slash-Commands)**
 
 **F.A.Q**
 
