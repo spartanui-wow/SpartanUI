@@ -449,10 +449,10 @@ local TooltipSetItem = function(tooltip, tooltipData)
 		if SUI.IsRetail and module.DB and module.DB.UpgradeQualityIcons and module.DB.UpgradeQualityIcons.enabled then
 			if C_Item and C_Item.GetItemUpgradeInfo then
 				local upgradeInfo = C_Item.GetItemUpgradeInfo(itemLink)
-				if upgradeInfo and upgradeInfo.currTrack then
-					local categoryData = UPGRADE_CATEGORY_DATA[upgradeInfo.currTrack]
+				if upgradeInfo and upgradeInfo.trackStringID then
+					local categoryData = UPGRADE_CATEGORY_DATA[upgradeInfo.trackStringID]
 					if categoryData and categoryData.tier then
-						local icon = CreateAtlasMarkup('Professions-Icon-Quality-Tier' .. categoryData.tier, 16, 16)
+						local icon = CreateAtlasMarkup('Professions-ChatIcon-Quality-Tier' .. categoryData.tier, 16, 16)
 						-- Find and modify the item level line
 						for i = 2, tooltip:NumLines() do
 							local line = _G[tooltip:GetName() .. 'TextLeft' .. i]

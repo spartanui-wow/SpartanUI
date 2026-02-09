@@ -1,9 +1,22 @@
 ---@class SUI
 local SUI = SUI
+local L = SUI.L
 local module = SUI:NewModule('ImprovedCharacterScreen')
 module.DisplayName = 'Improved Character Screen'
 ------------------------------------------
+-- Upgrade quality tier data for character screen icons (Retail only)
+local UPGRADE_CATEGORY_DATA = {
+	[970] = { name = 'Explorer', tier = 1 },
+	[971] = { name = 'Adventurer', tier = 2 },
+	[972] = { name = 'Veteran', tier = 3 },
+	[973] = { name = 'Champion', tier = 4 },
+	[974] = { name = 'Hero', tier = 5 },
+	[978] = { name = 'Myth', tier = 5 },
+	[998] = { name = 'Awakened', tier = 5 },
+}
+
 ---@class ImprovedCharacterScreenDB
+---@field upgradeQualityIcons boolean
 local DBDefaults = {
 	position = 'BOTTOMRIGHT',
 	fontSize = 14,
@@ -11,6 +24,7 @@ local DBDefaults = {
 		byQuality = false,
 		fontColor = { 1, 1, 1, 1 },
 	},
+	upgradeQualityIcons = true,
 }
 
 local function ButtonOverlay(button)
@@ -74,21 +88,68 @@ local function addTimerunnerThreadCount(button, item)
 end
 
 ---@param button SUI.ICS.ItemButtonFrame
+---@param itemLink string
+local function addUpgradeQualityIcon(button, itemLink)
+	if not SUI.IsRetail or not module.DB.upgradeQualityIcons or SUI:IsModuleDisabled(module) then
+		if button.upgradeQualityIcon then
+			button.upgradeQualityIcon:Hide()
+		end
+		return
+	end
+
+	if not itemLink or not C_Item or not C_Item.GetItemUpgradeInfo then
+		if button.upgradeQualityIcon then
+			button.upgradeQualityIcon:Hide()
+		end
+		return
+	end
+
+	local upgradeInfo = C_Item.GetItemUpgradeInfo(itemLink)
+	if not upgradeInfo or not upgradeInfo.trackStringID then
+		if button.upgradeQualityIcon then
+			button.upgradeQualityIcon:Hide()
+		end
+		return
+	end
+
+	local categoryData = UPGRADE_CATEGORY_DATA[upgradeInfo.trackStringID]
+	if not categoryData or not categoryData.tier then
+		if button.upgradeQualityIcon then
+			button.upgradeQualityIcon:Hide()
+		end
+		return
+	end
+
+	if not button.upgradeQualityIcon then
+		ButtonOverlay(button)
+		button.upgradeQualityIcon = button.SUIOverlay:CreateFontString(nil, 'OVERLAY')
+		button.upgradeQualityIcon:SetPoint('TOPLEFT', button.SUIOverlay, 'TOPLEFT', -2, 2)
+	end
+
+	local icon = CreateAtlasMarkup('Professions-ChatIcon-Quality-Tier' .. categoryData.tier, 18, 18)
+	button.upgradeQualityIcon:SetText(icon)
+	button.upgradeQualityIcon:Show()
+end
+
+---@param button SUI.ICS.ItemButtonFrame
 ---@param unit UnitId
 local function UpdateItemSlotButton(button, unit)
 	if button.ilvlText then
 		button.ilvlText:Hide()
+	end
+	if button.upgradeQualityIcon then
+		button.upgradeQualityIcon:Hide()
 	end
 
 	local slotID = button:GetID()
 
 	if slotID >= INVSLOT_FIRST_EQUIPPED and slotID <= INVSLOT_LAST_EQUIPPED then
 		local item
+		local itemLink = GetInventoryItemLink(unit, slotID)
 		if unit == 'player' then
 			item = Item:CreateFromEquipmentSlot(slotID)
 		else
 			local itemID = GetInventoryItemID(unit, slotID)
-			local itemLink = GetInventoryItemLink(unit, slotID)
 			if itemLink or itemID then
 				item = itemLink and Item:CreateFromItemLink(itemLink) or Item:CreateFromItemID(itemID)
 			end
@@ -101,6 +162,9 @@ local function UpdateItemSlotButton(button, unit)
 		item:ContinueOnItemLoad(function()
 			-- Add item level text to the overlay frame
 			addiLvlDisplay(button, item:GetCurrentItemLevel(), item:GetItemQuality())
+
+			-- Add upgrade quality tier icon
+			addUpgradeQualityIcon(button, itemLink)
 
 			--Add Text next to item if its Cloak of Infinite Potential
 			if SUI:IsTimerunner() then
@@ -201,11 +265,21 @@ local function Options()
 					},
 				},
 			},
+			upgradeQualityIcons = {
+				type = 'toggle',
+				name = L['Show Upgrade Quality Icons on Character Screen'],
+				desc = L['Display quality tier icons on equipped items in the character screen'],
+				order = 3,
+				width = 'full',
+				hidden = function()
+					return not SUI.IsRetail
+				end,
+			},
 			color = {
 				type = 'group',
 				name = 'Color settings',
 				inline = true,
-				order = 3,
+				order = 4,
 				get = function(info)
 					return module.DB.color[info[#info]]
 				end,
@@ -275,4 +349,5 @@ function module:OnDisable() end
 
 ---@class SUI.ICS.ItemButtonFrame : Frame
 ---@field ilvlText fontstring
+---@field upgradeQualityIcon fontstring
 ---@field location number

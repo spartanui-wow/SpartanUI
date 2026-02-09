@@ -623,6 +623,10 @@ L['Upgrade Quality Icons'] = true
 L['Show Upgrade Quality Icons'] = true
 L['Display quality tier icons next to item level for upgradeable items'] = true
 
+-- Character Screen Upgrade Quality Icons
+L['Show Upgrade Quality Icons on Character Screen'] = true
+L['Display quality tier icons on equipped items in the character screen'] = true
+
 -- Mouse Effects
 L['Mouse Effects'] = true
 L['Mouse Ring'] = true
