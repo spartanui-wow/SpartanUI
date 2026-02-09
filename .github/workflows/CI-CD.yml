@@ -1,9 +1,9 @@
-name: Retail - CI/CD
+name: CI/CD
 
 on:
   push:
     tags: ["**"]
-    branches: ["develop"]
+    branches: ["main", "master", "develop"]
 
 jobs:
   release:
@@ -12,13 +12,13 @@ jobs:
       CF_API_KEY: ${{ secrets.CF_API_KEY }}
       WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
       WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
-      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }} # "GITHUB_TOKEN" is a secret always provided to the workflow
+      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Clone project
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Fetch full git history for changelog generation
+          fetch-depth: 0
 
       - name: Generate Smart Changelog with AI Summaries
         env:
@@ -30,10 +30,8 @@ jobs:
           .github/scripts/generate-changelog.sh CHANGELOG.md
 
       - name: Add Changelog to Run Summary
-        run: |
-          cat CHANGELOG.md >> $GITHUB_STEP_SUMMARY
+        run: cat CHANGELOG.md >> $GITHUB_STEP_SUMMARY
 
-      # Run the GitHub Action for the packager project
       - name: Package and release
         uses: BigWigsMods/packager@master
 
