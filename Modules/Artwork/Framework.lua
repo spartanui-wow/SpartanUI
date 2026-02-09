@@ -419,48 +419,12 @@ function module:OnEnable()
 	-- Register with LibsDataBar API if available
 	local function tryRegisterIntegration()
 		if _G.LibsDataBar_RegisterIntegration then
-			local success = _G.LibsDataBar_RegisterIntegration({
-				id = 'spartanui',
-				name = 'SpartanUI Artwork Integration',
-				version = '1.0.0',
-				addon = 'SpartanUI',
-				-- Called when LibsDataBar bar positions change
-				onBarPositionChanged = function(data)
-					if data.changeType == 'move' or data.changeType == 'resize' then
-						module:updateOffset()
-					end
-				end,
-				-- Called when bars are created/destroyed
-				onBarCreated = function(barId, bar)
+			_G.LibsDataBar_RegisterIntegration('SpartanUI', function(event, data)
+				if event == 'refresh' or event == 'resize' or event == 'move' or event == 'show' or event == 'hide' then
 					module:updateOffset()
-				end,
-				onBarDestroyed = function(barId, bar)
-					module:updateOffset()
-				end,
-				-- Called when bars are shown/hidden
-				onBarShown = function(barId)
-					module:updateOffset()
-				end,
-				onBarHidden = function(barId)
-					module:updateOffset()
-				end,
-				-- Function LibsDataBar can call to get current SpartanUI offsets
-				getOffsets = function()
-					return {
-						top = SUI.DB.Artwork.Offset.Top or 0,
-						bottom = SUI.DB.Artwork.Offset.Bottom or 0,
-						left = 0,
-						right = 0,
-					}
-				end,
-			})
-
-			if success then
-				SUI.Log('LibsDataBar integration registered successfully', 'Artwork')
-			else
-				SUI.Log('Failed to register LibsDataBar integration, retrying in 2 seconds', 'Artwork')
-				C_Timer.After(2, tryRegisterIntegration)
-			end
+				end
+			end)
+			SUI.Log('LibsDataBar integration registered successfully', 'Artwork')
 		else
 			-- LibsDataBar not available yet, retry
 			C_Timer.After(1, tryRegisterIntegration)
