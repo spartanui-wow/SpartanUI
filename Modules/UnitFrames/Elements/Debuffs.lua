@@ -9,7 +9,6 @@ local function updateSettings(element, unit, isFullUpdate)
 	element.initialAnchor = DB.position.anchor
 	element['growth-x'] = DB.growthx
 	element['growth-y'] = DB.growthy
-	-- Buffs.spacing = DB.spacing
 	-- Disable showType in Retail to avoid secret aura API errors
 	element.showType = not SUI.IsRetail and DB.showType
 	element.num = DB.number or 10
@@ -46,8 +45,7 @@ local function Build(frame, DB)
 	---@param unit UnitId
 	---@param data UnitAuraInfo
 	local FilterAura = function(element, unit, data)
-		UF:debug('Debuffs FilterAura called for unit: ' .. tostring(unit) .. ', auraID: ' .. tostring(data and data.auraInstanceID or 'nil'))
-		return UF.Auras:Filter(element, unit, data, element.DB.rules)
+		return UF.Auras:Filter(element, unit, data)
 	end
 	local PreUpdate = function(self)
 		updateSettings(element)
@@ -140,6 +138,37 @@ local function Options(unitName, OptionSet)
 			OptUpdate('sortMode', val)
 		end,
 	}
+
+	if SUI.IsRetail then
+		-- Retail: Single Filter Mode dropdown backed by Blizzard filter strings
+		OptionSet.args.Display.args.filterMode = {
+			name = L['Filter Mode'],
+			desc = L['Choose how debuffs are filtered. WoW restricts what addons can access in combat, so these modes use safe Blizzard filter categories.'],
+			type = 'select',
+			order = 7,
+			values = {
+				blizzard_default = L['Blizzard Default'],
+				player_auras = L['Your Debuffs Only'],
+				raid_auras = L['Raid-Important Debuffs'],
+				all = L['Show All'],
+			},
+			get = function()
+				local retail = ElementSettings.retail
+				return retail and retail.filterMode or 'blizzard_default'
+			end,
+			set = function(_, val)
+				-- Ensure retail config exists
+				ElementSettings.retail = ElementSettings.retail or {}
+				ElementSettings.retail.filterMode = val
+
+				local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
+				userSettings.retail = userSettings.retail or {}
+				userSettings.retail.filterMode = val
+
+				UF.Unit[unitName]:ElementUpdate('Debuffs')
+			end,
+		}
+	end
 end
 
 ---@type SUI.UF.Elements.Settings
@@ -150,8 +179,8 @@ local Settings = {
 	width = false,
 	ShowBoss = true,
 	showType = true,
-	showDuration = true, -- Show duration text on aura icons
-	sortMode = 'priority', -- Sort mode: 'priority', 'time', 'name', or nil for default
+	showDuration = true,
+	sortMode = 'priority',
 	growthx = 'LEFT',
 	growthy = 'UP',
 	rows = 2,
@@ -159,27 +188,34 @@ local Settings = {
 		anchor = 'TOPRIGHT',
 		relativePoint = 'BOTTOMRIGHT',
 	},
-	rules = {
-		duration = {
-			enabled = true,
-			maxTime = 180,
-			minTime = 1,
-		},
-		-- Classic filters (preserved)
-		isHarmful = true,
-		isBossAura = true,
-		-- Retail boolean filters (12.0.0+)
-		isFromPlayerOrPlayerPet = false,
-		isHelpful = false,
-		isStealable = false,
-		isRaid = false,
-		nameplateShowPersonal = false,
-		nameplateShowAll = false,
-		isNameplateOnly = false,
-		canApplyAura = false,
-	},
 	config = {
 		type = 'Auras',
+	},
+	-- Retail filter config
+	retail = {
+		filterMode = 'blizzard_default',
+	},
+	-- Classic filter config
+	classic = {
+		rules = {
+			duration = {
+				enabled = true,
+				maxTime = 180,
+				minTime = 1,
+			},
+			isHarmful = true,
+			isBossAura = true,
+			isFromPlayerOrPlayerPet = false,
+			isHelpful = false,
+			isStealable = false,
+			isRaid = false,
+			nameplateShowPersonal = false,
+			nameplateShowAll = false,
+			isNameplateOnly = false,
+			canApplyAura = false,
+		},
+		whitelist = {},
+		blacklist = {},
 	},
 }
 UF.Elements:Register('Debuffs', Build, Update, Options, Settings)

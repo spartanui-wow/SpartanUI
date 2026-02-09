@@ -148,8 +148,9 @@ local function Build(frame, DB)
 	---@param unit UnitId
 	---@param data UnitAuraInfo
 	local FilterAura = function(element, unit, data)
-		-- Use enhanced filtering system
-		return UF.Auras:Filter(element, unit, data, element.DB.rules) and element:CustomAuraFilter(unit, data)
+		-- Use the base filter dispatcher (reads retail/classic config from element.DB)
+		-- Then apply AuraBars-specific role filtering
+		return UF.Auras:Filter(element, unit, data) and element:CustomAuraFilter(unit, data)
 	end
 	element.FilterAura = FilterAura
 
@@ -424,33 +425,58 @@ local function Options(unitName, OptionSet)
 	}
 
 	-- Add standard filtering options using the shared system
-	local FilterGet = function(info, key)
-		if info[#info - 1] == 'duration' then
-			return ElementSettings.rules.duration[info[#info]] or false
-		else
-			return ElementSettings.rules[key] or false
+	local FilterGet, FilterSet
+	if SUI.IsRetail then
+		FilterGet = function()
+			return false
 		end
-	end
+		FilterSet = function() end
+	else
+		local classicSettings = ElementSettings.classic or ElementSettings
+		local classicRules = classicSettings.rules or {}
+		local userAuraBars = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars
+		local classicUserSetting = userAuraBars.classic or userAuraBars
 
-	local FilterSet = function(info, key, val)
-		if info[#info - 1] == 'duration' then
-			if (info[#info] == 'minTime') and key > ElementSettings.rules.duration.maxTime then
-				return
-			elseif (info[#info] == 'maxTime') and key < ElementSettings.rules.duration.minTime then
-				return
+		FilterGet = function(info, key)
+			if info[#info - 1] == 'duration' then
+				return classicRules.duration and classicRules.duration[info[#info]] or false
+			else
+				return classicRules[key] or false
 			end
-			UF.CurrentSettings[unitName].elements.AuraBars.rules.duration[info[#info]] = key
-			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars.rules.duration[info[#info]] = key
-		else
-			UF.CurrentSettings[unitName].elements.AuraBars.rules[info[#info]] = key
-			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars.rules[info[#info]] = key
 		end
-		UF.Unit[unitName]:ElementUpdate('AuraBars')
+
+		FilterSet = function(info, key, val)
+			if info[#info - 1] == 'duration' then
+				if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
+					return
+				elseif (info[#info] == 'maxTime') and classicRules.duration and key < classicRules.duration.minTime then
+					return
+				end
+				classicSettings.rules = classicSettings.rules or {}
+				classicSettings.rules.duration = classicSettings.rules.duration or {}
+				classicUserSetting.rules = classicUserSetting.rules or {}
+				classicUserSetting.rules.duration = classicUserSetting.rules.duration or {}
+
+				classicSettings.rules.duration[info[#info]] = key
+				classicUserSetting.rules.duration[info[#info]] = key
+			else
+				classicSettings.rules = classicSettings.rules or {}
+				classicUserSetting.rules = classicUserSetting.rules or {}
+
+				classicSettings.rules[info[#info]] = key
+				classicUserSetting.rules[info[#info]] = key
+			end
+			UF.Unit[unitName]:ElementUpdate('AuraBars')
+		end
 	end
 
 	UF.Options:AddAuraFilters(unitName, OptionSet, FilterSet, FilterGet)
 
-	-- Add whitelist/blacklist options
+	-- Add whitelist/blacklist options (Classic only - already guarded in AddAuraWhitelistBlacklist)
+	local wlClassicSettings = ElementSettings.classic or ElementSettings
+	local wlUserAuraBars = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars
+	local wlClassicUserSetting = wlUserAuraBars.classic or wlUserAuraBars
+
 	local additem = function(info, input)
 		local spellId
 		if type(input) == 'string' then
@@ -470,8 +496,11 @@ local function Options(unitName, OptionSet)
 			end
 		end
 
-		ElementSettings.rules[info[#info - 1]][spellId] = true
-		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars.rules[info[#info - 1]][spellId] = true
+		local mode = info[#info - 1]
+		wlClassicSettings[mode] = wlClassicSettings[mode] or {}
+		wlClassicSettings[mode][spellId] = true
+		wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}
+		wlClassicUserSetting[mode][spellId] = true
 
 		UF.Unit[unitName]:ElementUpdate('AuraBars')
 	end
@@ -630,15 +659,22 @@ local Settings = {
 		x = 7,
 		y = 20,
 	},
-	rules = {
-		duration = {
-			enabled = false,
-			mode = 'exclude',
-			maxTime = 900,
-			minTime = 1,
+	-- Retail filter config (base filter uses filterMode from Auras:Filter)
+	retail = {
+		filterMode = 'player_auras',
+	},
+	-- Classic filter config
+	classic = {
+		rules = {
+			duration = {
+				enabled = false,
+				mode = 'exclude',
+				maxTime = 900,
+				minTime = 1,
+			},
+			showPlayers = true,
+			isBossAura = true,
 		},
-		showPlayers = true,
-		isBossAura = true,
 		whitelist = {},
 		blacklist = {},
 	},

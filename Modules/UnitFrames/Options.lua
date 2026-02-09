@@ -631,50 +631,38 @@ end
 ---@param set function
 ---@param get function
 function Options:AddAuraFilters(frameName, OptionSet, set, get)
-	OptionSet.args.Filters = {
-		name = L['Basic filters'],
-		type = 'group',
-		order = 1,
-		get = get,
-		set = set,
-		args = {},
-	}
-
 	if SUI.IsRetail then
-		-- RETAIL (12.0+): Most aura properties are "secret values" that cannot be tested
-		-- Only these filters actually work:
-		--   - isFromPlayerOrPlayerPet (via isPlayerAura computed by oUF)
-		-- All other filter properties (isBossAura, isStealable, duration, etc.) are SECRET VALUES
-		-- and cannot be used for filtering in Retail.
-
-		OptionSet.args.Filters.args.retailNotice = {
-			type = 'description',
-			name = '|cffFF6600WoW 12.0 API Restrictions|r\n\n'
-				.. 'Blizzard has restricted most aura properties to prevent automation. '
-				.. 'In Retail, only the "Your auras only" filter works. '
-				.. 'Duration text is also unavailable (the cooldown spiral still shows duration).\n\n'
-				.. 'Full filtering (duration, whitelist/blacklist, boss auras, etc.) is available in Classic/Wrath/Cata.',
-			order = 0,
-			fontSize = 'medium',
-		}
-
-		-- RETAIL: Only filter that actually works
-		OptionSet.args.Filters.args.workingFilters = {
-			name = L['Available Filters'],
+		-- RETAIL (12.0+): Filter mode is controlled by the element's own Options function
+		-- (filterMode dropdown in Buffs.lua / Debuffs.lua Display section)
+		-- Only add a notice here explaining the limitations
+		OptionSet.args.Filters = {
+			name = L['Filters'],
 			type = 'group',
 			order = 1,
-			inline = true,
 			args = {
-				isFromPlayerOrPlayerPet = {
-					name = L['Your auras only'],
-					desc = L['Only show auras cast by you or your pet'],
-					type = 'toggle',
-					order = 1,
+				retailNotice = {
+					type = 'description',
+					name = '|cffFF6600WoW 12.0 API Restrictions|r\n\n'
+						.. 'Blizzard has restricted most aura properties in combat. '
+						.. 'Use the Filter Mode dropdown in the Display section above to choose which auras to show. '
+						.. 'Duration text is unavailable (the cooldown spiral still shows duration).\n\n'
+						.. 'Full filtering (duration, whitelist/blacklist, boss auras, etc.) is available in Classic.',
+					order = 0,
+					fontSize = 'medium',
 				},
 			},
 		}
 	else
 		-- CLASSIC: Full filtering with duration, whitelist/blacklist
+		OptionSet.args.Filters = {
+			name = L['Basic filters'],
+			type = 'group',
+			order = 1,
+			get = get,
+			set = set,
+			args = {},
+		}
+
 		OptionSet.args.Filters.args.duration = {
 			name = L['Duration'],
 			type = 'group',
@@ -1632,33 +1620,57 @@ function Options:Initialize()
 				Options:AddAuraLayout(frameName, ElementOptSet)
 
 				-- Basic Filtering Options
-				local FilterGet = function(info, key)
-					if info[#info - 1] == 'duration' then
-						return ElementSettings.rules.duration[info[#info]] or false
-					else
-						return ElementSettings.rules[key] or false
+				local FilterGet, FilterSet
+				if SUI.IsRetail then
+					-- Retail: filter mode is handled by the element's own Options function
+					FilterGet = function()
+						return false
 					end
-				end
-				local FilterSet = function(info, key, val)
-					if info[#info - 1] == 'duration' then
-						if (info[#info] == 'minTime') and key > ElementSettings.rules.duration.maxTime then
-							return
-						elseif (info[#info] == 'maxTime') and key < ElementSettings.rules.duration.minTime then
-							return
-						end
+					FilterSet = function() end
+				else
+					-- Classic: full rules-based filtering via classic sub-table
+					local classicSettings = ElementSettings.classic or ElementSettings
+					local classicRules = classicSettings.rules or {}
+					local classicUserSetting = UserSetting.classic or UserSetting
 
-						--Update memory
-						ElementSettings.rules.duration[info[#info]] = key
-						--Update the DB
-						UserSetting.rules.duration[info[#info]] = key
-					else
-						--Update memory
-						ElementSettings.rules[key] = (val or false)
-						--Update the DB
-						UserSetting.rules[key] = (val or nil)
+					FilterGet = function(info, key)
+						if info[#info - 1] == 'duration' then
+							return classicRules.duration and classicRules.duration[info[#info]] or false
+						else
+							return classicRules[key] or false
+						end
 					end
-					--Update Screen
-					UF.Unit[frameName]:ElementUpdate(elementName)
+					FilterSet = function(info, key, val)
+						if info[#info - 1] == 'duration' then
+							if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
+								return
+							elseif (info[#info] == 'maxTime') and classicRules.duration and key < classicRules.duration.minTime then
+								return
+							end
+
+							-- Ensure classic config structure exists
+							classicSettings.rules = classicSettings.rules or {}
+							classicSettings.rules.duration = classicSettings.rules.duration or {}
+							classicUserSetting.rules = classicUserSetting.rules or {}
+							classicUserSetting.rules.duration = classicUserSetting.rules.duration or {}
+
+							--Update memory
+							classicSettings.rules.duration[info[#info]] = key
+							--Update the DB
+							classicUserSetting.rules.duration[info[#info]] = key
+						else
+							-- Ensure classic config structure exists
+							classicSettings.rules = classicSettings.rules or {}
+							classicUserSetting.rules = classicUserSetting.rules or {}
+
+							--Update memory
+							classicSettings.rules[key] = (val or false)
+							--Update the DB
+							classicUserSetting.rules[key] = (val or nil)
+						end
+						--Update Screen
+						UF.Unit[frameName]:ElementUpdate(elementName)
+					end
 				end
 				Options:AddAuraFilters(frameName, ElementOptSet, FilterSet, FilterGet)
 
@@ -1685,6 +1697,10 @@ function Options:Initialize()
 					end,
 				}
 
+				-- Whitelist/Blacklist uses classic sub-table
+				local wlClassicSettings = ElementSettings.classic or ElementSettings
+				local wlClassicUserSetting = UserSetting.classic or UserSetting
+
 				local spellDelete = {
 					type = 'execute',
 					name = L['Delete'],
@@ -1694,13 +1710,18 @@ function Options:Initialize()
 					end,
 					func = function(info)
 						local id = tonumber(info[#info])
+						local mode = info[#info - 2]
 
 						--Remove Setting
-						ElementSettings.rules[info[#info - 2]][id] = nil
-						UserSetting.rules[info[#info - 2]][id] = nil
+						if wlClassicSettings[mode] then
+							wlClassicSettings[mode][id] = nil
+						end
+						if wlClassicUserSetting[mode] then
+							wlClassicUserSetting[mode][id] = nil
+						end
 
 						--Update Screen
-						buildItemList(info[#info - 2])
+						buildItemList(mode)
 						UF.Unit[frameName]:ElementUpdate(elementName)
 					end,
 				}
@@ -1709,7 +1730,8 @@ function Options:Initialize()
 					local spellsOpt = ElementOptSet.args[mode].args.spells.args
 					table.wipe(spellsOpt)
 
-					for spellID, _ in pairs(ElementSettings.rules[mode]) do
+					local modeTable = wlClassicSettings[mode] or {}
+					for spellID, _ in pairs(modeTable) do
 						spellsOpt[spellID .. 'label'] = spellLabel
 						spellsOpt[tostring(spellID)] = spellDelete
 					end
@@ -1733,11 +1755,14 @@ function Options:Initialize()
 						end
 					end
 
-					ElementSettings.rules[info[#info - 1]][spellId] = true
-					UserSetting.rules[info[#info - 1]][spellId] = true
+					local mode = info[#info - 1]
+					wlClassicSettings[mode] = wlClassicSettings[mode] or {}
+					wlClassicSettings[mode][spellId] = true
+					wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}
+					wlClassicUserSetting[mode][spellId] = true
 
 					UF.Unit[frameName]:ElementUpdate(elementName)
-					buildItemList(info[#info - 1])
+					buildItemList(mode)
 				end
 
 				Options:AddAuraWhitelistBlacklist(frameName, ElementOptSet, additem)

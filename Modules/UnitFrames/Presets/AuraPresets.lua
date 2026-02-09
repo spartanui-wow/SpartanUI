@@ -2,14 +2,13 @@
 local UF = SUI.UF
 
 -- Aura Filter Presets for different playstyles
--- These presets configure the Buffs and Debuffs elements for optimal display
+-- Each preset has version-specific filter config (retail/classic) and shared visual settings
 
 ---@class SUI.UF.AuraPresets
 local AuraPresets = {}
 UF.AuraPresets = AuraPresets
 
 -- Preset definitions
--- Each preset contains settings for both Buffs and Debuffs elements
 AuraPresets.Presets = {
 	-- Healer Focus: Prioritize seeing HoTs, defensive cooldowns, and dispellable debuffs
 	healer = {
@@ -21,16 +20,14 @@ AuraPresets.Presets = {
 			number = 12,
 			size = 22,
 			rows = 2,
-			rules = {
-				isFromPlayerOrPlayerPet = true, -- Show your buffs
-				isHelpful = true,
-				isHarmful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 300, -- 5 minutes max
+			retail = { filterMode = 'healing_mode' },
+			classic = {
+				rules = {
+					isFromPlayerOrPlayerPet = true,
+					isHelpful = true,
+					isHarmful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 300 },
 				},
 			},
 		},
@@ -38,17 +35,15 @@ AuraPresets.Presets = {
 			showDuration = true,
 			sortMode = 'priority',
 			number = 10,
-			size = 24, -- Slightly larger for debuffs (healers need to see these)
+			size = 24,
 			rows = 2,
-			rules = {
-				isHarmful = true,
-				isHelpful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 180,
+			retail = { filterMode = 'raid_auras' },
+			classic = {
+				rules = {
+					isHarmful = true,
+					isHelpful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 180 },
 				},
 			},
 		},
@@ -64,17 +59,15 @@ AuraPresets.Presets = {
 			number = 8,
 			size = 20,
 			rows = 2,
-			rules = {
-				isFromPlayerOrPlayerPet = true,
-				isHelpful = true,
-				isHarmful = false,
-				isBossAura = true,
-				isRaid = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 180,
+			retail = { filterMode = 'raid_auras' },
+			classic = {
+				rules = {
+					isFromPlayerOrPlayerPet = true,
+					isHelpful = true,
+					isHarmful = false,
+					isBossAura = true,
+					isRaid = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 180 },
 				},
 			},
 		},
@@ -82,17 +75,15 @@ AuraPresets.Presets = {
 			showDuration = true,
 			sortMode = 'priority',
 			number = 8,
-			size = 26, -- Large debuffs for raid awareness
+			size = 26,
 			rows = 1,
-			rules = {
-				isHarmful = true,
-				isHelpful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 120,
+			retail = { filterMode = 'blizzard_default' },
+			classic = {
+				rules = {
+					isHarmful = true,
+					isHelpful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 120 },
 				},
 			},
 		},
@@ -104,39 +95,35 @@ AuraPresets.Presets = {
 		description = 'Optimized for damage dealers. Shows your DoTs, offensive buffs, and procs.',
 		Buffs = {
 			showDuration = true,
-			sortMode = 'time', -- Sort by time for proc tracking
+			sortMode = 'priority',
 			number = 10,
 			size = 20,
 			rows = 2,
-			rules = {
-				isFromPlayerOrPlayerPet = true,
-				isHelpful = true,
-				isHarmful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 60, -- Short buffs only (procs, CDs)
+			retail = { filterMode = 'player_auras' },
+			classic = {
+				rules = {
+					isFromPlayerOrPlayerPet = true,
+					isHelpful = true,
+					isHarmful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 60 },
 				},
 			},
 		},
 		Debuffs = {
 			showDuration = true,
-			sortMode = 'time',
+			sortMode = 'priority',
 			number = 8,
 			size = 22,
 			rows = 1,
-			rules = {
-				isFromPlayerOrPlayerPet = true, -- Your DoTs
-				isHarmful = true,
-				isHelpful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 60,
+			retail = { filterMode = 'player_auras' },
+			classic = {
+				rules = {
+					isFromPlayerOrPlayerPet = true,
+					isHarmful = true,
+					isHelpful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 60 },
 				},
 			},
 		},
@@ -152,16 +139,14 @@ AuraPresets.Presets = {
 			number = 10,
 			size = 24,
 			rows = 2,
-			rules = {
-				isFromPlayerOrPlayerPet = true,
-				isHelpful = true,
-				isHarmful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 120, -- Defensive CDs are often 1-2 min
+			retail = { filterMode = 'player_auras' },
+			classic = {
+				rules = {
+					isFromPlayerOrPlayerPet = true,
+					isHelpful = true,
+					isHarmful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 120 },
 				},
 			},
 		},
@@ -171,15 +156,13 @@ AuraPresets.Presets = {
 			number = 8,
 			size = 26,
 			rows = 1,
-			rules = {
-				isHarmful = true,
-				isHelpful = false,
-				isBossAura = true, -- Boss debuffs important for tanks
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 60,
+			retail = { filterMode = 'blizzard_default' },
+			classic = {
+				rules = {
+					isHarmful = true,
+					isHelpful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 60 },
 				},
 			},
 		},
@@ -195,16 +178,14 @@ AuraPresets.Presets = {
 			number = 4,
 			size = 18,
 			rows = 1,
-			rules = {
-				isFromPlayerOrPlayerPet = true,
-				isHelpful = true,
-				isHarmful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 60,
+			retail = { filterMode = 'blizzard_default' },
+			classic = {
+				rules = {
+					isFromPlayerOrPlayerPet = true,
+					isHelpful = true,
+					isHarmful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 60 },
 				},
 			},
 		},
@@ -214,20 +195,84 @@ AuraPresets.Presets = {
 			number = 4,
 			size = 20,
 			rows = 1,
-			rules = {
-				isHarmful = true,
-				isHelpful = false,
-				isBossAura = true,
-				duration = {
-					enabled = true,
-					mode = 'include',
-					minTime = 1,
-					maxTime = 60,
+			retail = { filterMode = 'blizzard_default' },
+			classic = {
+				rules = {
+					isHarmful = true,
+					isHelpful = false,
+					isBossAura = true,
+					duration = { enabled = true, mode = 'include', minTime = 1, maxTime = 60 },
 				},
 			},
 		},
 	},
 }
+
+-- Retail-only presets (hidden on Classic where the full filter system covers these use cases)
+if SUI.IsRetail then
+	AuraPresets.Presets.show_all = {
+		name = 'Show All',
+		description = 'Shows all auras that Blizzard allows. Useful for seeing everything.',
+		Buffs = {
+			showDuration = true,
+			sortMode = 'priority',
+			number = 16,
+			size = 18,
+			rows = 2,
+			retail = { filterMode = 'all' },
+		},
+		Debuffs = {
+			showDuration = true,
+			sortMode = 'priority',
+			number = 16,
+			size = 18,
+			rows = 2,
+			retail = { filterMode = 'all' },
+		},
+	}
+
+	AuraPresets.Presets.pvp = {
+		name = 'PvP',
+		description = 'PvP-oriented. Shows your buffs and all enemy debuffs.',
+		Buffs = {
+			showDuration = true,
+			sortMode = 'priority',
+			number = 10,
+			size = 22,
+			rows = 2,
+			retail = { filterMode = 'player_auras' },
+		},
+		Debuffs = {
+			showDuration = true,
+			sortMode = 'priority',
+			number = 10,
+			size = 22,
+			rows = 2,
+			retail = { filterMode = 'blizzard_default' },
+		},
+	}
+
+	AuraPresets.Presets.raid_healer = {
+		name = 'Raid Healer',
+		description = 'Focused healing layout for organized raiding. HoTs on buffs, raid-important debuffs.',
+		Buffs = {
+			showDuration = true,
+			sortMode = 'priority',
+			number = 14,
+			size = 24,
+			rows = 2,
+			retail = { filterMode = 'healing_mode' },
+		},
+		Debuffs = {
+			showDuration = true,
+			sortMode = 'priority',
+			number = 8,
+			size = 26,
+			rows = 1,
+			retail = { filterMode = 'raid_auras' },
+		},
+	}
+end
 
 -- Get list of preset names for dropdown
 ---@return table<string, string>
@@ -250,51 +295,37 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 		return
 	end
 
-	-- Apply Buffs settings
-	if preset.Buffs and UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements.Buffs then
-		local buffsSettings = UF.CurrentSettings[unitName].elements.Buffs
-		local userBuffs = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Buffs
+	local branch = SUI.IsRetail and 'retail' or 'classic'
 
-		for key, value in pairs(preset.Buffs) do
-			if key == 'rules' then
-				-- Merge rules
-				for ruleKey, ruleValue in pairs(value) do
-					buffsSettings.rules[ruleKey] = ruleValue
-					userBuffs.rules[ruleKey] = ruleValue
+	for _, elementName in ipairs({ 'Buffs', 'Debuffs' }) do
+		local presetElement = preset[elementName]
+		if presetElement and UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements[elementName] then
+			local currentSettings = UF.CurrentSettings[unitName].elements[elementName]
+			local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements[elementName]
+
+			-- Apply shared visual settings
+			for key, value in pairs(presetElement) do
+				if key ~= 'retail' and key ~= 'classic' and key ~= 'rules' then
+					currentSettings[key] = value
+					userSettings[key] = value
 				end
-			else
-				buffsSettings[key] = value
-				userBuffs[key] = value
 			end
-		end
 
-		-- Update the element
-		if UF.Unit[unitName] then
-			UF.Unit[unitName]:ElementUpdate('Buffs')
-		end
-	end
-
-	-- Apply Debuffs settings
-	if preset.Debuffs and UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements.Debuffs then
-		local debuffsSettings = UF.CurrentSettings[unitName].elements.Debuffs
-		local userDebuffs = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
-
-		for key, value in pairs(preset.Debuffs) do
-			if key == 'rules' then
-				-- Merge rules
-				for ruleKey, ruleValue in pairs(value) do
-					debuffsSettings.rules[ruleKey] = ruleValue
-					userDebuffs.rules[ruleKey] = ruleValue
+			-- Apply version-specific filter config
+			local filterConfig = presetElement[branch]
+			if filterConfig then
+				currentSettings[branch] = currentSettings[branch] or {}
+				userSettings[branch] = userSettings[branch] or {}
+				for key, value in pairs(filterConfig) do
+					currentSettings[branch][key] = value
+					userSettings[branch][key] = value
 				end
-			else
-				debuffsSettings[key] = value
-				userDebuffs[key] = value
 			end
-		end
 
-		-- Update the element
-		if UF.Unit[unitName] then
-			UF.Unit[unitName]:ElementUpdate('Debuffs')
+			-- Update the element
+			if UF.Unit[unitName] then
+				UF.Unit[unitName]:ElementUpdate(elementName)
+			end
 		end
 	end
 

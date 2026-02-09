@@ -9,7 +9,6 @@ local function updateSettings(element, unit, isFullUpdate)
 	element.initialAnchor = DB.position.anchor
 	element['growth-x'] = DB.growthx
 	element['growth-y'] = DB.growthy
-	-- Buffs.spacing = DB.spacing
 	-- Disable showType in Retail to avoid secret aura API errors
 	element.showType = not SUI.IsRetail and DB.showType
 	element.num = DB.number or 10
@@ -46,7 +45,7 @@ local function Build(frame, DB)
 	---@param unit UnitId
 	---@param data UnitAuraInfo
 	local FilterAura = function(element, unit, data)
-		return UF.Auras:Filter(element, unit, data, element.DB.rules)
+		return UF.Auras:Filter(element, unit, data)
 	end
 	local PreUpdate = function(self)
 		updateSettings(element)
@@ -139,33 +138,51 @@ local function Options(unitName, OptionSet)
 		end,
 	}
 
-	OptionSet.args.Display.args.onlyShowPlayer = {
-		name = L['Only Show Your Auras'],
-		desc = L['Only display buffs cast by you'],
-		type = 'toggle',
-		order = 7,
-		get = function()
-			return ElementSettings.onlyShowPlayer
-		end,
-		set = function(_, val)
-			OptUpdate('onlyShowPlayer', val)
-		end,
-	}
+	if SUI.IsRetail then
+		-- Retail: Single Filter Mode dropdown backed by Blizzard filter strings
+		OptionSet.args.Display.args.filterMode = {
+			name = L['Filter Mode'],
+			desc = L['Choose how buffs are filtered. WoW restricts what addons can access in combat, so these modes use safe Blizzard filter categories.'],
+			type = 'select',
+			order = 7,
+			values = {
+				blizzard_default = L['Blizzard Default'],
+				player_auras = L['Your Auras Only'],
+				raid_auras = L['Raid-Important Auras'],
+				healing_mode = L['Healing Mode (HoTs)'],
+				all = L['Show All'],
+			},
+			get = function()
+				local retail = ElementSettings.retail
+				return retail and retail.filterMode or 'blizzard_default'
+			end,
+			set = function(_, val)
+				-- Ensure retail config exists
+				ElementSettings.retail = ElementSettings.retail or {}
+				ElementSettings.retail.filterMode = val
 
-	-- Healing Mode - only available in Retail 12.1+ with RAID_IN_COMBAT filter
-	OptionSet.args.Display.args.healingMode = {
-		name = L['Healing Mode'],
-		desc = L['Show HoTs and combat-relevant buffs (Rejuvenation, Renew, etc). Uses RAID_IN_COMBAT filter. Retail 12.1+ only.'],
-		type = 'toggle',
-		order = 8,
-		hidden = not SUI.IsRetail,
-		get = function()
-			return ElementSettings.healingMode
-		end,
-		set = function(_, val)
-			OptUpdate('healingMode', val)
-		end,
-	}
+				local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Buffs
+				userSettings.retail = userSettings.retail or {}
+				userSettings.retail.filterMode = val
+
+				UF.Unit[unitName]:ElementUpdate('Buffs')
+			end,
+		}
+	else
+		-- Classic: Only Show Your Auras toggle (uses rules system)
+		OptionSet.args.Display.args.onlyShowPlayer = {
+			name = L['Only Show Your Auras'],
+			desc = L['Only display buffs cast by you'],
+			type = 'toggle',
+			order = 7,
+			get = function()
+				return ElementSettings.onlyShowPlayer
+			end,
+			set = function(_, val)
+				OptUpdate('onlyShowPlayer', val)
+			end,
+		}
+	end
 end
 
 ---@type SUI.UF.Elements.Settings
@@ -174,10 +191,9 @@ local Settings = {
 	size = 20,
 	spacing = 1,
 	showType = true,
-	showDuration = true, -- Show duration text on aura icons
-	sortMode = 'priority', -- Sort mode: 'priority', 'time', 'name', or nil for default
-	onlyShowPlayer = false, -- Only show buffs cast by the player
-	healingMode = false, -- Retail 12.1+: Use RAID_IN_COMBAT filter to show HoTs
+	showDuration = true,
+	sortMode = 'priority',
+	onlyShowPlayer = false,
 	width = false,
 	growthx = 'RIGHT',
 	growthy = 'DOWN',
@@ -189,25 +205,32 @@ local Settings = {
 	config = {
 		type = 'Auras',
 	},
-	rules = {
-		duration = {
-			enabled = true,
-			maxTime = 180,
-			minTime = 1,
+	-- Retail filter config
+	retail = {
+		filterMode = 'blizzard_default',
+	},
+	-- Classic filter config
+	classic = {
+		rules = {
+			duration = {
+				enabled = true,
+				maxTime = 180,
+				minTime = 1,
+			},
+			isBossAura = true,
+			showPlayers = true,
+			isFromPlayerOrPlayerPet = false,
+			isHelpful = true,
+			isHarmful = false,
+			isStealable = false,
+			isRaid = false,
+			nameplateShowPersonal = false,
+			nameplateShowAll = false,
+			isNameplateOnly = false,
+			canApplyAura = false,
 		},
-		-- Classic filters (preserved)
-		isBossAura = true,
-		showPlayers = true,
-		-- Retail boolean filters (12.0.0+)
-		isFromPlayerOrPlayerPet = false,
-		isHelpful = true,
-		isHarmful = false,
-		isStealable = false,
-		isRaid = false,
-		nameplateShowPersonal = false,
-		nameplateShowAll = false,
-		isNameplateOnly = false,
-		canApplyAura = false,
+		whitelist = {},
+		blacklist = {},
 	},
 }
 UF.Elements:Register('Buffs', Build, Update, Options, Settings)

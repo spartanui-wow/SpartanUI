@@ -105,191 +105,204 @@ end
 -- Export for use in other modules
 Auras.LogAuraSecretStatus = LogAuraSecretStatus
 
+-- RETAIL FILTER: Uses only Blizzard-safe APIs and oUF-safe properties.
+-- No access to secret values (name, spellId, duration, dispelName, sourceUnit, etc.)
+---@param element any
 ---@param unit UnitId
 ---@param data UnitAuraInfo
----@param rules SUI.UF.Auras.Rules
-function Auras:Filter(element, unit, data, rules)
-	-- Commented out verbose entry logging - uncomment if needed
-	-- UF:debug('Auras:Filter ENTRY - unit: ' .. tostring(unit) .. ', auraID: ' .. tostring(data and data.auraInstanceID or 'nil'))
+---@param config SUI.UF.Auras.RetailConfig
+---@return boolean
+function Auras:FilterRetail(element, unit, data, config)
+	local filterMode = config and config.filterMode or 'blizzard_default'
+	local auraInstanceID = data.auraInstanceID
 
-	if not SUI.BlizzAPI.canaccesstable(data) then
-		UF:debug('Auras:Filter - data not accessible, returning true')
+	if filterMode == 'all' then
 		return true
 	end
 
-	-- Log secret value status for diagnostics (only logs once per aura)
-	-- Commented out - too verbose. Uncomment for deep aura debugging:
-	-- LogAuraSecretStatus(data, unit)
-
-	if SUI.IsRetail then
-		-- RETAIL (12.0+): Aura data properties are "secret values" in combat
-		-- Use C_UnitAuras.IsAuraFilteredOutByInstanceID with RAID filter to check
-		-- if an aura should show on raid frames - this works even in combat!
-
-		-- Check both rules table AND element-level onlyShowPlayer setting
-		local showPlayerOnly = rules.isFromPlayerOrPlayerPet or element.onlyShowPlayer
-
-		-- Check for healing mode (12.1+ RAID_IN_COMBAT filter)
-		local healingMode = element.DB and element.DB.healingMode
-
-		if showPlayerOnly then
-			-- Only show player's own auras (isPlayerAura is safe - created by oUF)
-			if data.isPlayerAura ~= true then
-				return false
-			end
-
-			-- Filter out permanent buffs (duration = 0) - these are world/event buffs, not player-cast HoTs
-			-- Real HoTs and buffs always have a duration
-			local duration = data.duration
-			if not SUI.BlizzAPI.issecretvalue(duration) and duration == 0 then
-				return false
-			end
-
-			-- Player cast this aura with a duration - show it
-			return true
-		end
-
-		-- Healing Mode without player-only filter
-		if healingMode then
-			local auraInstanceID = data.auraInstanceID
-			if auraInstanceID then
-				-- Show any aura that passes RAID_IN_COMBAT filter
-				local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'RAID_IN_COMBAT')
-				if not isFilteredOut then
-					return true
-				end
-			end
-		end
-
-		-- No player-only filter - use RAID filter to only show important auras
-		-- This prevents showing ALL buffs (food buffs, mount auras, etc.)
-		local auraInstanceID = data.auraInstanceID
-		if auraInstanceID then
-			-- Check if the aura passes the RAID filter (shows on raid frames)
-			local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'HELPFUL|RAID')
-			if not isFilteredOut then
-				return true
-			end
-		end
-
-		-- Aura doesn't pass RAID filter - hide it
-		return false
-	else
-		-- CLASSIC: Full filtering including whitelist/blacklist/duration
-		local spellIdNum = data.spellId and tonumber(data.spellId)
-
-		---@param msg any
-		local function debug(msg)
-			if not UF.MonitoredBuffs[unit] then
-				UF.MonitoredBuffs[unit] = {}
-			end
-
-			if spellIdNum and SUI:IsInTable(UF.MonitoredBuffs[unit], spellIdNum) and UF.Log then
-				UF.Log.debug('[UF.Auras] ' .. tostring(msg))
-			end
-		end
-		local ShouldDisplay = false
-		-- Use string key for consistent lookup (ALT+click uses tostring)
-		local spellKey = tostring(data.spellId)
-		element.displayReasons[spellKey] = {}
-
-		local function AddDisplayReason(reason)
-			debug('Adding display reason ' .. reason)
-			element.displayReasons[spellKey][reason] = true
-			ShouldDisplay = true
-		end
-
-		debug('----')
-		debug(data.spellId)
-
-		-- EXCLUSIVE: If showPlayers is enabled, ONLY show player-cast buffs
-		-- This check must happen BEFORE other rules that might set ShouldDisplay = true
-		if rules.showPlayers and data.sourceUnit ~= 'player' then
-			debug('showPlayers enabled but sourceUnit is not player, rejecting')
+	if filterMode == 'player_auras' then
+		-- isPlayerAura is safe - created by oUF using C_UnitAuras.IsAuraFilteredOutByInstanceID
+		if data.isPlayerAura ~= true then
 			return false
 		end
+		-- Filter out permanent buffs (duration = 0) - world/event buffs, not player-cast HoTs
+		local duration = data.duration
+		if not SUI.BlizzAPI.issecretvalue(duration) and duration == 0 then
+			return false
+		end
+		return true
+	end
 
-		for k, v in pairs(rules) do
-			-- debug(k)
-			if data[k] then
-				-- debug(data.name)
-				if type(v) == 'table' then
-					if SUI:IsInTable(v, data[k]) then
-						if v[data[k]] then
-							debug('Force show per rules')
-							AddDisplayReason(k)
-						else
-							debug('Force hide per rules')
-							return false
-						end
-					end
-				elseif type(v) == 'boolean' then
-					if v and v == data[k] then
-						debug(k .. ' Not equal')
+	if filterMode == 'healing_mode' then
+		if auraInstanceID then
+			-- RAID_IN_COMBAT filter shows HoTs and combat-relevant buffs (12.1+)
+			local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'RAID_IN_COMBAT')
+			return not isFilteredOut
+		end
+		return false
+	end
+
+	if filterMode == 'raid_auras' then
+		if auraInstanceID then
+			-- Use RAID filter variant based on buff vs debuff
+			local filter = data.isHarmfulAura and 'HARMFUL|RAID' or 'HELPFUL|RAID'
+			local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, filter)
+			return not isFilteredOut
+		end
+		return false
+	end
+
+	-- 'blizzard_default': RAID filter for buffs, pass-through for debuffs
+	if auraInstanceID then
+		if data.isHarmfulAura then
+			-- Debuffs: show all that pass base HARMFUL filter (oUF handles this)
+			return true
+		end
+		-- Buffs: use RAID filter to avoid showing food buffs, mount auras, etc.
+		local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'HELPFUL|RAID')
+		return not isFilteredOut
+	end
+	return false
+end
+
+-- CLASSIC FILTER: Full access to all aura properties.
+-- Supports duration rules, whitelist/blacklist, spell-specific matching, displayReasons tracking.
+---@param element any
+---@param unit UnitId
+---@param data UnitAuraInfo
+---@param config SUI.UF.Auras.ClassicConfig
+---@return boolean
+function Auras:FilterClassic(element, unit, data, config)
+	local rules = config and config.rules or {}
+	local spellIdNum = data.spellId and tonumber(data.spellId)
+
+	---@param msg any
+	local function debug(msg)
+		if not UF.MonitoredBuffs[unit] then
+			UF.MonitoredBuffs[unit] = {}
+		end
+
+		if spellIdNum and SUI:IsInTable(UF.MonitoredBuffs[unit], spellIdNum) and UF.Log then
+			UF.Log.debug('[UF.Auras] ' .. tostring(msg))
+		end
+	end
+	local ShouldDisplay = false
+	-- Use string key for consistent lookup (ALT+click uses tostring)
+	local spellKey = tostring(data.spellId)
+	element.displayReasons[spellKey] = {}
+
+	local function AddDisplayReason(reason)
+		debug('Adding display reason ' .. reason)
+		element.displayReasons[spellKey][reason] = true
+		ShouldDisplay = true
+	end
+
+	debug('----')
+	debug(data.spellId)
+
+	-- EXCLUSIVE: If showPlayers is enabled, ONLY show player-cast buffs
+	-- This check must happen BEFORE other rules that might set ShouldDisplay = true
+	if rules.showPlayers and data.sourceUnit ~= 'player' then
+		debug('showPlayers enabled but sourceUnit is not player, rejecting')
+		return false
+	end
+
+	-- Check whitelist/blacklist from config (not from rules)
+	local whitelist = config.whitelist or {}
+	local blacklist = config.blacklist or {}
+	if whitelist[data.spellId] then
+		AddDisplayReason('whitelist')
+		return true
+	end
+	if blacklist[data.spellId] then
+		debug('Blacklisted')
+		return false
+	end
+
+	for k, v in pairs(rules) do
+		if data[k] then
+			if type(v) == 'table' then
+				if SUI:IsInTable(v, data[k]) then
+					if v[data[k]] then
+						debug('Force show per rules')
 						AddDisplayReason(k)
-					end
-				end
-			elseif k == 'whitelist' or k == 'blacklist' then
-				-- WoW 12.0.0: Use string key for table lookups
-				if v[data.spellId] then
-					if k == 'whitelist' then
-						AddDisplayReason(k)
-						return true
 					else
-						debug('Blacklisted')
+						debug('Force hide per rules')
 						return false
 					end
 				end
-			else
-				if k == 'isMount' and v then
-					-- WoW 12.0.0: Use string key for table lookups
-					if UF.MountIds[data.spellId] then
-						AddDisplayReason(k)
-						return true
-					end
-				elseif k == 'showPlayers' then
-					if v == true and data.sourceUnit == 'player' then
-						debug('Is casted by the player')
-						AddDisplayReason(k)
-						ShouldDisplay = true
-					end
+			elseif type(v) == 'boolean' then
+				if v and v == data[k] then
+					debug(k .. ' Not equal')
+					AddDisplayReason(k)
 				end
-			end
-		end
-
-		if rules.duration.enabled then
-			local moreThanMax = data.duration > rules.duration.maxTime
-			local lessThanMin = data.duration < rules.duration.minTime
-			debug('Durration is ' .. data.duration)
-			debug('Is More than ' .. rules.duration.maxTime .. ' = ' .. (moreThanMax and 'true' or 'false'))
-			debug('Is Less than ' .. rules.duration.minTime .. ' = ' .. (lessThanMin and 'true' or 'false'))
-			if ShouldDisplay and (not lessThanMin and not moreThanMax) and rules.duration.mode == 'include' then
-				AddDisplayReason('duration')
-			elseif ShouldDisplay and (lessThanMin or moreThanMax) and rules.duration.mode == 'exclude' then
-				AddDisplayReason('duration')
-			else
-				debug('Durration check Failed, ShouldDisplay is now false')
-				ShouldDisplay = false
 			end
 		else
-			debug('Durration is not enabled')
-		end
-		debug('ShouldDisplay result ' .. (ShouldDisplay and 'true' or 'false'))
-		debug('----')
-		-- WoW 12.0.0: Use numeric value for table operations
-		if spellIdNum and SUI:IsInTable(UF.MonitoredBuffs[unit], spellIdNum) then
-			for i, v in ipairs(UF.MonitoredBuffs[unit]) do
-				if v == spellIdNum then
-					debug('Removed ' .. data.spellId .. ' from the list of monitored buffs for ' .. unit)
-					table.remove(UF.MonitoredBuffs[unit], i)
-					if UF.Log then
-						UF.Log.debug('[UF.Auras] ----')
-					end
+			if k == 'isMount' and v then
+				if UF.MountIds[data.spellId] then
+					AddDisplayReason(k)
+					return true
+				end
+			elseif k == 'showPlayers' then
+				if v == true and data.sourceUnit == 'player' then
+					debug('Is casted by the player')
+					AddDisplayReason(k)
+					ShouldDisplay = true
 				end
 			end
 		end
+	end
 
-		return ShouldDisplay
+	if rules.duration and rules.duration.enabled then
+		local moreThanMax = data.duration > rules.duration.maxTime
+		local lessThanMin = data.duration < rules.duration.minTime
+		debug('Durration is ' .. data.duration)
+		debug('Is More than ' .. rules.duration.maxTime .. ' = ' .. (moreThanMax and 'true' or 'false'))
+		debug('Is Less than ' .. rules.duration.minTime .. ' = ' .. (lessThanMin and 'true' or 'false'))
+		if ShouldDisplay and (not lessThanMin and not moreThanMax) and rules.duration.mode == 'include' then
+			AddDisplayReason('duration')
+		elseif ShouldDisplay and (lessThanMin or moreThanMax) and rules.duration.mode == 'exclude' then
+			AddDisplayReason('duration')
+		else
+			debug('Durration check Failed, ShouldDisplay is now false')
+			ShouldDisplay = false
+		end
+	else
+		debug('Durration is not enabled')
+	end
+	debug('ShouldDisplay result ' .. (ShouldDisplay and 'true' or 'false'))
+	debug('----')
+	-- WoW 12.0.0: Use numeric value for table operations
+	if spellIdNum and SUI:IsInTable(UF.MonitoredBuffs[unit], spellIdNum) then
+		for i, v in ipairs(UF.MonitoredBuffs[unit]) do
+			if v == spellIdNum then
+				debug('Removed ' .. data.spellId .. ' from the list of monitored buffs for ' .. unit)
+				table.remove(UF.MonitoredBuffs[unit], i)
+				if UF.Log then
+					UF.Log.debug('[UF.Auras] ----')
+				end
+			end
+		end
+	end
+
+	return ShouldDisplay
+end
+
+-- Thin dispatcher: reads version-specific config from element.DB and calls the right filter
+---@param element any
+---@param unit UnitId
+---@param data UnitAuraInfo
+function Auras:Filter(element, unit, data)
+	if not SUI.BlizzAPI.canaccesstable(data) then
+		return true
+	end
+
+	if SUI.IsRetail then
+		local config = element.DB and element.DB.retail or { filterMode = 'blizzard_default' }
+		return self:FilterRetail(element, unit, data, config)
+	else
+		local config = element.DB and element.DB.classic or { rules = element.DB and element.DB.rules or {} }
+		return self:FilterClassic(element, unit, data, config)
 	end
 end
 
@@ -644,8 +657,17 @@ local function CreateAddToFilterWindow(button, elementName)
 				-- WoW 12.0.0: Use string key for table index
 				local spellKey = tostring(button.data.spellId)
 
-				UF.CurrentSettings[frameName].elements[elementName].rules[mode][spellKey] = true
-				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].rules[mode][spellKey] = true
+				-- Classic config uses classic sub-table for whitelist/blacklist
+				local currentClassic = UF.CurrentSettings[frameName].elements[elementName].classic
+				local userClassic = UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].classic
+				if currentClassic then
+					currentClassic[mode] = currentClassic[mode] or {}
+					currentClassic[mode][spellKey] = true
+				end
+				if userClassic then
+					userClassic[mode] = userClassic[mode] or {}
+					userClassic[mode][spellKey] = true
+				end
 
 				UF.Unit[frameName]:ElementUpdate(elementName)
 			end
@@ -787,12 +809,15 @@ function Auras:OnClick(button, elementName)
 					end
 				end
 			else
-				-- Retail: Limited info due to API restrictions
-				SUI:Print('Aura filtering details are limited in Retail due to API restrictions.')
+				-- Retail: Show filter mode info
+				local parent = button:GetParent()
+				local filterMode = parent and parent.DB and parent.DB.retail and parent.DB.retail.filterMode or 'unknown'
+				SUI:Print('Retail filter mode: ' .. filterMode)
 				if UF.Log then
 					UF.Log.info('Retail aura filter check:')
+					UF.Log.info('  filterMode = ' .. filterMode)
 					UF.Log.info('  isPlayerAura = ' .. tostring(data.isPlayerAura))
-					UF.Log.info('  Element onlyShowPlayer = ' .. tostring(button:GetParent() and button:GetParent().onlyShowPlayer))
+					UF.Log.info('  isHarmfulAura = ' .. tostring(data.isHarmfulAura))
 				end
 			end
 		elseif keyDown == 'SHIFT' then
