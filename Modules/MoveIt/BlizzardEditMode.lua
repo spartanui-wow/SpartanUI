@@ -165,34 +165,59 @@ function BlizzardEditMode:EnsureProfileReady(LibEMO)
 
 	-- Check current active layout
 	local currentLayout = LibEMO:GetActiveLayout()
+	local expectedProfile = self:GetMatchingProfileName()
 
-	-- If user is on a different profile, DO NOT switch them or modify that profile
-	if currentLayout and currentLayout ~= 'SpartanUI' then
+	-- If user is already on the expected profile, we're good
+	if currentLayout and currentLayout == expectedProfile then
 		if MoveIt.logger then
-			MoveIt.logger.warning(('EnsureProfileReady: User is on "%s" profile - not switching to SpartanUI'):format(currentLayout))
+			MoveIt.logger.debug(('EnsureProfileReady: Already on expected profile "%s"'):format(expectedProfile))
+		end
+		return true
+	end
+
+	-- If user is on an unrelated profile and we have no record of managing them, don't switch
+	if
+		currentLayout
+		and currentLayout ~= expectedProfile
+		and not self:IsSpartanUILayout(currentLayout)
+		and not (MoveIt.DB and MoveIt.DB.EditModeControl and MoveIt.DB.EditModeControl.CurrentProfile)
+	then
+		if MoveIt.logger then
+			MoveIt.logger.warning(('EnsureProfileReady: User is on "%s" profile with no managed profile record - not switching'):format(currentLayout))
 		end
 		return false
 	end
 
 	-- Create profile if it doesn't exist
-	if not self:CreateSpartanUIProfile(LibEMO) then
-		return false
-	end
-
-	-- Set as active if not already (only if no profile is active or we're creating it)
-	if not currentLayout or currentLayout ~= 'SpartanUI' then
+	if not LibEMO:DoesLayoutExist(expectedProfile) then
 		if MoveIt.logger then
-			MoveIt.logger.info(('Activating SpartanUI EditMode profile (was: %s)'):format(tostring(currentLayout)))
+			MoveIt.logger.info(('Creating EditMode profile "%s"'):format(expectedProfile))
 		end
 		local success = pcall(function()
-			LibEMO:SetActiveLayout('SpartanUI')
+			LibEMO:AddLayout(Enum.EditModeLayoutType.Character, expectedProfile)
+		end)
+		if not success then
+			if MoveIt.logger then
+				MoveIt.logger.error(('Failed to create EditMode profile "%s"'):format(expectedProfile))
+			end
+			return false
+		end
+	end
+
+	-- Set as active if not already
+	if not currentLayout or currentLayout ~= expectedProfile then
+		if MoveIt.logger then
+			MoveIt.logger.info(('Activating EditMode profile "%s" (was: %s)'):format(expectedProfile, tostring(currentLayout)))
+		end
+		local success = pcall(function()
+			LibEMO:SetActiveLayout(expectedProfile)
 		end)
 		if success then
 			self:SafeApplyChanges(true) -- Suppress movers during activation
 		end
 		if not success then
 			if MoveIt.logger then
-				MoveIt.logger.error('Failed to activate SpartanUI EditMode profile')
+				MoveIt.logger.error(('Failed to activate EditMode profile "%s"'):format(expectedProfile))
 			end
 			return false
 		end
@@ -869,11 +894,18 @@ function BlizzardEditMode:IsPresetLayout(layoutName)
 	return false
 end
 
----Check if a layout name is a SpartanUI layout
+---Check if a layout name is a SpartanUI-managed layout
 ---@param layoutName string The layout name to check
----@return boolean isSUI True if this is a SpartanUI layout
+---@return boolean isSUI True if this is a SpartanUI-managed layout
 function BlizzardEditMode:IsSpartanUILayout(layoutName)
-	return layoutName == 'SpartanUI'
+	if layoutName == 'SpartanUI' then
+		return true
+	end
+	-- Check if this is the currently managed profile (e.g., a custom-named profile set during wizard)
+	if MoveIt.DB and MoveIt.DB.EditModeControl and MoveIt.DB.EditModeControl.CurrentProfile then
+		return layoutName == MoveIt.DB.EditModeControl.CurrentProfile
+	end
+	return false
 end
 
 ---Get current EditMode state information
@@ -925,8 +957,11 @@ end
 ---Get a matching profile name based on current SUI profile
 ---@return string profileName The EditMode profile name to use
 function BlizzardEditMode:GetMatchingProfileName()
-	-- For now, always use 'SpartanUI' as the single profile
-	-- In the future, we could have different profiles per SUI theme/style
+	-- Use the stored CurrentProfile if available (set during wizard/migration)
+	if MoveIt.DB and MoveIt.DB.EditModeControl and MoveIt.DB.EditModeControl.CurrentProfile then
+		return MoveIt.DB.EditModeControl.CurrentProfile
+	end
+	-- Default fallback for fresh installs
 	return 'SpartanUI'
 end
 
