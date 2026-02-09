@@ -395,6 +395,9 @@ function module:InitializeMouseEffects()
 			module:UpdateGCDCooldown()
 		end
 	end)
+
+	-- Apply settings now so effects are active on login if enabled
+	module:ApplyMouseEffectSettings()
 end
 
 ---Apply mouse effect settings (called when settings change or combat state changes)

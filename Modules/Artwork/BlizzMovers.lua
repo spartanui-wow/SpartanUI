@@ -542,8 +542,10 @@ local function VehicleLeaveButton()
 	local moverName = 'VehicleLeaveButton'
 
 	-- Check if frame has native EditMode support and LibEditModeOverride is available (Retail)
-	if MoveIt.BlizzardEditMode and not MoveIt.BlizzardEditMode:NeedsCustomMover(moverName) then
-		-- RETAIL PATH: Use LibEditModeOverride
+	-- When BT4 is loaded, it overrides the Blizzard mover so EditMode positioning won't work.
+	-- Fall through to the custom holder-based mover instead.
+	if MoveIt.BlizzardEditMode and not MoveIt.BlizzardEditMode:NeedsCustomMover(moverName) and not Bartender4 then
+		-- RETAIL PATH: Use LibEditModeOverride (only when BT4 is NOT overriding the button)
 		if SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
 			-- Apply position via EditMode
 			MoveIt.BlizzardEditMode:ApplyVehicleLeaveButtonPosition()
@@ -554,7 +556,7 @@ local function VehicleLeaveButton()
 		return
 	end
 
-	-- CLASSIC/TBC/WRATH/CATA/MISTS PATH: Use custom holder-based movers
+	-- CUSTOM MOVER PATH: Used on Classic/TBC/Wrath/Cata/Mists, or on Retail when BT4 overrides the button
 
 	local function MoverCreate()
 		local frame = MainMenuBarVehicleLeaveButton
