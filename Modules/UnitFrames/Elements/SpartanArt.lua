@@ -84,7 +84,7 @@ local function Options(unitName, OptionSet)
 				--Update memory
 				UF.CurrentSettings[unitName].elements.SpartanArt[position][info[#info]] = val
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][unitName].elements.SpartanArt[position][info[#info]] = val
+				UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.SpartanArt[position][info[#info]] = val
 				--Update the screen
 				UF.Unit:Get(unitName):ElementUpdate('SpartanArt')
 			end,

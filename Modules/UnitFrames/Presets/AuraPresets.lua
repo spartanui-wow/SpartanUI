@@ -253,7 +253,7 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 	-- Apply Buffs settings
 	if preset.Buffs and UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements.Buffs then
 		local buffsSettings = UF.CurrentSettings[unitName].elements.Buffs
-		local userBuffs = UF.DB.UserSettings[UF.DB.Style][unitName].elements.Buffs
+		local userBuffs = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Buffs
 
 		for key, value in pairs(preset.Buffs) do
 			if key == 'rules' then
@@ -277,7 +277,7 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 	-- Apply Debuffs settings
 	if preset.Debuffs and UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements.Debuffs then
 		local debuffsSettings = UF.CurrentSettings[unitName].elements.Debuffs
-		local userDebuffs = UF.DB.UserSettings[UF.DB.Style][unitName].elements.Debuffs
+		local userDebuffs = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
 
 		for key, value in pairs(preset.Debuffs) do
 			if key == 'rules' then

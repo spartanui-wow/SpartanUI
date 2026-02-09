@@ -645,7 +645,7 @@ local function CreateAddToFilterWindow(button, elementName)
 				local spellKey = tostring(button.data.spellId)
 
 				UF.CurrentSettings[frameName].elements[elementName].rules[mode][spellKey] = true
-				UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].rules[mode][spellKey] = true
+				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].rules[mode][spellKey] = true
 
 				UF.Unit[frameName]:ElementUpdate(elementName)
 			end

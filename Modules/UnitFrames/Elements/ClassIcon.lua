@@ -56,7 +56,7 @@ local function Options(unitName, OptionSet)
 	local ElementSettings = UF.CurrentSettings[unitName].elements.ClassIcon
 	local function OptUpdate(option, val)
 		UF.CurrentSettings[unitName].elements.ClassIcon[option] = val
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.ClassIcon[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.ClassIcon[option] = val
 		UF.Unit[unitName]:ElementUpdate('ClassIcon')
 	end
 

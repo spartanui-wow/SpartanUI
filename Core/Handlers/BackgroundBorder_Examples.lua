@@ -17,12 +17,12 @@ local function AddToUnitFrameOptions(frameName)
 	-- Example: Add to player frame options
 	local function getSettings()
 		-- Get current settings from DB - this would be your actual settings path
-		return UF.DB.UserSettings[UF.DB.Style][frameName].backgroundBorder or BackgroundBorder.DefaultSettings
+		return UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].backgroundBorder or BackgroundBorder.DefaultSettings
 	end
 
 	local function setSettings(newSettings)
 		-- Save to DB - this would be your actual save path
-		UF.DB.UserSettings[UF.DB.Style][frameName].backgroundBorder = newSettings
+		UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].backgroundBorder = newSettings
 		UF.CurrentSettings[frameName].backgroundBorder = newSettings
 	end
 
@@ -93,7 +93,7 @@ local function SetupUnitFrameBackgroundBorder(frame, frameName)
 	local UF = SUI.UF
 
 	-- Get settings from DB (with fallback to defaults)
-	local settings = UF.DB.UserSettings[UF.DB.Style][frameName].backgroundBorder or BackgroundBorder.DefaultSettings
+	local settings = UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].backgroundBorder or BackgroundBorder.DefaultSettings
 
 	-- Create the background/border instance
 	local instance = BackgroundBorder:SetupUnitFrame(frame, frameName, settings)

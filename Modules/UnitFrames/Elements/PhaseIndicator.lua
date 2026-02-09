@@ -14,7 +14,7 @@ local function Options(unitName, OptionSet)
 		--Update memory
 		UF.CurrentSettings[unitName].elements.PhaseIndicator[option] = val
 		--Update the DB
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.PhaseIndicator[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.PhaseIndicator[option] = val
 		--Update the screen
 		UF.frames[unitName]:ElementUpdate('PhaseIndicator')
 	end

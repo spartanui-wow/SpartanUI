@@ -105,26 +105,121 @@ function UF:PositionFrame(unit)
 	end
 end
 
+---Get the active preset name for a given frame (resolves frame groups)
+---@param frameName string
+---@return string presetName
+function UF:GetPresetForFrame(frameName)
+	local groupLeader = UF.Preset:GetGroupLeader(frameName)
+	return UF.Preset:GetActive(groupLeader)
+end
+
 function UF:ResetSettings()
-	--Reset the DB
-	UF.DB.UserSettings[UF.DB.Style] = nil
+	-- Reset user customizations for all active presets
+	for groupLeader, _ in pairs(UF.Preset.FrameGroups) do
+		local presetName = UF.Preset:GetActive(groupLeader)
+		UF.DB.UserSettings[presetName] = nil
+	end
 	-- Trigger update
 	UF:Update()
 end
 
-local function LoadDB()
-	-- Load Default Settings
-	UF.CurrentSettings = SUI:MergeData({}, UF.Unit.defaultConfigs)
-	-- Import theme settings
-	if SUI.DB.Styles[UF.DB.Style] and SUI.DB.Styles[UF.DB.Style].Frames then
-		UF.CurrentSettings = SUI:MergeData(UF.CurrentSettings, SUI.DB.Styles[UF.DB.Style].Frames, true)
-	elseif UF.Artwork[UF.DB.Style] then
-		local skin = UF.Artwork[UF.DB.Style].skin
-		UF.CurrentSettings = SUI:MergeData(UF.CurrentSettings, SUI.DB.Styles[skin].Frames, true)
+---Migrate from legacy single-style DB to per-frame preset system
+local function MigrateFromLegacy()
+	if UF.DB._presetMigrated then
+		return
 	end
 
-	-- Import player customizations
-	UF.CurrentSettings = SUI:MergeData(UF.CurrentSettings, UF.DB.UserSettings[UF.DB.Style], true)
+	local oldStyle = UF.DB.Style
+	if not oldStyle then
+		UF.DB._presetMigrated = true
+		return
+	end
+
+	if oldStyle == 'Grid' then
+		-- Grid only had raid+party configs; other frames should use artwork style
+		local artStyle = SUI.DB.Artwork.Style or 'War'
+		for groupLeader, _ in pairs(UF.Preset.FrameGroups) do
+			if groupLeader == 'raid' or groupLeader == 'party' then
+				UF.DB.Presets[groupLeader] = 'Grid'
+			else
+				UF.DB.Presets[groupLeader] = artStyle
+			end
+		end
+		-- Move orphaned Grid user settings for non-group frames to the artwork style bucket
+		local gridUS = UF.DB.UserSettings['Grid']
+		if gridUS then
+			for frameName, settings in pairs(gridUS) do
+				if frameName ~= 'raid' and frameName ~= 'party' and type(settings) == 'table' and next(settings) then
+					if not UF.DB.UserSettings[artStyle] then
+						UF.DB.UserSettings[artStyle] = {}
+					end
+					if not UF.DB.UserSettings[artStyle][frameName] then
+						UF.DB.UserSettings[artStyle][frameName] = settings
+					end
+				end
+			end
+		end
+	else
+		-- All frames used same style - map all groups to it
+		-- Only need to explicitly set if different from the wildcard default ('War')
+		if oldStyle ~= 'War' then
+			for groupLeader, _ in pairs(UF.Preset.FrameGroups) do
+				UF.DB.Presets[groupLeader] = oldStyle
+			end
+		end
+	end
+
+	UF.DB._presetMigrated = true
+
+	if UF.Log then
+		UF.Log.info('Migrated from legacy Style "' .. oldStyle .. '" to per-frame presets')
+	end
+end
+
+---Load and merge settings per-frame based on each frame's active preset
+local function LoadDB()
+	-- Step 1: Start with hardcoded defaults for all frames
+	UF.CurrentSettings = SUI:MergeData({}, UF.Unit.defaultConfigs)
+
+	-- Step 2: For each frame, resolve its preset and merge config
+	for frameName, _ in pairs(UF.Unit.defaultConfigs) do
+		local groupLeader = UF.Preset:GetGroupLeader(frameName)
+		local presetName = UF.Preset:GetActive(groupLeader)
+
+		-- Merge preset config for this specific frame
+		local presetFrames = SUI.DB.Styles[presetName] and SUI.DB.Styles[presetName].Frames
+		if presetFrames and presetFrames[frameName] then
+			UF.CurrentSettings[frameName] = SUI:MergeData(UF.CurrentSettings[frameName], presetFrames[frameName], true)
+		elseif UF.Artwork[presetName] then
+			-- Fallback for aliased styles (e.g., ArcaneRed -> Arcane skin)
+			local skin = UF.Artwork[presetName].skin
+			local skinFrames = SUI.DB.Styles[skin] and SUI.DB.Styles[skin].Frames
+			if skinFrames and skinFrames[frameName] then
+				UF.CurrentSettings[frameName] = SUI:MergeData(UF.CurrentSettings[frameName], skinFrames[frameName], true)
+			end
+		end
+
+		-- SpartanArt fallback: if preset doesn't define SpartanArt, inherit from global artwork theme
+		local artStyle = SUI.DB.Artwork.Style
+		if artStyle and artStyle ~= presetName then
+			local artFrames = SUI.DB.Styles[artStyle] and SUI.DB.Styles[artStyle].Frames
+			if artFrames and artFrames[frameName] and artFrames[frameName].elements and artFrames[frameName].elements.SpartanArt then
+				local presetHasArt = presetFrames and presetFrames[frameName] and presetFrames[frameName].elements and presetFrames[frameName].elements.SpartanArt
+				if not presetHasArt then
+					if not UF.CurrentSettings[frameName].elements then
+						UF.CurrentSettings[frameName].elements = {}
+					end
+					UF.CurrentSettings[frameName].elements.SpartanArt = SUI:MergeData(UF.CurrentSettings[frameName].elements.SpartanArt or {}, artFrames[frameName].elements.SpartanArt, true)
+				end
+			end
+		end
+
+		-- Step 3: Merge user customizations for this preset+frame
+		local userSettings = UF.DB.UserSettings[presetName]
+		if userSettings and userSettings[frameName] then
+			UF.CurrentSettings[frameName] = SUI:MergeData(UF.CurrentSettings[frameName], userSettings[frameName], true)
+		end
+	end
 
 	SpartanUI.UFdefaultConfigs = UF.Unit.defaultConfigs
 	SpartanUI.UFCurrentSettings = UF.CurrentSettings
@@ -142,7 +237,11 @@ function UF:OnInitialize()
 	-- Setup Database
 	local defaults = {
 		profile = {
-			Style = 'War',
+			Style = 'War', -- DEPRECATED: kept for migration detection
+			Presets = {
+				['**'] = 'War', -- AceDB wildcard: default all frame groups to 'War'
+			},
+			_presetMigrated = false,
 			UserSettings = {
 				['**'] = { ['**'] = { ['**'] = { ['**'] = { ['**'] = { ['**'] = {} } } } } },
 			},
@@ -150,6 +249,9 @@ function UF:OnInitialize()
 	}
 	UF.Database = SUI.SpartanUIDB:RegisterNamespace('UnitFrames', defaults)
 	UF.DB = UF.Database.profile
+
+	-- Migrate from legacy single-style to per-frame presets
+	MigrateFromLegacy()
 
 	LoadDB()
 
@@ -165,6 +267,9 @@ function UF:OnEnable()
 	if SUI:IsModuleDisabled('UnitFrames') then
 		return
 	end
+
+	-- Register presets from theme style configs (SUI.DB.Styles)
+	UF.Preset:RegisterFromStyles()
 
 	-- Spawn Frames
 	UF:SpawnFrames()
@@ -348,12 +453,13 @@ function UF:Update()
 	-- Refresh Settings
 	LoadDB()
 
-	-- Seed group visibility into the new style's UserSettings when not yet customized.
-	-- This prevents party/raid frames from vanishing when switching to a style
+	-- Seed group visibility into the new preset's UserSettings when not yet customized.
+	-- This prevents party/raid frames from vanishing when switching to a preset
 	-- the user hasn't configured visibility for yet.
 	local reloadNeeded = false
 	for frameName, prev in pairs(prevGroupVis) do
-		local us = UF.DB.UserSettings[UF.DB.Style]
+		local presetName = UF:GetPresetForFrame(frameName)
+		local us = UF.DB.UserSettings[presetName]
 		if us then
 			local hasUserVis = us[frameName] and (us[frameName].showSolo ~= nil or us[frameName].showParty ~= nil or us[frameName].showRaid ~= nil)
 			if not hasUserVis then
@@ -380,12 +486,13 @@ function UF:Update()
 	UF:UpdateAll()
 end
 
+---Set all frame presets to a theme's defaults (1-click theme application)
 ---@param style string
 function UF:SetActiveStyle(style)
 	UF.Style:Change(style)
-	UF.DB.Style = style
+	UF.Preset:ApplyThemeDefaults(style)
 
-	-- Refersh Settings
+	-- Refresh Settings
 	UF:Update()
 end
 

@@ -99,7 +99,7 @@ local function Options(unitName, OptionSet)
 
 	local function OptUpdate(option, val)
 		UF.CurrentSettings[unitName].elements.EclipseBar[option] = val
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.EclipseBar[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.EclipseBar[option] = val
 		UF.Unit[unitName]:ElementUpdate('EclipseBar')
 	end
 

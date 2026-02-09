@@ -31,7 +31,6 @@ local elementList = {
 	'DefensiveIndicator',
 	'RaidDebuffs',
 	'CornerIndicators',
-	'HealthDeficit',
 }
 
 local function GroupBuilder(holder)

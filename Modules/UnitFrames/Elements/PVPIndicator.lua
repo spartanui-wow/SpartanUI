@@ -127,7 +127,7 @@ local function Options(frameName, OptionSet)
 				--Update memory
 				UF.CurrentSettings[frameName].elements.PvPIndicator[k] = val
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][frameName].elements.PvPIndicator[k] = val
+				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.PvPIndicator[k] = val
 				--Update the screen
 				if val then
 					UF.Unit[frameName].PvPIndicator[k] = UF.Unit[frameName].PvPIndicator[v]

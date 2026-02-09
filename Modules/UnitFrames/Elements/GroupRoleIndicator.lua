@@ -28,7 +28,7 @@ local function Options(unitName, OptionSet)
 		--Update memory
 		UF.CurrentSettings[unitName].elements.GroupRoleIndicator[option] = val
 		--Update the DB
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.GroupRoleIndicator[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.GroupRoleIndicator[option] = val
 		--Update the screen
 		UF.Unit[unitName]:ElementUpdate('GroupRoleIndicator')
 	end

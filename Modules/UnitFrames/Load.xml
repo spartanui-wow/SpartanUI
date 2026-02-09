@@ -47,6 +47,7 @@
 	<Script file="Presets\AuraPresets.lua"/>
 
 	<Script file="Handlers\Style.lua"/>
+	<Script file="Handlers\Preset.lua"/>
 	<Script file="Handlers\Auras.lua"/>
 	<Script file="Handlers\Elements.lua"/>
 	<Script file="Handlers\Units.lua"/>

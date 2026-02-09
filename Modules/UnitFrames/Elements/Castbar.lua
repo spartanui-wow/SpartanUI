@@ -292,7 +292,7 @@ local function Options(frameName, OptionSet)
 					--Update memory
 					UF.CurrentSettings[frameName].elements.Castbar.Icon[info[#info]] = val
 					--Update the DB
-					UF.DB.UserSettings[UF.DB.Style][frameName].elements.Castbar.Icon[info[#info]] = val
+					UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.Castbar.Icon[info[#info]] = val
 					--Update the screen
 					UF.Unit[frameName]:UpdateAll()
 				end,
@@ -322,7 +322,7 @@ local function Options(frameName, OptionSet)
 							--Update memory
 							UF.CurrentSettings[frameName].elements.Castbar.Icon.position[info[#info]] = val
 							--Update the DB
-							UF.DB.UserSettings[UF.DB.Style][frameName].elements.Castbar.Icon.position[info[#info]] = val
+							UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.Castbar.Icon.position[info[#info]] = val
 							--Update Screen
 							UF.Unit[frameName]:UpdateAll()
 						end,

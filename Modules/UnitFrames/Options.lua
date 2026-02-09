@@ -410,7 +410,7 @@ function Options:AddFrameBackground(frameName, OptionSet)
 		-- Update memory
 		UF.CurrentSettings[frameName].frameBackground = newSettings
 		-- Update the DB
-		UF.DB.UserSettings[UF.DB.Style][frameName].frameBackground = newSettings
+		UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].frameBackground = newSettings
 	end
 
 	local function updateDisplay()
@@ -810,12 +810,12 @@ function Options:TextBasicDisplay(frameName, ElementOptSet, elementName)
 					--Update memory
 					UF.CurrentSettings[frameName].elements[elementName].textColor[info[#info]] = { val, ... }
 					--Update the DB
-					UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].textColor[info[#info]] = { val, ... }
+					UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].textColor[info[#info]] = { val, ... }
 				else
 					--Update memory
 					UF.CurrentSettings[frameName].elements[elementName].textColor[info[#info]] = val
 					--Update the DB
-					UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].textColor[info[#info]] = val
+					UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].textColor[info[#info]] = val
 				end
 				--Update the screen
 				UF.Unit[frameName]:UpdateAll()
@@ -880,12 +880,12 @@ function Options:StatusBarDefaults(frameName, ElementOptSet, elementName)
 				--Update memory
 				UF.CurrentSettings[frameName].elements[elementName].bg[info[#info]] = { val, ... }
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].bg[info[#info]] = { val, ... }
+				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].bg[info[#info]] = { val, ... }
 			else
 				--Update memory
 				UF.CurrentSettings[frameName].elements[elementName].bg[info[#info]] = val
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].bg[info[#info]] = val
+				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].bg[info[#info]] = val
 			end
 			--Update the screen
 			UF.Unit[frameName]:UpdateAll()
@@ -929,7 +929,7 @@ function Options:StatusBarDefaults(frameName, ElementOptSet, elementName)
 					--Update memory
 					UF.CurrentSettings[frameName].elements[elementName].bg.classColorAlpha = val
 					--Update the DB
-					UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].bg.classColorAlpha = val
+					UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].bg.classColorAlpha = val
 					--Update the screen
 					UF.Unit[frameName]:UpdateAll()
 				end,
@@ -954,12 +954,12 @@ function Options:StatusBarDefaults(frameName, ElementOptSet, elementName)
 				--Update memory
 				UF.CurrentSettings[frameName].elements[elementName].customColors[info[#info]] = { val, ... }
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].customColors[info[#info]] = { val, ... }
+				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].customColors[info[#info]] = { val, ... }
 			else
 				--Update memory
 				UF.CurrentSettings[frameName].elements[elementName].customColors[info[#info]] = val
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName].customColors[info[#info]] = val
+				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName].customColors[info[#info]] = val
 			end
 			--Update the screen
 			UF.Unit[frameName]:UpdateAll()
@@ -1114,7 +1114,7 @@ function Options:AddDynamicText(frameName, OptionSet, element)
 						--Update memory
 						UF.CurrentSettings[frameName].elements[element].text[count].enabled = val
 						--Update the DB
-						UF.DB.UserSettings[UF.DB.Style][frameName].elements[element].text[count].enabled = val
+						UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[element].text[count].enabled = val
 						--Update the screen
 						if val then
 							-- Safety check: ensure unit frame and element exist
@@ -1155,7 +1155,7 @@ function Options:AddDynamicText(frameName, OptionSet, element)
 						--Update memory
 						UF.CurrentSettings[frameName].elements[element].text[count].text = val
 						--Update the DB
-						UF.DB.UserSettings[UF.DB.Style][frameName].elements[element].text[count].text = val
+						UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[element].text[count].text = val
 						--Update the screen
 						if UF.Unit[frameName][element] then
 							UF.Unit[frameName]:Tag(UF.Unit[frameName][element].TextElements[count], val)
@@ -1175,7 +1175,7 @@ function Options:AddDynamicText(frameName, OptionSet, element)
 						--Update memory
 						UF.CurrentSettings[frameName].elements[element].text[count].size = val
 						--Update the DB
-						UF.DB.UserSettings[UF.DB.Style][frameName].elements[element].text[count].size = val
+						UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[element].text[count].size = val
 						--Update the screen
 						SUI.Font:UpdateDefaultSize(UF.Unit[frameName][element].TextElements[count], val, 'UnitFrames')
 					end,
@@ -1192,7 +1192,7 @@ function Options:AddDynamicText(frameName, OptionSet, element)
 						--Update memory
 						UF.CurrentSettings[frameName].elements[element].text[count].position[info[#info]] = val
 						--Update the DB
-						UF.DB.UserSettings[UF.DB.Style][frameName].elements[element].text[count].position[info[#info]] = val
+						UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[element].text[count].position[info[#info]] = val
 						--Update the screen
 						local position = UF.CurrentSettings[frameName].elements[element].text[count].position
 						UF.Unit[frameName][element].TextElements[count]:ClearAllPoints()
@@ -1240,7 +1240,7 @@ function Options:AddGroupDisplay(frameName, OptionSet)
 			--Update memory
 			UF.CurrentSettings[frameName][setting] = val
 			--Update the DB
-			UF.DB.UserSettings[UF.DB.Style][frameName][setting] = val
+			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName][setting] = val
 			--Update the screen
 			UF.Unit:Get(frameName).header:SetAttribute(setting, val)
 			UF.Unit:Get(frameName):UpdateAll()
@@ -1282,7 +1282,7 @@ function Options:AddGroupLayout(frameName, OptionSet)
 			--Update memory
 			UF.CurrentSettings[frameName][setting] = val
 			--Update the DB
-			UF.DB.UserSettings[UF.DB.Style][frameName][setting] = val
+			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName][setting] = val
 			--Update the screen
 			UF.Unit:Get(frameName):SetAttribute(setting, val)
 		end,
@@ -1420,8 +1420,15 @@ function Options:Initialize()
 					UF:ResetSettings()
 				end,
 			},
-			BaseStyle = {
-				name = L['Base frame style'],
+			ThemeDefaults = {
+				name = L['Apply theme defaults (1-click)'],
+				type = 'group',
+				inline = true,
+				order = 20,
+				args = {},
+			},
+			FramePresets = {
+				name = L['Frame Presets'],
 				type = 'group',
 				inline = true,
 				order = 30,
@@ -1448,7 +1455,7 @@ function Options:Initialize()
 				--Update memory
 				UF.CurrentSettings[frameName].enabled = val
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][frameName].enabled = val
+				UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].enabled = val
 				--Update the UI
 				local frame = UF.Unit:Get(frameName)
 				if frame then
@@ -1462,11 +1469,11 @@ function Options:Initialize()
 		}
 	end
 
-	-- Build style Buttons
+	-- Build 1-click theme default buttons
 	for styleName, styleInfo in pairs(UF.Style:GetList()) do
 		local data = styleInfo.settings ---@type SUI.Style.Settings.UnitFrames
 
-		UFOptions.args.BaseStyle.args[styleName] = {
+		UFOptions.args.ThemeDefaults.args[styleName] = {
 			name = data.displayName or styleName,
 			type = 'execute',
 			image = function()
@@ -1481,8 +1488,54 @@ function Options:Initialize()
 		}
 	end
 
-	-- -- Add built skins selection page to the styles section
-	SUI.opt.args.General.args.style.args.Unitframes = UFOptions.args.BaseStyle
+	-- Add theme defaults section to the core styles page
+	SUI.opt.args.General.args.style.args.Unitframes = UFOptions.args.ThemeDefaults
+
+	-- Build per-group preset selectors
+	local groupDisplayNames = {
+		player = L['Player'],
+		pet = L['Pet'],
+		target = L['Target'],
+		focus = L['Focus'],
+		party = L['Party'],
+		raid = L['Raid'],
+		boss = L['Boss'],
+		arena = L['Arena'],
+	}
+	local groupOrder = { 'player', 'target', 'party', 'raid', 'boss', 'arena', 'focus', 'pet' }
+
+	for i, groupLeader in ipairs(groupOrder) do
+		-- Build values list: all presets, marking which have explicit configs for this group
+		local applicablePresets = UF.Preset:GetForFrameType(groupLeader)
+		local allPresets = UF.Preset:GetList()
+
+		-- Build the values table for the dropdown — show all presets so the user
+		-- can always see/change the active preset (e.g. after 1-click theme apply).
+		-- Presets with explicit configs for this group show normally; others show
+		-- with "(base defaults)" suffix to indicate they'll use hardcoded defaults.
+		local values = {}
+		for presetName, presetDef in pairs(allPresets) do
+			if applicablePresets[presetName] then
+				values[presetName] = presetDef.displayName or presetName
+			else
+				values[presetName] = (presetDef.displayName or presetName) .. ' (base defaults)'
+			end
+		end
+
+		UFOptions.args.FramePresets.args[groupLeader] = {
+			name = groupDisplayNames[groupLeader] or groupLeader,
+			type = 'select',
+			order = i,
+			values = values,
+			get = function()
+				return UF.Preset:GetActive(groupLeader)
+			end,
+			set = function(_, presetName)
+				UF.Preset:SetForFrame(groupLeader, presetName)
+				UF:Update()
+			end,
+		}
+	end
 
 	-- Build frame options
 	for frameName, _ in pairs(UF.Unit:GetBuiltFrameList()) do
@@ -1492,7 +1545,7 @@ function Options:Initialize()
 			--Update memory
 			UF.CurrentSettings[frameName][info[#info]] = val
 			--Update the DB
-			UF.DB.UserSettings[UF.DB.Style][frameName][info[#info]] = val
+			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName][info[#info]] = val
 			--Update the screen
 			UF.Unit[frameName]:UpdateAll()
 		end)
@@ -1507,7 +1560,7 @@ function Options:Initialize()
 			local elementConfig = builtFrame.config.elements[elementName].config
 
 			local ElementSettings = UF.CurrentSettings[frameName].elements[elementName]
-			local UserSetting = UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName]
+			local UserSetting = UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName]
 
 			---@type AceConfig.OptionsTable
 			local ElementOptSet = {
@@ -1536,7 +1589,7 @@ function Options:Initialize()
 						end,
 						func = function()
 							-- Reset the element's settings to default
-							UF.DB.UserSettings[UF.DB.Style][frameName].elements[elementName] = nil
+							UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName] = nil
 
 							-- Trigger a full update of the UnitFrames
 							UF:Update()

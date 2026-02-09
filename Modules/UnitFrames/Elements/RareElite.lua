@@ -74,7 +74,7 @@ local function Options(unitName, OptionSet)
 		--Update memory
 		UF.CurrentSettings[unitName].elements.RareElite[option] = val
 		--Update the DB
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.RareElite[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.RareElite[option] = val
 		--Update the screen
 		UF.frames[unitName]:ElementUpdate('RareElite')
 	end

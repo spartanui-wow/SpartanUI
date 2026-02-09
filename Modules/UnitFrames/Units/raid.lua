@@ -31,7 +31,6 @@ local elementList = {
 	'DefensiveIndicator',
 	'RaidDebuffs',
 	'CornerIndicators',
-	'HealthDeficit',
 }
 
 local function groupingOrder()
@@ -215,7 +214,7 @@ local function Options(OptionSet)
 			--Update memory
 			UF.CurrentSettings.raid.mode = val
 			--Update the DB
-			UF.DB.UserSettings[UF.DB.Style].raid.mode = val
+			UF.DB.UserSettings[UF:GetPresetForFrame('raid')]['raid'].mode = val
 			--Update the screen
 			local groupingOrder = 'TANK,HEALER,DAMAGER,NONE'
 			if val == 'GROUP' then

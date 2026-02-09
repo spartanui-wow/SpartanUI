@@ -290,10 +290,10 @@ local function Options(unitName, OptionSet)
 	local function OptUpdate(option, val, subTable)
 		if subTable then
 			UF.CurrentSettings[unitName].elements.TargetIndicator[subTable][option] = val
-			UF.DB.UserSettings[UF.DB.Style][unitName].elements.TargetIndicator[subTable][option] = val
+			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.TargetIndicator[subTable][option] = val
 		else
 			UF.CurrentSettings[unitName].elements.TargetIndicator[option] = val
-			UF.DB.UserSettings[UF.DB.Style][unitName].elements.TargetIndicator[option] = val
+			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.TargetIndicator[option] = val
 		end
 		UF.Unit[unitName]:ElementUpdate('TargetIndicator')
 	end

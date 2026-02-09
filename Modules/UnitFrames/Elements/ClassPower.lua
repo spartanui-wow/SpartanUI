@@ -140,7 +140,7 @@ local function Options(unitName, OptionSet)
 	local ElementSettings = UF.CurrentSettings[unitName].elements.ClassPower
 	local function OptUpdate(option, val)
 		UF.CurrentSettings[unitName].elements.ClassPower[option] = val
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.ClassPower[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.ClassPower[option] = val
 		UF.Unit[unitName]:ElementUpdate('ClassPower')
 	end
 

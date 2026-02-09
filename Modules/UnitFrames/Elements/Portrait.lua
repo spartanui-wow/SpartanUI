@@ -141,13 +141,13 @@ local function Options(frameName, OptionSet)
 				set = function(info, val)
 					if val == 'overlay' then
 						UF.CurrentSettings[frameName].elements.Portrait.type = '3D'
-						UF.DB.UserSettings[UF.DB.Style][frameName].elements.Portrait.type = '3D'
+						UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.Portrait.type = '3D'
 					end
 
 					--Update memory
 					UF.CurrentSettings[frameName].elements.Portrait.position = val
 					--Update the DB
-					UF.DB.UserSettings[UF.DB.Style][frameName].elements.Portrait.position = val
+					UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.Portrait.position = val
 					--Update the screen
 					UF.Unit[frameName]:ElementUpdate('Portrait')
 				end,

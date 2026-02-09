@@ -514,7 +514,7 @@ local function Options(unitName, OptionSet)
 
 	local function OptUpdate(option, val)
 		UF.CurrentSettings[unitName].elements.Dispel[option] = val
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.Dispel[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Dispel[option] = val
 		UF.Unit[unitName]:ElementUpdate('Dispel')
 	end
 

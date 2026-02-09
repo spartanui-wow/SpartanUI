@@ -1025,6 +1025,21 @@ local DBdefault = {
 					elements = {
 						Health = {
 							height = 28,
+							text = {
+								['1'] = {
+									enabled = false,
+								},
+								['2'] = {
+									enabled = true,
+									text = '[SUIHealthDeficit]',
+									size = 10,
+									position = {
+										anchor = 'CENTER',
+										x = 0,
+										y = -2,
+									},
+								},
+							},
 						},
 						Power = {
 							height = 2,
@@ -1059,10 +1074,6 @@ local DBdefault = {
 						},
 						CornerIndicators = {
 							enabled = true,
-						},
-						HealthDeficit = {
-							enabled = true,
-							textSize = 10,
 						},
 						Dispel = {
 							enabled = true,
@@ -1102,6 +1113,21 @@ local DBdefault = {
 					elements = {
 						Health = {
 							height = 34,
+							text = {
+								['1'] = {
+									enabled = false,
+								},
+								['2'] = {
+									enabled = true,
+									text = '[SUIHealthDeficit]',
+									size = 11,
+									position = {
+										anchor = 'CENTER',
+										x = 0,
+										y = -2,
+									},
+								},
+							},
 						},
 						Power = {
 							height = 3,
@@ -1135,10 +1161,6 @@ local DBdefault = {
 						},
 						CornerIndicators = {
 							enabled = true,
-						},
-						HealthDeficit = {
-							enabled = true,
-							textSize = 11,
 						},
 						Dispel = {
 							enabled = true,

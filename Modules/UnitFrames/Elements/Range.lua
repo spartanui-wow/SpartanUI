@@ -32,7 +32,7 @@ local function Options(unitName, OptionSet)
 				--Update memory
 				UF.CurrentSettings[unitName].elements.Range.enabled = val
 				--Update the DB
-				UF.DB.UserSettings[UF.DB.Style][unitName].elements.Range.enabled = val
+				UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Range.enabled = val
 				--Update the screen
 				if val then
 					UF.Unit[unitName]:EnableElement('Range')

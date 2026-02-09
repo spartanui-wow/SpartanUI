@@ -95,12 +95,12 @@ local function Options(unitName, OptionSet)
 		-- Navigate nested path like 'corners.TOPLEFT.enabled'
 		local parts = { strsplit('.', path) }
 		local currentSettings = UF.CurrentSettings[unitName].elements.CornerIndicators
-		local dbSettings = UF.DB.UserSettings[UF.DB.Style][unitName].elements.CornerIndicators
+		local dbSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.CornerIndicators
 
 		-- Ensure DB path exists
 		if not dbSettings then
-			UF.DB.UserSettings[UF.DB.Style][unitName].elements.CornerIndicators = {}
-			dbSettings = UF.DB.UserSettings[UF.DB.Style][unitName].elements.CornerIndicators
+			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.CornerIndicators = {}
+			dbSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.CornerIndicators
 		end
 
 		-- Set value in both current and db settings

@@ -92,7 +92,7 @@ local function Options(unitName, OptionSet)
 		--Update memory
 		UF.CurrentSettings[unitName].elements.Debuffs[option] = val
 		--Update the DB
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.Debuffs[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs[option] = val
 		--Update the screen
 		UF.Unit[unitName]:ElementUpdate('Debuffs')
 	end

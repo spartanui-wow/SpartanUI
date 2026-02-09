@@ -17,7 +17,6 @@
 	<Script file="EclipseBar.lua"/>
 	<Script file="GroupRoleIndicator.lua"/>
 	<Script file="Health.lua"/>
-	<Script file="HealthDeficit.lua"/>
 	<Script file="LeaderIndicator.lua"/>
 	<Script file="Name.lua"/>
 	<Script file="HappinessIndicator.lua"/>

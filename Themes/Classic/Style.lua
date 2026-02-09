@@ -863,10 +863,11 @@ function module:OnInitialize()
 
 	if SUI.UF then
 		local function StyleChange()
-			for _, frame in pairs(SkinnedFrames) do
-				if SUI.UF.DB.Style ~= 'Classic' then
+			for unit, frame in pairs(SkinnedFrames) do
+				local preset = SUI.UF:GetPresetForFrame(unit)
+				if preset ~= 'Classic' then
 					frame.Art_Classic:Hide()
-				elseif SUI.UF.DB.Style == 'Classic' and not frame.Art_Classic:IsVisible() then
+				elseif preset == 'Classic' and not frame.Art_Classic:IsVisible() then
 					frame.Art_Classic:Show()
 				end
 			end

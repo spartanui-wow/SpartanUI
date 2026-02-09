@@ -74,7 +74,7 @@ end
 local function Options(unitName, OptionSet, DB)
 	local L = SUI.L
 	local ElementSettings = UF.CurrentSettings[unitName].elements.AuraWatch
-	local UserSetting = UF.DB.UserSettings[UF.DB.Style][unitName].elements.AuraWatch
+	local UserSetting = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraWatch
 
 	-- Remove Basic Filters (not used by AuraWatch)
 	OptionSet.args.Filters = nil

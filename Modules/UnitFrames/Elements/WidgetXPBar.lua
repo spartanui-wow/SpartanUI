@@ -19,7 +19,7 @@ local function Options(unitName, OptionSet, DB)
 		--Update memory
 		UF.CurrentSettings[unitName].elements.WidgetXPBar[option] = val
 		--Update the DB
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.WidgetXPBar[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.WidgetXPBar[option] = val
 		--Update the screen
 		UF.Unit:Get(unitName):ElementUpdate('WidgetXPBar')
 	end

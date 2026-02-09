@@ -119,7 +119,7 @@ local function Options(unitName, OptionSet)
 
 	local function OptUpdate(option, val)
 		UF.CurrentSettings[unitName].elements.RaidDebuffs[option] = val
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.RaidDebuffs[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.RaidDebuffs[option] = val
 		UF.Unit[unitName]:ElementUpdate('RaidDebuffs')
 	end
 

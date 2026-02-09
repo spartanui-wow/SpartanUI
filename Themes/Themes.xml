@@ -8,5 +8,5 @@
 	<!-- <Include file="Gale\Style.xml"/> -->
 	<Include file="Transparent\Style.xml"/>
 	<Include file="Tribal\Style.xml"/>
-	<!-- <Script file="Grid\Style.lua"/> -->
+	<Script file="Grid\Style.lua"/>
 </Ui>

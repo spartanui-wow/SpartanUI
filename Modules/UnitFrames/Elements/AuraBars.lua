@@ -345,7 +345,7 @@ local function Options(unitName, OptionSet)
 	local ElementSettings = UF.CurrentSettings[unitName].elements.AuraBars
 	local function OptUpdate(option, val)
 		UF.CurrentSettings[unitName].elements.AuraBars[option] = val
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.AuraBars[option] = val
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars[option] = val
 		UF.Unit[unitName]:ElementUpdate('AuraBars')
 	end
 
@@ -440,10 +440,10 @@ local function Options(unitName, OptionSet)
 				return
 			end
 			UF.CurrentSettings[unitName].elements.AuraBars.rules.duration[info[#info]] = key
-			UF.DB.UserSettings[UF.DB.Style][unitName].elements.AuraBars.rules.duration[info[#info]] = key
+			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars.rules.duration[info[#info]] = key
 		else
 			UF.CurrentSettings[unitName].elements.AuraBars.rules[info[#info]] = key
-			UF.DB.UserSettings[UF.DB.Style][unitName].elements.AuraBars.rules[info[#info]] = key
+			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars.rules[info[#info]] = key
 		end
 		UF.Unit[unitName]:ElementUpdate('AuraBars')
 	end
@@ -471,7 +471,7 @@ local function Options(unitName, OptionSet)
 		end
 
 		ElementSettings.rules[info[#info - 1]][spellId] = true
-		UF.DB.UserSettings[UF.DB.Style][unitName].elements.AuraBars.rules[info[#info - 1]][spellId] = true
+		UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars.rules[info[#info - 1]][spellId] = true
 
 		UF.Unit[unitName]:ElementUpdate('AuraBars')
 	end

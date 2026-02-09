@@ -27,12 +27,25 @@ SpartanUI is a comprehensive World of Warcraft addon that provides a complete us
 
 ```
 Modules/UnitFrames/
-├── Framework.lua           # Main UF framework
-├── Options.lua             # UF options
+├── Framework.lua           # Main UF framework, LoadDB(), GetPresetForFrame()
+├── Options.lua             # UF options with per-group preset selectors
 ├── Elements/               # Individual UF elements (Health, Power, etc.)
 ├── Units/                  # Unit-specific configurations
-└── Handlers/               # UF handlers (Style, Auras, etc.)
+├── Presets/                # Preset data (AuraPresets, etc.)
+└── Handlers/               # UF handlers (Style, Auras, Preset)
+    ├── Preset.lua          # Per-frame preset registry and resolution
+    ├── _Preset.Definition.lua  # Preset type annotations
+    └── Style.lua           # Artwork style registry (visual identity)
 ```
+
+### Per-Frame Preset System
+
+Each frame group can use a different UF preset independently. Themes provide 1-click defaults.
+
+- **DB**: `UF.DB.Presets = { player='War', raid='Grid', party='Classic', ... }`
+- **Resolution**: `UF:GetPresetForFrame(frameName)` resolves frame -> group leader -> active preset
+- **User overrides**: `UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName]`
+- **Never use**: `UF.DB.Style` or `UF.DB.UserSettings[UF.DB.Style]` (deprecated)
 
 ## Key Commands
 

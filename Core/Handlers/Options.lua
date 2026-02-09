@@ -86,7 +86,7 @@ function module:OnInitialize()
 					order = 20,
 					args = {},
 				},
-				description3 = { type = 'header', name = L['Unitframe Style'], order = 29 },
+				description3 = { type = 'header', name = L['Unitframe Presets'], order = 29 },
 			},
 		},
 	}
