@@ -122,7 +122,7 @@ local function addUpgradeQualityIcon(button, itemLink)
 
 	if not button.upgradeQualityIcon then
 		ButtonOverlay(button)
-		button.upgradeQualityIcon = button.SUIOverlay:CreateFontString(nil, 'OVERLAY')
+		button.upgradeQualityIcon = button.SUIOverlay:CreateFontString(nil, 'OVERLAY', 'GameTooltipText')
 		button.upgradeQualityIcon:SetPoint('TOPLEFT', button.SUIOverlay, 'TOPLEFT', -2, 2)
 	end
 
