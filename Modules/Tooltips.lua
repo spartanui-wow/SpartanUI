@@ -712,6 +712,32 @@ function module:UpdateBG()
 			tooltip.CompareHeader.SUIBackground:SetVertexColor(r, g, b, 1)
 		end
 	end
+
+	-- Update any active LibQTip tooltips
+	local LibQTip = SUI.Lib.LibQTip
+	if LibQTip then
+		for key, tooltip in LibQTip:TooltipPairs() do
+			if tooltip.SUITip and tooltip.SUITip.bgTexture then
+				local bgTexture = LSM:Fetch('background', module.DB.Background)
+				if bgTexture and bgTexture ~= '' then
+					tooltip.SUITip.bgTexture:SetTexture(bgTexture)
+				else
+					tooltip.SUITip.bgTexture:SetColorTexture(0, 0, 0, 1)
+				end
+
+				local r, g, b, a = unpack(module.DB.Color)
+				if module.DB.Background == 'none' or module.DB.ColorOverlay then
+					tooltip.SUITip.bgTexture:SetVertexColor(r, g, b, 1)
+				else
+					if bgTexture and bgTexture ~= '' then
+						tooltip.SUITip.bgTexture:SetVertexColor(1, 1, 1, a)
+					else
+						tooltip.SUITip.bgTexture:SetVertexColor(0, 0, 0, a)
+					end
+				end
+			end
+		end
+	end
 end
 
 function module:OnEnable()
@@ -734,6 +760,107 @@ function module:OnEnable()
 	end)
 
 	GameTooltip:HookScript('OnTooltipCleared', TipCleared)
+
+	-- Skin LibQTip-2.0 tooltips automatically
+	-- Note: Can't reuse ApplySkin() because LibQTip blocks HookScript calls,
+	-- and RemoveTextures doesn't reach NineSlice child frames.
+	local LibQTip = SUI.Lib.LibQTip
+	if LibQTip then
+		local function SkinLibQTip(tooltip)
+			if not tooltip then
+				return
+			end
+
+			-- Hide the NineSlice border (LibQTip uses TooltipBackdropTemplate)
+			-- NineSlice is re-initialized on every acquisition, so we must hide it each time
+			if tooltip.NineSlice then
+				tooltip.NineSlice:Hide()
+			end
+
+			-- Clear any backdrop the tooltip has
+			if tooltip.SetBackdrop then
+				tooltip:SetBackdrop(nil)
+			end
+
+			-- Create SUITip child frame if it doesn't exist
+			if not tooltip.SUITip then
+				local SUITip = CreateFrame('Frame', nil, tooltip)
+				SUITip:SetAllPoints(tooltip)
+				SUITip:SetFrameLevel(tooltip:GetFrameLevel())
+
+				-- Background texture
+				SUITip.bgTexture = SUITip:CreateTexture(nil, 'BACKGROUND')
+				SUITip.bgTexture:SetAllPoints(SUITip)
+
+				-- Border (4-sided, same style as existing ApplySkin)
+				SUITip.border = CreateFrame('Frame', nil, SUITip)
+				SUITip.border:SetAllPoints(SUITip)
+				SUITip.border:SetFrameLevel(SUITip:GetFrameLevel() + 1)
+
+				local blank = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga'
+				--TOP
+				SUITip.border[1] = SUITip.border:CreateTexture(nil, 'OVERLAY')
+				SUITip.border[1]:SetPoint('TOPLEFT', SUITip, 'TOPLEFT')
+				SUITip.border[1]:SetPoint('TOPRIGHT', SUITip, 'TOPRIGHT')
+				SUITip.border[1]:SetHeight(2)
+				SUITip.border[1]:SetTexture(blank)
+				--BOTTOM
+				SUITip.border[2] = SUITip.border:CreateTexture(nil, 'OVERLAY')
+				SUITip.border[2]:SetPoint('BOTTOMLEFT', SUITip, 'BOTTOMLEFT')
+				SUITip.border[2]:SetPoint('BOTTOMRIGHT', SUITip, 'BOTTOMRIGHT')
+				SUITip.border[2]:SetHeight(2)
+				SUITip.border[2]:SetTexture(blank)
+				--RIGHT
+				SUITip.border[3] = SUITip.border:CreateTexture(nil, 'OVERLAY')
+				SUITip.border[3]:SetPoint('TOPRIGHT', SUITip, 'TOPRIGHT')
+				SUITip.border[3]:SetPoint('BOTTOMRIGHT', SUITip, 'BOTTOMRIGHT')
+				SUITip.border[3]:SetWidth(2)
+				SUITip.border[3]:SetTexture(blank)
+				--LEFT
+				SUITip.border[4] = SUITip.border:CreateTexture(nil, 'OVERLAY')
+				SUITip.border[4]:SetPoint('TOPLEFT', SUITip, 'TOPLEFT')
+				SUITip.border[4]:SetPoint('BOTTOMLEFT', SUITip, 'BOTTOMLEFT')
+				SUITip.border[4]:SetWidth(2)
+				SUITip.border[4]:SetTexture(blank)
+
+				SUITip.border:Hide()
+				tooltip.SUITip = SUITip
+			end
+
+			-- Apply current theme settings to background
+			local bgTexture = LSM:Fetch('background', module.DB.Background)
+			if bgTexture and bgTexture ~= '' then
+				tooltip.SUITip.bgTexture:SetTexture(bgTexture)
+			else
+				tooltip.SUITip.bgTexture:SetColorTexture(0, 0, 0, 1)
+			end
+
+			local r, g, b, a = unpack(module.DB.Color)
+			if module.DB.Background == 'none' or module.DB.ColorOverlay then
+				tooltip.SUITip.bgTexture:SetVertexColor(r, g, b, 1)
+			else
+				if bgTexture and bgTexture ~= '' then
+					tooltip.SUITip.bgTexture:SetVertexColor(1, 1, 1, a)
+				else
+					tooltip.SUITip.bgTexture:SetVertexColor(0, 0, 0, a)
+				end
+			end
+
+			tooltip.SUITip:Show()
+		end
+
+		-- Hook the PUBLIC QTip:AcquireTooltip (not TooltipManager's internal method)
+		-- The internal method fires before ActiveTooltips is populated; the public one fires after
+		hooksecurefunc(LibQTip, 'AcquireTooltip', function(self, key)
+			local tooltip = LibQTip.TooltipManager.ActiveTooltips[key]
+			SkinLibQTip(tooltip)
+		end)
+
+		-- Skin any already-active LibQTip tooltips
+		for key, tooltip in LibQTip:TooltipPairs() do
+			SkinLibQTip(tooltip)
+		end
+	end
 
 	-- TooltipDataProcessor is Retail-only (10.0.2+), use old-style hooks for Classic
 	if TooltipDataProcessor then

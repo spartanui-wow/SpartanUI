@@ -593,20 +593,6 @@ local function CreateLibQTipMenu()
 	-- Set menu frame to DIALOG strata so tooltips can appear above it
 	menuFrame:SetFrameStrata('DIALOG')
 
-	-- Apply SpartanUI theming with modern backdrop support
-	if BackdropTemplateMixin then
-		menuFrame:SetBackdrop({
-			bgFile = 'Interface\\ChatFrame\\ChatFrameBackground',
-			edgeFile = 'Interface\\DialogFrame\\UI-DialogBox-Border',
-			tile = true,
-			tileSize = 16,
-			edgeSize = 16,
-			insets = { left = 4, right = 4, top = 4, bottom = 4 },
-		})
-		menuFrame:SetBackdropColor(0.05, 0.05, 0.15, 0.95)
-		menuFrame:SetBackdropBorderColor(0.6, 0.6, 0.8, 1)
-	end
-
 	-- Add sparkly header with colored text
 	local headerRow = menuFrame:AddHeadingRow()
 	headerRow:GetCell(1):SetText('|cffFFD700|r')
