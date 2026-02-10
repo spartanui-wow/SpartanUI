@@ -170,15 +170,20 @@ local function CreateArtwork()
 			local elapsed = select(1, ...)
 			self.TimeSinceLastUpdate = self.TimeSinceLastUpdate + elapsed
 			if self.TimeSinceLastUpdate > self.UpdateInterval then
-				if not MouseIsOver(plate.mask1) and not MouseIsOver(plate.POP1) and SUI.DB.ActionBars['popup1'].anim then -- popup1 animation
-					plate.mask1:Show()
-				else
-					plate.mask1:Hide()
+				-- Check if ActionBars DB exists before accessing it
+				if SUI.DB.ActionBars and SUI.DB.ActionBars['popup1'] then
+					if not MouseIsOver(plate.mask1) and not MouseIsOver(plate.POP1) and SUI.DB.ActionBars['popup1'].anim then -- popup1 animation
+						plate.mask1:Show()
+					else
+						plate.mask1:Hide()
+					end
 				end
-				if not MouseIsOver(plate.mask2) and not MouseIsOver(plate.POP2) and SUI.DB.ActionBars['popup2'].anim then -- popup2 animation
-					plate.mask2:Show()
-				else
-					plate.mask2:Hide()
+				if SUI.DB.ActionBars and SUI.DB.ActionBars['popup2'] then
+					if not MouseIsOver(plate.mask2) and not MouseIsOver(plate.POP2) and SUI.DB.ActionBars['popup2'].anim then -- popup2 animation
+						plate.mask2:Show()
+					else
+						plate.mask2:Hide()
+					end
 				end
 				self.TimeSinceLastUpdate = 0
 			end
