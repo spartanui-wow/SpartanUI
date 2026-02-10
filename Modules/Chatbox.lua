@@ -1166,9 +1166,13 @@ function module:SetupChatboxes()
 			-- Fix special pipe methods e.g. 5 |4hour:hours; Example: copying /played text
 			for i = 1, ChatFrame:GetNumMessages() do
 				local line = ChatFrame:GetMessageInfo(i)
-				popup.font:SetFormattedText('%s\n', line)
-				local cleanLine = popup.font:GetText() or ''
-				text = text .. cleanLine
+				if SUI.BlizzAPI.issecretvalue(line) then
+					text = text .. '<Secret Message>\n'
+				else
+					popup.font:SetFormattedText('%s\n', line)
+					local cleanLine = popup.font:GetText() or ''
+					text = text .. cleanLine
+				end
 			end
 			text = text:gsub('|T[^\\]+\\[^\\]+\\[Uu][Ii]%-[Rr][Aa][Ii][Dd][Tt][Aa][Rr][Gg][Ee][Tt][Ii][Nn][Gg][Ii][Cc][Oo][Nn]_(%d)[^|]+|t', '{rt%1}')
 
