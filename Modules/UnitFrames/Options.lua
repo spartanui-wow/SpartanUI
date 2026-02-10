@@ -414,8 +414,14 @@ function Options:AddFrameBackground(frameName, OptionSet)
 	end
 
 	local function updateDisplay()
-		-- Update the BackgroundBorder instance
-		BackgroundBorder:Update('UnitFrame_' .. frameName, getSettings())
+		-- Instance IDs use the WoW frame name (e.g. 'UnitFrame_SUI_UF_player',
+		-- 'UnitFrame_SUI_UF_raid_Header1UnitButton1'), not the bare unit name.
+		-- Use prefix search to find all instances for this frame type.
+		local settings = getSettings()
+		local instances = BackgroundBorder:GetInstancesByPrefix('UnitFrame_SUI_UF_' .. frameName)
+		for _, instanceID in ipairs(instances) do
+			BackgroundBorder:Update(instanceID, settings)
+		end
 	end
 
 	-- Generate the complete options table

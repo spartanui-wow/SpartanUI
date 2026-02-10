@@ -80,16 +80,12 @@ local function CreateUnitFrame(self, unit)
 			local frameName = self:GetName() or (self.unitOnCreate .. tostring(self))
 			local instanceID = 'UnitFrame_' .. frameName
 
+			-- Deep copy settings so we don't mutate CurrentSettings
+			local settings = SUI:CopyData({}, self.DB.frameBackground)
+
 			if not SUI.Handlers.BackgroundBorder.instances[instanceID] then
-				-- Create BackgroundBorder instance if it doesn't exist
-				-- Set displayLevel to -5 to ensure it's well behind the frame elements
-				local settings = SUI:CopyData(self.DB.frameBackground)
-				settings.displayLevel = -5
 				SUI.Handlers.BackgroundBorder:Create(self, instanceID, settings)
 			else
-				-- Update existing instance
-				local settings = SUI:CopyData(self.DB.frameBackground)
-				settings.displayLevel = -5
 				SUI.Handlers.BackgroundBorder:Update(instanceID, settings)
 			end
 			SUI.Handlers.BackgroundBorder:SetVisible(instanceID, true)
