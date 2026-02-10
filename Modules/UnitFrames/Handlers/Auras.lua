@@ -136,8 +136,15 @@ function Auras:FilterRetail(element, unit, data, config)
 	if filterMode == 'healing_mode' then
 		if auraInstanceID then
 			-- RAID_IN_COMBAT filter shows HoTs and combat-relevant buffs (12.1+)
-			local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'RAID_IN_COMBAT')
-			return not isFilteredOut
+			local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'HELPFUL|PLAYER|RAID_IN_COMBAT')
+			-- local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'HELPFUL|PLAYER')
+			-- Filter out permanent buffs (duration = 0) - world/event buffs, not player-cast HoTs
+			local duration = data.duration
+			if not SUI.BlizzAPI.issecretvalue(duration) and duration > 60 then
+				return false
+			else
+				return not isFilteredOut
+			end
 		end
 		return false
 	end

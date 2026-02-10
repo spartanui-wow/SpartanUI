@@ -103,12 +103,11 @@ local function CheckCorner_NewAPI(unit, cornerCfg)
 
 	if trackType == 'debuffType' then
 		-- Scan HARMFUL auras for matching dispel type
+		-- Use table lookup instead of == comparison (secret values can be table keys but not compared)
+		local match = { [trackValue] = true }
 		local found = false
 		AuraUtil.ForEachAura(unit, 'HARMFUL', nil, function(aura)
-			local ok, dispelName = pcall(function()
-				return aura.dispelName
-			end)
-			if ok and dispelName == trackValue then
+			if aura.dispelName and match[aura.dispelName] then
 				found = true
 				return true -- Stop iteration
 			end
@@ -123,12 +122,11 @@ local function CheckCorner_NewAPI(unit, cornerCfg)
 		return aura ~= nil
 	elseif trackType == 'buff' then
 		-- Scan HELPFUL auras for matching name
+		-- Use table lookup instead of == comparison (secret values can be table keys but not compared)
+		local match = { [trackValue] = true }
 		local found = false
 		AuraUtil.ForEachAura(unit, 'HELPFUL', nil, function(aura)
-			local ok, name = pcall(function()
-				return aura.name
-			end)
-			if ok and name == trackValue then
+			if aura.name and match[aura.name] then
 				found = true
 				return true
 			end
@@ -144,35 +142,38 @@ local function CheckCorner_Classic(unit, cornerCfg)
 	local trackValue = cornerCfg.trackValue
 
 	if trackType == 'debuffType' then
+		local match = { [trackValue] = true }
 		for i = 1, 40 do
 			local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, 'HARMFUL')
 			if not aura then
 				break
 			end
-			if aura.dispelName == trackValue then
+			if aura.dispelName and match[aura.dispelName] then
 				return true
 			end
 		end
 	elseif trackType == 'spellID' then
 		-- Check both helpful and harmful
+		local match = { [trackValue] = true }
 		for _, filter in ipairs({ 'HELPFUL', 'HARMFUL' }) do
 			for i = 1, 40 do
 				local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, filter)
 				if not aura then
 					break
 				end
-				if aura.spellId == tonumber(trackValue) then
+				if aura.spellId and match[aura.spellId] then
 					return true
 				end
 			end
 		end
 	elseif trackType == 'buff' then
+		local match = { [trackValue] = true }
 		for i = 1, 40 do
 			local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, 'HELPFUL')
 			if not aura then
 				break
 			end
-			if aura.name == trackValue then
+			if aura.name and match[aura.name] then
 				return true
 			end
 		end
@@ -215,25 +216,18 @@ local function CheckCorner_Retail_Legacy(unit, cornerCfg)
 	elseif trackType == 'spellID' or trackType == 'buff' then
 		-- spellID and buff name checks are less reliable in 12.0
 		-- but still work for some aura properties
+		-- Use table lookup instead of == comparison (secret values can be table keys but not compared)
+		local match = { [trackValue] = true }
 		for _, filter in ipairs({ 'HELPFUL', 'HARMFUL' }) do
 			for i = 1, 40 do
 				local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, filter)
 				if not aura then
 					break
 				end
-				local ok, val = pcall(function()
-					if trackType == 'spellID' then
-						return aura.spellId
-					else
-						return aura.name
-					end
-				end)
-				if ok then
-					if trackType == 'spellID' and val == tonumber(trackValue) then
-						return true
-					elseif trackType == 'buff' and val == trackValue then
-						return true
-					end
+				if trackType == 'spellID' and aura.spellId and match[aura.spellId] then
+					return true
+				elseif trackType == 'buff' and aura.name and match[aura.name] then
+					return true
 				end
 			end
 		end

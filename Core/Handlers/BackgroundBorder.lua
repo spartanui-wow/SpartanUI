@@ -64,7 +64,7 @@ function Handler:Create(parent, id, settings)
 	-- Deep copy DefaultSettings first, then merge passed settings into the copy
 	-- Note: SUI:CopyData(dest, source) copies source into dest, so we need to pass {} as dest
 	local defaults = SUI:CopyData({}, self.DefaultSettings)
-	settings = SUI:MergeData(defaults, settings or {})
+	settings = SUI:MergeData(defaults, settings or {}, true)
 
 	---@class SUI.BackgroundBorder.Instance
 	local instance = {
@@ -119,7 +119,7 @@ function Handler:Update(id, settings)
 
 	-- Merge new settings if provided
 	if settings then
-		instance.settings = SUI:MergeData(instance.settings, settings)
+		instance.settings = SUI:MergeData(instance.settings, settings, true)
 	end
 
 	local config = instance.settings
