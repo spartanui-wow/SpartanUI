@@ -40,7 +40,7 @@ local staticPopupHooked = false
 ---@param guid string
 ---@return string|nil npcId
 local function ParseNPCIdFromGUID(guid)
-	if not guid then
+	if not guid or SUI.BlizzAPI.issecretvalue(guid) then
 		return nil
 	end
 	-- GUID format: Creature-0-serverID-instanceID-zoneUID-npcID-spawnUID
@@ -52,7 +52,7 @@ end
 ---@return boolean
 local function IsInteractingWithDecorMerchant()
 	local targetGUID = UnitGUID('target')
-	if not targetGUID then
+	if not targetGUID or SUI.BlizzAPI.issecretvalue(targetGUID) then
 		return false
 	end
 
