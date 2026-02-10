@@ -8,6 +8,7 @@ module.Core = true
 ----------------------------------------------------------------------------------------------------
 module.Settings = nil ---@type SUI.Style.Settings.Minimap
 module.styleOverride = nil ---@type string|nil
+module.layoutModificationPending = false ---@type boolean Track if layout modification was skipped during combat
 local Registry = {}
 local MinimapUpdater = CreateFrame('Frame')
 
@@ -332,8 +333,16 @@ function module:ModifyMinimapLayout()
 		Minimap:SetQuestBlobRingScalar(0)
 	end
 
-	-- Modify MinimapCluster
-	MinimapCluster:EnableMouse(false)
+	-- Modify MinimapCluster (protected frame, skip in combat)
+	if not InCombatLockdown() then
+		MinimapCluster:EnableMouse(false)
+		module.layoutModificationPending = false
+	else
+		module.layoutModificationPending = true
+		if module.logger then
+			module.logger.debug('Skipping MinimapCluster:EnableMouse() during combat - will reapply after combat ends')
+		end
+	end
 
 	-- Modify MinimapBackdrop
 	MinimapBackdrop:ClearAllPoints()
@@ -2133,6 +2142,16 @@ end
 
 function module:RegisterEvents()
 	MinimapUpdater:SetScript('OnEvent', function(self, event)
+		if event == 'PLAYER_REGEN_ENABLED' then
+			-- Combat ended - reapply layout modifications if they were skipped
+			if module.layoutModificationPending then
+				if module.logger then
+					module.logger.debug('Combat ended - reapplying minimap layout modifications')
+				end
+				module:ModifyMinimapLayout()
+			end
+		end
+
 		if not InCombatLockdown() then
 			module:ScheduleTimer(module.Update, 2, module, true)
 		end
