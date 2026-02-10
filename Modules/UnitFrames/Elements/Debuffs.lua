@@ -139,34 +139,48 @@ local function Options(unitName, OptionSet)
 		end,
 	}
 
+	-- Retail: Prominent Filter Mode radio selects (inline group on main element page)
 	if SUI.IsRetail then
-		-- Retail: Single Filter Mode dropdown backed by Blizzard filter strings
-		OptionSet.args.Display.args.filterMode = {
+		OptionSet.args.FilterMode = {
 			name = L['Filter Mode'],
-			desc = L['Choose how debuffs are filtered. WoW restricts what addons can access in combat, so these modes use safe Blizzard filter categories.'],
-			type = 'select',
-			order = 7,
-			values = {
-				blizzard_default = L['Blizzard Default'],
-				player_auras = L['Your Debuffs Only'],
-				raid_auras = L['Raid-Important Debuffs'],
-				all = L['Show All'],
+			type = 'group',
+			order = 50,
+			inline = true,
+			args = {
+				desc = {
+					type = 'description',
+					name = 'WoW 12.0 restricts aura data in combat. Choose a filter mode below.\nMulti-filter support is planned for a future patch.',
+					order = 0,
+					fontSize = 'small',
+				},
+				filterMode = {
+					name = '',
+					type = 'select',
+					style = 'radio',
+					order = 1,
+					width = 'full',
+					values = {
+						blizzard_default = L['Blizzard Default'],
+						player_auras = L['Your Debuffs Only'],
+						raid_auras = L['Raid-Important Debuffs'],
+						all = L['Show All'],
+					},
+					get = function()
+						local retail = ElementSettings.retail
+						return retail and retail.filterMode or 'blizzard_default'
+					end,
+					set = function(_, val)
+						ElementSettings.retail = ElementSettings.retail or {}
+						ElementSettings.retail.filterMode = val
+
+						local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
+						userSettings.retail = userSettings.retail or {}
+						userSettings.retail.filterMode = val
+
+						UF.Unit[unitName]:ElementUpdate('Debuffs')
+					end,
+				},
 			},
-			get = function()
-				local retail = ElementSettings.retail
-				return retail and retail.filterMode or 'blizzard_default'
-			end,
-			set = function(_, val)
-				-- Ensure retail config exists
-				ElementSettings.retail = ElementSettings.retail or {}
-				ElementSettings.retail.filterMode = val
-
-				local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
-				userSettings.retail = userSettings.retail or {}
-				userSettings.retail.filterMode = val
-
-				UF.Unit[unitName]:ElementUpdate('Debuffs')
-			end,
 		}
 	end
 end

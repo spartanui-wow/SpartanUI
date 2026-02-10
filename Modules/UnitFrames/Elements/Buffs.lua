@@ -138,37 +138,7 @@ local function Options(unitName, OptionSet)
 		end,
 	}
 
-	if SUI.IsRetail then
-		-- Retail: Single Filter Mode dropdown backed by Blizzard filter strings
-		OptionSet.args.Display.args.filterMode = {
-			name = L['Filter Mode'],
-			desc = L['Choose how buffs are filtered. WoW restricts what addons can access in combat, so these modes use safe Blizzard filter categories.'],
-			type = 'select',
-			order = 7,
-			values = {
-				blizzard_default = L['Blizzard Default'],
-				player_auras = L['Your Auras Only'],
-				raid_auras = L['Raid-Important Auras'],
-				healing_mode = L['Healing Mode (HoTs)'],
-				all = L['Show All'],
-			},
-			get = function()
-				local retail = ElementSettings.retail
-				return retail and retail.filterMode or 'blizzard_default'
-			end,
-			set = function(_, val)
-				-- Ensure retail config exists
-				ElementSettings.retail = ElementSettings.retail or {}
-				ElementSettings.retail.filterMode = val
-
-				local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Buffs
-				userSettings.retail = userSettings.retail or {}
-				userSettings.retail.filterMode = val
-
-				UF.Unit[unitName]:ElementUpdate('Buffs')
-			end,
-		}
-	else
+	if not SUI.IsRetail then
 		-- Classic: Only Show Your Auras toggle (uses rules system)
 		OptionSet.args.Display.args.onlyShowPlayer = {
 			name = L['Only Show Your Auras'],
@@ -181,6 +151,52 @@ local function Options(unitName, OptionSet)
 			set = function(_, val)
 				OptUpdate('onlyShowPlayer', val)
 			end,
+		}
+	end
+
+	-- Retail: Prominent Filter Mode radio selects (inline group on main element page)
+	if SUI.IsRetail then
+		OptionSet.args.FilterMode = {
+			name = L['Filter Mode'],
+			type = 'group',
+			order = 50,
+			inline = true,
+			args = {
+				desc = {
+					type = 'description',
+					name = 'WoW 12.0 restricts aura data in combat. Choose a filter mode below.\nMulti-filter support is planned for a future patch.',
+					order = 0,
+					fontSize = 'small',
+				},
+				filterMode = {
+					name = '',
+					type = 'select',
+					style = 'radio',
+					order = 1,
+					width = 'full',
+					values = {
+						blizzard_default = L['Blizzard Default'],
+						player_auras = L['Your Auras Only'],
+						raid_auras = L['Raid-Important Auras'],
+						healing_mode = L['Healing Mode (HoTs)'],
+						all = L['Show All'],
+					},
+					get = function()
+						local retail = ElementSettings.retail
+						return retail and retail.filterMode or 'blizzard_default'
+					end,
+					set = function(_, val)
+						ElementSettings.retail = ElementSettings.retail or {}
+						ElementSettings.retail.filterMode = val
+
+						local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Buffs
+						userSettings.retail = userSettings.retail or {}
+						userSettings.retail.filterMode = val
+
+						UF.Unit[unitName]:ElementUpdate('Buffs')
+					end,
+				},
+			},
 		}
 	end
 end

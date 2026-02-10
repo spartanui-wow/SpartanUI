@@ -632,26 +632,9 @@ end
 ---@param get function
 function Options:AddAuraFilters(frameName, OptionSet, set, get)
 	if SUI.IsRetail then
-		-- RETAIL (12.0+): Filter mode is controlled by the element's own Options function
-		-- (filterMode dropdown in Buffs.lua / Debuffs.lua Display section)
-		-- Only add a notice here explaining the limitations
-		OptionSet.args.Filters = {
-			name = L['Filters'],
-			type = 'group',
-			order = 1,
-			args = {
-				retailNotice = {
-					type = 'description',
-					name = '|cffFF6600WoW 12.0 API Restrictions|r\n\n'
-						.. 'Blizzard has restricted most aura properties in combat. '
-						.. 'Use the Filter Mode dropdown in the Display section above to choose which auras to show. '
-						.. 'Duration text is unavailable (the cooldown spiral still shows duration).\n\n'
-						.. 'Full filtering (duration, whitelist/blacklist, boss auras, etc.) is available in Classic.',
-					order = 0,
-					fontSize = 'medium',
-				},
-			},
-		}
+		-- Retail: Filter mode is handled by the element's inline FilterMode radio group
+		-- No Filters sub-tab needed on Retail
+		return
 	else
 		-- CLASSIC: Full filtering with duration, whitelist/blacklist
 		OptionSet.args.Filters = {
