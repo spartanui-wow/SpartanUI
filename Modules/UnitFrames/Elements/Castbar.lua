@@ -191,19 +191,32 @@ local function Update(frame, settings)
 				SUI.logger.debug('Hiding Blizzard castbar: ' .. (frameName or 'unknown'))
 			end
 			castFrame.showCastbar = false
-			-- SetUnit doesn't exist in Classic
-			if castFrame.SetUnit then
-				castFrame:SetUnit(nil)
-			end
-			castFrame:UnregisterAllEvents()
-			castFrame:Hide()
-			castFrame:HookScript('OnShow', function(self)
-				self:Hide()
-				self.showCastbar = false
-				if self.SetUnit then
-					self:SetUnit(nil)
+
+			if SUI.IsRetail then
+				-- Retail 12.0+: Don't use SetUnit() - triggers forbidden table iteration
+				-- SetUnit internally calls StopFinishAnims which iterates CastingBarTypeInfo
+				-- with secret value keys, causing "forbidden table" errors
+				castFrame:UnregisterAllEvents()
+				castFrame:Hide()
+				castFrame:HookScript('OnShow', function(self)
+					self:Hide()
+					self.showCastbar = false
+				end)
+			else
+				-- Classic versions: SetUnit is safe and may be needed
+				if castFrame.SetUnit then
+					castFrame:SetUnit(nil)
 				end
-			end)
+				castFrame:UnregisterAllEvents()
+				castFrame:Hide()
+				castFrame:HookScript('OnShow', function(self)
+					self:Hide()
+					self.showCastbar = false
+					if self.SetUnit then
+						self:SetUnit(nil)
+					end
+				end)
+			end
 		end
 
 		-- EditModeManagerFrame.AccountSettings is Retail-only (10.0+)

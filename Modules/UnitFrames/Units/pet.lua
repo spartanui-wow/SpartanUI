@@ -21,11 +21,24 @@ local function Builder(frame)
 	if not SUI.IsRetail then
 		UF.Elements:Build(frame, 'HappinessIndicator', elementDB['HappinessIndicator'])
 	end
-	if PetCastingBarFrame.SetUnit then
-		PetCastingBarFrame:SetUnit(nil)
-	end
-	if PetCastingBarFrame.UnregisterEvent then
-		PetCastingBarFrame:UnregisterEvent('UNIT_PET')
+
+	-- Disable Blizzard PetCastingBarFrame to prevent conflicts
+	if PetCastingBarFrame then
+		if SUI.IsRetail then
+			-- Retail 12.0+: Don't use SetUnit() - triggers forbidden table iteration
+			-- SetUnit internally calls StopFinishAnims which iterates CastingBarTypeInfo
+			-- with secret value keys, causing "forbidden table" errors
+			PetCastingBarFrame:UnregisterAllEvents()
+			PetCastingBarFrame:Hide()
+		else
+			-- Classic versions: SetUnit is safe and may be needed
+			if PetCastingBarFrame.SetUnit then
+				PetCastingBarFrame:SetUnit(nil)
+			end
+			if PetCastingBarFrame.UnregisterEvent then
+				PetCastingBarFrame:UnregisterEvent('UNIT_PET')
+			end
+		end
 	end
 end
 
