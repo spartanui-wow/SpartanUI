@@ -12,7 +12,6 @@ local hookedNameplates = {}
 local isArenaHooked = false
 local isBossHooked = false
 local isPartyHooked = false
-local isRaidHooked = false
 
 local hiddenParent = CreateFrame('Frame', nil, UIParent)
 hiddenParent:SetAllPoints()
@@ -29,7 +28,6 @@ watcher:RegisterEvent('PLAYER_REGEN_ENABLED')
 watcher:SetScript('OnEvent', function()
 	for frame in next, looseFrames do
 		frame:SetParent(hiddenParent)
-		frame:Hide()
 	end
 
 	table.wipe(looseFrames)
@@ -45,7 +43,7 @@ local function resetParent(self, parent)
 	end
 end
 
-local function handleFrame(baseName, doNotReparent, isNamePlate, hookShow)
+local function handleFrame(baseName, doNotReparent, isNamePlate)
 	local frame
 	if type(baseName) == 'string' then
 		frame = _G[baseName]
@@ -70,39 +68,6 @@ local function handleFrame(baseName, doNotReparent, isNamePlate, hookShow)
 
 				hookedFrames[frame] = true
 			end
-		end
-
-		-- Hook Show() to prevent Blizzard from showing the frame again
-		-- This is crucial for preventing GROUP_ROSTER_UPDATE from re-showing frames
-		if hookShow and not frame.__showHooked then
-			hooksecurefunc(frame, 'Show', function(self)
-				if InCombatLockdown() and self:IsProtected() then
-					-- Can't Hide() protected frames in combat, defer to out-of-combat handler
-					looseFrames[self] = true
-				else
-					self:Hide()
-				end
-			end)
-			frame.__showHooked = true
-		end
-
-		-- Edit Mode isolation: Hide selection indicators to prevent Edit Mode from controlling this frame
-		if frame.selectionHighlight then
-			frame.selectionHighlight:Hide()
-			frame.selectionHighlight:SetAlpha(0)
-		end
-		if frame.selectionIndicator then
-			frame.selectionIndicator:Hide()
-			frame.selectionIndicator:SetAlpha(0)
-		end
-
-		-- Combat-safe alpha + scale hiding for protected frames
-		-- This ensures frames are invisible even if Edit Mode tries to show them
-		if not InCombatLockdown() then
-			pcall(function()
-				frame:SetAlpha(0)
-				frame:SetScale(0.001) -- Near-invisible but doesn't trigger combat lockdown
-			end)
 		end
 
 		local health = frame.healthBar or frame.healthbar or frame.HealthBar or (frame.HealthBarsContainer and frame.HealthBarsContainer.healthBar)
@@ -138,11 +103,6 @@ local function handleFrame(baseName, doNotReparent, isNamePlate, hookShow)
 		local totFrame = frame.totFrame
 		if totFrame then
 			totFrame:UnregisterAllEvents()
-		end
-
-		local classPowerBar = frame.classPowerBar
-		if classPowerBar then
-			classPowerBar:UnregisterAllEvents()
 		end
 
 		local ccRemoverFrame = frame.CcRemoverFrame
@@ -193,73 +153,14 @@ function oUF:DisableBlizzard(unit)
 		if not isPartyHooked then
 			isPartyHooked = true
 
-			-- Hook Show() to prevent GROUP_ROSTER_UPDATE from re-showing party frames
-			handleFrame(PartyFrame, false, false, true)
+			handleFrame(PartyFrame)
 
 			for frame in PartyFrame.PartyMemberFramePool:EnumerateActive() do
-				handleFrame(frame, true, false, true)
+				handleFrame(frame, true)
 			end
 
 			for i = 1, MEMBERS_PER_RAID_GROUP do
-				handleFrame('CompactPartyFrameMember' .. i, false, false, true)
-			end
-
-			-- Edit Mode: Hide CompactPartyFrame container selection indicators
-			if CompactPartyFrame then
-				handleFrame(CompactPartyFrame, false, false, true)
-				if CompactPartyFrame.selectionHighlight then
-					CompactPartyFrame.selectionHighlight:Hide()
-					CompactPartyFrame.selectionHighlight:SetAlpha(0)
-				end
-				if CompactPartyFrame.selectionIndicator then
-					CompactPartyFrame.selectionIndicator:Hide()
-					CompactPartyFrame.selectionIndicator:SetAlpha(0)
-				end
-			end
-
-			-- Note: UIParent:UnregisterEvent('GROUP_ROSTER_UPDATE') was previously called here
-			-- but it breaks all Blizzard UI functionality that depends on roster updates,
-			-- including raid frames when only party frames are being replaced by oUF.
-		end
-	elseif unit:match('raid%d?$') then
-		if not isRaidHooked then
-			isRaidHooked = true
-
-			-- Hide CompactRaidFrameManager and its selection indicators
-			if CompactRaidFrameManager then
-				handleFrame(CompactRaidFrameManager, true, false, true)
-				if CompactRaidFrameManager_SetSetting then
-					CompactRaidFrameManager_SetSetting('IsShown', '0')
-				end
-				if CompactRaidFrameManager.selectionHighlight then
-					CompactRaidFrameManager.selectionHighlight:Hide()
-					CompactRaidFrameManager.selectionHighlight:SetAlpha(0)
-				end
-			end
-
-			-- Hide CompactRaidFrameContainer and its Edit Mode selection indicators
-			if CompactRaidFrameContainer then
-				handleFrame(CompactRaidFrameContainer, true, false, true)
-				if CompactRaidFrameContainer.selectionHighlight then
-					CompactRaidFrameContainer.selectionHighlight:Hide()
-					CompactRaidFrameContainer.selectionHighlight:SetAlpha(0)
-				end
-				if CompactRaidFrameContainer.selectionIndicator then
-					CompactRaidFrameContainer.selectionIndicator:Hide()
-					CompactRaidFrameContainer.selectionIndicator:SetAlpha(0)
-				end
-
-				-- Disable the ApplyToFrames and ApplyMultipleToFrames methods to prevent Edit Mode
-				-- from trying to update unit frames we've disabled
-				CompactRaidFrameContainer.ApplyToFrames = function()
-					-- No-op: SpartanUI controls raid frames
-				end
-				CompactRaidFrameContainer.ApplyMultipleToFrames = function()
-					-- No-op: SpartanUI controls raid frames
-				end
-
-				-- Disable the OnEvent script to prevent Edit Mode callbacks
-				CompactRaidFrameContainer:SetScript('OnEvent', nil)
+				handleFrame('CompactPartyFrameMember' .. i)
 			end
 		end
 	elseif unit:match('arena%d?$') then
