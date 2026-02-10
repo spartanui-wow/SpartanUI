@@ -146,7 +146,7 @@ function module:OnInitialize()
 						type = 'execute',
 						order = 0.1,
 						func = function()
-							SUI:GetModule('SetupWizard'):SetupWizard()
+							SUI:GetModule('Handler.SetupWizard'):SetupWizard()
 						end,
 					},
 					ResetProfileDB = {

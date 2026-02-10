@@ -835,10 +835,11 @@ function BlizzardEditMode:SafeApplyChanges(suppressMovers)
 		return
 	end
 
-	-- Update all movers unless suppressed
-	if not suppressMovers and MoveIt and MoveIt.UpdateMovers then
+	-- Hide movers when suppressed (e.g., during profile changes)
+	-- Movers should not automatically appear after profile changes
+	if suppressMovers and MoveIt and MoveIt.LockAll then
 		C_Timer.After(0.1, function()
-			MoveIt:UpdateMovers()
+			MoveIt:LockAll()
 		end)
 	end
 end
