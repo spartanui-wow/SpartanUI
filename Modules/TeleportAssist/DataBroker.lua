@@ -81,6 +81,16 @@ local function RegisterMinimapButton()
 		return
 	end
 
+	-- Smart default: show on Classic (no map integration), hide on Retail (has world map button)
+	if not module.DB.minimapDefaultApplied then
+		module.DB.minimapDefaultApplied = true
+		if SUI.IsRetail then
+			module.DB.minimap.hide = true
+		else
+			module.DB.minimap.hide = false
+		end
+	end
+
 	-- LDBIcon needs to use DB.minimap for persistence
 	LDBIcon:Register('SUI_TeleportAssist', dataObj, module.DB.minimap)
 
