@@ -27,7 +27,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile ---@type HHSettings
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 end
 
 function module:OnEnable()

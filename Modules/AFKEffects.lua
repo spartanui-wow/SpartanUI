@@ -340,7 +340,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile ---@type AFKEffectsDB
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 
 	--If speed is less than 1 reset it
 	if module.DB.SpinCam.speed < 1 then

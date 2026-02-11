@@ -148,7 +148,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 	if SUI:IsAddonEnabled('TomTom') then
 		module.override = true
 	end

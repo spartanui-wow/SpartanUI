@@ -141,10 +141,11 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('BarHandler', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.BarHandler.DB
 
-	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	-- Register for sequential profile refresh with validation
+	SUI.DBM:RegisterSequentialProfileRefresh(module, 'ValidateActiveSystem')
 	DB = module.DB
 
+	-- Initial validation for first load
 	if SUI:IsAddonDisabled('Bartender4') then
 		DB.ActiveSystem = 'WoW'
 	elseif SUI:IsAddonEnabled('Bartender4') then
@@ -165,7 +166,51 @@ function module:OnEnable()
 end
 
 function module:Refresh()
-	module.Registry[DB.ActiveSystem]:refresh()
+	-- Defensive check - ensure ActiveSystem is set and registered
+	if not DB.ActiveSystem or not module.Registry[DB.ActiveSystem] then
+		-- Re-detect active system
+		if SUI:IsAddonDisabled('Bartender4') then
+			DB.ActiveSystem = 'WoW'
+		elseif SUI:IsAddonEnabled('Bartender4') then
+			DB.ActiveSystem = 'Bartender4'
+		end
+
+		-- If still not found, skip refresh
+		if not DB.ActiveSystem or not module.Registry[DB.ActiveSystem] then
+			return
+		end
+	end
+
+	-- Safe to call refresh now
+	if module.Registry[DB.ActiveSystem].refresh then
+		module.Registry[DB.ActiveSystem]:refresh()
+	end
+end
+
+---Validate ActiveSystem on profile change (only sets defaults for new profiles)
+function module:ValidateActiveSystem()
+	-- Update the local DB reference
+	DB = module.DB
+
+	-- Only set ActiveSystem if it's NOT already set (new/empty profile)
+	if not DB.ActiveSystem then
+		if SUI:IsAddonDisabled('Bartender4') then
+			DB.ActiveSystem = 'Bartender4' -- Default even if disabled
+		elseif SUI:IsAddonEnabled('Bartender4') then
+			DB.ActiveSystem = 'Bartender4'
+		end
+
+		-- Ensure the system is registered
+		if not module.Registry[DB.ActiveSystem] then
+			DB.ActiveSystem = 'Bartender4' -- Fallback
+		end
+	else
+		-- For existing profiles, just ensure the registry entry exists
+		if not module.Registry[DB.ActiveSystem] then
+			-- User's chosen system isn't available, fall back
+			DB.ActiveSystem = 'Bartender4'
+		end
+	end
 end
 
 function module:MoveIt()

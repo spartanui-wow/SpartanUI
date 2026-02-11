@@ -6,6 +6,9 @@ local L = SUI.L
 local DBManager = {}
 SUI.DBM = DBManager
 
+-- Sequential profile refresh callback registry
+DBManager.ProfileRefreshCallbacks = {}
+
 ---Calculate wildcard depth needed for nested defaults
 ---@param defaults table The defaults table to analyze
 ---@param maxDepth? number Maximum depth to check (default 10)
@@ -90,6 +93,7 @@ function DBManager:SetupModule(module, defaults, globalDefaults, options)
 	end
 
 	-- Register profile change callbacks to auto-update DB references
+	-- SetupModule uses the old RegisterProfileCallbacks internally for AceDB callback system
 	self:RegisterProfileCallbacks(module)
 
 	-- Initial load
@@ -189,5 +193,43 @@ function DBManager:Get(module, key)
 		return target
 	else
 		return module.CurrentSettings[key]
+	end
+end
+
+---Register a module for sequential profile refresh
+---This replaces RegisterProfileCallbacks for the new sequential system
+---@param module table The module to register
+---@param refreshMethod? string Optional method name to call after DB update
+function DBManager:RegisterSequentialProfileRefresh(module, refreshMethod)
+	table.insert(DBManager.ProfileRefreshCallbacks, {
+		module = module,
+		refreshMethod = refreshMethod,
+	})
+end
+
+---Execute all profile refresh callbacks sequentially
+---Called by UpdateModuleConfigs when profiles change
+function DBManager:ExecuteProfileRefresh()
+	for _, entry in ipairs(DBManager.ProfileRefreshCallbacks) do
+		local module = entry.module
+		local refreshMethod = entry.refreshMethod
+
+		-- Update DB references
+		if module.Database then
+			module.DB = module.Database.profile
+			if module.Database.global then
+				module.DBG = module.Database.global
+			end
+
+			-- If using SetupModule (has CurrentSettings), refresh it
+			if module.CurrentSettings and module.DBDefaults then
+				DBManager:RefreshSettings(module)
+			end
+
+			-- Call optional refresh method to reapply settings
+			if refreshMethod and type(module[refreshMethod]) == 'function' then
+				module[refreshMethod](module)
+			end
+		end
 	end
 end

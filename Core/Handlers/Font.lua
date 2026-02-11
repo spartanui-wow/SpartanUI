@@ -295,8 +295,8 @@ function Font:OnInitialize()
 	Font.Database = SUI.SpartanUIDB:RegisterNamespace('Font', { profile = DBDefaults })
 	Font.DB = Font.Database.profile ---@type FontDB
 
-	-- Register profile change callbacks with refresh method
-	SUI.DBM:RegisterProfileCallbacks(self, 'Refresh')
+	-- Register for sequential profile refresh with Refresh method
+	SUI.DBM:RegisterSequentialProfileRefresh(self, 'Refresh')
 
 	if Font.PreLoadItems then
 		--ReRun Font:Format for any fonts that were loaded before the module was enabled

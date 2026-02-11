@@ -1967,18 +1967,57 @@ function SUI:GoldFormattedValue(rawValue)
 	return format(GOLD_AMOUNT_TEXTURE .. ' ' .. SILVER_AMOUNT_TEXTURE .. ' ' .. COPPER_AMOUNT_TEXTURE, gold, 0, 0, silver, 0, 0, copper, 0, 0)
 end
 
+---Initialize a new/empty profile with required data structures
+---@param profile table The profile to initialize
+function SUI:InitializeProfile(profile)
+	-- Artwork structure required by SetActiveStyle
+	if not profile.Artwork then
+		profile.Artwork = {
+			Style = 'Classic',
+			Viewport = {
+				enabled = false,
+				top = 0,
+				bottom = 130,
+				left = 0,
+				right = 0,
+			},
+			SetupDone = false,
+		}
+	else
+		if not profile.Artwork.Style then
+			profile.Artwork.Style = 'Classic'
+		end
+		if not profile.Artwork.Viewport then
+			profile.Artwork.Viewport = {
+				enabled = false,
+				top = 0,
+				bottom = 130,
+				left = 0,
+				right = 0,
+			}
+		end
+	end
+end
+
 function SUI:UpdateModuleConfigs()
 	-- Update main DB references to point to new profile
 	SUI.DB = SUI.SpartanUIDB.profile
 	SUI.DBG = SUI.SpartanUIDB.global
 
-	-- Trigger refresh for modules that need to reapply settings
-	-- Note: Individual modules also have their own profile callbacks via DBM:RegisterProfileCallbacks
-	-- This handles the main SUI.DB reference that many modules use directly
+	-- Initialize profile with required structures
+	SUI:InitializeProfile(SUI.DB)
 
-	-- For now, still show reload UI prompt as a safety fallback
-	-- TODO: Remove once all modules properly handle profile changes
-	SUI:reloadui()
+	-- Execute all module profile refresh callbacks SEQUENTIALLY
+	-- This ensures all modules update their DB references before theme application
+	if SUI.DBM.ExecuteProfileRefresh then
+		SUI.DBM:ExecuteProfileRefresh()
+	end
+
+	-- NOW it's safe to apply the theme - all modules are refreshed
+	local currentStyle = SUI.DB.Artwork.Style
+	if currentStyle then
+		SUI:SetActiveStyle(currentStyle)
+	end
 end
 
 function SUI:reloadui()

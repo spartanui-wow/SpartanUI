@@ -67,7 +67,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 end
 
 local function COMBAT_LOG_EVENT_UNFILTERED()

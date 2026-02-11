@@ -320,7 +320,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 end
 
 function module:OnEnable()

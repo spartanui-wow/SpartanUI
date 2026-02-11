@@ -251,7 +251,8 @@ function UF:OnInitialize()
 	UF.DB = UF.Database.profile
 
 	-- Register profile change callbacks with refresh method
-	SUI.DBM:RegisterProfileCallbacks(UF, 'Update')
+	-- Register for sequential profile refresh with Update method
+	SUI.DBM:RegisterSequentialProfileRefresh(UF, 'Update')
 
 	-- Migrate from legacy single-style to per-frame presets
 	MigrateFromLegacy()

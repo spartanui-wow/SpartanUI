@@ -318,7 +318,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile ---@type SUI.Chat.DB
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 
 	module.logger = SUI.logger:RegisterCategory('Chatbox')
 

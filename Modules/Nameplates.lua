@@ -802,8 +802,8 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('Nameplates', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.NamePlates.Settings
 
-	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	-- Register for sequential profile refresh with UpdateAllNameplates
+	SUI.DBM:RegisterSequentialProfileRefresh(module, 'UpdateAllNameplates')
 
 	-- Migrate old settings
 	if SUI.DB.Nameplates then
@@ -855,6 +855,25 @@ function module:OnEnable()
 				ClassNameplateManaBarFrame:Hide()
 			end)
 		end
+	end
+end
+
+---Update all active nameplates with new profile settings
+function module:UpdateAllNameplates()
+	-- Update CurrentSettings cache with new profile data
+	for objName, defaults in pairs(ElementDefaults) do
+		CurrentSettings[objName] = SUI:CopyData(SUI.UF.Elements:GetConfig(objName), {})
+	end
+
+	-- Update all existing nameplates
+	for _, nameplate in pairs(NameplateList) do
+		if nameplate and nameplate.unitFrame then
+			UpdateElementState(nameplate.unitFrame)
+		end
+	end
+
+	if module.logger then
+		module.logger.info('Updated all nameplates for new profile')
 	end
 end
 

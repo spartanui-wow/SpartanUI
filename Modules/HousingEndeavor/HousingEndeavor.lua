@@ -542,7 +542,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile ---@type SUI.HousingEndeavor.Database
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 
 	-- Register logger
 	if LibAT and LibAT.Logger then

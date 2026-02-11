@@ -58,6 +58,20 @@ function module:OnEnable()
 			namespaces = namespaces,
 			icon = 'Interface\\AddOns\\SpartanUI\\images\\Spartan-Helm',
 		})
+
+		-- Register composite bundle (full profile with action bars and UI positions)
+		LibAT.ProfileManager:RegisterComposite({
+			id = 'spartanui_full',
+			displayName = 'SpartanUI (Full Profile)',
+			description = 'Complete SUI setup including action bars and UI positions',
+			primaryAddonId = SPARTANUI_ADDON_ID,
+
+			-- Simple string IDs - ProfileManager's BuiltInSystems knows the rest
+			components = {
+				'bartender4', -- Built-in: knows addonId, displayName, availability
+				'editmode', -- Built-in: knows it's Retail-only, has export/import logic
+			},
+		})
 	else
 		SUI:Error('LibAT ProfileManager not available - profile import/export disabled')
 	end

@@ -104,7 +104,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 
 	-- Migrate old settings
 	if SUI.DB.TauntWatcher then

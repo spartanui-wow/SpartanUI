@@ -429,19 +429,8 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('StatusBars', { profile = defaults })
 	DB = module.Database.profile
 
-	-- Register profile change callbacks
-	module.Database.RegisterCallback(module, 'OnProfileChanged', function()
-		DB = module.Database.profile
-		module:UpdateBars()
-	end)
-	module.Database.RegisterCallback(module, 'OnProfileCopied', function()
-		DB = module.Database.profile
-		module:UpdateBars()
-	end)
-	module.Database.RegisterCallback(module, 'OnProfileReset', function()
-		DB = module.Database.profile
-		module:UpdateBars()
-	end)
+	-- Register for sequential profile refresh
+	SUI.DBM:RegisterSequentialProfileRefresh(module, 'UpdateBars')
 
 	-- Migrate old settings
 	if SUI.DB.StatusBars then

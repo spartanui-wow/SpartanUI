@@ -839,7 +839,7 @@ function StatsTracker:OnInitialize()
 	StatsTracker.DB = StatsTracker.Database.profile
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(StatsTracker)
+	SUI.DBM:RegisterSequentialProfileRefresh(StatsTracker)
 
 	-- Get MoveIt reference
 	MoveIt = SUI:GetModule('MoveIt')

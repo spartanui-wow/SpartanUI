@@ -977,7 +977,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile ---@type SUI.ExpandedExpansionButton.Database
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 
 	-- Register default expansion items
 	for _, item in ipairs(defaultExpansions) do

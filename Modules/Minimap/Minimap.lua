@@ -274,6 +274,11 @@ function module:Register(name, settings)
 end
 
 function module:UpdateSettings()
+	-- Defensive check: if Artwork module isn't initialized yet, defer update
+	if not SUI.DB.Artwork or not SUI.DB.Artwork.Style then
+		return
+	end
+
 	module.Settings = nil
 	-- Start with base settings (version-specific)
 	---@type SUI.Style.Settings.IMinimap
@@ -2472,7 +2477,8 @@ function module:OnInitialize()
 	module.DB = module.Database.profile ---@type SUI.Minimap.Database
 
 	-- Register profile change callbacks with refresh method
-	SUI.DBM:RegisterProfileCallbacks(module, 'UpdateSettings')
+	-- Register for sequential profile refresh with UpdateSettings
+	SUI.DBM:RegisterSequentialProfileRefresh(module, 'UpdateSettings')
 
 	-- Initialize the settings
 	module:UpdateSettings()

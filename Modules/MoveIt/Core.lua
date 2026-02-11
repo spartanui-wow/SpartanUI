@@ -405,8 +405,8 @@ function MoveIt:OnInitialize()
 	MoveIt.Database = SUI.SpartanUIDB:RegisterNamespace('MoveIt', defaults)
 	MoveIt.DB = MoveIt.Database.profile
 
-	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(MoveIt)
+	-- Register for sequential profile refresh with ApplyAllMoverPositions
+	SUI.DBM:RegisterSequentialProfileRefresh(MoveIt, 'ApplyAllMoverPositions')
 	MoveIt.DBG = MoveIt.Database.global -- Global scope for account-wide settings
 
 	-- Migrate old settings
@@ -624,5 +624,42 @@ function MoveIt:SaveMoverPosition(name)
 	local position = self.PositionCalculator:GetRelativePosition(mover)
 	if position then
 		self.PositionCalculator:SavePosition(name, position)
+	end
+end
+
+---Re-apply all mover positions from the new profile
+function MoveIt:ApplyAllMoverPositions()
+	-- Skip if in combat
+	if InCombatLockdown() then
+		if MoveIt.logger then
+			MoveIt.logger.warning('Profile swap during combat - mover positions will not update until after combat')
+		end
+		return
+	end
+
+	-- Re-apply each stored mover position
+	local applied = 0
+	for moverName, data in pairs(MoveIt.DB.movers or {}) do
+		if data.MovedPoints then
+			local mover = _G['SUI_Mover_' .. moverName]
+			if mover then
+				local point, anchor, secondaryPoint, x, y = strsplit(',', data.MovedPoints)
+				mover:ClearAllPoints()
+				mover:SetPoint(point, anchor, secondaryPoint, tonumber(x), tonumber(y))
+
+				-- Apply custom scale if set
+				if data.AdjustedScale then
+					mover:SetScale(data.AdjustedScale)
+					if mover.parent then
+						mover.parent:SetScale(data.AdjustedScale)
+					end
+				end
+				applied = applied + 1
+			end
+		end
+	end
+
+	if MoveIt.logger then
+		MoveIt.logger.info(string.format('Applied %d mover positions from new profile', applied))
 	end
 end

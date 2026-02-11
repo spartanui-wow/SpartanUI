@@ -689,7 +689,7 @@ function module:OnInitialize()
 	module.DB = module.Database.profile
 
 	-- Register profile change callbacks
-	SUI.DBM:RegisterProfileCallbacks(module)
+	SUI.DBM:RegisterSequentialProfileRefresh(module)
 	DB = module.Database.profile
 
 	for name, Data in pairs(module.Registry) do

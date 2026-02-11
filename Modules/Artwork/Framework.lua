@@ -373,6 +373,11 @@ function module:OnInitialize()
 		return
 	end
 
+	-- Register for sequential profile refresh (Artwork doesn't use RegisterNamespace, uses SUI.DB.Artwork directly)
+	-- We create a dummy Database object just for the refresh system
+	module.Database = { profile = SUI.DB.Artwork }
+	SUI.DBM:RegisterSequentialProfileRefresh(module, 'RefreshViewport')
+
 	-- Setup options
 	module:SetupOptions()
 
@@ -415,6 +420,19 @@ local function VehicleUI()
 		end)
 		RegisterStateDriver(SpartanUI, 'visibility', '[petbattle][overridebar][vehicleui] hide; show')
 	end
+end
+
+---Refresh viewport settings from new profile
+function module:RefreshViewport()
+	-- Note: Artwork uses SUI.DB.Artwork directly, not module.DB
+	-- The sequential refresh system already updated SUI.DB reference in UpdateModuleConfigs
+
+	-- Re-apply viewport settings from new profile
+	if SUI.DB.Artwork and SUI.DB.Artwork.Viewport then
+		module:updateViewport()
+	end
+
+	-- Don't call SetActiveStyle here - UpdateModuleConfigs handles it sequentially
 end
 
 function module:OnEnable()
