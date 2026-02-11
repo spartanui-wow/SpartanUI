@@ -489,6 +489,9 @@ function module:factory_Retail()
 end
 
 function module:UpdateBars()
+	-- Refresh local DB reference (may have changed after profile switch)
+	DB = module.Database.profile
+
 	local barManager = _G['SUI_StatusBar_Manager']
 	if barManager then
 		-- Update the shown bars
@@ -537,6 +540,10 @@ end
 function module:UpdateBarTextVisibility(containerKey)
 	local barContainer = module.bars[containerKey]
 	if not barContainer then
+		return
+	end
+
+	if not DB or not DB.bars or not DB.bars[containerKey] then
 		return
 	end
 
