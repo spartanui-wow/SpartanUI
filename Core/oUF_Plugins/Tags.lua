@@ -11,7 +11,11 @@ local unpack = unpack
 oUF.Tags.Events['afkdnd'] = 'PLAYER_FLAGS_CHANGED PLAYER_TARGET_CHANGED UNIT_TARGET'
 oUF.Tags.Methods['afkdnd'] = function(unit)
 	if unit then
-		if UnitIsAFK(unit) then
+		local afk = UnitIsAFK(unit)
+		if not SUI.BlizzAPI.canaccessvalue(afk) then
+			return ''
+		end
+		if afk then
 			return 'AFK'
 		elseif UnitIsDND and UnitIsDND(unit) then
 			return 'DND'
