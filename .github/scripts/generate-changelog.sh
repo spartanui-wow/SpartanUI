@@ -36,6 +36,10 @@ log_warn() { echo -e "${YELLOW}[WARN]${NC} $1" >&2; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1" >&2; }
 log_debug() { echo -e "${BLUE}[DEBUG]${NC} $1" >&2; }
 
+# Error trap — print file, line, and failing command on any error
+set -eE
+trap 'log_error "FAILED at ${BASH_SOURCE[0]}:${LINENO} — command: ${BASH_COMMAND} (exit code $?)"' ERR
+
 # === ADDON NAME & CONFIG AUTO-DETECTION ===
 
 # Load per-addon config from .addon-release.yml
@@ -50,6 +54,7 @@ load_addon_config() {
     [ -z "$WAGO_URL" ] && WAGO_URL=$(grep "  wago:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
     [ -z "$DISCORD_SUPPORT_URL" ] && DISCORD_SUPPORT_URL=$(grep "  discord:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
     [ -z "$ROADMAP_URL" ] && ROADMAP_URL=$(grep "  roadmap:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    return 0
 }
 
 # Auto-detect addon name from repo metadata

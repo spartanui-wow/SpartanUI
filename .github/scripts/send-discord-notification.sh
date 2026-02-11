@@ -14,7 +14,14 @@
 #   GITHUB_REF: GitHub ref for version detection
 #   ADDON_NAME: Override addon name (auto-detected if not set)
 
-set -e
+set -eE
+
+# Logging (defined early so error trap can use them)
+log_info() { echo "[INFO] $1" >&2; }
+log_error() { echo "[ERROR] $1" >&2; }
+
+# Error trap — print file, line, and failing command on any error
+trap 'log_error "FAILED at ${BASH_SOURCE[0]}:${LINENO} — command: ${BASH_COMMAND} (exit code $?)"' ERR
 
 # === CONFIGURATION ===
 CHANGELOG_FILE="${1:-CHANGELOG.md}"
@@ -23,10 +30,6 @@ MAX_DESC_LENGTH=4000  # Discord embed description limit is 4096
 # Colors (decimal values for Discord embeds)
 COLOR_STABLE=5763719   # Green (#57F287)
 COLOR_BETA=16776960    # Yellow (#FFFF00)
-
-# Logging
-log_info() { echo "[INFO] $1" >&2; }
-log_error() { echo "[ERROR] $1" >&2; }
 
 # === ADDON NAME & CONFIG AUTO-DETECTION ===
 
@@ -41,6 +44,7 @@ load_addon_config() {
     [ -z "$WAGO_URL" ] && WAGO_URL=$(grep "  wago:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
     [ -z "$DISCORD_SUPPORT" ] && DISCORD_SUPPORT=$(grep "  discord:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
     [ -z "$GH_PROJECT" ] && GH_PROJECT=$(grep "  roadmap:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    return 0
 }
 
 # Auto-detect addon name from repo metadata
