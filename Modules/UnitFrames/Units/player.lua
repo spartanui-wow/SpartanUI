@@ -99,7 +99,11 @@ local Settings = {
 		-- 	enabled = true
 		-- },
 		Buffs = {
-			enabled = false,
+			enabled = true,
+			number = 32,
+			size = 24,
+			rows = 2,
+			spacing = 2,
 			rules = {
 				duration = {
 					enabled = true,
@@ -108,12 +112,28 @@ local Settings = {
 			},
 			position = {
 				anchor = 'TOPLEFT',
+				relativePoint = 'BOTTOMLEFT',
+				x = 0,
+				y = -2,
+			},
+			retail = {
+				filterMode = 'all_buffs', -- Show all player buffs by default
 			},
 		},
 		Debuffs = {
 			enabled = true,
+			number = 16,
+			size = 28,
+			rows = 1,
+			spacing = 2,
 			position = {
-				anchor = 'TOPRIGHT',
+				anchor = 'BOTTOMLEFT',
+				relativePoint = 'TOPLEFT',
+				x = 0,
+				y = 2,
+			},
+			retail = {
+				filterMode = 'all_debuffs', -- Show all debuffs by default
 			},
 		},
 		Portrait = {

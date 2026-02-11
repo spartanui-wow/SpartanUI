@@ -61,6 +61,11 @@ local Settings = {
 		-- },
 		Buffs = {
 			enabled = true,
+			number = 16,
+			size = 22,
+			rows = 2,
+			spacing = 1,
+			growthx = 'LEFT',
 			rules = {
 				isMount = true,
 				isPlayerAura = true,
@@ -72,13 +77,30 @@ local Settings = {
 				},
 			},
 			position = {
-				anchor = 'TOPLEFT',
+				anchor = 'TOPRIGHT',
+				relativePoint = 'BOTTOMRIGHT',
+				x = 0,
+				y = -2,
+			},
+			retail = {
+				filterMode = 'healing_mode', -- Show HoTs and combat-relevant buffs
 			},
 		},
 		Debuffs = {
 			enabled = true,
+			number = 16,
+			size = 26,
+			rows = 1,
+			spacing = 1,
+			growthx = 'LEFT',
 			position = {
-				anchor = 'TOPRIGHT',
+				anchor = 'BOTTOMRIGHT',
+				relativePoint = 'TOPRIGHT',
+				x = 0,
+				y = 2,
+			},
+			retail = {
+				filterMode = 'player_debuffs', -- Show only your debuffs on target
 			},
 		},
 		ThreatIndicator = {

@@ -180,22 +180,38 @@ local Settings = {
 			enabled = true,
 			onlyShowPlayer = true,
 			healingMode = true,
-			size = 15,
+			number = 3,
+			rows = 1,
+			size = 16,
+			spacing = 1,
+			growthx = 'RIGHT',
+			growthy = 'UP',
 			position = {
-				relativePoint = 'BOTTOMRIGHT',
 				anchor = 'BOTTOMLEFT',
-				x = -2,
+				relativePoint = 'TOPLEFT',
+				x = 0,
+				y = 2,
+			},
+			retail = {
+				filterMode = 'healing_mode', -- Show HoTs and combat-relevant buffs
 			},
 		},
 		Debuffs = {
 			enabled = true,
-			size = 15,
+			number = 5,
+			rows = 1,
+			size = 18,
+			spacing = 1,
 			growthx = 'RIGHT',
+			growthy = 'DOWN',
 			position = {
+				anchor = 'TOPLEFT',
 				relativePoint = 'BOTTOMLEFT',
-				anchor = 'BOTTOMRIGHT',
-				x = 15,
-				y = 47,
+				x = 0,
+				y = -2,
+			},
+			retail = {
+				filterMode = 'raid_debuffs', -- Show all raid-relevant debuffs
 			},
 		},
 		Castbar = {

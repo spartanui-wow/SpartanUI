@@ -9,8 +9,6 @@ local function Builder(frame)
 	UF.Elements:Build(frame, 'SpartanArt', elementDB.SpartanArt)
 	UF.Elements:Build(frame, 'RaidTargetIndicator', elementDB.RaidTargetIndicator)
 	UF.Elements:Build(frame, 'Range', elementDB.Range)
-	UF.Elements:Build(frame, 'Buffs', elementDB.Buffs)
-	UF.Elements:Build(frame, 'Debuffs', elementDB.Debuffs)
 end
 
 local function Options() end

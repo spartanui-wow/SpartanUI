@@ -103,6 +103,105 @@ local function Options(unitName, OptionSet)
 		args = {},
 	}
 
+	-- Visual settings (size, count, layout)
+	OptionSet.args.Display.args.size = {
+		name = L['Icon Size'],
+		desc = L['Size of each debuff icon'],
+		type = 'range',
+		order = 1,
+		min = 10,
+		max = 60,
+		step = 1,
+		get = function()
+			return ElementSettings.size or 20
+		end,
+		set = function(_, val)
+			OptUpdate('size', val)
+		end,
+	}
+
+	OptionSet.args.Display.args.number = {
+		name = L['Icon Count'],
+		desc = L['Maximum number of debuffs to display'],
+		type = 'range',
+		order = 2,
+		min = 1,
+		max = 40,
+		step = 1,
+		get = function()
+			return ElementSettings.number or 10
+		end,
+		set = function(_, val)
+			OptUpdate('number', val)
+		end,
+	}
+
+	OptionSet.args.Display.args.rows = {
+		name = L['Rows'],
+		desc = L['Number of rows for debuff icons'],
+		type = 'range',
+		order = 3,
+		min = 1,
+		max = 10,
+		step = 1,
+		get = function()
+			return ElementSettings.rows or 2
+		end,
+		set = function(_, val)
+			OptUpdate('rows', val)
+		end,
+	}
+
+	OptionSet.args.Display.args.spacing = {
+		name = L['Spacing'],
+		desc = L['Space between debuff icons'],
+		type = 'range',
+		order = 4,
+		min = 0,
+		max = 10,
+		step = 1,
+		get = function()
+			return ElementSettings.spacing or 1
+		end,
+		set = function(_, val)
+			OptUpdate('spacing', val)
+		end,
+	}
+
+	OptionSet.args.Display.args.growthx = {
+		name = L['Horizontal Growth'],
+		desc = L['Direction debuffs grow horizontally'],
+		type = 'select',
+		order = 5,
+		values = {
+			LEFT = L['Left'],
+			RIGHT = L['Right'],
+		},
+		get = function()
+			return ElementSettings.growthx or 'LEFT'
+		end,
+		set = function(_, val)
+			OptUpdate('growthx', val)
+		end,
+	}
+
+	OptionSet.args.Display.args.growthy = {
+		name = L['Vertical Growth'],
+		desc = L['Direction debuffs grow vertically'],
+		type = 'select',
+		order = 6,
+		values = {
+			UP = L['Up'],
+			DOWN = L['Down'],
+		},
+		get = function()
+			return ElementSettings.growthy or 'UP'
+		end,
+		set = function(_, val)
+			OptUpdate('growthy', val)
+		end,
+	}
+
 	-- Duration text only works in Classic (Retail uses cooldown spiral instead due to secret values)
 	OptionSet.args.Display.args.showDuration = {
 		name = L['Show Duration'],
@@ -149,21 +248,24 @@ local function Options(unitName, OptionSet)
 			args = {
 				desc = {
 					type = 'description',
-					name = 'WoW 12.0 restricts aura data in combat. Choose a filter mode below.\nMulti-filter support is planned for a future patch.',
+					name = 'WoW 12.0.1 provides 14+ filter modes for precise aura control. Select a preset below or use a custom filter string.',
 					order = 0,
 					fontSize = 'small',
 				},
 				filterMode = {
-					name = '',
+					name = L['Filter Preset'],
+					desc = L['Select a predefined filter configuration'],
 					type = 'select',
-					style = 'radio',
 					order = 1,
 					width = 'full',
 					values = {
-						blizzard_default = L['Blizzard Default'],
-						player_auras = L['Your Debuffs Only'],
-						raid_auras = L['Raid-Important Debuffs'],
-						all = L['Show All'],
+						blizzard_default = L['Blizzard Default (Recommended)'],
+						all_debuffs = L['All Debuffs'],
+						player_debuffs = L['Player Debuffs Only'],
+						raid_debuffs = L['Raid Debuffs'],
+						dispellable = L['Dispellable Only'],
+						crowd_control = L['Crowd Control'],
+						important_debuffs = L['Important Debuffs'],
 					},
 					get = function()
 						local retail = ElementSettings.retail
@@ -172,13 +274,47 @@ local function Options(unitName, OptionSet)
 					set = function(_, val)
 						ElementSettings.retail = ElementSettings.retail or {}
 						ElementSettings.retail.filterMode = val
+						ElementSettings.retail.customFilter = nil -- Clear custom when selecting preset
 
 						local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
 						userSettings.retail = userSettings.retail or {}
 						userSettings.retail.filterMode = val
+						userSettings.retail.customFilter = nil
 
 						UF.Unit[unitName]:ElementUpdate('Debuffs')
 					end,
+				},
+				customFilterHeader = {
+					name = L['Advanced: Custom Filter String'],
+					type = 'header',
+					order = 5,
+				},
+				customFilter = {
+					name = L['Filter String'],
+					desc = L['Advanced: Enter raw filter string (e.g., "HARMFUL|RAID|PLAYER"). Overrides preset selection. Leave blank to use preset above.'],
+					type = 'input',
+					width = 'full',
+					order = 6,
+					get = function()
+						local retail = ElementSettings.retail
+						return retail and retail.customFilter or ''
+					end,
+					set = function(_, val)
+						ElementSettings.retail = ElementSettings.retail or {}
+						ElementSettings.retail.customFilter = val ~= '' and val or nil
+
+						local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
+						userSettings.retail = userSettings.retail or {}
+						userSettings.retail.customFilter = val ~= '' and val or nil
+
+						UF.Unit[unitName]:ElementUpdate('Debuffs')
+					end,
+				},
+				filtersReference = {
+					type = 'description',
+					order = 7,
+					fontSize = 'small',
+					name = 'Available Filters:\nHELPFUL, HARMFUL, PLAYER, RAID, RAID_IN_COMBAT, RAID_PLAYER_DISPELLABLE, EXTERNAL_DEFENSIVE, BIG_DEFENSIVE, CROWD_CONTROL, CANCELABLE, NOT_CANCELABLE, INCLUDE_NAME_PLATE_ONLY, MAW, IMPORTANT\n\nCombine with | (pipe) character, e.g., "HARMFUL|RAID|PLAYER"',
 				},
 			},
 		}

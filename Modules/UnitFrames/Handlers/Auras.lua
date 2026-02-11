@@ -3,6 +3,57 @@ local UF = SUI.UF
 local Auras = {}
 UF.MonitoredBuffs = {}
 
+-- WoW 12.0.1 Aura Filter Constants
+-- Complete list of all 14 WoW aura filter keywords for IsAuraFilteredOutByInstanceID
+Auras.FILTER_TYPES = {
+	-- Basic filters
+	HELPFUL = 'HELPFUL',
+	HARMFUL = 'HARMFUL',
+
+	-- Targeting filters
+	PLAYER = 'PLAYER',
+	RAID = 'RAID',
+	RAID_IN_COMBAT = 'RAID_IN_COMBAT', -- Combat-relevant auras (HoTs, major CDs)
+	RAID_PLAYER_DISPELLABLE = 'RAID_PLAYER_DISPELLABLE',
+
+	-- Defensive/offensive filters
+	EXTERNAL_DEFENSIVE = 'EXTERNAL_DEFENSIVE', -- External saves (Guardian Spirit, Pain Suppression, etc.)
+	BIG_DEFENSIVE = 'BIG_DEFENSIVE', -- Major personal defensives
+	CROWD_CONTROL = 'CROWD_CONTROL', -- Stuns, roots, silences, etc.
+
+	-- Action filters
+	CANCELABLE = 'CANCELABLE',
+	NOT_CANCELABLE = 'NOT_CANCELABLE',
+
+	-- Special filters
+	INCLUDE_NAME_PLATE_ONLY = 'INCLUDE_NAME_PLATE_ONLY',
+	MAW = 'MAW', -- Shadowlands Maw powers
+	IMPORTANT = 'IMPORTANT', -- Blizzard-flagged important auras
+}
+
+-- Preset filter combinations (common patterns)
+Auras.FILTER_PRESETS = {
+	-- Buff presets
+	all_buffs = 'HELPFUL',
+	player_buffs = 'HELPFUL|PLAYER',
+	raid_buffs = 'HELPFUL|RAID',
+	healing_mode = 'HELPFUL|RAID_IN_COMBAT',
+	external_defensives = 'HELPFUL|EXTERNAL_DEFENSIVE',
+	big_defensives = 'HELPFUL|BIG_DEFENSIVE',
+	important_buffs = 'HELPFUL|IMPORTANT',
+
+	-- Debuff presets
+	all_debuffs = 'HARMFUL',
+	player_debuffs = 'HARMFUL|PLAYER',
+	raid_debuffs = 'HARMFUL|RAID',
+	dispellable = 'HARMFUL|RAID_PLAYER_DISPELLABLE',
+	crowd_control = 'HARMFUL|CROWD_CONTROL',
+	important_debuffs = 'HARMFUL|IMPORTANT',
+
+	-- Nameplate-specific
+	nameplate_only = 'INCLUDE_NAME_PLATE_ONLY',
+}
+
 -- Track which auras we've already logged to avoid spam
 local loggedAuras = {}
 local loggedAurasCount = 0
@@ -114,62 +165,64 @@ Auras.LogAuraSecretStatus = LogAuraSecretStatus
 ---@return boolean
 function Auras:FilterRetail(element, unit, data, config)
 	local filterMode = config and config.filterMode or 'blizzard_default'
+	local customFilter = config and config.customFilter -- NEW: raw string override
 	local auraInstanceID = data.auraInstanceID
 
-	if filterMode == 'all' then
-		return true
-	end
-
-	if filterMode == 'player_auras' then
-		-- isPlayerAura is safe - created by oUF using C_UnitAuras.IsAuraFilteredOutByInstanceID
-		if data.isPlayerAura ~= true then
-			return false
-		end
-		-- Filter out permanent buffs (duration = 0) - world/event buffs, not player-cast HoTs
-		local duration = data.duration
-		if not SUI.BlizzAPI.issecretvalue(duration) and duration == 0 then
-			return false
-		end
-		return true
-	end
-
-	if filterMode == 'healing_mode' then
-		if auraInstanceID then
-			-- RAID_IN_COMBAT filter shows HoTs and combat-relevant buffs (12.1+)
-			local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'HELPFUL|PLAYER|RAID_IN_COMBAT')
-			-- local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'HELPFUL|PLAYER')
-			-- Filter out permanent buffs (duration = 0) - world/event buffs, not player-cast HoTs
-			local duration = data.duration
-			if not SUI.BlizzAPI.issecretvalue(duration) and duration > 60 then
-				return false
-			else
-				return not isFilteredOut
-			end
-		end
+	if not auraInstanceID then
 		return false
 	end
 
-	if filterMode == 'raid_auras' then
-		if auraInstanceID then
-			-- Use RAID filter variant based on buff vs debuff
-			local filter = data.isHarmfulAura and 'HARMFUL|RAID' or 'HELPFUL|RAID'
-			local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, filter)
-			return not isFilteredOut
-		end
-		return false
-	end
-
-	-- 'blizzard_default': RAID filter for buffs, pass-through for debuffs
-	if auraInstanceID then
-		if data.isHarmfulAura then
-			-- Debuffs: show all that pass base HARMFUL filter (oUF handles this)
-			return true
-		end
-		-- Buffs: use RAID filter to avoid showing food buffs, mount auras, etc.
-		local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, 'HELPFUL|RAID')
+	-- Power users can provide raw filter string (overrides filterMode)
+	if customFilter and customFilter ~= '' then
+		local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, customFilter)
 		return not isFilteredOut
 	end
-	return false
+
+	-- Determine base filter (HELPFUL for buffs, HARMFUL for debuffs)
+	local baseFilter = element.__owner.Buffs and 'HELPFUL' or 'HARMFUL'
+	local filterString
+
+	-- Map filterMode to Blizzard filter string
+	if filterMode == 'all_buffs' or filterMode == 'all_debuffs' or filterMode == 'all' then
+		-- Show all auras of this type (no additional filtering beyond base HELPFUL/HARMFUL)
+		return true
+	elseif filterMode == 'player_buffs' or filterMode == 'player_debuffs' or filterMode == 'player_auras' then
+		filterString = baseFilter .. '|PLAYER'
+	elseif filterMode == 'raid_buffs' or filterMode == 'raid_debuffs' or filterMode == 'raid_auras' then
+		filterString = baseFilter .. '|RAID'
+	elseif filterMode == 'healing_mode' then
+		filterString = 'HELPFUL|RAID_IN_COMBAT'
+	elseif filterMode == 'dispellable' then
+		filterString = 'HARMFUL|RAID_PLAYER_DISPELLABLE'
+	elseif filterMode == 'external_defensives' then
+		filterString = 'HELPFUL|EXTERNAL_DEFENSIVE'
+	elseif filterMode == 'big_defensives' then
+		filterString = 'HELPFUL|BIG_DEFENSIVE'
+	elseif filterMode == 'crowd_control' then
+		filterString = 'HARMFUL|CROWD_CONTROL'
+	elseif filterMode == 'important_buffs' or filterMode == 'important_debuffs' then
+		filterString = baseFilter .. '|IMPORTANT'
+	elseif filterMode == 'blizzard_default' then
+		-- Player frame: show all your auras
+		-- Others: raid-relevant only
+		local isPlayer = UnitIsUnit(unit, 'player')
+		if isPlayer then
+			return true -- Show all player auras
+		else
+			filterString = baseFilter .. '|RAID'
+		end
+	else
+		-- Fallback: show all
+		return true
+	end
+
+	-- Apply filter string if set
+	if filterString then
+		local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, filterString)
+		return not isFilteredOut
+	end
+
+	return true
 end
 
 -- CLASSIC FILTER: Full access to all aura properties.

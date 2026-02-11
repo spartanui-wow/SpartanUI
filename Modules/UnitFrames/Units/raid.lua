@@ -276,25 +276,38 @@ local Settings = {
 			enabled = true,
 			onlyShowPlayer = true,
 			healingMode = true,
+			number = 3,
 			rows = 1,
-			size = 10,
-			growthx = 'LEFT',
+			size = 16,
+			spacing = 1,
+			growthx = 'RIGHT',
 			growthy = 'UP',
 			position = {
-				relativePoint = 'BOTTOMRIGHT',
-				anchor = 'BOTTOMRIGHT',
+				anchor = 'BOTTOMLEFT',
+				relativePoint = 'TOPLEFT',
+				x = 0,
+				y = 2,
+			},
+			retail = {
+				filterMode = 'healing_mode', -- Show HoTs and combat-relevant buffs
 			},
 		},
 		Debuffs = {
 			enabled = true,
 			rows = 1,
 			number = 5,
-			size = 10,
+			size = 18,
+			spacing = 1,
 			growthy = 'DOWN',
 			growthx = 'RIGHT',
 			position = {
-				relativePoint = 'TOPLEFT',
 				anchor = 'TOPLEFT',
+				relativePoint = 'BOTTOMLEFT',
+				x = 0,
+				y = -2,
+			},
+			retail = {
+				filterMode = 'raid_debuffs', -- Show all raid-relevant debuffs
 			},
 		},
 		Health = {
