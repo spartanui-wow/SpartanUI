@@ -1968,6 +1968,16 @@ function SUI:GoldFormattedValue(rawValue)
 end
 
 function SUI:UpdateModuleConfigs()
+	-- Update main DB references to point to new profile
+	SUI.DB = SUI.SpartanUIDB.profile
+	SUI.DBG = SUI.SpartanUIDB.global
+
+	-- Trigger refresh for modules that need to reapply settings
+	-- Note: Individual modules also have their own profile callbacks via DBM:RegisterProfileCallbacks
+	-- This handles the main SUI.DB reference that many modules use directly
+
+	-- For now, still show reload UI prompt as a safety fallback
+	-- TODO: Remove once all modules properly handle profile changes
 	SUI:reloadui()
 end
 

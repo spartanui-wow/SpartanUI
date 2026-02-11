@@ -73,6 +73,11 @@ end
 
 function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('SpellAnnounce', { profile = DBDefaults })
+	module.DB = module.Database.profile
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
+
 	if SUI:IsModuleDisabled(module) then
 		return
 	end

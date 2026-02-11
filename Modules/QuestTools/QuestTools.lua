@@ -123,6 +123,26 @@ function module:OnInitialize()
 	DB = module.Database.profile
 	GlobalDB = module.Database.global
 
+	-- Register profile change callbacks
+	module.Database.RegisterCallback(module, 'OnProfileChanged', function()
+		DB = module.Database.profile
+		GlobalDB = module.Database.global
+		module.DB = DB
+		module.GlobalDB = GlobalDB
+	end)
+	module.Database.RegisterCallback(module, 'OnProfileCopied', function()
+		DB = module.Database.profile
+		GlobalDB = module.Database.global
+		module.DB = DB
+		module.GlobalDB = GlobalDB
+	end)
+	module.Database.RegisterCallback(module, 'OnProfileReset', function()
+		DB = module.Database.profile
+		GlobalDB = module.Database.global
+		module.DB = DB
+		module.GlobalDB = GlobalDB
+	end)
+
 	-- Expose DB references
 	module.DB = DB
 	module.GlobalDB = GlobalDB

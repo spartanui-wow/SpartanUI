@@ -838,6 +838,9 @@ function StatsTracker:OnInitialize()
 	StatsTracker.Database = SUI.SpartanUIDB:RegisterNamespace('StatsTracker', defaults)
 	StatsTracker.DB = StatsTracker.Database.profile
 
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(StatsTracker)
+
 	-- Get MoveIt reference
 	MoveIt = SUI:GetModule('MoveIt')
 

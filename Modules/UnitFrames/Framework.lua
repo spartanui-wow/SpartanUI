@@ -250,6 +250,9 @@ function UF:OnInitialize()
 	UF.Database = SUI.SpartanUIDB:RegisterNamespace('UnitFrames', defaults)
 	UF.DB = UF.Database.profile
 
+	-- Register profile change callbacks with refresh method
+	SUI.DBM:RegisterProfileCallbacks(UF, 'Update')
+
 	-- Migrate from legacy single-style to per-frame presets
 	MigrateFromLegacy()
 

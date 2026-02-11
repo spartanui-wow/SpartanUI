@@ -687,6 +687,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('Skins', { profile = DBDefaults })
 
 	module.DB = module.Database.profile
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 	DB = module.Database.profile
 
 	for name, Data in pairs(module.Registry) do

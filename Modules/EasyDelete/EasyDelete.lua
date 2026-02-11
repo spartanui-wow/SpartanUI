@@ -21,6 +21,20 @@ function module:OnInitialize()
 	DB = module.Database.profile
 	module.DB = DB
 
+	-- Register profile change callbacks
+	module.Database.RegisterCallback(module, 'OnProfileChanged', function()
+		DB = module.Database.profile
+		module.DB = DB
+	end)
+	module.Database.RegisterCallback(module, 'OnProfileCopied', function()
+		DB = module.Database.profile
+		module.DB = DB
+	end)
+	module.Database.RegisterCallback(module, 'OnProfileReset', function()
+		DB = module.Database.profile
+		module.DB = DB
+	end)
+
 	if SUI.logger then
 		module.logger = SUI.logger:RegisterCategory('EasyDelete')
 	end

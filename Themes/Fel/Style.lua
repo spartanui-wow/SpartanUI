@@ -39,6 +39,9 @@ function module:OnInitialize()
 	}
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('SkinsFel', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.Skins.Fel.Settings
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 	-- BarHandler
 	local BarHandler = SUI.Handlers.BarSystem
 	BarHandler.BarPosition.BT4.Fel = {

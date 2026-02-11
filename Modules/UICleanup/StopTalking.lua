@@ -35,6 +35,26 @@ function module:InitializeStopTalking()
 	StopTalkingDB = stDB.profile
 	StopTalkingDBGlobal = stDB.global
 
+	-- Register profile change callbacks
+	stDB.RegisterCallback(module, 'OnProfileChanged', function()
+		StopTalkingDB = stDB.profile
+		StopTalkingDBGlobal = stDB.global
+		module.StopTalkingDB = StopTalkingDB
+		module.StopTalkingDBGlobal = StopTalkingDBGlobal
+	end)
+	stDB.RegisterCallback(module, 'OnProfileCopied', function()
+		StopTalkingDB = stDB.profile
+		StopTalkingDBGlobal = stDB.global
+		module.StopTalkingDB = StopTalkingDB
+		module.StopTalkingDBGlobal = StopTalkingDBGlobal
+	end)
+	stDB.RegisterCallback(module, 'OnProfileReset', function()
+		StopTalkingDB = stDB.profile
+		StopTalkingDBGlobal = stDB.global
+		module.StopTalkingDB = StopTalkingDB
+		module.StopTalkingDBGlobal = StopTalkingDBGlobal
+	end)
+
 	-- Store references on module
 	module.StopTalkingDB = StopTalkingDB
 	module.StopTalkingDBGlobal = StopTalkingDBGlobal

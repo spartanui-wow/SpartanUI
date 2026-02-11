@@ -140,6 +140,9 @@ function module:OnInitialize()
 	}
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('BarHandler', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.BarHandler.DB
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 	DB = module.DB
 
 	if SUI:IsAddonDisabled('Bartender4') then

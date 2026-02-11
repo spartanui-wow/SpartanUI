@@ -802,6 +802,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('Nameplates', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.NamePlates.Settings
 
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
+
 	-- Migrate old settings
 	if SUI.DB.Nameplates then
 		print('Nameplate DB Migration')

@@ -245,6 +245,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('ImprovedLFG', { profile = DBDefaults })
 	---@type ImprovedLFGDB
 	module.DB = module.Database.profile
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 end
 
 function module:OnEnable()

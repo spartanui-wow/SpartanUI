@@ -89,8 +89,47 @@ function DBManager:SetupModule(module, defaults, globalDefaults, options)
 		end
 	end
 
+	-- Register profile change callbacks to auto-update DB references
+	self:RegisterProfileCallbacks(module)
+
 	-- Initial load
 	self:RefreshSettings(module)
+end
+
+---Register profile change callbacks for a module (legacy RegisterNamespace support)
+---Call this for modules still using RegisterNamespace instead of SetupModule
+---@param module table The module to register callbacks for
+---@param refreshMethod? string Optional method name to call after DB update (e.g., 'UpdateSettings', 'ApplyTheme')
+function DBManager:RegisterProfileCallbacks(module, refreshMethod)
+	if not module.Database then
+		if module.logger then
+			module.logger.warning('RegisterProfileCallbacks called but module.Database is nil')
+		end
+		return
+	end
+
+	-- Create callback function that updates DB references
+	local function onProfileChanged()
+		if module.Database then
+			module.DB = module.Database.profile
+			if module.Database.global then
+				module.DBG = module.Database.global
+			end
+			-- If using SetupModule (has CurrentSettings), refresh it
+			if module.CurrentSettings and module.DBDefaults then
+				DBManager:RefreshSettings(module)
+			end
+			-- Call optional refresh method to reapply settings
+			if refreshMethod and type(module[refreshMethod]) == 'function' then
+				module[refreshMethod](module)
+			end
+		end
+	end
+
+	-- Register all three profile change events
+	module.Database.RegisterCallback(module, 'OnProfileChanged', onProfileChanged)
+	module.Database.RegisterCallback(module, 'OnProfileCopied', onProfileChanged)
+	module.Database.RegisterCallback(module, 'OnProfileReset', onProfileChanged)
 end
 
 ---Refresh CurrentSettings by merging defaults with user changes

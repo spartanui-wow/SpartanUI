@@ -404,6 +404,9 @@ function MoveIt:OnInitialize()
 	---@type MoveItDB
 	MoveIt.Database = SUI.SpartanUIDB:RegisterNamespace('MoveIt', defaults)
 	MoveIt.DB = MoveIt.Database.profile
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(MoveIt)
 	MoveIt.DBG = MoveIt.Database.global -- Global scope for account-wide settings
 
 	-- Migrate old settings

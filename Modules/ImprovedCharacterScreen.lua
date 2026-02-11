@@ -318,6 +318,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('ImprovedCharacterScreen', { profile = DBDefaults })
 	---@type ImprovedCharacterScreenDB
 	module.DB = module.Database.profile
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 end
 
 function module:OnEnable()

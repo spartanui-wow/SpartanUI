@@ -356,6 +356,11 @@ function module:updateHorizontalOffset()
 end
 
 function module:updateViewport()
+	-- Defensive check: ensure Viewport exists in profile (might be missing after profile swap)
+	if not SUI.DB.Artwork or not SUI.DB.Artwork.Viewport then
+		return
+	end
+
 	if not InCombatLockdown() and SUI.DB.Artwork.Viewport.enabled then
 		WorldFrame:ClearAllPoints()
 		WorldFrame:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', SUI.DB.Artwork.Viewport.offset.left, (SUI.DB.Artwork.Viewport.offset.top * -1))

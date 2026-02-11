@@ -25,6 +25,9 @@ function module:OnInitialize()
 	}
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('HealHelper', { profile = defaults })
 	module.DB = module.Database.profile ---@type HHSettings
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 end
 
 function module:OnEnable()

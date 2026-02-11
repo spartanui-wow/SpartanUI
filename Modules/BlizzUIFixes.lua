@@ -16,6 +16,17 @@ function module:SetupDatabase()
 		},
 	}
 	module.DB = SUI.SpartanUIDB:RegisterNamespace('BlizzUIFixes', defaults)
+
+	-- Register profile change callbacks
+	module.DB.RegisterCallback(module, 'OnProfileChanged', function()
+		module.DB = SUI.SpartanUIDB:GetNamespace('BlizzUIFixes')
+	end)
+	module.DB.RegisterCallback(module, 'OnProfileCopied', function()
+		module.DB = SUI.SpartanUIDB:GetNamespace('BlizzUIFixes')
+	end)
+	module.DB.RegisterCallback(module, 'OnProfileReset', function()
+		module.DB = SUI.SpartanUIDB:GetNamespace('BlizzUIFixes')
+	end)
 end
 
 ---Make the addon list frame resizable

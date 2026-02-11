@@ -339,6 +339,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('AFKEffects', { profile = defaults })
 	module.DB = module.Database.profile ---@type AFKEffectsDB
 
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
+
 	--If speed is less than 1 reset it
 	if module.DB.SpinCam.speed < 1 then
 		module.DB.SpinCam.speed = module.DB.SpinCam.speed * 100

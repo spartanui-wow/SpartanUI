@@ -185,6 +185,17 @@ function module:SlidingTrays(StyleSettings)
 	if not module.TrayDB then
 		module.TrayDB = SUI.SpartanUIDB:RegisterNamespace('MenuTrays', { profile = DbDefaults })
 		module.TrayData = module.TrayDB.profile ---@type SUI.Module.MenuTrays.DB
+
+		-- Register profile change callbacks
+		module.TrayDB.RegisterCallback(module, 'OnProfileChanged', function()
+			module.TrayData = module.TrayDB.profile
+		end)
+		module.TrayDB.RegisterCallback(module, 'OnProfileCopied', function()
+			module.TrayData = module.TrayDB.profile
+		end)
+		module.TrayDB.RegisterCallback(module, 'OnProfileReset', function()
+			module.TrayData = module.TrayDB.profile
+		end)
 	end
 
 	-- Start with default settings

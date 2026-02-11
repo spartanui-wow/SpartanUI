@@ -159,6 +159,9 @@ function module:OnInitialize()
 
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('ObjectiveTracker', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.ObjectiveTracker.Database
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 end
 
 function module:OnEnable()

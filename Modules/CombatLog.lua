@@ -25,6 +25,9 @@ function module:OnInitialize()
 	}
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('CombatLog', defaults)
 	module.DB = module.Database.profile
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 end
 
 local function setLogging(on, msg)

@@ -541,6 +541,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('HousingEndeavor', defaults)
 	module.DB = module.Database.profile ---@type SUI.HousingEndeavor.Database
 
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
+
 	-- Register logger
 	if LibAT and LibAT.Logger then
 		module.logger = SUI.logger:RegisterCategory('HousingEndeavor')

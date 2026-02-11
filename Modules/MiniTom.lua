@@ -146,6 +146,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('MiniTom', { profile = DBDefaults })
 	---@type MiniTomDB
 	module.DB = module.Database.profile
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 	if SUI:IsAddonEnabled('TomTom') then
 		module.override = true
 	end

@@ -103,6 +103,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('TauntWatcher', defaults)
 	module.DB = module.Database.profile
 
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
+
 	-- Migrate old settings
 	if SUI.DB.TauntWatcher then
 		print('Taunt watcher DB Migration')

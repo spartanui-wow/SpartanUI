@@ -864,6 +864,20 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('AutoTurnIn', { global = GlobalDBDefaults, profile = DBDefaults })
 	DB = module.Database.profile
 	GlobalDB = module.Database.global
+
+	-- Register profile change callbacks
+	module.Database.RegisterCallback(module, 'OnProfileChanged', function()
+		DB = module.Database.profile
+		GlobalDB = module.Database.global
+	end)
+	module.Database.RegisterCallback(module, 'OnProfileCopied', function()
+		DB = module.Database.profile
+		GlobalDB = module.Database.global
+	end)
+	module.Database.RegisterCallback(module, 'OnProfileReset', function()
+		DB = module.Database.profile
+		GlobalDB = module.Database.global
+	end)
 end
 
 function module:OnEnable()

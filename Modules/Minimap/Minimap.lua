@@ -2471,6 +2471,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('Minimap', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.Minimap.Database
 
+	-- Register profile change callbacks with refresh method
+	SUI.DBM:RegisterProfileCallbacks(module, 'UpdateSettings')
+
 	-- Initialize the settings
 	module:UpdateSettings()
 

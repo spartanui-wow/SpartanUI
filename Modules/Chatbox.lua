@@ -317,6 +317,9 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('Chatbox', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.Chat.DB
 
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
+
 	module.logger = SUI.logger:RegisterCategory('Chatbox')
 
 	if not SUI.CharDB.ChatHistory then

@@ -70,9 +70,9 @@ end
 
 ---@param Module? string
 function Font:GetFont(Module)
-	if Module and Font.DB then
+	if Module and Font.DB and Font.DB.Modules and Font.DB.Modules[Module] then
 		return SUI.Lib.LSM:Fetch('font', Font.DB.Modules[Module].Face)
-	elseif not Module and Font.DB then
+	elseif not Module and Font.DB and Font.DB.Modules and Font.DB.Modules.Global then
 		return SUI.Lib.LSM:Fetch('font', Font.DB.Modules.Global.Face)
 	end
 	return SUI.Lib.LSM:Fetch('font', 'Roboto Bold')
@@ -125,6 +125,21 @@ function Font:Format(element, size, Module, UpdateOnly)
 		end
 		table.insert(Font.PreLoadItems, { element = element, size = size, Module = Module, UpdateOnly = UpdateOnly })
 		return
+	end
+
+	-- Ensure Modules table exists (can be nil after profile swap)
+	if not Font.DB.Modules then
+		Font.DB.Modules = {}
+	end
+
+	-- Ensure this specific module entry exists with defaults
+	if not Font.DB.Modules[Module] then
+		Font.DB.Modules[Module] = {
+			Size = 0,
+			Face = 'Roboto Bold',
+			Type = 'outline',
+			Order = 200,
+		}
 	end
 
 	--Set Font Outline
@@ -279,6 +294,9 @@ end
 function Font:OnInitialize()
 	Font.Database = SUI.SpartanUIDB:RegisterNamespace('Font', { profile = DBDefaults })
 	Font.DB = Font.Database.profile ---@type FontDB
+
+	-- Register profile change callbacks with refresh method
+	SUI.DBM:RegisterProfileCallbacks(self, 'Refresh')
 
 	if Font.PreLoadItems then
 		--ReRun Font:Format for any fonts that were loaded before the module was enabled

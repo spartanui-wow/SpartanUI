@@ -159,6 +159,9 @@ function module:OnInitialize()
 	}
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('Tooltips', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.Tooltip.Settings
+
+	-- Register profile change callbacks
+	SUI.DBM:RegisterProfileCallbacks(module)
 end
 
 local onShow = function(self)
