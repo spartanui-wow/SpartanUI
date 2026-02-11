@@ -159,31 +159,6 @@ local function FindImportantDebuff_NewAPI(unit)
 		end, true)
 	end
 
-	-- If still nothing, fall back to regular harmful auras
-	if not bestAura then
-		AuraUtil.ForEachAura(unit, 'HARMFUL', nil, function(aura)
-			local priority = PRIORITY_DOT
-
-			-- Check if boss aura
-			if aura.isBossAura then
-				priority = PRIORITY_BOSS
-			elseif aura.dispelName then
-				priority = PRIORITY_DISPELLABLE
-			end
-
-			if priority > bestPriority then
-				bestAura = aura
-				bestPriority = priority
-				bestDispelType = aura.dispelName
-			end
-
-			-- Stop if we found a boss aura
-			if priority >= PRIORITY_BOSS then
-				return true
-			end
-		end, true)
-	end
-
 	return bestAura, bestPriority, bestDispelType
 end
 
