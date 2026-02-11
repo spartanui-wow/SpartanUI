@@ -175,7 +175,7 @@ function CustomEditMode:Enter()
 		end
 	end
 
-	-- Show and style existing movers with staggered animation
+	-- Show and style existing movers with staggered animation using AceTimer
 	local delay = 0
 	for name, mover in pairs(MoveIt.MoverList or {}) do
 		-- Skip movers that cause input capture issues
@@ -186,13 +186,22 @@ function CustomEditMode:Enter()
 		end
 
 		if not skipMover and mover and mover.parent then
-			C_Timer.After(delay, function()
+			-- Use AceTimer so we can cancel all timers at once on exit
+			MoveIt:ScheduleTimer(function()
+				-- Check if CustomEditMode is still active (user might have exited quickly)
+				if not isActive then
+					if MoveIt.logger then
+						MoveIt.logger.debug(('Mover show cancelled for %s - EditMode exited'):format(name))
+					end
+					return
+				end
+
 				self:StyleMover(name, mover)
 				-- Disable keyboard on individual movers (MoverWatcher handles escape)
 				mover:EnableKeyboard(false)
 				mover:Show()
 				AnimateFadeIn(mover)
-			end)
+			end, delay)
 			delay = delay + 0.02 -- 20ms stagger for smooth cascade effect
 		end
 	end
@@ -215,6 +224,12 @@ function CustomEditMode:Exit()
 
 	isActive = false
 	selectedOverlay = nil
+
+	-- Cancel all pending AceTimer timers (staggered mover show animations)
+	MoveIt:CancelAllTimers()
+	if MoveIt.logger then
+		MoveIt.logger.debug('Cancelled all pending mover show timers')
+	end
 
 	-- Clean up magnetism session and preview lines
 	local MagnetismManager = MoveIt.MagnetismManager

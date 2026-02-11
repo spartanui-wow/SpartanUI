@@ -144,8 +144,11 @@ function WizardPage:ShowSharedProfileWarning(otherCharName)
 end
 
 ---Ensure user is on the correct EditMode profile based on their SUI profile
----Called when SetupDone is true but user might not be on the expected profile
----@return boolean handled True if profile was switched or is already correct
+---Called when SetupDone is true but user might not be on the expected profile.
+---IMPORTANT: This function respects the user's current profile choice rather than
+---forcing them back to a "SpartanUI" profile. If the user manually switched to
+---a different profile, we update our tracking to match.
+---@return boolean handled True if profile was verified or tracking was updated
 local function EnsureCorrectProfile()
 	if not MoveIt.BlizzardEditMode then
 		return false
@@ -156,126 +159,71 @@ local function EnsureCorrectProfile()
 		if MoveIt.logger then
 			MoveIt.logger.debug('EnsureCorrectProfile: EditMode management disabled, skipping')
 		end
-		return true -- Handled by not doing anything (user's choice)
+		return true
 	end
 
-	-- Check if user is using another character's SUI profile (Test 5 scenario)
-	-- This happens when a user shares profiles by using "CharName - Realm" profile from another character
+	-- Check if user is using another character's SUI profile
 	local isUsingOtherProfile, otherCharName = WizardPage:IsUsingOtherCharacterProfile()
 	if isUsingOtherProfile and otherCharName then
 		if MoveIt.logger then
 			MoveIt.logger.info(("EnsureCorrectProfile: User is using %s's SUI profile, showing warning"):format(otherCharName))
 		end
-		-- Show warning after a brief delay to ensure UI is ready
 		C_Timer.After(0.5, function()
 			WizardPage:ShowSharedProfileWarning(otherCharName)
 		end)
-		-- Continue with profile setup - we'll create a personal EditMode profile for them
 	end
 
-	local state = MoveIt.BlizzardEditMode:GetEditModeState()
-	local expectedProfileName = MoveIt.BlizzardEditMode:GetMatchingProfileName()
 	local LibEMO = MoveIt.BlizzardEditMode.LibEMO or LibStub('LibEditModeOverride-1.0', true)
-
 	if not LibEMO or not LibEMO:IsReady() then
 		return false
 	end
-
 	if not LibEMO:AreLayoutsLoaded() then
 		LibEMO:LoadLayouts()
 	end
 
-	-- Already on the expected profile?
-	if state.currentLayoutName == expectedProfileName then
+	local currentLayout = LibEMO:GetActiveLayout()
+	local expectedProfile = MoveIt.BlizzardEditMode:GetMatchingProfileName()
+
+	-- Already on expected profile — nothing to do
+	if currentLayout == expectedProfile then
 		if MoveIt.logger then
-			MoveIt.logger.debug(('EnsureCorrectProfile: Already on expected profile "%s"'):format(expectedProfileName))
+			MoveIt.logger.debug(('EnsureCorrectProfile: Already on expected profile "%s"'):format(expectedProfile))
 		end
+		MoveIt.BlizzardEditMode.initialSetupComplete = true
 		return true
 	end
 
-	-- Already on a SpartanUI profile (might be different scope)?
-	if state.isOnSpartanUILayout then
+	-- User is on a different valid profile — respect their choice, update tracking
+	if currentLayout and currentLayout ~= '' then
 		if MoveIt.logger then
-			MoveIt.logger.debug(('EnsureCorrectProfile: On SpartanUI profile "%s", expected "%s"'):format(state.currentLayoutName, expectedProfileName))
+			MoveIt.logger.info(('EnsureCorrectProfile: User is on "%s" (expected "%s") - respecting user choice, updating tracking'):format(currentLayout, expectedProfile))
 		end
-		-- If expected profile exists, switch to it
-		if LibEMO:DoesLayoutExist(expectedProfileName) then
-			migrationInProgress = true
-			pcall(function()
-				LibEMO:SetActiveLayout(expectedProfileName)
-				MoveIt.BlizzardEditMode:SafeApplyChanges(true)
-			end)
-			MoveIt.DB.EditModeControl.CurrentProfile = expectedProfileName
-			migrationInProgress = false
-			if MoveIt.logger then
-				MoveIt.logger.info(('EnsureCorrectProfile: Switched to expected profile "%s"'):format(expectedProfileName))
-			end
-		end
+		MoveIt.DB.EditModeControl.CurrentProfile = currentLayout
+		WizardPage:SetCharacterSetupDone(currentLayout, 'user_switch')
+		MoveIt.BlizzardEditMode.initialSetupComplete = true
 		return true
 	end
 
-	-- Check if the expected profile exists
-	if LibEMO:DoesLayoutExist(expectedProfileName) then
-		-- Profile exists, switch to it silently
+	-- Current layout is somehow nil/empty — fall back to expected if it exists
+	if expectedProfile and LibEMO:DoesLayoutExist(expectedProfile) then
+		if MoveIt.logger then
+			MoveIt.logger.info(('EnsureCorrectProfile: No active layout detected, switching to expected "%s"'):format(expectedProfile))
+		end
 		migrationInProgress = true
+		MoveIt.BlizzardEditMode.suppressLayoutChangePopup = true
 		pcall(function()
-			LibEMO:SetActiveLayout(expectedProfileName)
-			MoveIt.BlizzardEditMode:SafeApplyChanges(true)
+			LibEMO:SetActiveLayout(expectedProfile)
+			MoveIt.BlizzardEditMode:SafeApplyChanges('automatic')
 		end)
-		MoveIt.DB.EditModeControl.CurrentProfile = expectedProfileName
-		MoveIt.DB.EditModeWizard.SetupDone = true
-		WizardPage:SetCharacterSetupDone(expectedProfileName)
+		MoveIt.DB.EditModeControl.CurrentProfile = expectedProfile
 		MoveIt.BlizzardEditMode.initialSetupComplete = true
+		C_Timer.After(2.0, function()
+			MoveIt.BlizzardEditMode.suppressLayoutChangePopup = false
+		end)
 		migrationInProgress = false
-		if MoveIt.logger then
-			MoveIt.logger.info(('EnsureCorrectProfile: Switched to existing profile "%s"'):format(expectedProfileName))
-		end
-		return true
 	end
 
-	-- Expected profile doesn't exist - need to create it
-	-- This handles Test 5 scenario where Character B uses Character A's shared profile
-	-- but Character A used a character-specific EditMode profile (or hasn't migrated yet)
-	if MoveIt.logger then
-		MoveIt.logger.info(('EnsureCorrectProfile: Expected profile "%s" does not exist, creating it'):format(expectedProfileName))
-	end
-
-	-- Determine layout type based on current SUI profile
-	local layoutType = MoveIt.BlizzardEditMode:DetermineLayoutType()
-
-	-- Set migration flag
-	migrationInProgress = true
-
-	-- Create the profile
-	local success = false
-	if state.isOnPresetLayout then
-		-- From preset, just create new
-		success = pcall(function()
-			LibEMO:AddLayout(layoutType, expectedProfileName)
-			LibEMO:SetActiveLayout(expectedProfileName)
-		end)
-	else
-		-- From custom, copy to preserve positions
-		success = MoveIt.BlizzardEditMode:CreateLayoutFromCurrent(layoutType, expectedProfileName, state.currentLayoutName)
-	end
-
-	if success then
-		-- Apply SUI defaults
-		MoveIt.BlizzardEditMode:ApplyDefaultPositions()
-		MoveIt.BlizzardEditMode:SafeApplyChanges(true)
-
-		MoveIt.DB.EditModeControl.CurrentProfile = expectedProfileName
-		MoveIt.DB.EditModeWizard.SetupDone = true
-		WizardPage:SetCharacterSetupDone(expectedProfileName)
-		MoveIt.BlizzardEditMode.initialSetupComplete = true
-
-		if MoveIt.logger then
-			MoveIt.logger.info(('EnsureCorrectProfile: Created and activated profile "%s"'):format(expectedProfileName))
-		end
-	end
-
-	migrationInProgress = false
-	return success
+	return true
 end
 
 ---Silently apply EditMode profile for users on preset layouts
@@ -547,13 +495,15 @@ function WizardPage:ApplyMigration(option, saveGlobal)
 				if MoveIt.logger then
 					MoveIt.logger.info(('WizardPage: Creating profile "%s" as copy of "%s"'):format(newProfileName, currentLayoutName))
 				end
-				-- Pass the source layout name explicitly to ensure we copy the right one
-				MoveIt.BlizzardEditMode:CreateLayoutFromCurrent(layoutType, newProfileName, currentLayoutName)
+				-- Pass preserveSourcePositions=true to keep the user's custom positions from the copy
+				MoveIt.BlizzardEditMode:CreateLayoutFromCurrent(layoutType, newProfileName, currentLayoutName, true)
 			end
 		end
 
-		-- Apply SUI defaults on top
-		MoveIt.BlizzardEditMode:ApplyDefaultPositions()
+		-- Apply SUI defaults — use additive mode when copying from custom layout
+		-- to preserve user's existing positions (e.g., chat frame they already moved)
+		local isFromCustomLayout = not state.isOnPresetLayout
+		MoveIt.BlizzardEditMode:ApplyDefaultPositions(isFromCustomLayout)
 		MoveIt.BlizzardEditMode:SafeApplyChanges(true)
 
 		-- If we created a shared (Account) profile, also create a character-specific fallback

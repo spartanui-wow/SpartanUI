@@ -7,6 +7,12 @@ local MoveIt = SUI.MoveIt
 local BlizzardEditMode = {}
 MoveIt.BlizzardEditMode = BlizzardEditMode
 
+-- Operation context for SafeApplyChanges()
+local OPERATION_CONTEXT = {
+	USER_MOVE_MODE = 'user_move', -- User explicitly wants to reposition frames
+	AUTOMATIC_UPDATE = 'automatic', -- System updating positions silently
+}
+
 -- Frames that have native EditMode support (from https://warcraft.wiki.gg/wiki/Edit_Mode)
 -- We'll use LibEditModeOverride to add our settings to them
 local NATIVE_EDITMODE_FRAMES = {
@@ -76,7 +82,6 @@ function BlizzardEditMode:Initialize()
 	if LibEMO:IsReady() then
 		self:SetupBlizzardFrames(LibEMO)
 		self:StartLayoutMonitoring()
-		self:RegisterEditModeExitHandler()
 	else
 		-- Hook into ready event
 		local frame = CreateFrame('Frame')
@@ -85,7 +90,6 @@ function BlizzardEditMode:Initialize()
 			if LibEMO:IsReady() then
 				BlizzardEditMode:SetupBlizzardFrames(LibEMO)
 				BlizzardEditMode:StartLayoutMonitoring()
-				BlizzardEditMode:RegisterEditModeExitHandler()
 				self:UnregisterAllEvents()
 			end
 		end)
@@ -120,14 +124,23 @@ function BlizzardEditMode:CreateSpartanUIProfile(LibEMO)
 		MoveIt.logger.info(('Creating EditMode profile "%s"'):format(profileName))
 	end
 
+	-- Set flag to suppress popup - this is automatic profile creation, not user action
+	self.suppressLayoutChangePopup = true
+
 	local success = pcall(function()
 		LibEMO:AddLayout(Enum.EditModeLayoutType.Character, profileName)
 		LibEMO:SetActiveLayout(profileName)
 	end)
 
 	if success then
-		self:SafeApplyChanges()
+		self:SafeApplyChanges('automatic')
 	end
+
+	-- Clear the suppression flag after a longer delay to ensure event processing is complete
+	-- Brand new users need enough time for initial setup without popups
+	C_Timer.After(2.0, function()
+		self.suppressLayoutChangePopup = false
+	end)
 
 	if success then
 		if MoveIt.logger then
@@ -209,18 +222,29 @@ function BlizzardEditMode:EnsureProfileReady(LibEMO)
 		if MoveIt.logger then
 			MoveIt.logger.info(('Activating EditMode profile "%s" (was: %s)'):format(expectedProfile, tostring(currentLayout)))
 		end
+
+		-- Set flag to suppress popup - this is automatic profile setup, not user action
+		self.suppressLayoutChangePopup = true
+
 		local success = pcall(function()
 			LibEMO:SetActiveLayout(expectedProfile)
 		end)
 		if success then
-			self:SafeApplyChanges(true) -- Suppress movers during activation
+			self:SafeApplyChanges('automatic') -- Automatic update, no movers
 		end
 		if not success then
 			if MoveIt.logger then
 				MoveIt.logger.error(('Failed to activate EditMode profile "%s"'):format(expectedProfile))
 			end
+			self.suppressLayoutChangePopup = false
 			return false
 		end
+
+		-- Clear the suppression flag after a longer delay to ensure event processing is complete
+		-- Brand new users need enough time for initial setup without popups
+		C_Timer.After(2.0, function()
+			self.suppressLayoutChangePopup = false
+		end)
 	end
 
 	return true
@@ -453,84 +477,87 @@ function BlizzardEditMode:OnLayoutChanged()
 		MoveIt.logger.debug(('EditMode layout changed to: %s'):format(tostring(currentLayout)))
 	end
 
-	-- If switching to a different layout, show a warning popup
-	if currentLayout and currentLayout ~= 'SpartanUI' and currentLayout ~= '' then
-		-- Check if this is a preset layout (Modern, Classic)
-		if self:IsPresetLayout(currentLayout) then
-			-- Preset layout - show warning about switching back to SpartanUI
-			self:ShowDisableManagementPopup(currentLayout)
-		else
-			-- Custom user layout - offer to switch manually
-			self:ShowManualSwitchPopup()
+	-- If user is intentionally switching via the dropdown, don't show popup
+	if self.suppressLayoutChangePopup then
+		if MoveIt.logger then
+			MoveIt.logger.debug('Layout change popup suppressed (intentional user action)')
 		end
-	end
-end
-
----Show popup warning about switching to a different layout
----@param profileName string The name of the layout the user switched to
-function BlizzardEditMode:ShowDisableManagementPopup(profileName)
-	StaticPopup_Show('SPARTANUI_EDITMODE_DISABLE', profileName)
-end
-
--- Define the static popup
-StaticPopupDialogs['SPARTANUI_EDITMODE_DISABLE'] = {
-	text = "You've switched to the '%s' Edit Mode layout.\n\nSpartanUI manages its own layout through the 'SpartanUI' profile. Would you like to switch back?",
-	button1 = 'Switch Back',
-	button2 = 'Keep New Layout',
-	OnAccept = function()
-		if BlizzardEditMode.LibEMO then
-			BlizzardEditMode.LibEMO:SetActiveLayout('SpartanUI')
-			BlizzardEditMode:SafeApplyChanges()
-		end
-	end,
-	timeout = 0,
-	whileDead = true,
-	hideOnEscape = true,
-	preferredIndex = 3,
-}
-
----Show popup about manual switch needed
-function BlizzardEditMode:ShowManualSwitchPopup()
-	-- Store flag to show popup after exiting Edit Mode
-	self.pendingManualSwitchPrompt = true
-end
-
--- Define the manual switch popup
-StaticPopupDialogs['SPARTANUI_EDITMODE_MANUAL_SWITCH'] = {
-	text = "You're using a custom Edit Mode layout.\n\nSpartanUI manages frame positions through its own 'SpartanUI' profile. Switch back to use SpartanUI's positioning?",
-	button1 = 'Switch to SpartanUI',
-	button2 = 'Keep Custom Layout',
-	OnAccept = function()
-		if BlizzardEditMode.LibEMO then
-			BlizzardEditMode.LibEMO:SetActiveLayout('SpartanUI')
-			BlizzardEditMode:SafeApplyChanges()
-		end
-	end,
-	timeout = 0,
-	whileDead = true,
-	hideOnEscape = true,
-	preferredIndex = 3,
-}
-
-function BlizzardEditMode:RegisterEditModeExitHandler()
-	if self.editModeExitRegistered then
 		return
 	end
 
-	if EditModeManagerFrame then
-		EventRegistry:RegisterCallback('EditMode.Exit', function()
-			-- Check if we need to show the manual switch popup
-			if self.pendingManualSwitchPrompt then
-				-- Delay slightly to let EditMode fully exit
-				C_Timer.After(0.5, function()
-					StaticPopup_Show('SPARTANUI_EDITMODE_MANUAL_SWITCH')
-					self.pendingManualSwitchPrompt = nil
-				end)
+	-- User changed EditMode profile manually - show clear confirmation popup
+	if currentLayout and currentLayout ~= '' then
+		-- Update the stored profile to match what they're actually using
+		if MoveIt.DB and MoveIt.DB.EditModeControl then
+			local oldProfile = MoveIt.DB.EditModeControl.CurrentProfile
+
+			-- Skip popup for brand new users (oldProfile is nil) - this is initial setup
+			if not oldProfile or oldProfile == '' then
+				MoveIt.DB.EditModeControl.CurrentProfile = currentLayout
+				if MoveIt.logger then
+					MoveIt.logger.debug(('Initial EditMode profile setup: "%s" (no popup for new users)'):format(currentLayout))
+				end
+				return
 			end
-		end)
-		self.editModeExitRegistered = true
+
+			-- Only show popup if profile actually changed from a previous valid profile
+			if oldProfile ~= currentLayout then
+				MoveIt.DB.EditModeControl.CurrentProfile = currentLayout
+
+				-- Update per-character record to reflect the user's explicit choice
+				if MoveIt.WizardPage then
+					MoveIt.WizardPage:SetCharacterSetupDone(currentLayout, 'user_switch')
+				end
+
+				if MoveIt.logger then
+					MoveIt.logger.info(('EditMode profile changed from "%s" to "%s" - showing popup'):format(tostring(oldProfile), currentLayout))
+				end
+
+				-- Show popup asking if they want SpartanUI to manage positions
+				self:ShowProfileChangePopup(currentLayout)
+			end
+		end
 	end
 end
+
+---Show popup when user manually switches EditMode profile
+---@param profileName string The name of the profile they switched to
+function BlizzardEditMode:ShowProfileChangePopup(profileName)
+	StaticPopup_Show('SPARTANUI_EDITMODE_POSITION_CHOICE', profileName)
+end
+
+-- Define the profile change popup
+StaticPopupDialogs['SPARTANUI_EDITMODE_POSITION_CHOICE'] = {
+	text = "You switched to '%s'.\n\nCan SpartanUI set default positions for frames you haven't moved?\n\nYES: SpartanUI positions frames you haven't customized\nNO: Use only your EditMode profile's positions",
+	button1 = 'YES',
+	button2 = 'NO',
+	OnAccept = function(self, profileName)
+		-- User wants SpartanUI to manage unmoved frames
+		if MoveIt.DB and MoveIt.DB.EditModeControl then
+			MoveIt.DB.EditModeControl.AllowAutoPositioning = true
+		end
+
+		-- Apply SpartanUI positions (respects MovedPoints) - automatic update, no movers
+		if BlizzardEditMode then
+			BlizzardEditMode:ApplyAllBlizzMoverPositions()
+			BlizzardEditMode:SafeApplyChanges('automatic')
+		end
+
+		print("SpartanUI: Positioning frames you haven't moved.")
+	end,
+	OnCancel = function(self, profileName)
+		-- User wants to use only their EditMode profile
+		if MoveIt.DB and MoveIt.DB.EditModeControl then
+			MoveIt.DB.EditModeControl.AllowAutoPositioning = false
+		end
+
+		print('SpartanUI: Using only your EditMode profile positions.')
+	end,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+}
 
 ---Check if a frame should use native EditMode
 ---@param frameName string The frame name
@@ -597,6 +624,16 @@ end
 function BlizzardEditMode:SetFramePositionFromDB(frameName, frame)
 	if not frame or not frameName then
 		return
+	end
+
+	-- Check if user has manually moved this frame - respect their custom position
+	if MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers[frameName] then
+		if MoveIt.DB.movers[frameName].MovedPoints then
+			if MoveIt.logger then
+				MoveIt.logger.debug(('Skipping %s - user has custom position'):format(frameName))
+			end
+			return -- User moved this frame, don't overwrite their position
+		end
 	end
 
 	-- Get position from DB
@@ -808,11 +845,17 @@ function BlizzardEditMode:RestoreBlizzardDefault(frameName)
 end
 
 ---Safely apply EditMode changes with error handling
----@param suppressMovers boolean If true, don't update movers (used during profile switching)
-function BlizzardEditMode:SafeApplyChanges(suppressMovers)
+---@param context string|nil Operation context: 'user_move' or 'automatic'. Nil = automatic.
+function BlizzardEditMode:SafeApplyChanges(context)
 	if not self.LibEMO then
 		return
 	end
+
+	-- Normalize context: accept boolean true for backward compatibility
+	if context == true then
+		context = OPERATION_CONTEXT.AUTOMATIC_UPDATE
+	end
+	context = context or OPERATION_CONTEXT.AUTOMATIC_UPDATE
 
 	-- Defer if in combat to avoid tainting protected frames (party frames, player frame, etc.)
 	if InCombatLockdown() then
@@ -820,8 +863,21 @@ function BlizzardEditMode:SafeApplyChanges(suppressMovers)
 			MoveIt.logger.warning('SafeApplyChanges: In combat, deferring until combat ends')
 		end
 		self.pendingApplyChanges = self.pendingApplyChanges or {}
-		table.insert(self.pendingApplyChanges, { suppressMovers = suppressMovers })
+		table.insert(self.pendingApplyChanges, { context = context })
 		return
+	end
+
+	-- Set flag BEFORE any operations that might trigger EditMode.Enter event
+	if context == OPERATION_CONTEXT.AUTOMATIC_UPDATE then
+		self.isApplyingAutomaticUpdate = true
+		if MoveIt.logger then
+			MoveIt.logger.debug('SafeApplyChanges: Starting automatic update (movers will stay hidden)')
+		end
+	end
+
+	-- Hide movers BEFORE applying changes to prevent them from showing during frame moves
+	if context == OPERATION_CONTEXT.AUTOMATIC_UPDATE and MoveIt and MoveIt.LockAll then
+		MoveIt:LockAll()
 	end
 
 	local success, err = pcall(function()
@@ -832,14 +888,25 @@ function BlizzardEditMode:SafeApplyChanges(suppressMovers)
 		if MoveIt.logger then
 			MoveIt.logger.error(('Error applying EditMode changes: %s'):format(tostring(err)))
 		end
+		-- Clear flag on error
+		if context == OPERATION_CONTEXT.AUTOMATIC_UPDATE then
+			self.isApplyingAutomaticUpdate = false
+		end
 		return
 	end
 
-	-- Hide movers when suppressed (e.g., during profile changes)
-	-- Movers should not automatically appear after profile changes
-	if suppressMovers and MoveIt and MoveIt.LockAll then
-		C_Timer.After(0.1, function()
+	-- Ensure movers stay hidden after applying changes (EditMode.Enter event may fire)
+	if context == OPERATION_CONTEXT.AUTOMATIC_UPDATE and MoveIt and MoveIt.LockAll then
+		C_Timer.After(0.2, function()
 			MoveIt:LockAll()
+
+			-- Clear flag AFTER all operations complete (0.5s total: 0.2s lock + 0.3s flag clear)
+			C_Timer.After(0.3, function()
+				self.isApplyingAutomaticUpdate = false
+				if MoveIt.logger then
+					MoveIt.logger.debug('SafeApplyChanges: Automatic update complete, movers unlocked for future use')
+				end
+			end)
 		end)
 	end
 end
@@ -854,7 +921,7 @@ function BlizzardEditMode:PLAYER_REGEN_ENABLED()
 		local lastEntry = self.pendingApplyChanges[#self.pendingApplyChanges]
 		self.pendingApplyChanges = {}
 		-- Only need to apply once with the most recent settings
-		self:SafeApplyChanges(lastEntry.suppressMovers)
+		self:SafeApplyChanges(lastEntry.context)
 	end
 
 	-- If we have pending frame applications that were blocked by combat, process them now
@@ -996,8 +1063,9 @@ end
 ---@param layoutType number Enum.EditModeLayoutType
 ---@param newLayoutName string Name for the new layout
 ---@param sourceLayoutName string|nil Source layout to copy from
+---@param preserveSourcePositions boolean|nil When true, skip overwriting with SUI positions (preserves user's custom layout)
 ---@return boolean success True if layout was created
-function BlizzardEditMode:CreateLayoutFromCurrent(layoutType, newLayoutName, sourceLayoutName)
+function BlizzardEditMode:CreateLayoutFromCurrent(layoutType, newLayoutName, sourceLayoutName, preserveSourcePositions)
 	if not self.LibEMO then
 		return false
 	end
@@ -1022,44 +1090,60 @@ function BlizzardEditMode:CreateLayoutFromCurrent(layoutType, newLayoutName, sou
 		return false
 	end
 
-	-- Apply all current SpartanUI positions to the new layout
-	local styleDB = SUI.DB and SUI.DB.Styles and SUI.DB.Styles[SUI.DB.Artwork.Style]
-	if styleDB and styleDB.BlizzMovers then
-		-- Switch to the new layout
-		LibEMO:SetActiveLayout(newLayoutName)
+	-- Set flag to suppress popup - this is automatic profile creation, not user action
+	self.suppressLayoutChangePopup = true
 
-		-- Apply each frame position
-		for frameName, posString in pairs(styleDB.BlizzMovers) do
-			local frameInfo = NATIVE_EDITMODE_FRAMES[frameName]
-			if frameInfo then
-				local point, anchor, relativePoint, x, y = self:ParseSUIPosition(posString)
-				if point and x and y then
-					pcall(function()
-						LibEMO:SetSystemPosition(frameInfo.systemID, {
-							point = point,
-							relativeTo = anchor or 'UIParent',
-							relativePoint = relativePoint or point,
-							offsetX = tonumber(x) or 0,
-							offsetY = tonumber(y) or 0,
-						})
-					end)
+	-- Switch to the new layout
+	LibEMO:SetActiveLayout(newLayoutName)
+
+	-- Clear the suppression flag after a longer delay to ensure event processing is complete
+	C_Timer.After(2.0, function()
+		self.suppressLayoutChangePopup = false
+	end)
+
+	-- When preserving source positions (copying from a custom user layout),
+	-- skip overwriting with SUI positions — the copy already has the user's positions
+	if not preserveSourcePositions then
+		local styleDB = SUI.DB and SUI.DB.Styles and SUI.DB.Styles[SUI.DB.Artwork.Style]
+		if styleDB and styleDB.BlizzMovers then
+			-- Apply each frame position
+			for frameName, posString in pairs(styleDB.BlizzMovers) do
+				local frameInfo = NATIVE_EDITMODE_FRAMES[frameName]
+				if frameInfo then
+					local point, anchor, relativePoint, x, y = self:ParseSUIPosition(posString)
+					if point and x and y then
+						pcall(function()
+							LibEMO:SetSystemPosition(frameInfo.systemID, {
+								point = point,
+								relativeTo = anchor or 'UIParent',
+								relativePoint = relativePoint or point,
+								offsetX = tonumber(x) or 0,
+								offsetY = tonumber(y) or 0,
+							})
+						end)
+					end
 				end
 			end
 		end
-
-		-- Save the layout
-		self:SafeApplyChanges()
+	else
+		if MoveIt.logger then
+			MoveIt.logger.info(('Preserving source layout positions for "%s" (copied from "%s")'):format(newLayoutName, tostring(sourceLayoutName)))
+		end
 	end
 
+	-- Save the layout
+	self:SafeApplyChanges('automatic')
+
 	if MoveIt.logger then
-		MoveIt.logger.info(('Created EditMode layout "%s" with SpartanUI positions'):format(newLayoutName))
+		MoveIt.logger.info(('Created EditMode layout "%s"%s'):format(newLayoutName, preserveSourcePositions and ' (positions preserved from source)' or ' with SpartanUI positions'))
 	end
 
 	return true
 end
 
 ---Apply default positions to all EditMode frames
-function BlizzardEditMode:ApplyDefaultPositions()
+---@param additive boolean|nil When true, only apply positions for frames that don't already have custom positions (preserves user's existing layout)
+function BlizzardEditMode:ApplyDefaultPositions(additive)
 	if not self.LibEMO then
 		return
 	end
@@ -1071,15 +1155,27 @@ function BlizzardEditMode:ApplyDefaultPositions()
 	end
 
 	-- Apply each registered frame
+	local applied, skipped = 0, 0
 	for frameName, frameInfo in pairs(NATIVE_EDITMODE_FRAMES) do
 		local frame = _G[frameName]
 		if frame then
-			self:SetFramePositionFromDB(frameName, frame)
+			-- In additive mode, skip frames that already have a non-default position
+			-- (user already positioned them in their source layout)
+			if additive and MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers[frameName] and MoveIt.DB.movers[frameName].MovedPoints then
+				skipped = skipped + 1
+			else
+				self:SetFramePositionFromDB(frameName, frame)
+				applied = applied + 1
+			end
 		end
 	end
 
 	if MoveIt.logger then
-		MoveIt.logger.info('Applied default positions to all EditMode frames')
+		if additive then
+			MoveIt.logger.info(('Applied default positions (additive): %d applied, %d skipped (user-customized)'):format(applied, skipped))
+		else
+			MoveIt.logger.info('Applied default positions to all EditMode frames')
+		end
 	end
 end
 
@@ -1096,11 +1192,19 @@ function BlizzardEditMode:OnSUIProfileChanged(event, database, newProfile)
 		MoveIt.logger.info(('SUI profile changed to "%s" - updating EditMode layout'):format(newProfile))
 	end
 
+	-- Suppress movers during profile application
+	self.applyingProfileChange = true
+
 	-- Ensure SpartanUI EditMode profile exists and is active
 	if self:EnsureProfileReady(self.LibEMO) then
 		-- Apply all positions from the new SUI profile
 		self:ApplyAllBlizzMoverPositions()
 	end
+
+	-- Clear suppression flag after a delay to allow EditMode state to settle
+	C_Timer.After(0.5, function()
+		self.applyingProfileChange = false
+	end)
 end
 
 ---Switch to a specific EditMode profile by name
@@ -1138,6 +1242,10 @@ function BlizzardEditMode:SwitchToProfile(profileName)
 		MoveIt.logger.info(('Switching to EditMode profile "%s"'):format(profileName))
 	end
 
+	-- Set flags to suppress popup and movers - this is an intentional user action via dropdown
+	self.suppressLayoutChangePopup = true
+	self.applyingProfileChange = true
+
 	local success = pcall(function()
 		self.LibEMO:SetActiveLayout(profileName)
 	end)
@@ -1146,19 +1254,22 @@ function BlizzardEditMode:SwitchToProfile(profileName)
 		if MoveIt.logger then
 			MoveIt.logger.error(('Failed to switch to EditMode profile "%s"'):format(profileName))
 		end
+		self.suppressLayoutChangePopup = false
 		return false
 	end
 
-	-- Apply changes and suppress movers
-	self:SafeApplyChanges(true)
+	-- Apply changes automatically without showing movers
+	self:SafeApplyChanges('automatic')
+
+	-- Clear the suppression flags after a short delay (after the event fires)
+	C_Timer.After(0.5, function()
+		self.suppressLayoutChangePopup = false
+		self.applyingProfileChange = false
+	end)
 
 	return true
 end
 
--- Initialize when module loads
-EventRegistry:RegisterCallback('EditMode.Enter', function()
-	-- When entering Edit Mode, ensure our profile is active
-	if BlizzardEditMode.LibEMO then
-		BlizzardEditMode:EnsureProfileReady(BlizzardEditMode.LibEMO)
-	end
-end)
+-- Note: Profile enforcement on EditMode.Enter was removed.
+-- SUI now respects whatever EditMode profile the user has active
+-- rather than forcing them back to a "SpartanUI" profile.

@@ -850,6 +850,9 @@ local function WelcomePage()
 			if SUI.IsRetail and EditModeManagerFrame then
 				local MoveIt = SUI.MoveIt
 				if MoveIt and MoveIt.BlizzardEditMode then
+					-- Suppress popup during wizard profile creation
+					MoveIt.BlizzardEditMode.suppressLayoutChangePopup = true
+
 					local state = MoveIt.BlizzardEditMode:GetEditModeState()
 
 					-- Only create profile if user is on a preset (new user) or no profile active
@@ -890,6 +893,11 @@ local function WelcomePage()
 							end
 						end
 					end
+
+					-- Clear popup suppression after delay
+					C_Timer.After(2.0, function()
+						MoveIt.BlizzardEditMode.suppressLayoutChangePopup = false
+					end)
 				end
 			end
 		end,

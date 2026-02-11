@@ -1,5 +1,5 @@
 local SUI, L, print = SUI, SUI.L, SUI.print
----@class MoveIt : AceAddon, AceHook-3.0
+---@class MoveIt : AceAddon, AceHook-3.0, AceEvent-3.0, AceTimer-3.0
 local MoveIt = SUI:NewModule('MoveIt', 'AceHook-3.0') ---@type SUI.Module
 MoveIt.description = 'CORE: Is the movement system for SpartanUI'
 MoveIt.Core = true
@@ -188,17 +188,82 @@ function MoveIt:UnlockAll()
 		return
 	end
 
+	-- Skip if automatic position update is in progress (new unified flag)
+	if MoveIt.BlizzardEditMode and MoveIt.BlizzardEditMode.isApplyingAutomaticUpdate then
+		if MoveIt.logger then
+			MoveIt.logger.debug('UnlockAll: Suppressed during automatic position update')
+		end
+		return
+	end
+
+	-- Legacy flag check (can be removed after testing)
+	if MoveIt.BlizzardEditMode and MoveIt.BlizzardEditMode.applyingProfileChange then
+		if MoveIt.logger then
+			MoveIt.logger.debug('UnlockAll: Suppressed during profile change (legacy flag)')
+		end
+		return
+	end
+
+	-- Check if EditMode is still active (prevents race condition with quick exit)
+	if EditModeManagerFrame and not EditModeManagerFrame:IsEditModeActive() then
+		if MoveIt.logger then
+			MoveIt.logger.debug('UnlockAll: Cancelled - EditMode already exited, ensuring movers are locked')
+		end
+		-- Defensive cleanup: ensure movers are hidden since EditMode exited
+		C_Timer.After(0.1, function()
+			if not (EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive()) then
+				if MoveIt.logger then
+					MoveIt.logger.debug('UnlockAll: Race condition cleanup - locking movers')
+				end
+				self:LockAll()
+			end
+		end)
+		return
+	end
+
 	-- Debug logging to trace who's calling UnlockAll
 	if MoveIt.logger then
 		local stack = debugstack(2, 2, 0) -- Get caller stack
 		MoveIt.logger.debug('UnlockAll called from: ' .. (stack or 'unknown'))
 	end
 
+	-- Set flag indicating unlock is in progress
+	self.unlockInProgress = true
+
+	-- Show movers with intermediate checks for early exit
+	local shownCount = 0
 	for _, v in pairs(self.MoverList) do
+		-- Check if LockAll() was called (MoveEnabled became false)
+		if not MoveEnabled then
+			if MoveIt.logger then
+				MoveIt.logger.debug(('UnlockAll: LockAll was called during unlock after showing %d movers - aborting'):format(shownCount))
+			end
+			self.unlockInProgress = false
+			return
+		end
+
+		-- Check if EditMode exited while we're showing movers (race condition protection)
+		if EditModeManagerFrame and not EditModeManagerFrame:IsEditModeActive() then
+			if MoveIt.logger then
+				MoveIt.logger.debug(('UnlockAll: EditMode exited during unlock after showing %d movers - aborting and locking'):format(shownCount))
+			end
+			self.unlockInProgress = false
+			-- Lock any movers we already showed
+			self:LockAll()
+			return
+		end
 		v:Show()
+		shownCount = shownCount + 1
 	end
+
+	self.unlockInProgress = false
 	MoveEnabled = true
 	MoverWatcher:Show()
+
+	if MoveIt.logger then
+		MoveIt.logger.debug(('UnlockAll: Completed showing %d movers, MoveEnabled=true'):format(shownCount))
+	end
+
 	if MoveIt.DB.tips then
 		print('When the movement system is enabled you can:')
 		print('     Shift+Click a mover to temporarily hide it', true)
@@ -221,11 +286,55 @@ function MoveIt:UnlockAll()
 end
 
 function MoveIt:LockAll()
+	if MoveIt.logger then
+		MoveIt.logger.debug(('LockAll called - MoveEnabled=%s, unlockInProgress=%s'):format(tostring(MoveEnabled), tostring(self.unlockInProgress)))
+	end
+
+	-- Cancel any in-progress unlock operation
+	if self.unlockInProgress then
+		if MoveIt.logger then
+			MoveIt.logger.debug('LockAll: Cancelling in-progress unlock')
+		end
+		self.unlockInProgress = false
+	end
+
+	local hiddenCount = 0
 	for _, v in pairs(self.MoverList) do
+		if v:IsShown() then
+			hiddenCount = hiddenCount + 1
+		end
 		v:Hide()
 	end
+
+	if MoveIt.logger then
+		MoveIt.logger.debug(('LockAll: Hid %d visible movers'):format(hiddenCount))
+	end
+
 	MoveEnabled = false
 	MoverWatcher:Hide()
+end
+
+---Enter user move mode (explicit user action to reposition frames)
+function MoveIt:EnterMoveMode()
+	if InCombatLockdown() then
+		print(ERR_NOT_IN_COMBAT)
+		return
+	end
+
+	-- If Retail has EditMode, use it
+	if HasEditMode() then
+		ShowUIPanel(EditModeManagerFrame)
+		-- EditMode.Enter event will fire and unlock movers (user mode)
+		if MoveIt.logger then
+			MoveIt.logger.debug('EnterMoveMode: Opening EditMode UI for user')
+		end
+	else
+		-- Classic: use legacy mover system
+		if MoveIt.logger then
+			MoveIt.logger.debug('EnterMoveMode: Using legacy mover system (Classic)')
+		end
+		self:UnlockAll()
+	end
 end
 
 function MoveIt:MoveIt(name)
@@ -311,25 +420,48 @@ function MoveIt:OnInitialize()
 	-- Note: HasEditMode() may not be accurate yet (logger not ready), so check basics here
 	if EditModeManagerFrame and type(EditModeManagerFrame.EnterEditMode) == 'function' and EventRegistry then
 		EventRegistry:RegisterCallback('EditMode.Enter', function()
-			local isActive = EditModeManagerFrame:IsEditModeActive()
-			local isMigrating = MoveIt.WizardPage and MoveIt.WizardPage:IsMigrationInProgress()
-			if MoveIt.logger then
-				MoveIt.logger.debug(('EditMode.Enter callback fired - IsEditModeActive: %s, IsMigrating: %s'):format(tostring(isActive), tostring(isMigrating)))
+			-- Check if we're in an automatic update context (system applying positions silently)
+			if MoveIt.BlizzardEditMode and MoveIt.BlizzardEditMode.isApplyingAutomaticUpdate then
+				if MoveIt.logger then
+					MoveIt.logger.debug('EditMode.Enter: Suppressed during automatic position update')
+				end
+				return -- Don't unlock movers during automatic updates
 			end
-			-- Only unlock movers if Edit Mode is actually active AND not during migration/wizard
-			-- During wizard, LibEMO:ApplyChanges() enters Edit Mode programmatically
-			if isActive and not isMigrating then
+
+			-- Check if wizard is running
+			local isMigrating = MoveIt.WizardPage and MoveIt.WizardPage:IsMigrationInProgress()
+			if isMigrating then
+				if MoveIt.logger then
+					MoveIt.logger.debug('EditMode.Enter: Suppressed during wizard migration')
+				end
+				return
+			end
+
+			-- User explicitly entered EditMode - unlock movers for manual adjustment
+			local isActive = EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive()
+			if isActive then
+				if MoveIt.logger then
+					MoveIt.logger.debug('EditMode.Enter: User mode detected, unlocking movers')
+				end
 				self:UnlockAll()
 			end
 		end)
 		EventRegistry:RegisterCallback('EditMode.Exit', function()
 			if MoveIt.logger then
-				MoveIt.logger.debug('EditMode.Exit callback fired')
+				MoveIt.logger.debug('EditMode.Exit callback fired - locking movers IMMEDIATELY')
 			end
-			-- Small delay to ensure Edit Mode fully exits and all frames are properly hidden
-			-- This prevents race conditions with Blizzard's Edit Mode checkbox toggles
+			-- Lock movers IMMEDIATELY when EditMode exits, no delay
+			-- This catches the race condition where UnlockAll() is still running
+			self:LockAll()
+
+			-- Additional safety check after a short delay
 			C_Timer.After(0.1, function()
-				self:LockAll()
+				if not EditModeManagerFrame:IsEditModeActive() and MoveEnabled then
+					if MoveIt.logger then
+						MoveIt.logger.debug('EditMode.Exit: Double-checking movers are locked')
+					end
+					self:LockAll()
+				end
 			end)
 		end)
 	end
@@ -402,12 +534,8 @@ function MoveIt:OnEnable()
 		end
 
 		if not arg then
-			-- On Retail/TBC 2.5.5+, open Blizzard's EditMode; on other Classic versions, use legacy MoveIt
-			if HasEditMode() then
-				ShowUIPanel(EditModeManagerFrame)
-			else
-				MoveIt:MoveIt()
-			end
+			-- Enter user move mode (explicit user action to reposition frames)
+			MoveIt:EnterMoveMode()
 		else
 			if self.MoverList[arg] then
 				MoveIt:MoveIt(arg)

@@ -16,6 +16,8 @@ SpartanUI is a comprehensive World of Warcraft addon that provides a complete us
 ## Core Architecture
 
 - **Core/Framework.lua** — Main addon initialization, SUI object setup, library management
+  - Sets default module libraries: `SUI:SetDefaultModuleLibraries('AceEvent-3.0', 'AceTimer-3.0')`
+  - All modules automatically have AceEvent-3.0 and AceTimer-3.0 mixed in
 - **Framework.Definition.lua** — Type definitions and framework structure
 - **SpartanUI.toc** — Addon manifest defining load order and dependencies
 - **Modules/** — Feature modules (Minimap, UnitFrames, Artwork, etc.)

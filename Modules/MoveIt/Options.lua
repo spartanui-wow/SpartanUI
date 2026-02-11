@@ -331,6 +331,38 @@ function MoveIt:Options()
 					MoveIt.DB.EditModeControl.Enabled = val
 				end,
 			},
+			EditModeAllowPositioning = {
+				name = 'Allow SpartanUI to position frames',
+				desc = "When enabled, SpartanUI will set default positions for frames you haven't moved. When disabled, only your EditMode profile positions are used.",
+				type = 'toggle',
+				width = 'double',
+				order = 101.5,
+				hidden = function()
+					return not SUI.IsRetail or not EditModeManagerFrame
+				end,
+				disabled = function()
+					return not MoveIt.DB.EditModeControl.Enabled
+				end,
+				get = function(info)
+					-- Default to true if not set
+					if MoveIt.DB.EditModeControl.AllowAutoPositioning == nil then
+						return true
+					end
+					return MoveIt.DB.EditModeControl.AllowAutoPositioning
+				end,
+				set = function(info, val)
+					MoveIt.DB.EditModeControl.AllowAutoPositioning = val
+
+					-- If enabling, apply positions now
+					if val and MoveIt.BlizzardEditMode then
+						MoveIt.BlizzardEditMode:ApplyAllBlizzMoverPositions()
+						MoveIt.BlizzardEditMode:SafeApplyChanges(true)
+						print("SpartanUI: Positioning frames you haven't moved.")
+					else
+						print('SpartanUI: Using only your EditMode profile positions.')
+					end
+				end,
+			},
 			EditModeAutoSwitch = {
 				name = 'Auto-switch EditMode profile when changing SUI profile',
 				desc = 'When enabled, switching your SpartanUI profile will also switch your EditMode profile.',
@@ -364,7 +396,7 @@ function MoveIt:Options()
 			},
 			EditModeSelectProfile = {
 				name = 'Select EditMode Profile',
-				desc = 'Choose which EditMode profile to use with this SpartanUI profile. This profile will be automatically applied when you switch to this SUI profile or setup a new character.',
+				desc = 'Select which EditMode profile to use with this SpartanUI profile.\n\nSpartanUI will set default positions for frames you have not moved yourself. Your custom frame positions are always respected.',
 				type = 'select',
 				width = 'double',
 				order = 103.5,
@@ -409,6 +441,9 @@ function MoveIt:Options()
 				set = function(info, val)
 					MoveIt.DB.EditModeControl.CurrentProfile = val
 
+					-- Show info message to user
+					print(("SpartanUI: Now using '%s'. Your moved frames stay where you put them. We only position frames you haven't touched."):format(val))
+
 					-- Apply the selected profile immediately if enabled
 					if MoveIt.DB.EditModeControl.Enabled and MoveIt.BlizzardEditMode then
 						if MoveIt.logger then
@@ -438,6 +473,44 @@ function MoveIt:Options()
 						if MoveIt.logger then
 							MoveIt.logger.info('Re-applied SUI default positions to EditMode profile')
 						end
+					end
+				end,
+			},
+			EditModeResetUserPositions = {
+				name = 'Reset Frame Positions to SpartanUI Defaults',
+				desc = 'Clear your custom frame positions and let SpartanUI position them automatically.',
+				type = 'execute',
+				width = 'double',
+				order = 104.5,
+				hidden = function()
+					return not SUI.IsRetail or not EditModeManagerFrame
+				end,
+				disabled = function()
+					return not MoveIt.DB.EditModeControl.Enabled
+				end,
+				func = function()
+					-- Count how many frames have custom positions
+					local count = 0
+					if MoveIt.DB and MoveIt.DB.movers then
+						for frameName, data in pairs(MoveIt.DB.movers) do
+							if data.MovedPoints then
+								count = count + 1
+								-- Clear the custom position
+								data.MovedPoints = nil
+							end
+						end
+					end
+
+					-- Reapply SpartanUI positions
+					if MoveIt.BlizzardEditMode then
+						MoveIt.BlizzardEditMode:ApplyAllBlizzMoverPositions()
+						MoveIt.BlizzardEditMode:SafeApplyChanges(true)
+					end
+
+					-- Show confirmation
+					print(('SpartanUI: Reset %d frames to SpartanUI default positions.'):format(count))
+					if MoveIt.logger then
+						MoveIt.logger.info(('Reset %d frames to SpartanUI positions'):format(count))
 					end
 				end,
 			},
