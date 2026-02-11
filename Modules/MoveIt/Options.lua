@@ -362,6 +362,64 @@ function MoveIt:Options()
 					return not SUI.IsRetail or not EditModeManagerFrame
 				end,
 			},
+			EditModeSelectProfile = {
+				name = 'Select EditMode Profile',
+				desc = 'Choose which EditMode profile to use with this SpartanUI profile. This profile will be automatically applied when you switch to this SUI profile or setup a new character.',
+				type = 'select',
+				width = 'double',
+				order = 103.5,
+				hidden = function()
+					return not SUI.IsRetail or not EditModeManagerFrame
+				end,
+				disabled = function()
+					return not MoveIt.DB.EditModeControl.Enabled
+				end,
+				values = function()
+					local profiles = {}
+
+					-- Get all available EditMode layouts
+					local layoutInfo = C_EditMode.GetLayouts()
+					if not layoutInfo or not layoutInfo.layouts then
+						return profiles
+					end
+
+					-- Build dropdown list from available layouts
+					for _, layout in ipairs(layoutInfo.layouts) do
+						local layoutName = layout.layoutName
+						local layoutType = layout.layoutType
+
+						-- Add type prefix for clarity
+						local displayName = layoutName
+						if layoutType == Enum.EditModeLayoutType.Preset then
+							displayName = '[Preset] ' .. layoutName
+						elseif layoutType == Enum.EditModeLayoutType.Account then
+							displayName = '[Account] ' .. layoutName
+						elseif layoutType == Enum.EditModeLayoutType.Character then
+							displayName = '[Character] ' .. layoutName
+						end
+
+						profiles[layoutName] = displayName
+					end
+
+					return profiles
+				end,
+				get = function(info)
+					return MoveIt.DB.EditModeControl.CurrentProfile
+				end,
+				set = function(info, val)
+					MoveIt.DB.EditModeControl.CurrentProfile = val
+
+					-- Apply the selected profile immediately if enabled
+					if MoveIt.DB.EditModeControl.Enabled and MoveIt.BlizzardEditMode then
+						if MoveIt.logger then
+							MoveIt.logger.info(('Manually set EditMode profile to "%s"'):format(val))
+						end
+
+						-- Switch to the selected profile
+						MoveIt.BlizzardEditMode:SwitchToProfile(val)
+					end
+				end,
+			},
 			EditModeReapplyDefaults = {
 				name = 'Re-apply SUI Default Positions',
 				desc = 'Re-apply SpartanUI default frame positions to the current EditMode profile.',

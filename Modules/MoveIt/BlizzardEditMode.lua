@@ -1103,6 +1103,58 @@ function BlizzardEditMode:OnSUIProfileChanged(event, database, newProfile)
 	end
 end
 
+---Switch to a specific EditMode profile by name
+---@param profileName string The EditMode profile name to switch to
+function BlizzardEditMode:SwitchToProfile(profileName)
+	if not self.LibEMO then
+		if MoveIt.logger then
+			MoveIt.logger.error('SwitchToProfile: LibEMO not available')
+		end
+		return false
+	end
+
+	if not profileName or profileName == '' then
+		if MoveIt.logger then
+			MoveIt.logger.error('SwitchToProfile: Invalid profile name')
+		end
+		return false
+	end
+
+	-- Load layouts if needed
+	if not self.LibEMO:AreLayoutsLoaded() then
+		self.LibEMO:LoadLayouts()
+	end
+
+	-- Check if the profile exists
+	if not self.LibEMO:DoesLayoutExist(profileName) then
+		if MoveIt.logger then
+			MoveIt.logger.warning(('SwitchToProfile: Profile "%s" does not exist'):format(profileName))
+		end
+		return false
+	end
+
+	-- Switch to the profile
+	if MoveIt.logger then
+		MoveIt.logger.info(('Switching to EditMode profile "%s"'):format(profileName))
+	end
+
+	local success = pcall(function()
+		self.LibEMO:SetActiveLayout(profileName)
+	end)
+
+	if not success then
+		if MoveIt.logger then
+			MoveIt.logger.error(('Failed to switch to EditMode profile "%s"'):format(profileName))
+		end
+		return false
+	end
+
+	-- Apply changes and suppress movers
+	self:SafeApplyChanges(true)
+
+	return true
+end
+
 -- Initialize when module loads
 EventRegistry:RegisterCallback('EditMode.Enter', function()
 	-- When entering Edit Mode, ensure our profile is active
