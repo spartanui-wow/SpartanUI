@@ -3,7 +3,7 @@ local UF = SUI.UF
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	frame.ReadyCheckIndicator = frame:CreateTexture(nil, 'OVERLAY')
+	frame.ReadyCheckIndicator = frame.raised:CreateTexture(nil, 'OVERLAY')
 end
 
 ---@type SUI.UF.Elements.Settings

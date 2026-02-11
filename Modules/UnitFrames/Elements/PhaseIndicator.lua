@@ -3,7 +3,7 @@ local UF = SUI.UF
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	frame.PhaseIndicator = frame:CreateTexture(nil, 'OVERLAY')
+	frame.PhaseIndicator = frame.raised:CreateTexture(nil, 'OVERLAY')
 	frame.PhaseIndicator:Hide()
 end
 

@@ -61,12 +61,12 @@ local function Build(frame, DB)
 			return pvp:PostUpdate(status)
 		end
 	end
-	frame.PvPIndicator = frame:CreateTexture(nil, 'ARTWORK')
+	frame.PvPIndicator = frame.raised:CreateTexture(nil, 'ARTWORK')
 	frame.PvPIndicator:SetSize(DB.size, DB.size)
-	frame.PvPIndicator.ShadowBackup = frame:CreateTexture(nil, 'ARTWORK')
+	frame.PvPIndicator.ShadowBackup = frame.raised:CreateTexture(nil, 'ARTWORK')
 	frame.PvPIndicator.ShadowBackup:SetSize(DB.size, DB.size)
 
-	local Badge = frame:CreateTexture(nil, 'BACKGROUND')
+	local Badge = frame.raised:CreateTexture(nil, 'BACKGROUND')
 	Badge:SetSize(DB.size + 12, DB.size + 12)
 	Badge:SetPoint('CENTER', frame.PvPIndicator, 'CENTER')
 

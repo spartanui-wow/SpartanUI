@@ -4,9 +4,9 @@ local L = SUI.L
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	frame.ClassIcon = frame:CreateTexture(nil, 'BORDER')
+	frame.ClassIcon = frame.raised:CreateTexture(nil, 'BORDER')
 	frame.ClassIcon.Sizeable = true
-	frame.ClassIcon.shadow = frame:CreateTexture(nil, 'BACKGROUND')
+	frame.ClassIcon.shadow = frame.raised:CreateTexture(nil, 'BACKGROUND')
 	frame.ClassIcon.shadow:SetPoint('TOPLEFT', frame.ClassIcon, 'TOPLEFT', 2, -2)
 	frame.ClassIcon.shadow:SetPoint('BOTTOMRIGHT', frame.ClassIcon, 'BOTTOMRIGHT', 2, -2)
 	frame.ClassIcon.shadow:SetVertexColor(0, 0, 0, 0.9)

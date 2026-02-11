@@ -3,7 +3,7 @@ local UF = SUI.UF
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	frame.AssistantIndicator = frame:CreateTexture(nil, 'BORDER')
+	frame.AssistantIndicator = frame.raised:CreateTexture(nil, 'BORDER')
 end
 
 ---@type SUI.UF.Elements.Settings

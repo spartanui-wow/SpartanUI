@@ -3,7 +3,7 @@ local UF = SUI.UF
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	local ResurrectIndicator = frame:CreateTexture(nil, 'OVERLAY')
+	local ResurrectIndicator = frame.raised:CreateTexture(nil, 'OVERLAY')
 	frame.ResurrectIndicator = ResurrectIndicator
 end
 

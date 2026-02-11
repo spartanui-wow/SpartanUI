@@ -8,7 +8,7 @@ end
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	frame.SUI_RaidGroup = frame:CreateTexture(nil, 'BORDER')
+	frame.SUI_RaidGroup = frame.raised:CreateTexture(nil, 'BORDER')
 
 	frame.SUI_RaidGroup.Text = frame:CreateFontString(nil, 'BORDER')
 	frame.SUI_RaidGroup.Text:SetPoint('CENTER', frame.SUI_RaidGroup, 'CENTER', 0, 0)
