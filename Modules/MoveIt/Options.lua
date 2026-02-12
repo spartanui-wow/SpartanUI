@@ -384,7 +384,7 @@ function MoveIt:Options()
 			},
 			EditModeCurrentProfile = {
 				name = function()
-					local profileName = MoveIt.DB.EditModeControl.CurrentProfile or 'Not set'
+					local profileName = (MoveIt.WizardPage and MoveIt.WizardPage:GetCurrentProfile()) or 'Not set'
 					return 'Current EditMode Profile: |cFFFFFF00' .. profileName .. '|r'
 				end,
 				type = 'description',
@@ -436,10 +436,12 @@ function MoveIt:Options()
 					return profiles
 				end,
 				get = function(info)
-					return MoveIt.DB.EditModeControl.CurrentProfile
+					return MoveIt.WizardPage and MoveIt.WizardPage:GetCurrentProfile()
 				end,
 				set = function(info, val)
-					MoveIt.DB.EditModeControl.CurrentProfile = val
+					if MoveIt.WizardPage then
+						MoveIt.WizardPage:SetCurrentProfile(val)
+					end
 
 					-- Show info message to user
 					print(("SpartanUI: Now using '%s'. Your moved frames stay where you put them. We only position frames you haven't touched."):format(val))

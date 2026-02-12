@@ -189,12 +189,8 @@ function BlizzardEditMode:EnsureProfileReady(LibEMO)
 	end
 
 	-- If user is on an unrelated profile and we have no record of managing them, don't switch
-	if
-		currentLayout
-		and currentLayout ~= expectedProfile
-		and not self:IsSpartanUILayout(currentLayout)
-		and not (MoveIt.DB and MoveIt.DB.EditModeControl and MoveIt.DB.EditModeControl.CurrentProfile)
-	then
+	local currentProfileRecord = MoveIt.WizardPage and MoveIt.WizardPage:GetCurrentProfile()
+	if currentLayout and currentLayout ~= expectedProfile and not self:IsSpartanUILayout(currentLayout) and not currentProfileRecord then
 		if MoveIt.logger then
 			MoveIt.logger.warning(('EnsureProfileReady: User is on "%s" profile with no managed profile record - not switching'):format(currentLayout))
 		end
@@ -488,26 +484,33 @@ function BlizzardEditMode:OnLayoutChanged()
 	-- User changed EditMode profile manually - show clear confirmation popup
 	if currentLayout and currentLayout ~= '' then
 		-- Update the stored profile to match what they're actually using
-		if MoveIt.DB and MoveIt.DB.EditModeControl then
-			local oldProfile = MoveIt.DB.EditModeControl.CurrentProfile
+		if MoveIt.WizardPage then
+			local oldProfile = MoveIt.WizardPage:GetCurrentProfile()
 
 			-- Skip popup for brand new users (oldProfile is nil) - this is initial setup
 			if not oldProfile or oldProfile == '' then
-				MoveIt.DB.EditModeControl.CurrentProfile = currentLayout
+				MoveIt.WizardPage:SetCurrentProfile(currentLayout)
 				if MoveIt.logger then
 					MoveIt.logger.debug(('Initial EditMode profile setup: "%s" (no popup for new users)'):format(currentLayout))
 				end
 				return
 			end
 
+			-- Skip popup if still during initial character setup (wizard hasn't completed yet)
+			if not MoveIt.WizardPage:IsCharacterSetupDone() then
+				MoveIt.WizardPage:SetCurrentProfile(currentLayout)
+				if MoveIt.logger then
+					MoveIt.logger.debug(('Initial EditMode profile setup in progress: "%s" (no popup during wizard)'):format(currentLayout))
+				end
+				return
+			end
+
 			-- Only show popup if profile actually changed from a previous valid profile
 			if oldProfile ~= currentLayout then
-				MoveIt.DB.EditModeControl.CurrentProfile = currentLayout
+				MoveIt.WizardPage:SetCurrentProfile(currentLayout)
 
 				-- Update per-character record to reflect the user's explicit choice
-				if MoveIt.WizardPage then
-					MoveIt.WizardPage:SetCharacterSetupDone(currentLayout, 'user_switch')
-				end
+				MoveIt.WizardPage:SetCharacterSetupDone(currentLayout, 'user_switch')
 
 				if MoveIt.logger then
 					MoveIt.logger.info(('EditMode profile changed from "%s" to "%s" - showing popup'):format(tostring(oldProfile), currentLayout))
@@ -970,8 +973,9 @@ function BlizzardEditMode:IsSpartanUILayout(layoutName)
 		return true
 	end
 	-- Check if this is the currently managed profile (e.g., a custom-named profile set during wizard)
-	if MoveIt.DB and MoveIt.DB.EditModeControl and MoveIt.DB.EditModeControl.CurrentProfile then
-		return layoutName == MoveIt.DB.EditModeControl.CurrentProfile
+	local currentProfile = MoveIt.WizardPage and MoveIt.WizardPage:GetCurrentProfile()
+	if currentProfile then
+		return layoutName == currentProfile
 	end
 	return false
 end
@@ -1026,8 +1030,9 @@ end
 ---@return string profileName The EditMode profile name to use
 function BlizzardEditMode:GetMatchingProfileName()
 	-- Use the stored CurrentProfile if available (set during wizard/migration)
-	if MoveIt.DB and MoveIt.DB.EditModeControl and MoveIt.DB.EditModeControl.CurrentProfile then
-		return MoveIt.DB.EditModeControl.CurrentProfile
+	local currentProfile = MoveIt.WizardPage and MoveIt.WizardPage:GetCurrentProfile()
+	if currentProfile then
+		return currentProfile
 	end
 	-- Default fallback for fresh installs
 	return 'SpartanUI'

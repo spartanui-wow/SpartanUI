@@ -386,7 +386,7 @@ function MoveIt:OnInitialize()
 			EditModeControl = {
 				Enabled = true, -- Allow MoveIt to manage EditMode profiles
 				AutoSwitch = true, -- Auto-switch EditMode when SUI profile changes
-				CurrentProfile = nil, -- Currently managed EditMode profile name
+				-- NOTE: CurrentProfile moved to global DB (avoids conflicts with shared SUI profiles)
 			},
 		},
 		global = {
@@ -399,6 +399,9 @@ function MoveIt:OnInitialize()
 			-- Stored globally because EditMode profiles are per-character in WoW,
 			-- independent of shared SUI profiles
 			EditModeSetupCharacters = {},
+			-- Per-character current EditMode profile tracking (keyed by "CharName - Realm")
+			-- Stored globally to avoid conflicts when multiple characters share the same SUI profile
+			CurrentProfiles = {},
 		},
 	}
 	---@type MoveItDB
