@@ -2,8 +2,7 @@ local _G, SUI = _G, SUI
 local module = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
 local MoveIt = SUI.MoveIt
 -- Helper functions
-local ReparentAB = false
-local ExtraAB = SUI:NewModule('ExtraAB') ---@type SUI.Module
+-- local ExtraAB = SUI:NewModule('ExtraAB') ---@type SUI.Module
 
 -- Blizz Mover Management
 ---@class BlizzMoverCache
@@ -25,46 +24,25 @@ local function ResetPosition(frame, _, anchor)
 	end
 end
 
-local function ResetParent(frame, parent)
-	if parent ~= BossButtonHolder and not ReparentAB then
-		if InCombatLockdown() then
-			ReparentAB = true
-			ExtraAB:RegisterEvent('PLAYER_REGEN_ENABLED')
-			return
-		end
+-- function ExtraAB.Reparent()
+-- 	if InCombatLockdown() then
+-- 		NeedsReparent = true
+-- 		ExtraAB:RegisterEvent('PLAYER_REGEN_ENABLED')
+-- 		return
+-- 	end
 
-		if ZoneAbilityFrame then
-			ZoneAbilityFrame:SetParent(BossButtonHolder)
-		end
-		if ExtraActionBarFrame then
-			ExtraActionBarFrame:SetParent(BossButtonHolder)
-		end
-	end
-end
+-- 	local ExtraActionBarFrame = _G['ExtraActionBarFrame']
+-- 	local ZoneAbilityFrame = _G['ZoneAbilityFrame']
 
-ExtraAB.PLAYER_REGEN_ENABLED = function(self)
-	ExtraAB.Reparent()
-end
-
-function ExtraAB.Reparent()
-	if InCombatLockdown() then
-		NeedsReparent = true
-		ExtraAB:RegisterEvent('PLAYER_REGEN_ENABLED')
-		return
-	end
-
-	local ExtraActionBarFrame = _G['ExtraActionBarFrame']
-	local ZoneAbilityFrame = _G['ZoneAbilityFrame']
-
-	if ZoneAbilityFrame and ExtraAB.ZoneAbilityHolder then
-		ZoneAbilityFrame:SetParent(ExtraAB.ZoneAbilityHolder)
-	end
-	if ExtraActionBarFrame and ExtraAB.ExtraActionBarHolder then
-		ExtraActionBarFrame:SetParent(ExtraAB.ExtraActionBarHolder)
-		ExtraActionBarFrame:ClearAllPoints()
-		ExtraActionBarFrame:SetPoint('CENTER', ExtraAB.ExtraActionBarHolder, 'CENTER')
-	end
-end
+-- 	if ZoneAbilityFrame and ExtraAB.ZoneAbilityHolder then
+-- 		ZoneAbilityFrame:SetParent(ExtraAB.ZoneAbilityHolder)
+-- 	end
+-- 	if ExtraActionBarFrame and ExtraAB.ExtraActionBarHolder then
+-- 		ExtraActionBarFrame:SetParent(ExtraAB.ExtraActionBarHolder)
+-- 		ExtraActionBarFrame:ClearAllPoints()
+-- 		ExtraActionBarFrame:SetPoint('CENTER', ExtraAB.ExtraActionBarHolder, 'CENTER')
+-- 	end
+-- end
 
 ---Cache the original position of a frame before moving it
 ---@param moverName string The name identifier for this mover
@@ -248,178 +226,148 @@ local function TalkingHead()
 	end
 end
 
----Disable the TalkingHead mover
-function module:DisableBlizzMover_TalkingHead()
-	RestoreOriginalPosition('TalkingHead')
-end
+-- local function AbilityBars()
+-- 	-- Use custom holder-based movers for both ExtraActionBar and ZoneAbility
+-- 	local NeedsReparent = false
+-- 	local ExtraAbilityContainer = _G['ExtraAbilityContainer']
+-- 	local ExtraActionBarFrame = _G['ExtraActionBarFrame']
+-- 	local ZoneAbilityFrame = _G['ZoneAbilityFrame']
 
----Enable the TalkingHead mover
-function module:EnableBlizzMover_TalkingHead()
-	TalkingHead()
-end
+-- 	if not ExtraActionBarFrame then
+-- 		return
+-- 	end
 
-local function AbilityBars()
-	-- Use custom holder-based movers for both ExtraActionBar and ZoneAbility
-	local NeedsReparent = false
-	local ExtraAbilityContainer = _G['ExtraAbilityContainer']
-	local ExtraActionBarFrame = _G['ExtraActionBarFrame']
-	local ZoneAbilityFrame = _G['ZoneAbilityFrame']
+-- 	-- Check if movers are enabled
+-- 	local extraActionEnabled = SUI.DB.Artwork.BlizzMoverStates['ExtraActionBar'].enabled
+-- 	local zoneAbilityEnabled = SUI.DB.Artwork.BlizzMoverStates['ZoneAbility'].enabled
 
-	if not ExtraActionBarFrame then
-		return
-	end
+-- 	if not extraActionEnabled then
+-- 		RestoreOriginalPosition('ExtraActionBar')
+-- 	end
+-- 	if not zoneAbilityEnabled and ZoneAbilityFrame then
+-- 		RestoreOriginalPosition('ZoneAbility')
+-- 	end
 
-	-- Check if movers are enabled
-	local extraActionEnabled = SUI.DB.Artwork.BlizzMoverStates['ExtraActionBar'].enabled
-	local zoneAbilityEnabled = SUI.DB.Artwork.BlizzMoverStates['ZoneAbility'].enabled
+-- 	if not extraActionEnabled and not zoneAbilityEnabled then
+-- 		return
+-- 	end
 
-	if not extraActionEnabled then
-		RestoreOriginalPosition('ExtraActionBar')
-	end
-	if not zoneAbilityEnabled and ZoneAbilityFrame then
-		RestoreOriginalPosition('ZoneAbility')
-	end
+-- 	-- Cache original positions before moving
+-- 	if extraActionEnabled then
+-- 		CacheOriginalPosition('ExtraActionBar', ExtraActionBarFrame)
+-- 	end
+-- 	if zoneAbilityEnabled and ZoneAbilityFrame then
+-- 		CacheOriginalPosition('ZoneAbility', ZoneAbilityFrame)
+-- 	end
 
-	if not extraActionEnabled and not zoneAbilityEnabled then
-		return
-	end
+-- 	-- Create holders
+-- 	local ExtraActionBarHolder = GenerateHolder('ExtraActionBar')
+-- 	local ZoneAbilityHolder = GenerateHolder('ZoneAbility')
+-- 	ExtraAB.ExtraActionBarHolder = ExtraActionBarHolder
+-- 	ExtraAB.ZoneAbilityHolder = ZoneAbilityHolder
 
-	-- Cache original positions before moving
-	if extraActionEnabled then
-		CacheOriginalPosition('ExtraActionBar', ExtraActionBarFrame)
-	end
-	if zoneAbilityEnabled and ZoneAbilityFrame then
-		CacheOriginalPosition('ZoneAbility', ZoneAbilityFrame)
-	end
+-- 	ExtraActionBarHolder:SetSize(100, 70)
+-- 	ZoneAbilityHolder:SetSize(100, 70)
 
-	-- Create holders
-	local ExtraActionBarHolder = GenerateHolder('ExtraActionBar')
-	local ZoneAbilityHolder = GenerateHolder('ZoneAbility')
-	ExtraAB.ExtraActionBarHolder = ExtraActionBarHolder
-	ExtraAB.ZoneAbilityHolder = ZoneAbilityHolder
+-- 	if extraActionEnabled then
+-- 		ExtraActionBarHolder:Show()
+-- 	else
+-- 		ExtraActionBarHolder:Hide()
+-- 	end
 
-	ExtraActionBarHolder:SetSize(100, 70)
-	ZoneAbilityHolder:SetSize(100, 70)
+-- 	if zoneAbilityEnabled then
+-- 		ZoneAbilityHolder:Show()
+-- 	else
+-- 		ZoneAbilityHolder:Hide()
+-- 	end
 
-	if extraActionEnabled then
-		ExtraActionBarHolder:Show()
-	else
-		ExtraActionBarHolder:Hide()
-	end
+-- 	-- Set up ExtraActionBarFrame
+-- 	if extraActionEnabled then
+-- 		ExtraActionBarFrame:SetParent(ExtraActionBarHolder)
+-- 		ExtraActionBarFrame:ClearAllPoints()
+-- 		ExtraActionBarFrame:SetPoint('CENTER', ExtraActionBarHolder, 'CENTER')
+-- 		ExtraActionBarFrame.ignoreInLayout = true
+-- 	end
 
-	if zoneAbilityEnabled then
-		ZoneAbilityHolder:Show()
-	else
-		ZoneAbilityHolder:Hide()
-	end
+-- 	-- Set up ZoneAbilityFrame
+-- 	if zoneAbilityEnabled and ZoneAbilityFrame then
+-- 		ZoneAbilityFrame:SetParent(ZoneAbilityHolder)
+-- 		ZoneAbilityFrame:ClearAllPoints()
+-- 		ZoneAbilityFrame:SetPoint('CENTER', ZoneAbilityHolder, 'CENTER')
+-- 		ZoneAbilityFrame.ignoreInLayout = true
+-- 	end
 
-	-- Set up ExtraActionBarFrame
-	if extraActionEnabled then
-		ExtraActionBarFrame:SetParent(ExtraActionBarHolder)
-		ExtraActionBarFrame:ClearAllPoints()
-		ExtraActionBarFrame:SetPoint('CENTER', ExtraActionBarHolder, 'CENTER')
-		ExtraActionBarFrame.ignoreInLayout = true
-	end
+-- 	-- Set up ExtraAbilityContainer
+-- 	if ExtraAbilityContainer and (extraActionEnabled or zoneAbilityEnabled) then
+-- 		ExtraAbilityContainer.HighlightSystem = SUI.noop
+-- 		ExtraAbilityContainer.ClearHighlight = SUI.noop
+-- 		ExtraAbilityContainer:SetScript('OnShow', nil)
+-- 		ExtraAbilityContainer:SetScript('OnUpdate', nil)
+-- 		ExtraAbilityContainer.OnUpdate = nil -- remove BaseLayoutMixin.OnUpdate
+-- 		ExtraAbilityContainer.IsLayoutFrame = nil -- dont let it get readded
+-- 	end
 
-	-- Set up ZoneAbilityFrame
-	if zoneAbilityEnabled and ZoneAbilityFrame then
-		ZoneAbilityFrame:SetParent(ZoneAbilityHolder)
-		ZoneAbilityFrame:ClearAllPoints()
-		ZoneAbilityFrame:SetPoint('CENTER', ZoneAbilityHolder, 'CENTER')
-		ZoneAbilityFrame.ignoreInLayout = true
-	end
+-- 	-- Hook functions to prevent movement
+-- 	if extraActionEnabled then
+-- 		hooksecurefunc(ExtraActionBarFrame, 'SetPoint', function(self)
+-- 			if self:GetParent() ~= ExtraActionBarHolder then
+-- 				self:ClearAllPoints()
+-- 				self:SetPoint('CENTER', ExtraActionBarHolder, 'CENTER')
+-- 			end
+-- 		end)
+-- 	end
 
-	-- Set up ExtraAbilityContainer
-	if ExtraAbilityContainer and (extraActionEnabled or zoneAbilityEnabled) then
-		ExtraAbilityContainer.HighlightSystem = SUI.noop
-		ExtraAbilityContainer.ClearHighlight = SUI.noop
-		ExtraAbilityContainer:SetScript('OnShow', nil)
-		ExtraAbilityContainer:SetScript('OnUpdate', nil)
-		ExtraAbilityContainer.OnUpdate = nil -- remove BaseLayoutMixin.OnUpdate
-		ExtraAbilityContainer.IsLayoutFrame = nil -- dont let it get readded
-	end
+-- 	if zoneAbilityEnabled and ZoneAbilityFrame then
+-- 		hooksecurefunc(ZoneAbilityFrame, 'SetPoint', function(self)
+-- 			if self:GetParent() ~= ZoneAbilityHolder then
+-- 				self:ClearAllPoints()
+-- 				self:SetPoint('CENTER', ZoneAbilityHolder, 'CENTER')
+-- 			end
+-- 		end)
+-- 	end
 
-	-- Hook functions to prevent movement
-	if extraActionEnabled then
-		hooksecurefunc(ExtraActionBarFrame, 'SetPoint', function(self)
-			if self:GetParent() ~= ExtraActionBarHolder then
-				self:ClearAllPoints()
-				self:SetPoint('CENTER', ExtraActionBarHolder, 'CENTER')
-			end
-		end)
-	end
+-- 	-- Create movers
+-- 	if extraActionEnabled then
+-- 		MoveIt:CreateMover(ExtraActionBarHolder, 'ExtraActionBar', 'Extra action button', nil, 'Blizzard UI')
+-- 		ExtraActionBarHolder:EnableMouse(false)
+-- 		if module.BlizzMoverCache['ExtraActionBar'] then
+-- 			if module.BlizzMoverCache['ExtraActionBar'] then
+-- 				module.BlizzMoverCache['ExtraActionBar'].holder = ExtraActionBarHolder
+-- 			end
+-- 		end
+-- 	end
 
-	if zoneAbilityEnabled and ZoneAbilityFrame then
-		hooksecurefunc(ZoneAbilityFrame, 'SetPoint', function(self)
-			if self:GetParent() ~= ZoneAbilityHolder then
-				self:ClearAllPoints()
-				self:SetPoint('CENTER', ZoneAbilityHolder, 'CENTER')
-			end
-		end)
-	end
+-- 	if zoneAbilityEnabled and ZoneAbilityFrame then
+-- 		MoveIt:CreateMover(ZoneAbilityHolder, 'ZoneAbility', 'Zone ability button', nil, 'Blizzard UI')
+-- 		ZoneAbilityHolder:EnableMouse(false)
+-- 		if module.BlizzMoverCache['ZoneAbility'] then
+-- 			if module.BlizzMoverCache['ZoneAbility'] then
+-- 				module.BlizzMoverCache['ZoneAbility'].holder = ZoneAbilityHolder
+-- 			end
+-- 		end
+-- 	end
 
-	-- Create movers
-	if extraActionEnabled then
-		MoveIt:CreateMover(ExtraActionBarHolder, 'ExtraActionBar', 'Extra action button', nil, 'Blizzard UI')
-		ExtraActionBarHolder:EnableMouse(false)
-		if module.BlizzMoverCache['ExtraActionBar'] then
-			if module.BlizzMoverCache['ExtraActionBar'] then
-				module.BlizzMoverCache['ExtraActionBar'].holder = ExtraActionBarHolder
-			end
-		end
-	end
+-- 	-- Update the layout when new frames are added
+-- 	if ExtraAbilityContainer then
+-- 		hooksecurefunc(ExtraAbilityContainer, 'AddFrame', function()
+-- 			ExtraAB.Reparent()
+-- 		end)
+-- 	end
 
-	if zoneAbilityEnabled and ZoneAbilityFrame then
-		MoveIt:CreateMover(ZoneAbilityHolder, 'ZoneAbility', 'Zone ability button', nil, 'Blizzard UI')
-		ZoneAbilityHolder:EnableMouse(false)
-		if module.BlizzMoverCache['ZoneAbility'] then
-			if module.BlizzMoverCache['ZoneAbility'] then
-				module.BlizzMoverCache['ZoneAbility'].holder = ZoneAbilityHolder
-			end
-		end
-	end
+-- 	if ZoneAbilityFrame then
+-- 		hooksecurefunc(ZoneAbilityFrame, 'SetParent', function(_, parent)
+-- 			if parent ~= ZoneAbilityHolder and not NeedsReparent then
+-- 				ExtraAB.Reparent()
+-- 			end
+-- 		end)
+-- 	end
 
-	-- Update the layout when new frames are added
-	if ExtraAbilityContainer then
-		hooksecurefunc(ExtraAbilityContainer, 'AddFrame', function()
-			ExtraAB.Reparent()
-		end)
-	end
-
-	if ZoneAbilityFrame then
-		hooksecurefunc(ZoneAbilityFrame, 'SetParent', function(_, parent)
-			if parent ~= ZoneAbilityHolder and not NeedsReparent then
-				ExtraAB.Reparent()
-			end
-		end)
-	end
-
-	hooksecurefunc(ExtraActionBarFrame, 'SetParent', function(_, parent)
-		if parent ~= ExtraActionBarHolder and not NeedsReparent then
-			ExtraAB.Reparent()
-		end
-	end)
-end
-
----Disable the ExtraActionBar mover
-function module:DisableBlizzMover_ExtraActionBar()
-	RestoreOriginalPosition('ExtraActionBar')
-end
-
----Enable the ExtraActionBar mover
-function module:EnableBlizzMover_ExtraActionBar()
-	AbilityBars()
-end
-
----Disable the ZoneAbility mover
-function module:DisableBlizzMover_ZoneAbility()
-	RestoreOriginalPosition('ZoneAbility')
-end
-
----Enable the ZoneAbility mover
-function module:EnableBlizzMover_ZoneAbility()
-	AbilityBars()
-end
+-- 	hooksecurefunc(ExtraActionBarFrame, 'SetParent', function(_, parent)
+-- 		if parent ~= ExtraActionBarHolder and not NeedsReparent then
+-- 			ExtraAB.Reparent()
+-- 		end
+-- 	end)
+-- end
 
 local function FramerateFrame()
 	local moverName = 'FramerateFrame'
@@ -452,11 +400,6 @@ end
 ---Disable the FramerateFrame mover
 function module:DisableBlizzMover_FramerateFrame()
 	RestoreOriginalPosition('FramerateFrame')
-end
-
----Enable the FramerateFrame mover
-function module:EnableBlizzMover_FramerateFrame()
-	FramerateFrame()
 end
 
 local function AlertFrame()
@@ -502,17 +445,6 @@ local function AlertFrame()
 	if module.BlizzMoverCache[moverName] then
 		module.BlizzMoverCache[moverName].holder = holder
 	end
-end
-
----Disable the AlertFrame mover
-function module:DisableBlizzMover_AlertFrame()
-	RestoreOriginalPosition('AlertFrame')
-	RestoreOriginalPosition('AlertFrame_GroupLoot')
-end
-
----Enable the AlertFrame mover
-function module:EnableBlizzMover_AlertFrame()
-	AlertFrame()
 end
 
 local function VehicleLeaveButton()
@@ -561,16 +493,6 @@ local function VehicleLeaveButton()
 	module:ScheduleTimer(MoverCreate, 2)
 end
 
----Disable the VehicleLeaveButton mover
-function module:DisableBlizzMover_VehicleLeaveButton()
-	RestoreOriginalPosition('VehicleLeaveButton')
-end
-
----Enable the VehicleLeaveButton mover
-function module:EnableBlizzMover_VehicleLeaveButton()
-	VehicleLeaveButton()
-end
-
 local function VehicleSeatIndicator()
 	local moverName = 'VehicleSeatIndicator'
 	local SeatIndicator = _G['VehicleSeatIndicator']
@@ -610,16 +532,6 @@ local function VehicleSeatIndicator()
 	if module.BlizzMoverCache[moverName] then
 		module.BlizzMoverCache[moverName].holder = VehicleSeatHolder
 	end
-end
-
----Disable the VehicleSeatIndicator mover
-function module:DisableBlizzMover_VehicleSeatIndicator()
-	RestoreOriginalPosition('VehicleSeatIndicator')
-end
-
----Enable the VehicleSeatIndicator mover
-function module:EnableBlizzMover_VehicleSeatIndicator()
-	VehicleSeatIndicator()
 end
 
 local function WidgetPowerBarContainer()
@@ -666,17 +578,6 @@ local function WidgetPowerBarContainer()
 	end
 end
 
----Disable the WidgetPowerBarContainer mover
-function module:DisableBlizzMover_WidgetPowerBarContainer()
-	RestoreOriginalPosition('WidgetPowerBarContainer')
-	RestoreOriginalPosition('WidgetPowerBarContainer_PowerBarAlt')
-end
-
----Enable the WidgetPowerBarContainer mover
-function module:EnableBlizzMover_WidgetPowerBarContainer()
-	WidgetPowerBarContainer()
-end
-
 local function TopCenterContainer()
 	local moverName = 'TopCenterContainer'
 	local frame = _G['UIWidgetTopCenterContainerFrame']
@@ -711,16 +612,6 @@ local function TopCenterContainer()
 	if module.BlizzMoverCache[moverName] then
 		module.BlizzMoverCache[moverName].holder = holder
 	end
-end
-
----Disable the TopCenterContainer mover
-function module:DisableBlizzMover_TopCenterContainer()
-	RestoreOriginalPosition('TopCenterContainer')
-end
-
----Enable the TopCenterContainer mover
-function module:EnableBlizzMover_TopCenterContainer()
-	TopCenterContainer()
 end
 
 function module:UPDATE_UI_WIDGET()
@@ -792,16 +683,6 @@ local function EncounterBar()
 	end
 end
 
----Disable the EncounterBar mover
-function module:DisableBlizzMover_EncounterBar()
-	RestoreOriginalPosition('EncounterBar')
-end
-
----Enable the EncounterBar mover
-function module:EnableBlizzMover_EncounterBar()
-	EncounterBar()
-end
-
 local function ArchaeologyBar()
 	local moverName = 'ArchaeologyBar'
 	local frame = _G['ArchaeologyDigsiteProgressBar']
@@ -853,29 +734,13 @@ local function ArchaeologyBar()
 	end
 end
 
----Disable the ArchaeologyBar mover
-function module:DisableBlizzMover_ArchaeologyBar()
-	RestoreOriginalPosition('ArchaeologyBar')
-end
-
----Enable the ArchaeologyBar mover
-function module:EnableBlizzMover_ArchaeologyBar()
-	ArchaeologyBar()
-end
-
 -- This is the main inpoint
 function module.BlizzMovers()
-	-- Log version info for debugging (#564)
-	if SUI.logger then
-		local versionInfo = SUI.IsRetail and 'Retail' or (SUI.IsTBC and 'TBC' or (SUI.IsWrath and 'Wrath' or (SUI.IsCata and 'Cata' or (SUI.IsMOP and 'MOP' or 'Classic'))))
-		SUI.logger.debug('BlizzMovers: Initializing for ' .. versionInfo .. ', EditModeManagerFrame=' .. tostring(EditModeManagerFrame ~= nil))
-	end
-
 	-- Frames using LibEditModeOverride (Retail only):
 	-- In TBC/Classic, these will fall back to custom holder-based movers
 	TalkingHead() -- TalkingHeadFrame (systemID 13)
 	VehicleLeaveButton() -- MainMenuBarVehicleLeaveButton (systemID 14)
-	AbilityBars() -- ExtraActionBarFrame + ZoneAbilityFrame (systemID 11)
+	-- AbilityBars() -- ExtraActionBarFrame + ZoneAbilityFrame (systemID 11)
 	EncounterBar() -- EncounterBar (systemID 10)
 	ArchaeologyBar() -- ArcheologyDigsiteProgressBar (systemID 21)
 
