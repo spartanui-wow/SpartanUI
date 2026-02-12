@@ -81,12 +81,11 @@ local function RegisterMinimapButton()
 		return
 	end
 
-	-- Smart default: show on Classic (no map integration), hide on Retail (has world map button)
+	-- Smart default: Retail hides (world map button provides access), Classic shows (no map integration)
+	-- DBDefault is hide=true, so only need to override for Classic
 	if not module.DB.minimapDefaultApplied then
 		module.DB.minimapDefaultApplied = true
-		if SUI.IsRetail then
-			module.DB.minimap.hide = true
-		else
+		if not SUI.IsRetail then
 			module.DB.minimap.hide = false
 		end
 	end
@@ -152,12 +151,9 @@ end
 ---Initialize the DataBroker plugin
 function module:InitDataBroker()
 	-- Initialize minimap settings in DB if not present (for LDBIcon persistence)
+	-- Must copy from DBDefaults to respect the default hide state
 	if not module.DB.minimap then
-		module.DB.minimap = {
-			hide = false,
-			minimapPos = 220,
-			lock = false,
-		}
+		module.DB.minimap = CopyTable(module.DBDefaults.minimap)
 	end
 
 	CreateDataObject()
