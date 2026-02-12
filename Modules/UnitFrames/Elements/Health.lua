@@ -165,6 +165,13 @@ local function Update(frame, settings)
 	-- Set reverse fill direction
 	element:SetReverseFill(DB.reverseFill or false)
 
+	-- Set smooth animation (Retail hardware smoothing)
+	if SUI.IsRetail and DB.smoothAnimation then
+		element.smoothing = Enum.StatusBarInterpolation.Linear
+	else
+		element.smoothing = nil -- Disable hardware smoothing if turned off or on Classic
+	end
+
 	element:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 	element.bg:SetTexture(UF:FindStatusBarTexture(DB.texture))
 
@@ -255,6 +262,12 @@ local function Options(frameName, OptionSet)
 				desc = L['Make the health bar fill right-to-left instead of left-to-right. Warning: This may be confusing for most players and is primarily used for specific UI aesthetics.'],
 				type = 'toggle',
 				order = 1,
+			},
+			smoothAnimation = {
+				name = L['Smooth bar animation'],
+				desc = L['Animate health changes smoothly instead of instantly. Uses hardware acceleration on Retail, addon smoothing on Classic.'],
+				type = 'toggle',
+				order = 2,
 			},
 			healthprediction = {
 				name = L['Health prediction'],
@@ -400,6 +413,7 @@ local Settings = {
 	FrameLevel = 4,
 	FrameStrata = 'BACKGROUND',
 	reverseFill = false,
+	smoothAnimation = false,
 	texture = 'SpartanUI Default',
 	healPredictionTexture = 'Blizzard', -- Incoming heals texture
 	absorbTexture = 'Blizzard Shield', -- Damage absorb (shields) texture

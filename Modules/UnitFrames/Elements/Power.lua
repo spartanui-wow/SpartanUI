@@ -63,6 +63,13 @@ local function Update(frame, settings)
 	-- Set reverse fill direction
 	element:SetReverseFill(DB.reverseFill or false)
 
+	-- Set smooth animation (Retail hardware smoothing)
+	if SUI.IsRetail and DB.smoothAnimation then
+		element.smoothing = Enum.StatusBarInterpolation.Linear
+	else
+		element.smoothing = nil -- Disable hardware smoothing if turned off or on Classic
+	end
+
 	-- Basic Bar updates
 	element:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 	element.bg:SetTexture(UF:FindStatusBarTexture(DB.texture))
@@ -117,6 +124,12 @@ local function Options(frameName, OptionSet)
 				type = 'toggle',
 				order = 1,
 			},
+			smoothAnimation = {
+				name = L['Smooth bar animation'],
+				desc = L['Animate power changes smoothly instead of instantly. Uses hardware acceleration on Retail, addon smoothing on Classic.'],
+				type = 'toggle',
+				order = 2,
+			},
 		},
 	}
 
@@ -141,6 +154,7 @@ local Settings = {
 	width = false,
 	FrameStrata = 'BACKGROUND',
 	reverseFill = false,
+	smoothAnimation = false,
 	bg = {
 		enabled = true,
 		color = { 1, 1, 1, 0.2 },
