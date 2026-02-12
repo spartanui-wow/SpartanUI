@@ -369,7 +369,15 @@ local function Update(frame, settings)
 	local aura, dispelType = FindDispellableDebuff(unit, filterByPlayerDispels)
 
 	if aura and dispelType then
-		local color = DispelColors[dispelType] or DispelColors.none
+		-- Check if dispelType is accessible before using as table key
+		local isAccessible = SUI.BlizzAPI.canaccessvalue(dispelType)
+		local color = DispelColors.none
+		local atlas = nil
+
+		if isAccessible then
+			color = DispelColors[dispelType] or DispelColors.none
+			atlas = element.dispelAtlases[dispelType]
+		end
 
 		-- Update glow
 		if element.glow then
@@ -384,7 +392,6 @@ local function Update(frame, settings)
 		-- Update type icon (small corner icon)
 		if element.typeIcon then
 			if DB.showTypeIcon ~= false then
-				local atlas = element.dispelAtlases[dispelType]
 				if atlas then
 					element.typeIcon:SetAtlas(atlas)
 					element.typeIcon:Show()
@@ -483,10 +490,16 @@ local function Update(frame, settings)
 					end
 				else
 					-- 12.1+ or Classic
-					local applications = aura.applications or 0
-					if applications > 1 then
-						element.count:SetText(applications)
+					-- IMPORTANT: aura.applications can be a secret number - check accessibility
+					local applications = aura.applications
+					if applications and SUI.BlizzAPI.canaccessvalue(applications) then
+						if applications > 1 then
+							element.count:SetText(applications)
+						else
+							element.count:SetText('')
+						end
 					else
+						-- Secret value or nil - hide count
 						element.count:SetText('')
 					end
 				end

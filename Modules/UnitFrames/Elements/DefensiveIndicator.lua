@@ -114,11 +114,8 @@ local function Update(frame, data)
 	local auraInstanceID = nil
 
 	if cache then
-		-- Get the first (and typically only) defensive
-		for id in pairs(cache) do
-			auraInstanceID = id
-			break
-		end
+		-- auraInstanceID stored as value (not key, since it can be secret)
+		auraInstanceID = cache.auraInstanceID
 	end
 
 	if not auraInstanceID then

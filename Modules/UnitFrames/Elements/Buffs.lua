@@ -7,8 +7,8 @@ local function updateSettings(element, unit, isFullUpdate)
 	local DB = element.DB
 	element.size = DB.size or 20
 	element.initialAnchor = DB.position.anchor
-	element['growth-x'] = DB.growthx
-	element['growth-y'] = DB.growthy
+	element.growthX = DB.growthx
+	element.growthY = DB.growthy
 	-- Disable showType in Retail to avoid secret aura API errors
 	element.showType = not SUI.IsRetail and DB.showType
 	element.num = DB.number or 10
@@ -300,6 +300,22 @@ local function Options(unitName, OptionSet)
 						UF.Unit[unitName]:ElementUpdate('Buffs')
 					end,
 				},
+				activeFilter = {
+					type = 'description',
+					name = function()
+						local retail = ElementSettings.retail
+						local customFilter = retail and retail.customFilter
+						if customFilter and customFilter ~= '' then
+							return '|cFF00FF00Active Filter:|r ' .. customFilter
+						end
+
+						local filterMode = retail and retail.filterMode or 'blizzard_default'
+						local filterString = UF.Auras.FILTER_PRESETS[filterMode] or 'HELPFUL'
+						return '|cFF808080Active Filter:|r ' .. filterString
+					end,
+					order = 1.5,
+					fontSize = 'small',
+				},
 				customFilterHeader = {
 					name = L['Advanced: Custom Filter String'],
 					type = 'header',
@@ -317,11 +333,32 @@ local function Options(unitName, OptionSet)
 					end,
 					set = function(_, val)
 						ElementSettings.retail = ElementSettings.retail or {}
-						ElementSettings.retail.customFilter = val ~= '' and val or nil
-
 						local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Buffs
 						userSettings.retail = userSettings.retail or {}
-						userSettings.retail.customFilter = val ~= '' and val or nil
+
+						-- Check if custom string matches any preset
+						local matchedPreset = nil
+						if val and val ~= '' then
+							for presetKey, presetFilter in pairs(UF.Auras.FILTER_PRESETS) do
+								if val == presetFilter then
+									matchedPreset = presetKey
+									break
+								end
+							end
+						end
+
+						if matchedPreset then
+							-- User entered a preset string - switch to that preset
+							ElementSettings.retail.filterMode = matchedPreset
+							ElementSettings.retail.customFilter = nil
+							userSettings.retail.filterMode = matchedPreset
+							userSettings.retail.customFilter = nil
+							SUI:Print('Filter matched preset: |cFF00FF00' .. matchedPreset .. '|r - switched to preset mode')
+						else
+							-- Actual custom string
+							ElementSettings.retail.customFilter = val ~= '' and val or nil
+							userSettings.retail.customFilter = val ~= '' and val or nil
+						end
 
 						UF.Unit[unitName]:ElementUpdate('Buffs')
 					end,
