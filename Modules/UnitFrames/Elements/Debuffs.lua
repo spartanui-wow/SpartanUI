@@ -374,6 +374,10 @@ local Settings = {
 	position = {
 		anchor = 'TOPRIGHT',
 		relativePoint = 'BOTTOMRIGHT',
+		smartPosition = {
+			enabled = false,
+			anchorTo = 'Buffs', -- Which element to anchor to when enabled
+		},
 	},
 	config = {
 		type = 'Auras',

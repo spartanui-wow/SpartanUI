@@ -390,6 +390,10 @@ local Settings = {
 	position = {
 		anchor = 'TOPLEFT',
 		relativePoint = 'BOTTOMLEFT',
+		smartPosition = {
+			enabled = false,
+			anchorTo = 'Debuffs', -- Which element to anchor to when enabled
+		},
 	},
 	config = {
 		type = 'Auras',

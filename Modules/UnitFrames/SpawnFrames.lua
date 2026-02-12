@@ -181,9 +181,27 @@ local function CreateUnitFrame(self, unit)
 				element:SetAllPoints(frame)
 			end
 		elseif data.position.anchor then
-			if data.position.relativeTo == 'Frame' then
+			-- Check for smart positioning (dynamic relative positioning)
+			local targetElement = nil
+			local useSmartPosition = data.position.smartPosition and data.position.smartPosition.enabled
+
+			if useSmartPosition then
+				-- Smart positioning: anchor to another element if it exists and is enabled
+				local smartTarget = data.position.smartPosition.anchorTo
+				if smartTarget and frame[smartTarget] and frame[smartTarget].DB and frame[smartTarget].DB.enabled then
+					targetElement = frame[smartTarget]
+				end
+			end
+
+			-- Apply positioning
+			if targetElement then
+				-- Smart positioning: anchor to target element
+				element:SetPoint(data.position.anchor, targetElement, data.position.relativePoint or data.position.anchor, data.position.x or 0, data.position.y or 0)
+			elseif data.position.relativeTo == 'Frame' then
+				-- Standard positioning: anchor to frame
 				element:SetPoint(data.position.anchor, frame, data.position.relativePoint or data.position.anchor, data.position.x, data.position.y)
 			else
+				-- Standard positioning: anchor to specific element
 				element:SetPoint(data.position.anchor, frame[data.position.relativeTo], data.position.relativePoint or data.position.anchor, data.position.x, data.position.y)
 			end
 		end
