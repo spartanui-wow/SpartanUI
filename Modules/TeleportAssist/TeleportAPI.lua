@@ -26,6 +26,7 @@ local DBDefaults = {
 	mapPinSize = 20,
 	showChallengesButtons = true,
 	collapsedCategories = {},
+	minimapDefaultApplied = 0, -- Tracks version of minimap defaults (for migration)
 	position = {
 		point = 'CENTER',
 		relativeTo = 'UIParent',

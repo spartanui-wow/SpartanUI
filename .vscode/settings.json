@@ -1233,7 +1233,15 @@
     "SpellBookFrame",
     "MapCanvasPinMixin",
     "MapCanvasDataProviderMixin",
-    "CreateUnsecuredRegionPoolInstance"
+    "CreateUnsecuredRegionPoolInstance",
+    "GameFontDisable",
+    "AuraUtil",
+    "CreateAtlasMarkup",
+    "ItemMixin",
+    "UIFrameFadeIn",
+    "UIFrameFadeOut",
+    "ChallengesFrame",
+    "SecondsToTime"
   ],
   "Lua.workspace.ignoreDir": [".vscode", "libs/*"],
   "Lua.diagnostics.enable": true,
