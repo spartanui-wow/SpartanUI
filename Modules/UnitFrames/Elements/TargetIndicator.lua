@@ -520,14 +520,21 @@ end
 local Settings = {
 	enabled = true,
 	ShowTarget = true,
+	ShowFocus = false,
+	ShowMouseover = false,
 	mode = 'texture', -- 'border', 'texture', 'both'
+
+	-- State-specific colors
+	targetColor = { 1, 1, 0, 1 }, -- Yellow for target
+	focusColor = { 1, 0.5, 0, 0.8 }, -- Orange for focus
+	mouseoverColor = { 1, 1, 1, 0.5 }, -- White for mouseover
 
 	-- Texture mode settings
 	texture = {
 		textureKey = 'DoubleArrow', -- Key from TextureRegistry
 		placement = 'sides', -- 'sides', 'top', 'bottom', 'center', 'all'
 		scale = 1.0,
-		color = { 1, 1, 1, 1 }, -- Tint color
+		color = { 1, 1, 1, 1 }, -- Tint color (used as default if no state-specific color)
 		alpha = 1.0,
 	},
 
