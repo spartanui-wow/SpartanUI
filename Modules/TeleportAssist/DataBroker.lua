@@ -82,11 +82,13 @@ local function RegisterMinimapButton()
 	end
 
 	-- Smart default: Retail hides (world map button provides access), Classic shows (no map integration)
-	-- DBDefault is hide=true, so only need to override for Classic
-	if not module.DB.minimapDefaultApplied then
-		module.DB.minimapDefaultApplied = true
+	-- Version 2: re-applies for users who had the buggy hide=false from the old InitDataBroker
+	if (module.DB.minimapDefaultApplied or 0) < 2 then
+		module.DB.minimapDefaultApplied = 2
 		if not SUI.IsRetail then
 			module.DB.minimap.hide = false
+		else
+			module.DB.minimap.hide = true
 		end
 	end
 
