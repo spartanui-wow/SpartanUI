@@ -1,6 +1,6 @@
 local SUI, L, print = SUI, SUI.L, SUI.print
 local module = SUI.Handlers.BarSystem ---@type SUI.Module.BarHandler
-local BartenderMin = '4.13.0'
+local BartenderMin = '4.15.0' -- Increased from 4.13.0 due to LibActionButton state bugs during spec changes
 local MoveIt = SUI:GetModule('MoveIt') ---@type MoveIt
 local Bartender4 = Bartender4
 local scaleData
@@ -193,7 +193,14 @@ local function SetupProfile()
 	-- Update BT4 Configuration (deferred to avoid state initialization race)
 	C_Timer.After(0.5, function()
 		if not InCombatLockdown() then
-			Bartender4:UpdateModuleConfigs()
+			-- Wrap in pcall to catch Bartender4/LibActionButton state errors
+			local success, err = pcall(function()
+				Bartender4:UpdateModuleConfigs()
+			end)
+			if not success and module.logger then
+				module.logger.error('Bartender4 UpdateModuleConfigs failed: ' .. tostring(err))
+				module.logger.info('This is usually caused by outdated Bartender4 version or LibActionButton state bugs')
+			end
 		else
 			-- Still in combat, try again after combat ends
 			module.configUpdatePending = true
@@ -478,7 +485,14 @@ local function OnCombatEnd()
 
 	-- Handle deferred config update
 	if module.configUpdatePending and not InCombatLockdown() then
-		Bartender4:UpdateModuleConfigs()
+		-- Wrap in pcall to catch Bartender4/LibActionButton state errors
+		local success, err = pcall(function()
+			Bartender4:UpdateModuleConfigs()
+		end)
+		if not success and module.logger then
+			module.logger.error('Bartender4 UpdateModuleConfigs failed: ' .. tostring(err))
+			module.logger.info('This is usually caused by outdated Bartender4 version or LibActionButton state bugs')
+		end
 		module.configUpdatePending = false
 	end
 end
