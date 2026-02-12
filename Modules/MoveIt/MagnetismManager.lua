@@ -474,26 +474,16 @@ function MagnetismManager:IsElementSnapActive()
 	return true
 end
 
----Get current grid spacing from Blizzard EditMode settings
----@return number gridSpacing The grid spacing in pixels (default 100)
+---Get current grid spacing from MoveIt settings
+---@return number gridSpacing The grid spacing in pixels (default 32)
 function MagnetismManager:GetGridSpacing()
-	-- Try to get from Blizzard's EditMode
-	if EditModeManagerFrame and EditModeManagerFrame.Grid and EditModeManagerFrame.Grid.gridSpacing then
-		return EditModeManagerFrame.Grid.gridSpacing
+	-- Use MoveIt's independent grid setting
+	if MoveIt.DB and MoveIt.DB.GridSpacing then
+		return MoveIt.DB.GridSpacing
 	end
 
-	-- Try to get from account settings
-	if EditModeManagerFrame and EditModeManagerFrame.GetAccountSettingValue and Enum and Enum.EditModeAccountSetting then
-		local success, spacing = pcall(function()
-			return EditModeManagerFrame:GetAccountSettingValue(Enum.EditModeAccountSetting.GridSpacing)
-		end)
-		if success and spacing then
-			return spacing
-		end
-	end
-
-	-- Default fallback
-	return 100
+	-- Default fallback (32px is a good balance for most UI elements)
+	return 32
 end
 
 ---Update grid lines cache based on current settings

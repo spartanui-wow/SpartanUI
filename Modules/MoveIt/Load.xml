@@ -7,8 +7,8 @@
 	<!-- Sub-modules -->
 	<Script file="PositionCalculator.lua"/>
 	<Script file="MagnetismManager.lua"/>
-	<Script file="BlizzardEditMode.lua"/>
-	<Script file="CustomEditMode.lua"/>
+	<Script file="MoverMode.lua"/>
 	<Script file="SettingsPanel.lua"/>
-	<Script file="WizardPage.lua"/>
+	<Script file="EditModeProfileSync.lua"/>
+	<Script file="Migration.lua"/>
 </Ui>

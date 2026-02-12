@@ -4,9 +4,9 @@ local SUI = SUI
 local MoveIt = SUI.MoveIt
 local L = SUI.L
 
----@class SUI.MoveIt.CustomEditMode
-local CustomEditMode = {}
-MoveIt.CustomEditMode = CustomEditMode
+---@class SUI.MoveIt.MoverMode
+local MoverMode = {}
+MoveIt.MoverMode = MoverMode
 
 -- State tracking
 local isActive = false
@@ -139,12 +139,12 @@ end
 
 ---Check if custom EditMode is active
 ---@return boolean
-function CustomEditMode:IsActive()
+function MoverMode:IsActive()
 	return isActive
 end
 
 ---Enter custom EditMode - show and style movers
-function CustomEditMode:Enter()
+function MoverMode:Enter()
 	if isActive then
 		return
 	end
@@ -152,7 +152,7 @@ function CustomEditMode:Enter()
 	-- Check if activation is suppressed (e.g., during LibEditModeOverride operations)
 	if self.suppressActivation then
 		if MoveIt.logger then
-			MoveIt.logger.debug('CustomEditMode activation suppressed')
+			MoveIt.logger.debug('MoverMode activation suppressed')
 		end
 		return
 	end
@@ -188,7 +188,7 @@ function CustomEditMode:Enter()
 		if not skipMover and mover and mover.parent then
 			-- Use AceTimer so we can cancel all timers at once on exit
 			MoveIt:ScheduleTimer(function()
-				-- Check if CustomEditMode is still active (user might have exited quickly)
+				-- Check if MoverMode is still active (user might have exited quickly)
 				if not isActive then
 					if MoveIt.logger then
 						MoveIt.logger.debug(('Mover show cancelled for %s - EditMode exited'):format(name))
@@ -213,7 +213,7 @@ function CustomEditMode:Enter()
 end
 
 ---Exit custom EditMode - hide movers and restore original styling
-function CustomEditMode:Exit()
+function MoverMode:Exit()
 	if not isActive then
 		return
 	end
@@ -255,7 +255,7 @@ function CustomEditMode:Exit()
 end
 
 ---Toggle custom EditMode on/off
-function CustomEditMode:Toggle()
+function MoverMode:Toggle()
 	if isActive then
 		self:Exit()
 	else
@@ -266,7 +266,7 @@ end
 ---Style a mover for EditMode (change appearance to blue)
 ---@param name string Mover name
 ---@param mover Frame The mover frame
-function CustomEditMode:StyleMover(name, mover)
+function MoverMode:StyleMover(name, mover)
 	if not mover then
 		return
 	end
@@ -293,22 +293,22 @@ function CustomEditMode:StyleMover(name, mover)
 	-- Hook mouse events for selection and hover
 	if not mover.editModeHooked then
 		mover:HookScript('OnEnter', function(self)
-			if not isDragging and CustomEditMode:IsActive() then
+			if not isDragging and MoverMode:IsActive() then
 				self:SetBackdropColor(unpack(COLORS.overlayHover))
 				self:SetBackdropBorderColor(unpack(COLORS.borderHover))
 			end
 		end)
 
 		mover:HookScript('OnLeave', function(self)
-			if self ~= selectedOverlay and not isDragging and CustomEditMode:IsActive() then
+			if self ~= selectedOverlay and not isDragging and MoverMode:IsActive() then
 				self:SetBackdropColor(unpack(COLORS.overlay))
 				self:SetBackdropBorderColor(unpack(COLORS.border))
 			end
 		end)
 
 		mover:HookScript('OnMouseDown', function(self, button)
-			if button == 'LeftButton' and CustomEditMode:IsActive() then
-				CustomEditMode:SelectOverlay(self)
+			if button == 'LeftButton' and MoverMode:IsActive() then
+				MoverMode:SelectOverlay(self)
 			end
 		end)
 
@@ -322,7 +322,7 @@ end
 
 ---Restore a mover's original styling
 ---@param mover Frame The mover frame
-function CustomEditMode:RestoreMoverStyle(mover)
+function MoverMode:RestoreMoverStyle(mover)
 	if not mover then
 		return
 	end
@@ -342,7 +342,7 @@ function CustomEditMode:RestoreMoverStyle(mover)
 end
 
 ---Deselect the currently selected mover
-function CustomEditMode:DeselectOverlay()
+function MoverMode:DeselectOverlay()
 	if not selectedOverlay then
 		return
 	end
@@ -363,7 +363,7 @@ end
 
 ---Select a mover (highlight it)
 ---@param mover Frame The mover to select
-function CustomEditMode:SelectOverlay(mover)
+function MoverMode:SelectOverlay(mover)
 	if not mover then
 		return
 	end
@@ -397,14 +397,14 @@ function CustomEditMode:SelectOverlay(mover)
 	end
 
 	-- Show settings panel
-	if CustomEditMode.ShowSettingsPanel then
-		CustomEditMode:ShowSettingsPanel(mover)
+	if MoverMode.ShowSettingsPanel then
+		MoverMode:ShowSettingsPanel(mover)
 	end
 end
 
 ---Start dragging a mover
 ---@param mover Frame The mover being dragged
-function CustomEditMode:StartDrag(mover)
+function MoverMode:StartDrag(mover)
 	if InCombatLockdown() then
 		SUI:Print(ERR_NOT_IN_COMBAT)
 		return
@@ -447,7 +447,7 @@ end
 
 ---Stop dragging a mover
 ---@param mover Frame The mover that was being dragged
-function CustomEditMode:StopDrag(mover)
+function MoverMode:StopDrag(mover)
 	if InCombatLockdown() then
 		return
 	end
@@ -494,33 +494,33 @@ if EditModeManagerFrame and EditModeManagerFrame.EnterEditMode then
 	-- Use Blizzard's EditMode button to toggle our custom system
 	hooksecurefunc(EditModeManagerFrame, 'EnterEditMode', function()
 		local isActive = EditModeManagerFrame:IsEditModeActive()
-		local isCustomActive = CustomEditMode:IsActive()
+		local isCustomActive = MoverMode:IsActive()
 		local isMigrating = MoveIt.WizardPage and MoveIt.WizardPage:IsMigrationInProgress()
 		if MoveIt.logger then
 			MoveIt.logger.debug(
-				('EnterEditMode hook fired - IsEditModeActive: %s, CustomEditMode active: %s, IsMigrating: %s'):format(tostring(isActive), tostring(isCustomActive), tostring(isMigrating))
+				('EnterEditMode hook fired - IsEditModeActive: %s, MoverMode active: %s, IsMigrating: %s'):format(tostring(isActive), tostring(isCustomActive), tostring(isMigrating))
 			)
 		end
 		-- Only enter custom edit mode if Edit Mode is actually active AND not during migration/wizard
 		-- During wizard, LibEMO:ApplyChanges() enters Edit Mode programmatically
 		if isActive and not isCustomActive and not isMigrating then
-			CustomEditMode:Enter()
+			MoverMode:Enter()
 		end
 	end)
 
 	hooksecurefunc(EditModeManagerFrame, 'ExitEditMode', function()
-		if CustomEditMode:IsActive() then
-			CustomEditMode:Exit()
+		if MoverMode:IsActive() then
+			MoverMode:Exit()
 		end
 	end)
 
 	-- Hook SelectSystem to deselect SUI movers when Blizzard selects something
 	hooksecurefunc(EditModeManagerFrame, 'SelectSystem', function()
-		if CustomEditMode:IsActive() then
-			CustomEditMode:DeselectOverlay()
+		if MoverMode:IsActive() then
+			MoverMode:DeselectOverlay()
 			-- Also hide our settings panel when Blizzard frame is selected
-			if CustomEditMode.HideSettingsPanel then
-				CustomEditMode:HideSettingsPanel()
+			if MoverMode.HideSettingsPanel then
+				MoverMode:HideSettingsPanel()
 			end
 		end
 	end)

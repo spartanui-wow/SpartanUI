@@ -306,213 +306,125 @@ function MoveIt:Options()
 					MoveIt.DB.tips = val
 				end,
 			},
-			-- EditMode Control Settings (Retail only)
-			EditModeHeader = {
-				name = 'EditMode Profile Management',
+			-- Mover Settings
+			MoverHeader = {
+				name = 'Mover Settings',
 				type = 'header',
 				order = 100,
-				hidden = function()
-					return not SUI.IsRetail or not EditModeManagerFrame
-				end,
 			},
-			EditModeEnabled = {
-				name = 'Allow SpartanUI to manage EditMode profiles',
-				desc = 'When enabled, SpartanUI will create and manage EditMode profiles that match your SUI profile.',
-				type = 'toggle',
-				width = 'double',
+			GridSpacing = {
+				name = 'Grid Spacing',
+				desc = 'Size of the snap grid in pixels. Movers will snap to multiples of this value.',
+				type = 'range',
+				min = 16,
+				max = 64,
+				step = 4,
 				order = 101,
-				hidden = function()
-					return not SUI.IsRetail or not EditModeManagerFrame
-				end,
 				get = function(info)
-					return MoveIt.DB.EditModeControl.Enabled
+					return MoveIt.DB.GridSpacing or 32
 				end,
 				set = function(info, val)
-					MoveIt.DB.EditModeControl.Enabled = val
-				end,
-			},
-			EditModeAllowPositioning = {
-				name = 'Allow SpartanUI to position frames',
-				desc = "When enabled, SpartanUI will set default positions for frames you haven't moved. When disabled, only your EditMode profile positions are used.",
-				type = 'toggle',
-				width = 'double',
-				order = 101.5,
-				hidden = function()
-					return not SUI.IsRetail or not EditModeManagerFrame
-				end,
-				disabled = function()
-					return not MoveIt.DB.EditModeControl.Enabled
-				end,
-				get = function(info)
-					-- Default to true if not set
-					if MoveIt.DB.EditModeControl.AllowAutoPositioning == nil then
-						return true
-					end
-					return MoveIt.DB.EditModeControl.AllowAutoPositioning
-				end,
-				set = function(info, val)
-					MoveIt.DB.EditModeControl.AllowAutoPositioning = val
-
-					-- If enabling, apply positions now
-					if val and MoveIt.BlizzardEditMode then
-						MoveIt.BlizzardEditMode:ApplyAllBlizzMoverPositions()
-						MoveIt.BlizzardEditMode:SafeApplyChanges(true)
-						print("SpartanUI: Positioning frames you haven't moved.")
-					else
-						print('SpartanUI: Using only your EditMode profile positions.')
+					MoveIt.DB.GridSpacing = val
+					-- Update magnetism manager if it exists
+					if MoveIt.MagnetismManager then
+						MoveIt.MagnetismManager:UpdateGridLines()
 					end
 				end,
 			},
-			EditModeAutoSwitch = {
-				name = 'Auto-switch EditMode profile when changing SUI profile',
-				desc = 'When enabled, switching your SpartanUI profile will also switch your EditMode profile.',
-				type = 'toggle',
-				width = 'double',
-				order = 102,
+			-- EditMode Profile Sync (Optional Feature)
+			EditModeSyncHeader = {
+				name = 'EditMode Profile Sync (Optional)',
+				type = 'header',
+				order = 200,
 				hidden = function()
 					return not SUI.IsRetail or not EditModeManagerFrame
 				end,
-				disabled = function()
-					return not MoveIt.DB.EditModeControl.Enabled
+			},
+			EditModeSyncDescription = {
+				name = "This feature allows SpartanUI profile changes to automatically switch your EditMode profile. This only affects frames SUI doesn't manage (bags, minimap, objective tracker, etc.). SpartanUI frame positioning is handled by custom movers.",
+				type = 'description',
+				fontSize = 'medium',
+				order = 201,
+				hidden = function()
+					return not SUI.IsRetail or not EditModeManagerFrame
+				end,
+			},
+			SyncEditModeProfile = {
+				name = 'Sync EditMode Profile',
+				desc = 'Automatically switch EditMode profile when changing SUI profiles.',
+				type = 'toggle',
+				width = 'full',
+				order = 202,
+				hidden = function()
+					return not SUI.IsRetail or not EditModeManagerFrame
 				end,
 				get = function(info)
-					return MoveIt.DB.EditModeControl.AutoSwitch
+					return MoveIt.DB.SyncEditModeProfile or false
 				end,
 				set = function(info, val)
-					MoveIt.DB.EditModeControl.AutoSwitch = val
+					MoveIt.DB.SyncEditModeProfile = val
+					-- Reinitialize EditModeProfileSync
+					if MoveIt.EditModeProfileSync then
+						MoveIt.EditModeProfileSync:Initialize()
+					end
 				end,
 			},
 			EditModeCurrentProfile = {
 				name = function()
-					local profileName = (MoveIt.WizardPage and MoveIt.WizardPage:GetCurrentProfile()) or 'Not set'
+					if not MoveIt.EditModeProfileSync then
+						return 'Current EditMode Profile: |cFFFF0000Not Available|r'
+					end
+					local profileName = MoveIt.EditModeProfileSync:GetCurrentProfile() or 'Not set'
 					return 'Current EditMode Profile: |cFFFFFF00' .. profileName .. '|r'
 				end,
 				type = 'description',
-				order = 103,
+				order = 203,
 				fontSize = 'medium',
 				hidden = function()
-					return not SUI.IsRetail or not EditModeManagerFrame
+					return not SUI.IsRetail or not EditModeManagerFrame or not MoveIt.DB.SyncEditModeProfile
 				end,
 			},
 			EditModeSelectProfile = {
 				name = 'Select EditMode Profile',
-				desc = 'Select which EditMode profile to use with this SpartanUI profile.\n\nSpartanUI will set default positions for frames you have not moved yourself. Your custom frame positions are always respected.',
+				desc = 'Select which EditMode profile to use with this SpartanUI profile.',
 				type = 'select',
 				width = 'double',
-				order = 103.5,
+				order = 204,
 				hidden = function()
-					return not SUI.IsRetail or not EditModeManagerFrame
-				end,
-				disabled = function()
-					return not MoveIt.DB.EditModeControl.Enabled
+					return not SUI.IsRetail or not EditModeManagerFrame or not MoveIt.DB.SyncEditModeProfile
 				end,
 				values = function()
-					local profiles = {}
-
-					-- Get all available EditMode layouts
-					local layoutInfo = C_EditMode.GetLayouts()
-					if not layoutInfo or not layoutInfo.layouts then
-						return profiles
+					if not MoveIt.EditModeProfileSync then
+						return {}
 					end
 
-					-- Build dropdown list from available layouts
-					for _, layout in ipairs(layoutInfo.layouts) do
-						local layoutName = layout.layoutName
-						local layoutType = layout.layoutType
+					local profiles = {}
+					local availableProfiles = MoveIt.EditModeProfileSync:GetAvailableProfiles()
 
-						-- Add type prefix for clarity
-						local displayName = layoutName
-						if layoutType == Enum.EditModeLayoutType.Preset then
-							displayName = '[Preset] ' .. layoutName
-						elseif layoutType == Enum.EditModeLayoutType.Account then
-							displayName = '[Account] ' .. layoutName
-						elseif layoutType == Enum.EditModeLayoutType.Character then
-							displayName = '[Character] ' .. layoutName
+					for _, profile in ipairs(availableProfiles) do
+						local displayName = profile.name
+						if profile.type == Enum.EditModeLayoutType.Preset then
+							displayName = '[Preset] ' .. profile.name
+						elseif profile.type == Enum.EditModeLayoutType.Account then
+							displayName = '[Account] ' .. profile.name
+						elseif profile.type == Enum.EditModeLayoutType.Character then
+							displayName = '[Character] ' .. profile.name
 						end
-
-						profiles[layoutName] = displayName
+						profiles[profile.name] = displayName
 					end
 
 					return profiles
 				end,
 				get = function(info)
-					return MoveIt.WizardPage and MoveIt.WizardPage:GetCurrentProfile()
+					if not MoveIt.EditModeProfileSync then
+						return nil
+					end
+					return MoveIt.EditModeProfileSync:GetCurrentProfile()
 				end,
 				set = function(info, val)
-					if MoveIt.WizardPage then
-						MoveIt.WizardPage:SetCurrentProfile(val)
-					end
-
-					-- Show info message to user
-					print(("SpartanUI: Now using '%s'. Your moved frames stay where you put them. We only position frames you haven't touched."):format(val))
-
-					-- Apply the selected profile immediately if enabled
-					if MoveIt.DB.EditModeControl.Enabled and MoveIt.BlizzardEditMode then
-						if MoveIt.logger then
-							MoveIt.logger.info(('Manually set EditMode profile to "%s"'):format(val))
-						end
-
-						-- Switch to the selected profile
-						MoveIt.BlizzardEditMode:SwitchToProfile(val)
-					end
-				end,
-			},
-			EditModeReapplyDefaults = {
-				name = 'Re-apply SUI Default Positions',
-				desc = 'Re-apply SpartanUI default frame positions to the current EditMode profile.',
-				type = 'execute',
-				order = 104,
-				hidden = function()
-					return not SUI.IsRetail or not EditModeManagerFrame
-				end,
-				disabled = function()
-					return not MoveIt.DB.EditModeControl.Enabled
-				end,
-				func = function()
-					if MoveIt.BlizzardEditMode then
-						MoveIt.BlizzardEditMode:ApplyDefaultPositions()
-						MoveIt.BlizzardEditMode:SafeApplyChanges(true)
-						if MoveIt.logger then
-							MoveIt.logger.info('Re-applied SUI default positions to EditMode profile')
-						end
-					end
-				end,
-			},
-			EditModeResetUserPositions = {
-				name = 'Reset Frame Positions to SpartanUI Defaults',
-				desc = 'Clear your custom frame positions and let SpartanUI position them automatically.',
-				type = 'execute',
-				width = 'double',
-				order = 104.5,
-				hidden = function()
-					return not SUI.IsRetail or not EditModeManagerFrame
-				end,
-				disabled = function()
-					return not MoveIt.DB.EditModeControl.Enabled
-				end,
-				func = function()
-					-- Count how many frames have custom positions
-					local count = 0
-					if MoveIt.DB and MoveIt.DB.movers then
-						for frameName, data in pairs(MoveIt.DB.movers) do
-							if data.MovedPoints then
-								count = count + 1
-								-- Clear the custom position
-								data.MovedPoints = nil
-							end
-						end
-					end
-
-					-- Reapply SpartanUI positions
-					if MoveIt.BlizzardEditMode then
-						MoveIt.BlizzardEditMode:ApplyAllBlizzMoverPositions()
-						MoveIt.BlizzardEditMode:SafeApplyChanges(true)
-					end
-
-					-- Show confirmation
-					print(('SpartanUI: Reset %d frames to SpartanUI default positions.'):format(count))
-					if MoveIt.logger then
-						MoveIt.logger.info(('Reset %d frames to SpartanUI positions'):format(count))
+					if MoveIt.EditModeProfileSync then
+						MoveIt.EditModeProfileSync:SwitchToProfile(val)
+						print(('SpartanUI: Now using EditMode profile "%s"'):format(val))
 					end
 				end,
 			},

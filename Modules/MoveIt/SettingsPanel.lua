@@ -1,7 +1,7 @@
 ---@class SUI
 local SUI = SUI
 local MoveIt = SUI.MoveIt
-local CustomEditMode = MoveIt.CustomEditMode
+local MoverMode = MoveIt.MoverMode
 local PositionCalculator = MoveIt.PositionCalculator
 
 ---@class SUI.MoveIt.SettingsPanel
@@ -102,7 +102,7 @@ local BUILTIN_WIDGETS = {
 			if panel then
 				panel:Hide()
 			end
-			CustomEditMode:Exit()
+			MoverMode:Exit()
 			SUI.Options:ToggleOptions({ 'Movers' })
 		end,
 	},
@@ -625,22 +625,22 @@ function SettingsPanel:Hide()
 		self.panel:Hide()
 		self.currentMover = nil
 		-- Deselect the frame (turn it back to blue)
-		CustomEditMode:DeselectOverlay()
+		MoverMode:DeselectOverlay()
 	end
 end
 
--- Expose to CustomEditMode for compatibility
-function CustomEditMode:ShowSettingsPanel(mover)
+-- Expose to MoverMode for compatibility
+function MoverMode:ShowSettingsPanel(mover)
 	SettingsPanel:Show(mover)
 end
 
-function CustomEditMode:HideSettingsPanel()
+function MoverMode:HideSettingsPanel()
 	SettingsPanel:Hide()
 end
 
 -- Hook into Exit to hide panel
-local originalExit = CustomEditMode.Exit
-function CustomEditMode:Exit()
+local originalExit = MoverMode.Exit
+function MoverMode:Exit()
 	SettingsPanel:Hide()
 	originalExit(self)
 end

@@ -376,32 +376,20 @@ function MoveIt:OnInitialize()
 					MovedPoints = false,
 				},
 			},
-			-- EditMode wizard tracking
-			EditModeWizard = {
-				SetupDone = false, -- Wizard/setup completed for this character?
-				MigratedFromProfile = nil, -- Profile name we migrated from (if upgrade)
-				MigrationOption = nil, -- 'apply_current' | 'copy_new'
-			},
-			-- EditMode management control
-			EditModeControl = {
-				Enabled = true, -- Allow MoveIt to manage EditMode profiles
-				AutoSwitch = true, -- Auto-switch EditMode when SUI profile changes
-				-- NOTE: CurrentProfile moved to global DB (avoids conflicts with shared SUI profiles)
-			},
+			-- Grid spacing for magnetism snap (pixels)
+			GridSpacing = 32,
+			-- EditMode profile sync (optional feature)
+			-- When enabled, changes to SUI profiles will automatically switch the EditMode profile
+			-- This only affects frames SUI doesn't manage (bags, minimap, objective tracker, etc.)
+			SyncEditModeProfile = false,
 		},
 		global = {
-			-- Account-wide EditMode preferences for multi-character sync
-			EditModePreferences = {
-				ApplyToAllCharacters = false, -- Auto-apply choices on other characters
-				DefaultMigrationOption = nil, -- 'apply_current' | 'copy_new'
-			},
-			-- Per-character EditMode setup tracking (keyed by "CharName - Realm")
-			-- Stored globally because EditMode profiles are per-character in WoW,
-			-- independent of shared SUI profiles
-			EditModeSetupCharacters = {},
 			-- Per-character current EditMode profile tracking (keyed by "CharName - Realm")
 			-- Stored globally to avoid conflicts when multiple characters share the same SUI profile
+			-- Used by EditModeProfileSync feature
 			CurrentProfiles = {},
+			-- Migration flag to track EditMode positioning removal
+			EditModePositioningRemoved = false,
 		},
 	}
 	---@type MoveItDB
@@ -422,55 +410,8 @@ function MoveIt:OnInitialize()
 	--Build Options
 	MoveIt:Options()
 
-	-- Only register EditMode callbacks if EditMode is actually functional
-	-- Note: HasEditMode() may not be accurate yet (logger not ready), so check basics here
-	if EditModeManagerFrame and type(EditModeManagerFrame.EnterEditMode) == 'function' and EventRegistry then
-		EventRegistry:RegisterCallback('EditMode.Enter', function()
-			-- Check if we're in an automatic update context (system applying positions silently)
-			if MoveIt.BlizzardEditMode and MoveIt.BlizzardEditMode.isApplyingAutomaticUpdate then
-				if MoveIt.logger then
-					MoveIt.logger.debug('EditMode.Enter: Suppressed during automatic position update')
-				end
-				return -- Don't unlock movers during automatic updates
-			end
-
-			-- Check if wizard is running
-			local isMigrating = MoveIt.WizardPage and MoveIt.WizardPage:IsMigrationInProgress()
-			if isMigrating then
-				if MoveIt.logger then
-					MoveIt.logger.debug('EditMode.Enter: Suppressed during wizard migration')
-				end
-				return
-			end
-
-			-- User explicitly entered EditMode - unlock movers for manual adjustment
-			local isActive = EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive()
-			if isActive then
-				if MoveIt.logger then
-					MoveIt.logger.debug('EditMode.Enter: User mode detected, unlocking movers')
-				end
-				self:UnlockAll()
-			end
-		end)
-		EventRegistry:RegisterCallback('EditMode.Exit', function()
-			if MoveIt.logger then
-				MoveIt.logger.debug('EditMode.Exit callback fired - locking movers IMMEDIATELY')
-			end
-			-- Lock movers IMMEDIATELY when EditMode exits, no delay
-			-- This catches the race condition where UnlockAll() is still running
-			self:LockAll()
-
-			-- Additional safety check after a short delay
-			C_Timer.After(0.1, function()
-				if not EditModeManagerFrame:IsEditModeActive() and MoveEnabled then
-					if MoveIt.logger then
-						MoveIt.logger.debug('EditMode.Exit: Double-checking movers are locked')
-					end
-					self:LockAll()
-				end
-			end)
-		end)
-	end
+	-- EditMode Enter/Exit callbacks removed - SUI now uses fully custom mover system
+	-- No longer integrating with Blizzard's EditMode for positioning
 end
 
 function MoveIt:CombatLockdown()
@@ -491,47 +432,21 @@ function MoveIt:OnEnable()
 		MoveIt.logger = SUI.logger:RegisterCategory('MoveIt')
 		MoveIt.logger.info('MoveIt system initialized')
 
-		-- Log EditModeManagerFrame diagnostics
-		MoveIt.logger.info('=== EditMode Diagnostics ===')
-		MoveIt.logger.info('Game Version: ' .. (SUI.wowVersion or 'Unknown'))
-		MoveIt.logger.info('IsRetail: ' .. tostring(SUI.IsRetail))
-		MoveIt.logger.info('IsTBC: ' .. tostring(SUI.IsTBC))
-		MoveIt.logger.info('EditModeManagerFrame exists: ' .. tostring(EditModeManagerFrame ~= nil))
-		if EditModeManagerFrame then
-			MoveIt.logger.info('  Type: ' .. type(EditModeManagerFrame))
-			MoveIt.logger.info('  IsShown: ' .. tostring(type(EditModeManagerFrame.IsShown)))
-			MoveIt.logger.info('  EnterEditMode: ' .. tostring(type(EditModeManagerFrame.EnterEditMode)))
-			MoveIt.logger.info('  ExitEditMode: ' .. tostring(type(EditModeManagerFrame.ExitEditMode)))
-			MoveIt.logger.info('  Show: ' .. tostring(type(EditModeManagerFrame.Show)))
-			MoveIt.logger.info('  Hide: ' .. tostring(type(EditModeManagerFrame.Hide)))
-			MoveIt.logger.info('  GetAttribute: ' .. tostring(type(EditModeManagerFrame.GetAttribute)))
+		-- Run migration handler (one-time cleanup)
+		if MoveIt.Migration then
+			MoveIt.Migration:Initialize()
 		end
-		MoveIt.logger.info('HasEditMode() result: ' .. tostring(HasEditMode()))
 
-		-- Log font availability for debugging Classic font issues
-		local testFonts = { 'GameFontDisableMed2', 'GameFontHighlightMed2', 'GameFontNormalMed2', 'GameFontDisable', 'GameFontNormal' }
-		MoveIt.logger.info('=== Font Availability ===')
-		for _, fontName in ipairs(testFonts) do
-			local fontObj = _G[fontName]
-			MoveIt.logger.info(('  %s: %s'):format(fontName, fontObj and 'EXISTS' or 'MISSING'))
+		-- Initialize EditMode profile sync (optional feature)
+		if MoveIt.EditModeProfileSync then
+			MoveIt.EditModeProfileSync:Initialize()
 		end
-		MoveIt.logger.info('=== End EditMode Diagnostics ===')
 	end
 
-	-- Initialize Blizzard EditMode integration
-	if MoveIt.BlizzardEditMode then
-		MoveIt.BlizzardEditMode:Initialize()
-	end
-
-	-- Register for SUI profile change callbacks to sync EditMode profiles
+	-- Register for SUI profile change callbacks to sync EditMode profiles (optional feature)
 	SUI.SpartanUIDB.RegisterCallback(MoveIt, 'OnProfileChanged', 'HandleProfileChange')
 	SUI.SpartanUIDB.RegisterCallback(MoveIt, 'OnProfileCopied', 'HandleProfileChange')
 	SUI.SpartanUIDB.RegisterCallback(MoveIt, 'OnProfileReset', 'HandleProfileChange')
-
-	-- Register the EditMode wizard page now that DB is available
-	if MoveIt.WizardPage and SUI.Setup then
-		MoveIt.WizardPage:RegisterPage()
-	end
 
 	local ChatCommand = function(arg)
 		if InCombatLockdown() then
@@ -570,8 +485,8 @@ function MoveIt:OnEnable()
 
 	-- Register custom EditMode slash command
 	SUI:AddChatCommand('edit', function()
-		if MoveIt.CustomEditMode then
-			MoveIt.CustomEditMode:Toggle()
+		if MoveIt.MoverMode then
+			MoveIt.MoverMode:Toggle()
 		end
 	end, 'Toggle custom EditMode', nil, true)
 
@@ -604,11 +519,11 @@ function MoveIt:HandleProfileChange(event, database, newProfile)
 	-- Update our DB reference since profile changed
 	MoveIt.DB = MoveIt.Database.profile
 
-	-- Delegate to BlizzardEditMode for EditMode profile sync
-	if MoveIt.BlizzardEditMode and EditModeManagerFrame then
+	-- Delegate to EditModeProfileSync for optional profile sync
+	if MoveIt.EditModeProfileSync and MoveIt.DB and MoveIt.DB.SyncEditModeProfile then
 		-- Get the actual new profile name if not provided
 		local profileName = newProfile or SUI.SpartanUIDB:GetCurrentProfile()
-		MoveIt.BlizzardEditMode:OnSUIProfileChanged(event, database, profileName)
+		MoveIt.EditModeProfileSync:OnSUIProfileChanged(event, database, profileName)
 	end
 end
 

@@ -182,20 +182,6 @@ end
 local function TalkingHead()
 	local moverName = 'TalkingHead'
 
-	-- Check if frame has native EditMode support and LibEditModeOverride is available (Retail)
-	if MoveIt.BlizzardEditMode and not MoveIt.BlizzardEditMode:NeedsCustomMover(moverName) then
-		-- RETAIL PATH: Use LibEditModeOverride
-		if SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
-			-- Apply position via EditMode
-			MoveIt.BlizzardEditMode:ApplyTalkingHeadPosition()
-		else
-			-- Disabled - restore to Blizzard default
-			MoveIt.BlizzardEditMode:RestoreBlizzardDefault(moverName)
-		end
-		return
-	end
-
-	-- CLASSIC/TBC/WRATH/CATA/MISTS PATH: Use custom holder-based movers
 	-- Check if mover is enabled
 	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
@@ -220,6 +206,21 @@ local function TalkingHead()
 		frame.ignoreFramePositionManager = true
 		THUIHolder:SetSize(frame:GetSize())
 		MoveIt:CreateMover(THUIHolder, 'THUIHolder', 'Talking Head Frame', nil, 'Blizzard UI')
+
+		-- Parent frame to holder
+		frame:SetParent(THUIHolder)
+		frame:ClearAllPoints()
+		frame:SetPoint('CENTER', THUIHolder, 'CENTER', 0, 0)
+
+		-- Hook SetPoint to prevent Blizzard from repositioning
+		hooksecurefunc(frame, 'SetPoint', function(self, _, anchor)
+			if anchor ~= THUIHolder then
+				self:ClearAllPoints()
+				self:SetPoint('CENTER', THUIHolder, 'CENTER', 0, 0)
+			end
+		end)
+
+		-- Also re-apply on show
 		frame:HookScript('OnShow', function()
 			frame:ClearAllPoints()
 			frame:SetPoint('CENTER', THUIHolder, 'CENTER', 0, 0)
@@ -258,31 +259,7 @@ function module:EnableBlizzMover_TalkingHead()
 end
 
 local function AbilityBars()
-	-- Check if frames have native EditMode support and LibEditModeOverride is available (Retail)
-	-- ExtraAbilities system (ID 11) handles both ExtraActionButton and ZoneAbility
-	if MoveIt.BlizzardEditMode and not MoveIt.BlizzardEditMode:NeedsCustomMover('ExtraActionBar') then
-		-- RETAIL PATH: Use LibEditModeOverride
-		if SUI.DB.Artwork.BlizzMoverStates['ExtraActionBar'].enabled then
-			-- Apply position via EditMode
-			MoveIt.BlizzardEditMode:ApplyExtraAbilitiesPosition()
-		else
-			-- Disabled - restore to Blizzard default
-			MoveIt.BlizzardEditMode:RestoreBlizzardDefault('ExtraActionBar')
-		end
-
-		-- ZoneAbility is handled together with ExtraActionBar in the same EditMode system
-		if SUI.DB.Artwork.BlizzMoverStates['ZoneAbility'].enabled then
-			-- Note: ZoneAbility positioning is part of ExtraAbilities system
-			-- Individual positioning not supported by EditMode
-			if MoveIt.logger then
-				MoveIt.logger.debug('ZoneAbility positioning handled by ExtraAbilities EditMode system')
-			end
-		end
-		return
-	end
-
-	-- CLASSIC/TBC/WRATH/CATA/MISTS PATH: Use custom holder-based movers
-
+	-- Use custom holder-based movers for both ExtraActionBar and ZoneAbility
 	local NeedsReparent = false
 	local ExtraAbilityContainer = _G['ExtraAbilityContainer']
 	local ExtraActionBarFrame = _G['ExtraActionBarFrame']
@@ -541,23 +518,8 @@ end
 local function VehicleLeaveButton()
 	local moverName = 'VehicleLeaveButton'
 
-	-- Check if frame has native EditMode support and LibEditModeOverride is available (Retail)
-	-- When BT4 is loaded, it overrides the Blizzard mover so EditMode positioning won't work.
-	-- Fall through to the custom holder-based mover instead.
-	if MoveIt.BlizzardEditMode and not MoveIt.BlizzardEditMode:NeedsCustomMover(moverName) and not Bartender4 then
-		-- RETAIL PATH: Use LibEditModeOverride (only when BT4 is NOT overriding the button)
-		if SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
-			-- Apply position via EditMode
-			MoveIt.BlizzardEditMode:ApplyVehicleLeaveButtonPosition()
-		else
-			-- Disabled - restore to Blizzard default
-			MoveIt.BlizzardEditMode:RestoreBlizzardDefault(moverName)
-		end
-		return
-	end
-
-	-- CUSTOM MOVER PATH: Used on Classic/TBC/Wrath/Cata/Mists, or on Retail when BT4 overrides the button
-
+	-- Use custom holder-based mover
+	-- When BT4 is loaded, this mover overrides BT4's positioning
 	local function MoverCreate()
 		local frame = MainMenuBarVehicleLeaveButton
 		if not frame then
@@ -780,32 +742,59 @@ end
 
 local function EncounterBar()
 	local moverName = 'EncounterBar'
+	local frame = _G['EncounterBar']
 
-	-- Check if frame has native EditMode support and LibEditModeOverride is available (Retail)
-	if MoveIt.BlizzardEditMode and not MoveIt.BlizzardEditMode:NeedsCustomMover(moverName) then
-		-- RETAIL PATH: Use LibEditModeOverride
-		if SUI.DB.Artwork.BlizzMoverStates[moverName] and SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
-			-- Apply position via EditMode
-			MoveIt.BlizzardEditMode:ApplyEncounterBarPosition()
-		else
-			-- Disabled - restore to Blizzard default
-			MoveIt.BlizzardEditMode:RestoreBlizzardDefault(moverName)
+	-- EncounterBar appears during specific raid encounters (e.g., Ultraxion fight)
+	-- It may not exist until the encounter starts
+	if not frame then
+		if MoveIt.logger then
+			MoveIt.logger.debug('EncounterBar frame not available yet')
 		end
 		return
 	end
 
-	-- CLASSIC/TBC/WRATH/CATA/MISTS PATH: Use custom holder-based movers
-	-- Note: EncounterBar doesn't exist in Classic versions, so this path may never execute
-	if MoveIt.logger then
-		MoveIt.logger.debug('EncounterBar not available or EditMode not supported')
+	-- Check if mover is enabled
+	if not SUI.DB.Artwork.BlizzMoverStates[moverName] or not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+		RestoreOriginalPosition(moverName)
+		return
+	end
+
+	-- Cache original position before moving
+	CacheOriginalPosition(moverName, frame)
+
+	-- Create holder frame
+	local holder = CreateFrame('Frame', 'SUI_EncounterBarHolder', UIParent)
+	holder:SetSize(200, 60) -- Default encounter bar size
+
+	-- Position from style
+	local point, anchor, secondaryPoint, x, y = strsplit(',', SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers.EncounterBar or 'CENTER,UIParent,CENTER,0,0')
+	holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+
+	-- Create mover
+	MoveIt:CreateMover(holder, moverName, 'Encounter Bar', nil, 'Blizzard UI')
+
+	-- Parent frame to holder
+	frame:SetParent(holder)
+	frame:ClearAllPoints()
+	frame:SetPoint('CENTER', holder, 'CENTER', 0, 0)
+
+	-- Hook SetPoint to prevent Blizzard repositioning
+	hooksecurefunc(frame, 'SetPoint', function(self, _, parentFrame)
+		if parentFrame ~= holder then
+			self:ClearAllPoints()
+			self:SetPoint('CENTER', holder, 'CENTER', 0, 0)
+		end
+	end)
+
+	-- Store holder reference
+	if module.BlizzMoverCache[moverName] then
+		module.BlizzMoverCache[moverName].holder = holder
 	end
 end
 
 ---Disable the EncounterBar mover
 function module:DisableBlizzMover_EncounterBar()
-	if MoveIt.BlizzardEditMode then
-		MoveIt.BlizzardEditMode:RestoreBlizzardDefault('EncounterBar')
-	end
+	RestoreOriginalPosition('EncounterBar')
 end
 
 ---Enable the EncounterBar mover
@@ -815,32 +804,58 @@ end
 
 local function ArchaeologyBar()
 	local moverName = 'ArchaeologyBar'
+	local frame = _G['ArchaeologyDigsiteProgressBar']
 
-	-- Check if frame has native EditMode support and LibEditModeOverride is available (Retail)
-	if MoveIt.BlizzardEditMode and not MoveIt.BlizzardEditMode:NeedsCustomMover(moverName) then
-		-- RETAIL PATH: Use LibEditModeOverride
-		if SUI.DB.Artwork.BlizzMoverStates[moverName] and SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
-			-- Apply position via EditMode
-			MoveIt.BlizzardEditMode:ApplyArchaeologyBarPosition()
-		else
-			-- Disabled - restore to Blizzard default
-			MoveIt.BlizzardEditMode:RestoreBlizzardDefault(moverName)
+	-- ArchaeologyBar appears when using archaeology
+	if not frame then
+		if MoveIt.logger then
+			MoveIt.logger.debug('ArchaeologyBar frame not available yet')
 		end
 		return
 	end
 
-	-- CLASSIC/TBC/WRATH/CATA/MISTS PATH: Use custom holder-based movers
-	-- Note: ArchaeologyBar doesn't exist in Classic versions, so this path may never execute
-	if MoveIt.logger then
-		MoveIt.logger.debug('ArchaeologyBar not available or EditMode not supported')
+	-- Check if mover is enabled
+	if not SUI.DB.Artwork.BlizzMoverStates[moverName] or not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+		RestoreOriginalPosition(moverName)
+		return
+	end
+
+	-- Cache original position before moving
+	CacheOriginalPosition(moverName, frame)
+
+	-- Create holder frame
+	local holder = CreateFrame('Frame', 'SUI_ArchaeologyBarHolder', UIParent)
+	holder:SetSize(200, 40) -- Default archaeology bar size
+
+	-- Position from style
+	local point, anchor, secondaryPoint, x, y = strsplit(',', SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers.ArchaeologyBar or 'CENTER,UIParent,CENTER,0,0')
+	holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+
+	-- Create mover
+	MoveIt:CreateMover(holder, moverName, 'Archaeology Bar', nil, 'Blizzard UI')
+
+	-- Parent frame to holder
+	frame:SetParent(holder)
+	frame:ClearAllPoints()
+	frame:SetPoint('CENTER', holder, 'CENTER', 0, 0)
+
+	-- Hook SetPoint to prevent Blizzard repositioning
+	hooksecurefunc(frame, 'SetPoint', function(self, _, parentFrame)
+		if parentFrame ~= holder then
+			self:ClearAllPoints()
+			self:SetPoint('CENTER', holder, 'CENTER', 0, 0)
+		end
+	end)
+
+	-- Store holder reference
+	if module.BlizzMoverCache[moverName] then
+		module.BlizzMoverCache[moverName].holder = holder
 	end
 end
 
 ---Disable the ArchaeologyBar mover
 function module:DisableBlizzMover_ArchaeologyBar()
-	if MoveIt.BlizzardEditMode then
-		MoveIt.BlizzardEditMode:RestoreBlizzardDefault('ArchaeologyBar')
-	end
+	RestoreOriginalPosition('ArchaeologyBar')
 end
 
 ---Enable the ArchaeologyBar mover
