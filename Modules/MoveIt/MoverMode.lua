@@ -497,9 +497,7 @@ if EditModeManagerFrame and EditModeManagerFrame.EnterEditMode then
 		local isCustomActive = MoverMode:IsActive()
 		local isMigrating = MoveIt.WizardPage and MoveIt.WizardPage:IsMigrationInProgress()
 		if MoveIt.logger then
-			MoveIt.logger.debug(
-				('EnterEditMode hook fired - IsEditModeActive: %s, MoverMode active: %s, IsMigrating: %s'):format(tostring(isActive), tostring(isCustomActive), tostring(isMigrating))
-			)
+			MoveIt.logger.debug(('EnterEditMode hook fired - IsEditModeActive: %s, MoverMode active: %s, IsMigrating: %s'):format(tostring(isActive), tostring(isCustomActive), tostring(isMigrating)))
 		end
 		-- Only enter custom edit mode if Edit Mode is actually active AND not during migration/wizard
 		-- During wizard, LibEMO:ApplyChanges() enters Edit Mode programmatically

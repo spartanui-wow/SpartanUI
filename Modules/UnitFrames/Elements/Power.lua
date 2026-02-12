@@ -60,6 +60,9 @@ local function Update(frame, settings)
 		element.colorPower = true
 	end
 
+	-- Set reverse fill direction
+	element:SetReverseFill(DB.reverseFill or false)
+
 	-- Basic Bar updates
 	element:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 	element.bg:SetTexture(UF:FindStatusBarTexture(DB.texture))
@@ -107,7 +110,14 @@ local function Options(frameName, OptionSet)
 		name = '',
 		type = 'group',
 		inline = true,
-		args = {},
+		args = {
+			reverseFill = {
+				name = L['Reverse fill direction'],
+				desc = L['Make the power bar fill right-to-left instead of left-to-right'],
+				type = 'toggle',
+				order = 1,
+			},
+		},
 	}
 
 	if frameName == 'player' then
@@ -130,6 +140,7 @@ local Settings = {
 	height = 10,
 	width = false,
 	FrameStrata = 'BACKGROUND',
+	reverseFill = false,
 	bg = {
 		enabled = true,
 		color = { 1, 1, 1, 0.2 },

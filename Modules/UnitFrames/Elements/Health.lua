@@ -162,6 +162,9 @@ local function Update(frame, settings)
 		element.colorHealth = true
 	end
 
+	-- Set reverse fill direction
+	element:SetReverseFill(DB.reverseFill or false)
+
 	element:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 	element.bg:SetTexture(UF:FindStatusBarTexture(DB.texture))
 
@@ -247,6 +250,12 @@ local function Options(frameName, OptionSet)
 		type = 'group',
 		inline = true,
 		args = {
+			reverseFill = {
+				name = L['Reverse fill direction'],
+				desc = L['Make the health bar fill right-to-left instead of left-to-right. Warning: This may be confusing for most players and is primarily used for specific UI aesthetics.'],
+				type = 'toggle',
+				order = 1,
+			},
 			healthprediction = {
 				name = L['Health prediction'],
 				type = 'toggle',
@@ -390,6 +399,7 @@ local Settings = {
 	width = false,
 	FrameLevel = 4,
 	FrameStrata = 'BACKGROUND',
+	reverseFill = false,
 	texture = 'SpartanUI Default',
 	healPredictionTexture = 'Blizzard', -- Incoming heals texture
 	absorbTexture = 'Blizzard Shield', -- Damage absorb (shields) texture
