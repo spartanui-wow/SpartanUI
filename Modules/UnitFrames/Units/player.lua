@@ -37,6 +37,7 @@ local function Builder(frame)
 		'ClassPower',
 		'AdditionalPower',
 		'EclipseBar', -- MOP Classic Balance Druid eclipse power bar (#565)
+		'PrivateAuras', -- Blizzard-controlled raid mechanics auras
 		-- 'AuraBars' -- DECOMMISSIONED: Not maintaining if unavailable in retail
 	}
 
