@@ -36,14 +36,78 @@ local function Build(frame, DB)
 
 	frame.Health = health
 
-	-- TWW Added a Temp health Loss bar
+	-- Cutaway Health: Ghost bar showing recently lost health
 	local tempLoss = CreateFrame('StatusBar', nil, frame.Health)
-	tempLoss:SetFrameLevel(DB.FrameLevel or 3)
-	tempLoss:SetPoint('TOP')
-	tempLoss:SetPoint('BOTTOM')
-	tempLoss:SetPoint('RIGHT', frame.Health, 'LEFT')
-	tempLoss:SetWidth(10)
+	tempLoss:SetFrameLevel((DB.FrameLevel or 4) + 1) -- Above health bar
+	tempLoss:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
+	tempLoss:SetPoint('TOP', frame.Health, 'TOP')
+	tempLoss:SetPoint('BOTTOM', frame.Health, 'BOTTOM')
+	tempLoss:SetPoint('LEFT', frame.Health:GetStatusBarTexture(), 'LEFT')
+	tempLoss:SetPoint('RIGHT', frame.Health:GetStatusBarTexture(), 'RIGHT')
+
+	-- Color: dark red ghost
+	tempLoss:SetStatusBarColor(0.5, 0, 0, 0.5)
+	tempLoss:SetAlpha(0) -- Start invisible
 	tempLoss:Hide()
+
+	-- Create fade animation
+	local fadeGroup = tempLoss:CreateAnimationGroup()
+	local fadeAnim = fadeGroup:CreateAnimation('Alpha')
+	fadeAnim:SetFromAlpha(0.5)
+	fadeAnim:SetToAlpha(0)
+	fadeAnim:SetDuration(0.75) -- 750ms fade
+	fadeAnim:SetSmoothing('OUT')
+	fadeGroup:SetScript('OnFinished', function()
+		tempLoss:Hide()
+		tempLoss:SetAlpha(0)
+	end)
+
+	tempLoss.fadeGroup = fadeGroup
+	frame.Health.tempLoss = tempLoss
+
+	-- PostUpdate callback for cutaway health effect
+	frame.Health.PostUpdate = function(element, unit, cur, max)
+		local DB = element.DB
+		if not DB or not DB.cutaway or not DB.cutaway.enabled then
+			return
+		end
+
+		local tempLoss = element.tempLoss
+		if not tempLoss then
+			return
+		end
+
+		-- Track previous health
+		local prev = element.previousHealth or cur
+		element.previousHealth = cur
+
+		-- Check if health decreased (damage taken)
+		if cur < prev and max > 0 then
+			local damage = prev - cur
+
+			-- Only show for significant damage (more than 1% of max health)
+			if damage > (max * 0.01) then
+				-- Stop any existing animation
+				if tempLoss.fadeGroup:IsPlaying() then
+					tempLoss.fadeGroup:Stop()
+				end
+
+				-- Set the ghost bar to show the lost health
+				tempLoss:SetMinMaxValues(0, max)
+				tempLoss:SetValue(prev) -- Show where health was before damage
+
+				-- Apply custom color if configured
+				if DB.cutaway.color then
+					tempLoss:SetStatusBarColor(unpack(DB.cutaway.color))
+				end
+
+				-- Show and start fade animation
+				tempLoss:Show()
+				tempLoss:SetAlpha(0.5) -- Reset alpha
+				tempLoss.fadeGroup:Play()
+			end
+		end
+	end
 
 	frame.Health.frequentUpdates = true
 	frame.Health.colorDisconnected = DB.colorDisconnected or true
@@ -269,6 +333,26 @@ local function Options(frameName, OptionSet)
 				type = 'toggle',
 				order = 2,
 			},
+			cutawayEnabled = {
+				name = L['Cutaway health effect'],
+				desc = L['Show a fading ghost bar when taking damage to visualize health loss'],
+				type = 'toggle',
+				order = 3,
+				get = function()
+					return UF.CurrentSettings[frameName].elements.Health.cutaway and UF.CurrentSettings[frameName].elements.Health.cutaway.enabled or false
+				end,
+				set = function(_, val)
+					if not UF.CurrentSettings[frameName].elements.Health.cutaway then
+						UF.CurrentSettings[frameName].elements.Health.cutaway = {}
+					end
+					UF.CurrentSettings[frameName].elements.Health.cutaway.enabled = val
+					if not UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.Health.cutaway then
+						UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.Health.cutaway = {}
+					end
+					UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements.Health.cutaway.enabled = val
+					UF.Unit[frameName]:ElementUpdate('Health')
+				end,
+			},
 			healthprediction = {
 				name = L['Health prediction'],
 				type = 'toggle',
@@ -414,6 +498,11 @@ local Settings = {
 	FrameStrata = 'BACKGROUND',
 	reverseFill = false,
 	smoothAnimation = false,
+	cutaway = {
+		enabled = false,
+		duration = 0.75,
+		color = { 0.5, 0, 0, 0.5 }, -- Dark red ghost
+	},
 	texture = 'SpartanUI Default',
 	healPredictionTexture = 'Blizzard', -- Incoming heals texture
 	absorbTexture = 'Blizzard Shield', -- Damage absorb (shields) texture
