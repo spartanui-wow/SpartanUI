@@ -168,6 +168,15 @@ local function SetupProfile()
 		return
 	end
 
+	-- Cannot modify secure frames during combat
+	if InCombatLockdown() then
+		if module.logger then
+			module.logger.warning('Cannot setup Bartender4 profile during combat - deferring to PLAYER_REGEN_ENABLED')
+		end
+		module.profileSetupPending = true
+		return
+	end
+
 	--Flag the SUI.DB that we are making changes
 	BartenderChangesActive = true
 
@@ -181,10 +190,18 @@ local function SetupProfile()
 		end
 	end
 
-	-- Update BT4 Configuration
-	Bartender4:UpdateModuleConfigs()
+	-- Update BT4 Configuration (deferred to avoid state initialization race)
+	C_Timer.After(0.5, function()
+		if not InCombatLockdown() then
+			Bartender4:UpdateModuleConfigs()
+		else
+			-- Still in combat, try again after combat ends
+			module.configUpdatePending = true
+		end
+	end)
 
 	BartenderChangesActive = false
+	module.profileSetupPending = false
 end
 
 local function Unlock()
@@ -453,10 +470,26 @@ local function Options()
 	SUI.opt.args.Help.args.SUIModuleHelp.args.ResetActionBars = SUI.opt.args.General.args.Bartender.args.ResetActionBars
 end
 
+local function OnCombatEnd()
+	-- Handle deferred profile setup
+	if module.profileSetupPending then
+		SetupProfile()
+	end
+
+	-- Handle deferred config update
+	if module.configUpdatePending and not InCombatLockdown() then
+		Bartender4:UpdateModuleConfigs()
+		module.configUpdatePending = false
+	end
+end
+
 local function OnEnable()
 	if not Bartender4 then
 		return
 	end
+
+	-- Register combat lockdown handler for deferred operations
+	module:RegisterEvent('PLAYER_REGEN_ENABLED', OnCombatEnd)
 	-- No Bartender/out of date Notification
 	if SUI.Bartender4Version < BartenderMin then
 		-- TODO: Convert this away from Static popup

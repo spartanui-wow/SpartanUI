@@ -129,6 +129,11 @@ end
 
 -- Hard code this for now.
 function module:OnInitialize()
+	-- Initialize logger
+	if SUI.logger then
+		module.logger = SUI.logger:RegisterCategory('BarHandler')
+	end
+
 	---@class SUI.BarHandler.DB
 	local defaults = {
 		ActiveSystem = 'Bartender4',
