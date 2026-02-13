@@ -93,9 +93,16 @@ end
 
 -- Get dispel type from color curve result
 local function GetDispelTypeFromColor(r, g, b)
+	-- Tolerance for color matching (0.05 = 5% variance)
+	local tolerance = 0.05
 	for typeName, typeColor in pairs(DispelColors) do
-		if typeName ~= 'none' and math.abs(r - typeColor.r) < 0.1 and math.abs(g - typeColor.g) < 0.1 and math.abs(b - typeColor.b) < 0.1 then
-			return typeName
+		if typeName ~= 'none' then
+			local deltaR = math.abs(r - typeColor.r)
+			local deltaG = math.abs(g - typeColor.g)
+			local deltaB = math.abs(b - typeColor.b)
+			if deltaR < tolerance and deltaG < tolerance and deltaB < tolerance then
+				return typeName
+			end
 		end
 	end
 	return nil
@@ -370,13 +377,25 @@ local function Update(frame, settings)
 
 	if aura and dispelType then
 		-- Check if dispelType is accessible before using as table key
+		-- IMPORTANT: Different paths return different value types:
+		-- - Retail 12.0 Legacy: GetDispelTypeFromColor() returns string literal → SAFE
+		-- - Retail 12.1+ / Classic: Raw aura.dispelName → CAN be secret string
+		--
+		-- Strategy: Try to use the value. If it's a secret, canaccessvalue() will be false.
+		-- If it's a string literal from GetDispelTypeFromColor(), it's always accessible.
 		local isAccessible = SUI.BlizzAPI.canaccessvalue(dispelType)
 		local color = DispelColors.none
 		local atlas = nil
 
 		if isAccessible then
+			-- Safe to use as table key
 			color = DispelColors[dispelType] or DispelColors.none
 			atlas = element.dispelAtlases[dispelType]
+		else
+			-- Secret value - cannot use as table key
+			-- Fall back to generic "unknown dispel type" visuals
+			color = DispelColors.none
+			atlas = nil
 		end
 
 		-- Update glow
@@ -647,8 +666,8 @@ end
 
 ---@type SUI.UF.Elements.Settings
 local Settings = {
-	-- Disabled: Aura APIs return "secret" values in TWW 12.0 that can't be tested by addons
-	enabled = false,
+	-- Uses C_CurveUtil.CreateColorCurve() for secret-value-safe dispel type detection in Retail 12.0
+	enabled = true,
 	-- Highlight options
 	showGlow = true,
 	glowAlpha = 0.6,

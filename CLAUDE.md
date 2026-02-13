@@ -65,3 +65,15 @@ Each frame group can use a different UF preset independently. Themes provide 1-c
 
 - **Required**: Bartender4 (action bar addon), Libs-AddonTools (UI system and utilities)
 - **Optional**: Various other addons for enhanced functionality
+
+## WoW 12.0 Secret Values System
+
+**CRITICAL**: WoW 12.0+ introduced a "secret values" system that restricts tainted code from operating on combat API data. This affects ALL unit frame and aura code.
+
+**Quick rules:**
+- ✅ CAN: Store secrets, pass to functions, check truthiness (`if value then`), use formatting functions, pass to Blizzard APIs
+- ❌ CANNOT: Compare (`==`, `>`, etc.), do arithmetic (`+`, `-`, etc.), use as table keys, iterate tables with secret keys
+- **Solution**: Always check `canaccessvalue(value)` before comparisons/arithmetic/table indexing
+- **Common secrets**: `UnitHealth()`, `UnitGUID()`, `aura.duration`, `aura.dispelName`, `aura.auraInstanceID`
+
+See `C:\code\.context\common-pitfalls.md` section "2026-02-07/2026-02-12: WoW 12.0 Secret Values System" for complete reference with examples, safe patterns, and API documentation.
