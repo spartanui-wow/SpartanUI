@@ -8,65 +8,6 @@ SUI.MoveIt = MoveIt
 -- Shared state (accessed by other MoveIt files via MoveIt.MoverList, etc.)
 MoveIt.MoverList = {}
 
---- Check if EditModeManagerFrame is actually functional (not just defined)
---- TBC 2.5.5+ has it, but it's not fully functional (missing fonts, etc.)
---- Only Retail has a complete EditMode implementation
----@return boolean
-local function IsEditModeAvailable()
-	-- EditMode is only fully functional on Retail
-	-- TBC 2.5.5+ has EditModeManagerFrame but it's incomplete and causes errors
-	if not SUI.IsRetail then
-		return false
-	end
-
-	-- Check if the frame exists
-	if not EditModeManagerFrame then
-		return false
-	end
-
-	-- Log what we find for diagnostics
-	local log = function(msg)
-		if MoveIt.logger then
-			MoveIt.logger.debug(msg)
-		end
-	end
-
-	log('EditModeManagerFrame exists, checking capabilities...')
-
-	-- Check for EnterEditMode (indicates functional EditMode)
-	if type(EditModeManagerFrame.EnterEditMode) ~= 'function' then
-		log('  FAIL: Missing EnterEditMode method')
-		return false
-	end
-
-	-- Check for ExitEditMode
-	if type(EditModeManagerFrame.ExitEditMode) ~= 'function' then
-		log('  FAIL: Missing ExitEditMode method')
-		return false
-	end
-
-	log('  SUCCESS: EditMode is functional')
-	return true
-end
-
--- Cache the result after first check (evaluated after PLAYER_LOGIN)
-local editModeAvailable = nil
-
---- Get cached EditMode availability (with lazy initialization)
----@return boolean
-local function HasEditMode()
-	if editModeAvailable == nil then
-		editModeAvailable = IsEditModeAvailable()
-		if MoveIt.logger then
-			MoveIt.logger.info('EditMode availability check: ' .. tostring(editModeAvailable))
-		end
-	end
-	return editModeAvailable
-end
-
--- Expose for other modules (ChatCommands, Options, etc.)
-MoveIt.HasEditMode = HasEditMode
-
 -- MoverWatcher frame for keyboard input handling
 local MoverWatcher = CreateFrame('Frame', nil, UIParent)
 local MoveEnabled = false
@@ -188,36 +129,11 @@ function MoveIt:UnlockAll()
 		return
 	end
 
-	-- Skip if automatic position update is in progress (new unified flag)
-	if MoveIt.BlizzardEditMode and MoveIt.BlizzardEditMode.isApplyingAutomaticUpdate then
+	-- Check if MoverMode was already exited (prevents race condition with quick exit)
+	if MoveIt.MoverMode and not MoveIt.MoverMode:IsActive() then
 		if MoveIt.logger then
-			MoveIt.logger.debug('UnlockAll: Suppressed during automatic position update')
+			MoveIt.logger.debug('UnlockAll: Cancelled - MoverMode already exited')
 		end
-		return
-	end
-
-	-- Legacy flag check (can be removed after testing)
-	if MoveIt.BlizzardEditMode and MoveIt.BlizzardEditMode.applyingProfileChange then
-		if MoveIt.logger then
-			MoveIt.logger.debug('UnlockAll: Suppressed during profile change (legacy flag)')
-		end
-		return
-	end
-
-	-- Check if EditMode is still active (prevents race condition with quick exit)
-	if EditModeManagerFrame and not EditModeManagerFrame:IsEditModeActive() then
-		if MoveIt.logger then
-			MoveIt.logger.debug('UnlockAll: Cancelled - EditMode already exited, ensuring movers are locked')
-		end
-		-- Defensive cleanup: ensure movers are hidden since EditMode exited
-		C_Timer.After(0.1, function()
-			if not (EditModeManagerFrame and EditModeManagerFrame:IsEditModeActive()) then
-				if MoveIt.logger then
-					MoveIt.logger.debug('UnlockAll: Race condition cleanup - locking movers')
-				end
-				self:LockAll()
-			end
-		end)
 		return
 	end
 
@@ -242,10 +158,10 @@ function MoveIt:UnlockAll()
 			return
 		end
 
-		-- Check if EditMode exited while we're showing movers (race condition protection)
-		if EditModeManagerFrame and not EditModeManagerFrame:IsEditModeActive() then
+		-- Check if MoverMode exited while we're showing movers (race condition protection)
+		if MoveIt.MoverMode and not MoveIt.MoverMode:IsActive() then
 			if MoveIt.logger then
-				MoveIt.logger.debug(('UnlockAll: EditMode exited during unlock after showing %d movers - aborting and locking'):format(shownCount))
+				MoveIt.logger.debug(('UnlockAll: MoverMode exited during unlock after showing %d movers - aborting and locking'):format(shownCount))
 			end
 			self.unlockInProgress = false
 			-- Lock any movers we already showed
@@ -290,6 +206,17 @@ function MoveIt:LockAll()
 		MoveIt.logger.debug(('LockAll called - MoveEnabled=%s, unlockInProgress=%s'):format(tostring(MoveEnabled), tostring(self.unlockInProgress)))
 	end
 
+	-- Exit MoverMode first if active (handles hiding movers, canceling timers, hiding grid, cleaning up magnetism)
+	if MoveIt.MoverMode and MoveIt.MoverMode:IsActive() then
+		if MoveIt.logger then
+			MoveIt.logger.debug('LockAll: Exiting MoverMode')
+		end
+		MoveIt.MoverMode:Exit()
+		MoveEnabled = false
+		MoverWatcher:Hide()
+		return
+	end
+
 	-- Cancel any in-progress unlock operation
 	if self.unlockInProgress then
 		if MoveIt.logger then
@@ -321,17 +248,16 @@ function MoveIt:EnterMoveMode()
 		return
 	end
 
-	-- If Retail has EditMode, use it
-	if HasEditMode() then
-		ShowUIPanel(EditModeManagerFrame)
-		-- EditMode.Enter event will fire and unlock movers (user mode)
+	-- Use MoverMode for full custom mover experience (independent of Blizzard EditMode)
+	if MoveIt.MoverMode then
+		MoveIt.MoverMode:Enter()
 		if MoveIt.logger then
-			MoveIt.logger.debug('EnterMoveMode: Opening EditMode UI for user')
+			MoveIt.logger.debug('EnterMoveMode: Activated MoverMode')
 		end
 	else
-		-- Classic: use legacy mover system
+		-- Fallback to legacy unlock
 		if MoveIt.logger then
-			MoveIt.logger.debug('EnterMoveMode: Using legacy mover system (Classic)')
+			MoveIt.logger.debug('EnterMoveMode: Using legacy mover system (fallback)')
 		end
 		self:UnlockAll()
 	end
@@ -378,6 +304,10 @@ function MoveIt:OnInitialize()
 			},
 			-- Grid spacing for magnetism snap (pixels)
 			GridSpacing = 32,
+			-- Grid snap: show grid overlay and snap to grid lines
+			GridSnapEnabled = true,
+			-- Element snap: snap to other frame edges and corners
+			ElementSnapEnabled = true,
 			-- EditMode profile sync (optional feature)
 			-- When enabled, changes to SUI profiles will automatically switch the EditMode profile
 			-- This only affects frames SUI doesn't manage (bags, minimap, objective tracker, etc.)
@@ -455,8 +385,12 @@ function MoveIt:OnEnable()
 		end
 
 		if not arg then
-			-- Enter user move mode (explicit user action to reposition frames)
-			MoveIt:EnterMoveMode()
+			-- Toggle move mode (enter if inactive, exit if active)
+			if MoveIt.MoverMode and MoveIt.MoverMode:IsActive() then
+				MoveIt.MoverMode:Exit()
+			else
+				MoveIt:EnterMoveMode()
+			end
 		else
 			if self.MoverList[arg] then
 				MoveIt:MoveIt(arg)

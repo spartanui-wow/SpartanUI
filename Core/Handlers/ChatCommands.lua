@@ -46,11 +46,9 @@ if AddonCompartmentFrame then
 		notCheckable = true,
 		func = function(btn, arg1, arg2, checked, mouseButton)
 			if IsShiftKeyDown() then
-				-- On Retail/TBC 2.5.5+, open Blizzard's EditMode; on other Classic versions, use legacy MoveIt
-				if SUI.MoveIt and SUI.MoveIt.HasEditMode and SUI.MoveIt.HasEditMode() then
-					ShowUIPanel(EditModeManagerFrame)
-				else
-					SUI.MoveIt:MoveIt()
+				-- Toggle custom MoveIt frame mover system
+				if SUI.MoveIt and SUI.MoveIt.MoverMode then
+					SUI.MoveIt.MoverMode:Toggle()
 				end
 				return
 			end

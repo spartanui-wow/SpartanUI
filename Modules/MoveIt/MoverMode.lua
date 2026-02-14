@@ -163,6 +163,16 @@ function MoverMode:Enter()
 
 	isActive = true
 
+	-- Show control toolbar
+	if MoveIt.ControlToolbar then
+		MoveIt.ControlToolbar:Show()
+	end
+
+	-- Show grid overlay if grid snap is enabled
+	if MoveIt.GridOverlay and MoveIt.DB.GridSnapEnabled ~= false then
+		MoveIt.GridOverlay:Show()
+	end
+
 	-- Hide problematic movers that cause input capture
 	local problematicMovers = { 'VehicleSeatIndicator', 'SUI_CustomMover_VehicleMinimapPosition' }
 	for _, moverName in ipairs(problematicMovers) do
@@ -224,6 +234,16 @@ function MoverMode:Exit()
 
 	isActive = false
 	selectedOverlay = nil
+
+	-- Hide control toolbar
+	if MoveIt.ControlToolbar then
+		MoveIt.ControlToolbar:Hide()
+	end
+
+	-- Hide grid overlay
+	if MoveIt.GridOverlay then
+		MoveIt.GridOverlay:Hide()
+	end
 
 	-- Cancel all pending AceTimer timers (staggered mover show animations)
 	MoveIt:CancelAllTimers()
@@ -315,6 +335,26 @@ function MoverMode:StyleMover(name, mover)
 		mover.editModeHooked = true
 	end
 
+	-- Override drag scripts to use manual position tracking (enables real-time snapping)
+	if not mover.originalOnDragStart then
+		mover.originalOnDragStart = mover:GetScript('OnDragStart')
+		mover.originalOnDragStop = mover:GetScript('OnDragStop')
+	end
+	mover:SetScript('OnDragStart', function(self)
+		if MoverMode:IsActive() then
+			MoverMode:StartDrag(self)
+		elseif mover.originalOnDragStart then
+			mover.originalOnDragStart(self)
+		end
+	end)
+	mover:SetScript('OnDragStop', function(self)
+		if MoverMode:IsActive() then
+			MoverMode:StopDrag(self)
+		elseif mover.originalOnDragStop then
+			mover.originalOnDragStop(self)
+		end
+	end)
+
 	if MoveIt.logger then
 		-- MoveIt.logger.debug(('Styled mover: %s'):format(name))
 	end
@@ -338,6 +378,16 @@ function MoverMode:RestoreMoverStyle(mover)
 	-- Stop glow animation
 	if mover.glowAnimation then
 		mover.glowAnimation:Stop()
+	end
+
+	-- Restore original drag scripts
+	if mover.originalOnDragStart then
+		mover:SetScript('OnDragStart', mover.originalOnDragStart)
+		mover.originalOnDragStart = nil
+	end
+	if mover.originalOnDragStop then
+		mover:SetScript('OnDragStop', mover.originalOnDragStop)
+		mover.originalOnDragStop = nil
 	end
 end
 
@@ -366,11 +416,6 @@ end
 function MoverMode:SelectOverlay(mover)
 	if not mover then
 		return
-	end
-
-	-- Deselect any Blizzard EditMode selection first
-	if EditModeManagerFrame and EditModeManagerFrame.ClearSelectedSystem then
-		EditModeManagerFrame:ClearSelectedSystem()
 	end
 
 	-- Deselect previous SUI mover
@@ -402,7 +447,7 @@ function MoverMode:SelectOverlay(mover)
 	end
 end
 
----Start dragging a mover
+---Start dragging a mover (manual position tracking for real-time snapping)
 ---@param mover Frame The mover being dragged
 function MoverMode:StartDrag(mover)
 	if InCombatLockdown() then
@@ -412,8 +457,18 @@ function MoverMode:StartDrag(mover)
 
 	isDragging = true
 
-	-- Start moving the mover
-	mover:StartMoving()
+	-- Manual position tracking instead of StartMoving() so we can apply snaps during drag
+	local moverCenterX, moverCenterY = mover:GetCenter()
+	local cursorX, cursorY = GetCursorPosition()
+	local scale = mover:GetEffectiveScale()
+	if scale and scale > 0 then
+		cursorX = cursorX / scale
+		cursorY = cursorY / scale
+	end
+
+	-- Store cursor offset from frame center
+	mover.dragOffsetX = moverCenterX - cursorX
+	mover.dragOffsetY = moverCenterY - cursorY
 
 	-- Initialize magnetism for this drag session
 	local MagnetismManager = MoveIt.MagnetismManager
@@ -421,22 +476,47 @@ function MoverMode:StartDrag(mover)
 		MagnetismManager:BeginDragSession(mover)
 	end
 
-	-- Create OnUpdate frame for continuous snap detection during drag
+	-- Create OnUpdate frame for manual position tracking + snap detection
 	if not mover.dragUpdateFrame then
 		mover.dragUpdateFrame = CreateFrame('Frame')
 	end
 	mover.dragUpdateFrame:SetScript('OnUpdate', function()
-		-- Check IsActive() each frame to handle Shift key toggle on Classic
+		-- Get current cursor position in frame scale
+		local cx, cy = GetCursorPosition()
+		local s = mover:GetEffectiveScale()
+		if s and s > 0 then
+			cx = cx / s
+			cy = cy / s
+		end
+
+		-- Calculate target position (cursor + stored offset)
+		local targetX = cx + mover.dragOffsetX
+		local targetY = cy + mover.dragOffsetY
+
+		-- Check for snaps and apply deltas during drag
 		if MagnetismManager and MagnetismManager:IsActive() then
 			local snapInfo = MagnetismManager:CheckForSnaps(mover)
 			if snapInfo then
 				MagnetismManager:ShowPreviewLines(snapInfo)
+				-- Apply snap deltas to the target position in real-time
+				local deltaX, deltaY = MagnetismManager:GetSnapDeltas(mover, targetX, targetY, snapInfo)
+				targetX = targetX + deltaX
+				targetY = targetY + deltaY
 			else
 				MagnetismManager:HidePreviewLines()
 			end
 		elseif MagnetismManager then
-			-- Hide preview lines when magnetism is disabled
 			MagnetismManager:HidePreviewLines()
+		end
+
+		-- Apply position (anchored to BOTTOMLEFT for absolute screen coordinates)
+		mover:ClearAllPoints()
+		mover:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', targetX, targetY)
+
+		-- Update settings panel position display during drag
+		local SettingsPanel = MoveIt.SettingsPanel
+		if SettingsPanel and SettingsPanel.nudgeWidget and SettingsPanel.nudgeWidget.UpdatePositionDisplay then
+			SettingsPanel.nudgeWidget:UpdatePositionDisplay()
 		end
 	end)
 
@@ -455,22 +535,31 @@ function MoverMode:StopDrag(mover)
 	isDragging = false
 	local name = mover.name
 
-	-- Stop OnUpdate for snap detection
+	-- Stop OnUpdate for manual position tracking
 	if mover.dragUpdateFrame then
 		mover.dragUpdateFrame:SetScript('OnUpdate', nil)
 	end
 
-	-- Stop moving the mover
-	mover:StopMovingOrSizing()
-
-	-- Apply final snap if within range
+	-- Apply final snap for frame-to-frame re-anchoring (creates parent-child relationships)
 	local MagnetismManager = MoveIt.MagnetismManager
+	local wasSnappedToFrame = false
 	if MagnetismManager and MagnetismManager:IsActive() then
-		MagnetismManager:ApplyFinalSnap(mover)
+		wasSnappedToFrame = MagnetismManager:ApplyFinalSnap(mover)
 		MagnetismManager:EndDragSession()
 	elseif MagnetismManager then
-		-- Still need to end the session even if not snapping
 		MagnetismManager:EndDragSession()
+	end
+
+	-- If not anchored to another frame, normalize to CENTER anchor for consistency
+	if not wasSnappedToFrame then
+		local centerX, centerY = mover:GetCenter()
+		if centerX and centerY then
+			local uiCenterX, uiCenterY = UIParent:GetCenter()
+			local offsetX = centerX - uiCenterX
+			local offsetY = centerY - uiCenterY
+			mover:ClearAllPoints()
+			mover:SetPoint('CENTER', UIParent, 'CENTER', offsetX, offsetY)
+		end
 	end
 
 	-- Save position
@@ -488,45 +577,9 @@ function MoverMode:StopDrag(mover)
 	end
 end
 
--- Hook into Blizzard's EditMode button if it exists
--- EditModeManagerFrame is only available in Retail (Dragonflight+)
-if EditModeManagerFrame and EditModeManagerFrame.EnterEditMode then
-	-- Use Blizzard's EditMode button to toggle our custom system
-	hooksecurefunc(EditModeManagerFrame, 'EnterEditMode', function()
-		local isActive = EditModeManagerFrame:IsEditModeActive()
-		local isCustomActive = MoverMode:IsActive()
-		local isMigrating = MoveIt.WizardPage and MoveIt.WizardPage:IsMigrationInProgress()
-		if MoveIt.logger then
-			MoveIt.logger.debug(('EnterEditMode hook fired - IsEditModeActive: %s, MoverMode active: %s, IsMigrating: %s'):format(tostring(isActive), tostring(isCustomActive), tostring(isMigrating)))
-		end
-		-- Only enter custom edit mode if Edit Mode is actually active AND not during migration/wizard
-		-- During wizard, LibEMO:ApplyChanges() enters Edit Mode programmatically
-		if isActive and not isCustomActive and not isMigrating then
-			MoverMode:Enter()
-		end
-	end)
-
-	hooksecurefunc(EditModeManagerFrame, 'ExitEditMode', function()
-		if MoverMode:IsActive() then
-			MoverMode:Exit()
-		end
-	end)
-
-	-- Hook SelectSystem to deselect SUI movers when Blizzard selects something
-	hooksecurefunc(EditModeManagerFrame, 'SelectSystem', function()
-		if MoverMode:IsActive() then
-			MoverMode:DeselectOverlay()
-			-- Also hide our settings panel when Blizzard frame is selected
-			if MoverMode.HideSettingsPanel then
-				MoverMode:HideSettingsPanel()
-			end
-		end
-	end)
-end
-
--- Create slash command (register after MoveIt OnEnable)
--- This will be called from MoveIt.lua OnEnable function
+-- MoveIt mover system is fully independent of Blizzard's EditMode
+-- No EditMode hooks needed — MoverMode is activated directly via MoveIt:EnterMoveMode()
 
 if MoveIt.logger then
-	MoveIt.logger.info('Custom EditMode system loaded')
+	MoveIt.logger.info('Custom mover system loaded')
 end

@@ -441,36 +441,21 @@ function MagnetismManager:GetUIParentCheckPoints(movingFrame, verticalLines)
 	end
 end
 
----Check if grid snapping is active (Blizzard EditMode grid checkbox is checked)
+---Check if grid snapping is active (uses MoveIt's own setting)
 ---@return boolean
 function MagnetismManager:IsGridSnapActive()
-	-- Check if Blizzard's EditMode grid checkbox is actually checked
-	-- The grid can be shown but disabled, so we need to check the checkbox state
-	if EditModeManagerFrame and EditModeManagerFrame.ShowGridCheckButton and EditModeManagerFrame.ShowGridCheckButton.Button then
-		return EditModeManagerFrame.ShowGridCheckButton.Button:GetChecked()
+	if MoveIt.DB and MoveIt.DB.GridSnapEnabled ~= nil then
+		return MoveIt.DB.GridSnapEnabled
 	end
-	-- Fallback: check if grid is visible
-	if EditModeManagerFrame and EditModeManagerFrame.Grid and EditModeManagerFrame.Grid:IsShown() then
-		return true
-	end
-	return false
+	return true
 end
 
----Check if "Snap to elements" is enabled (Blizzard EditMode setting)
+---Check if "Snap to elements" is enabled (uses MoveIt's own setting)
 ---@return boolean
 function MagnetismManager:IsElementSnapActive()
-	-- Check Blizzard's "Snap to elements" checkbox (EnableSnapCheckButton)
-	if EditModeManagerFrame then
-		-- First check the direct property that gets set
-		if EditModeManagerFrame.snapEnabled ~= nil then
-			return EditModeManagerFrame.snapEnabled
-		end
-		-- Fallback: check the checkbox state
-		if EditModeManagerFrame.EnableSnapCheckButton and EditModeManagerFrame.EnableSnapCheckButton.Button then
-			return EditModeManagerFrame.EnableSnapCheckButton.Button:GetChecked()
-		end
+	if MoveIt.DB and MoveIt.DB.ElementSnapEnabled ~= nil then
+		return MoveIt.DB.ElementSnapEnabled
 	end
-	-- Default to true if we can't determine
 	return true
 end
 
@@ -1210,6 +1195,115 @@ function MagnetismManager:HidePreviewLines()
 	if self.previewLinesAvailable and self.previewLinePool then
 		self.previewLinePool:ReleaseAll()
 	end
+end
+
+---Calculate snap deltas for a frame at a hypothetical center position (used during manual drag OnUpdate)
+---@param movingFrame Frame The frame being moved
+---@param centerX number Hypothetical center X position
+---@param centerY number Hypothetical center Y position
+---@param snapInfos table Array of magnetic frame infos from CheckForSnaps
+---@return number deltaX, number deltaY Total snap adjustment to apply
+function MagnetismManager:GetSnapDeltas(movingFrame, centerX, centerY, snapInfos)
+	if not snapInfos or #snapInfos == 0 then
+		return 0, 0
+	end
+
+	local width, height = movingFrame:GetSize()
+	local halfW = width / 2
+	local halfH = height / 2
+
+	-- Calculate hypothetical edges from center position
+	local movingLeft = centerX - halfW
+	local movingRight = centerX + halfW
+	local movingTop = centerY + halfH
+	local movingBottom = centerY - halfH
+
+	local totalDeltaX, totalDeltaY = 0, 0
+
+	for _, info in ipairs(snapInfos) do
+		if not info or not info.frame then
+			-- skip
+		elseif info.isCornerSnap then
+			-- Corner snap - match specific corners
+			local movingPoint = self:GetCornerPosition(movingLeft, movingRight, movingBottom, movingTop, info.point)
+
+			local targetLeft, targetRight, targetBottom, targetTop = self:GetFrameSides(info.frame)
+			targetLeft = math.floor(targetLeft + 0.5)
+			targetRight = math.floor(targetRight + 0.5)
+			targetBottom = math.floor(targetBottom + 0.5)
+			targetTop = math.floor(targetTop + 0.5)
+			local targetPoint = self:GetCornerPosition(targetLeft, targetRight, targetBottom, targetTop, info.relativePoint)
+
+			totalDeltaX = targetPoint.x - movingPoint.x
+			totalDeltaY = targetPoint.y - movingPoint.y
+		elseif info.isHorizontal then
+			-- Horizontal snap (X axis)
+			local gridOffset = info.offset or 0
+
+			local targetEdgeX
+			if info.frame == UIParent then
+				targetEdgeX = self.uiParentCenterX + gridOffset
+			else
+				local targetLeft, targetRight = self:GetFrameSides(info.frame)
+				targetLeft = math.floor(targetLeft + 0.5)
+				targetRight = math.floor(targetRight + 0.5)
+				local targetCenterX = (targetLeft + targetRight) / 2
+
+				if info.relativePoint == 'LEFT' then
+					targetEdgeX = targetLeft
+				elseif info.relativePoint == 'RIGHT' then
+					targetEdgeX = targetRight
+				else
+					targetEdgeX = targetCenterX + gridOffset
+				end
+			end
+
+			local movingEdgeX
+			if info.point == 'LEFT' then
+				movingEdgeX = movingLeft
+			elseif info.point == 'RIGHT' then
+				movingEdgeX = movingRight
+			else
+				movingEdgeX = centerX
+			end
+
+			totalDeltaX = targetEdgeX - movingEdgeX
+		else
+			-- Vertical snap (Y axis)
+			local gridOffset = info.offset or 0
+
+			local targetEdgeY
+			if info.frame == UIParent then
+				targetEdgeY = self.uiParentCenterY + gridOffset
+			else
+				local _, _, targetBottom, targetTop = self:GetFrameSides(info.frame)
+				targetBottom = math.floor(targetBottom + 0.5)
+				targetTop = math.floor(targetTop + 0.5)
+				local targetCenterY = (targetBottom + targetTop) / 2
+
+				if info.relativePoint == 'TOP' then
+					targetEdgeY = targetTop
+				elseif info.relativePoint == 'BOTTOM' then
+					targetEdgeY = targetBottom
+				else
+					targetEdgeY = targetCenterY + gridOffset
+				end
+			end
+
+			local movingEdgeY
+			if info.point == 'TOP' then
+				movingEdgeY = movingTop
+			elseif info.point == 'BOTTOM' then
+				movingEdgeY = movingBottom
+			else
+				movingEdgeY = centerY
+			end
+
+			totalDeltaY = targetEdgeY - movingEdgeY
+		end
+	end
+
+	return totalDeltaX, totalDeltaY
 end
 
 ---Apply final snap and end drag session

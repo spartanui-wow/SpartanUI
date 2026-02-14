@@ -340,29 +340,19 @@ function UF:OnEnable()
 		end
 	end
 
-	-- Edit Mode integration (Retail only - TBC has incomplete EditModeManagerFrame)
+	-- Prevent Blizzard's EditMode from showing movers for SUI-managed unit frames
+	-- When user opens Blizzard's EditMode independently, uncheck SUI-managed frame types
 	if EditModeManagerFrame and SUI.IsRetail then
-		local CheckedItems = {}
-		local frames = { ['boss'] = 'Boss', ['raid'] = 'Raid', ['arena'] = 'Arena', ['party'] = 'Party' }
-		for k, v in pairs(frames) do
-			EditModeManagerFrame.AccountSettings.SettingsContainer[v .. 'Frames'].Button:HookScript('OnClick', function(...)
-				if EditModeManagerFrame.AccountSettings.SettingsContainer[v .. 'Frames']:IsControlChecked() then
-					CheckedItems[k] = v
-				else
-					CheckedItems[k] = nil
+		hooksecurefunc(EditModeManagerFrame, 'EnterEditMode', function()
+			local frames = { 'Boss', 'Raid', 'Arena', 'Party' }
+			for _, v in ipairs(frames) do
+				local container = EditModeManagerFrame.AccountSettings
+					and EditModeManagerFrame.AccountSettings.SettingsContainer
+					and EditModeManagerFrame.AccountSettings.SettingsContainer[v .. 'Frames']
+				if container and container.SetControlChecked then
+					container:SetControlChecked(false)
 				end
-
-				SUI.MoveIt:MoveIt(k)
-			end)
-		end
-
-		EditModeManagerFrame:HookScript('OnHide', function()
-			for k, v in pairs(CheckedItems) do
-				EditModeManagerFrame.AccountSettings.SettingsContainer[v .. 'Frames']:SetControlChecked(false)
-				SUI.MoveIt:MoveIt(k)
 			end
-			MoveIt.MoverWatcher:Hide()
-			MoveIt.MoveEnabled = false
 		end)
 	end
 

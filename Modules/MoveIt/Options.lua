@@ -312,6 +312,28 @@ function MoveIt:Options()
 				type = 'header',
 				order = 100,
 			},
+			GridSnapEnabled = {
+				name = 'Show Grid',
+				desc = 'Show a visible grid overlay and snap frames to grid lines when dragging.',
+				type = 'toggle',
+				order = 101,
+				get = function()
+					return MoveIt.DB.GridSnapEnabled ~= false
+				end,
+				set = function(_, val)
+					MoveIt.DB.GridSnapEnabled = val
+					if MoveIt.MagnetismManager then
+						MoveIt.MagnetismManager:UpdateGridLines()
+					end
+					if MoveIt.GridOverlay then
+						if val and MoveIt.MoverMode and MoveIt.MoverMode:IsActive() then
+							MoveIt.GridOverlay:Show()
+						else
+							MoveIt.GridOverlay:Hide()
+						end
+					end
+				end,
+			},
 			GridSpacing = {
 				name = 'Grid Spacing',
 				desc = 'Size of the snap grid in pixels. Movers will snap to multiples of this value.',
@@ -319,16 +341,30 @@ function MoveIt:Options()
 				min = 16,
 				max = 64,
 				step = 4,
-				order = 101,
-				get = function(info)
+				order = 102,
+				get = function()
 					return MoveIt.DB.GridSpacing or 32
 				end,
-				set = function(info, val)
+				set = function(_, val)
 					MoveIt.DB.GridSpacing = val
-					-- Update magnetism manager if it exists
 					if MoveIt.MagnetismManager then
 						MoveIt.MagnetismManager:UpdateGridLines()
 					end
+					if MoveIt.GridOverlay then
+						MoveIt.GridOverlay:Refresh()
+					end
+				end,
+			},
+			ElementSnapEnabled = {
+				name = 'Snap to Elements',
+				desc = 'Snap frames to other visible frame edges and corners when dragging.',
+				type = 'toggle',
+				order = 103,
+				get = function()
+					return MoveIt.DB.ElementSnapEnabled ~= false
+				end,
+				set = function(_, val)
+					MoveIt.DB.ElementSnapEnabled = val
 				end,
 			},
 			-- EditMode Profile Sync (Optional Feature)
