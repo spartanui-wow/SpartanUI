@@ -9,7 +9,7 @@ MoveIt.ControlToolbar = ControlToolbar
 
 -- Constants
 local TOOLBAR_WIDTH = 460
-local TOOLBAR_HEIGHT = 80
+local TOOLBAR_HEIGHT = 102
 local PADDING = 10
 local CONTROL_HEIGHT = 24
 
@@ -28,7 +28,7 @@ function ControlToolbar:Create()
 
 	local toolbar = CreateFrame('Frame', 'SUI_MoveIt_ControlToolbar', UIParent, BackdropTemplateMixin and 'BackdropTemplate')
 	toolbar:SetSize(TOOLBAR_WIDTH, TOOLBAR_HEIGHT)
-	toolbar:SetPoint('BOTTOM', UIParent, 'BOTTOM', 0, 100)
+	toolbar:SetPoint('TOP', UIParent, 'TOP', 0, -250)
 	toolbar:SetFrameStrata('DIALOG')
 	toolbar:SetFrameLevel(200)
 	toolbar:SetMovable(true)
@@ -65,11 +65,9 @@ function ControlToolbar:Create()
 	-- Controls row
 	local controlsY = -32
 
-	-- Done button (right side, prominent)
-	local doneBtn = CreateFrame('Button', nil, toolbar, 'UIPanelButtonTemplate')
-	doneBtn:SetSize(70, CONTROL_HEIGHT)
-	doneBtn:SetPoint('TOPRIGHT', toolbar, 'TOPRIGHT', -PADDING, controlsY)
-	doneBtn:SetText('Done')
+	-- Done button (bottom right) - black AH-style
+	local doneBtn = LibAT.UI.CreateButton(toolbar, 70, CONTROL_HEIGHT, 'Done', true)
+	doneBtn:SetPoint('BOTTOMRIGHT', toolbar, 'BOTTOMRIGHT', -5, 5)
 	doneBtn:SetScript('OnClick', function()
 		if MoveIt.MoverMode then
 			MoveIt.MoverMode:Exit()
@@ -77,11 +75,9 @@ function ControlToolbar:Create()
 	end)
 	toolbar.doneBtn = doneBtn
 
-	-- Reset All button (next to Done)
-	local resetBtn = CreateFrame('Button', nil, toolbar, 'UIPanelButtonTemplate')
-	resetBtn:SetSize(80, CONTROL_HEIGHT)
-	resetBtn:SetPoint('RIGHT', doneBtn, 'LEFT', -8, 0)
-	resetBtn:SetText('Reset All')
+	-- Reset All button (bottom left) - black AH-style
+	local resetBtn = LibAT.UI.CreateButton(toolbar, 80, CONTROL_HEIGHT, 'Reset All', true)
+	resetBtn:SetPoint('BOTTOMLEFT', toolbar, 'BOTTOMLEFT', 5, 5)
 	resetBtn:SetScript('OnClick', function()
 		StaticPopupDialogs['SUI_MOVEIT_RESET_ALL'] = {
 			text = 'Reset all frames to default positions? This cannot be undone.',

@@ -88,6 +88,45 @@ local BUILTIN_WIDGETS = {
 			end
 		end,
 	},
+	resetScale = {
+		type = 'button',
+		order = 21,
+		name = 'Reset Scale',
+		desc = 'Reset this frame back to normal size',
+		hidden = function()
+			local mover = SettingsPanel.currentMover
+			if mover and mover.name and MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers[mover.name] then
+				return MoveIt.DB.movers[mover.name].AdjustedScale == nil
+			end
+			return true
+		end,
+		func = function()
+			local mover = SettingsPanel.currentMover
+			if mover then
+				local name = mover.name
+				local parent = mover.parent
+
+				-- Reset scale to 1.0
+				if parent then
+					parent:SetScale(1)
+				end
+				mover:SetScale(1)
+
+				-- Clear saved scale
+				if MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers[name] then
+					MoveIt.DB.movers[name].AdjustedScale = nil
+				end
+
+				-- Hide scaled indicator
+				if mover.ScaledText then
+					mover.ScaledText:Hide()
+				end
+
+				-- Refresh panel to hide this button
+				SettingsPanel:BuildWidgets(mover)
+			end
+		end,
+	},
 	divider1 = {
 		type = 'divider',
 		order = 35,
@@ -468,7 +507,10 @@ function SettingsPanel:CreateFallbackWidgets(container, widgets, startOffset)
 	end)
 
 	for _, def in ipairs(sorted) do
-		if def.type == 'button' then
+		-- Check if hidden
+		if def.hidden and def.hidden() then
+			-- Skip hidden widgets
+		elseif def.type == 'button' then
 			local btn = CreateFrame('Button', nil, container, 'UIPanelButtonTemplate')
 			btn:SetSize(WIDGET_WIDTH, 25)
 			btn:SetPoint('TOPLEFT', container, 'TOPLEFT', 0, yOffset)

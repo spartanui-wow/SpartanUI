@@ -734,6 +734,52 @@ local function ArchaeologyBar()
 	end
 end
 
+local function HudTooltip()
+	local moverName = 'HudTooltip'
+	local frame = _G['GameTooltipDefaultContainer']
+
+	if not frame then
+		return
+	end
+
+	-- Check if mover is enabled
+	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+		RestoreOriginalPosition(moverName)
+		return
+	end
+
+	-- Cache original position before moving
+	CacheOriginalPosition(moverName, frame)
+
+	local holder = GenerateHolder(moverName, frame)
+	holder:SetSize(frame:GetSize())
+
+	-- Attach using BOTTOMRIGHT so GameTooltip_SetDefaultAnchor reads a corner
+	-- anchor from GetPoint(1) and positions tooltips correctly
+	frame:ClearAllPoints()
+	frame:SetPoint('BOTTOMRIGHT', holder, 'BOTTOMRIGHT')
+	frame.SUIHolder = holder
+	frame.SUIHolderMountPoint = 'BOTTOMRIGHT'
+
+	-- Prevent Blizzard Edit Mode from repositioning the container
+	hooksecurefunc(frame, 'SetPoint', function(self, _, anchor)
+		if self.SUIHolder and anchor ~= self.SUIHolder then
+			if InCombatLockdown() then
+				return
+			end
+			self:ClearAllPoints()
+			self:SetPoint('BOTTOMRIGHT', self.SUIHolder, 'BOTTOMRIGHT')
+		end
+	end)
+
+	MoveIt:CreateMover(holder, moverName, 'HUD Tooltip', nil, 'Blizzard UI')
+
+	-- Store holder reference
+	if module.BlizzMoverCache[moverName] then
+		module.BlizzMoverCache[moverName].holder = holder
+	end
+end
+
 -- This is the main inpoint
 function module.BlizzMovers()
 	-- Frames using LibEditModeOverride (Retail only):
@@ -750,4 +796,5 @@ function module.BlizzMovers()
 	TopCenterContainer() -- No EditMode support (UIWidgetTopCenterContainerFrame)
 	VehicleSeatIndicator() -- Has EditMode but not well supported
 	WidgetPowerBarContainer() -- No EditMode support
+	HudTooltip() -- Override Blizzard Edit Mode tooltip positioning
 end
