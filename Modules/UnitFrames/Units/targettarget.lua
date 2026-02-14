@@ -7,8 +7,7 @@ local elementList = {
 	'Power',
 	'Portrait',
 	'SpartanArt',
-	'Buffs',
-	'Debuffs',
+	-- Note: Buffs/Debuffs removed - C_UnitAuras.GetAuraSlots() doesn't support compound units (WoW 12.0+)
 	'RaidTargetIndicator',
 	'Range',
 	'ThreatIndicator',
