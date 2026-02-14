@@ -40,10 +40,10 @@ load_addon_config() {
 
     log_info "Loading config from $config..."
     [ -z "$ADDON_NAME" ] && ADDON_NAME=$(grep "^addon-name:" "$config" | sed 's/^addon-name: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
-    [ -z "$CF_URL" ] && CF_URL=$(grep "  curseforge:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
-    [ -z "$WAGO_URL" ] && WAGO_URL=$(grep "  wago:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
-    [ -z "$DISCORD_SUPPORT" ] && DISCORD_SUPPORT=$(grep "  discord:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
-    [ -z "$GH_PROJECT" ] && GH_PROJECT=$(grep "  roadmap:" "$config" | sed 's/.*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$CF_URL" ] && CF_URL=$(grep "  curseforge:" "$config" | sed 's/^[^:]*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$WAGO_URL" ] && WAGO_URL=$(grep "  wago:" "$config" | sed 's/^[^:]*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$DISCORD_SUPPORT" ] && DISCORD_SUPPORT=$(grep "  discord:" "$config" | sed 's/^[^:]*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
+    [ -z "$GH_PROJECT" ] && GH_PROJECT=$(grep "  roadmap:" "$config" | sed 's/^[^:]*: *"\{0,1\}\([^"]*\)"\{0,1\}/\1/' | sed 's/^ *//;s/ *$//')
     return 0
 }
 
@@ -107,7 +107,6 @@ detect_version() {
 # === BUILD JSON PAYLOAD ===
 build_payload() {
     local description=$(build_description)
-    local desc_json=$(json_escape "$description")
 
     # Determine color and title based on release type
     local color=$COLOR_STABLE
@@ -124,56 +123,76 @@ build_payload() {
     # Get current timestamp
     local timestamp=$(date -u +%Y-%m-%dT%H:%M:%S.000Z)
 
-    # Build download field value
-    local download_value=""
+    # Build download links array
+    local download_links=()
     if [ -n "$CF_URL" ]; then
-        download_value="[CurseForge]($CF_URL) (Recommended)"
+        download_links+=("$CF_URL|CurseForge (Recommended)")
     fi
     if [ -n "$WAGO_URL" ]; then
-        [ -n "$download_value" ] && download_value="$download_value\\n"
-        download_value="${download_value}[Wago Addons]($WAGO_URL)"
+        download_links+=("$WAGO_URL|Wago Addons")
     fi
-    [ -n "$download_value" ] && download_value="$download_value\\n"
-    download_value="${download_value}[GitHub Releases]($GH_RELEASES)"
+    download_links+=("$GH_RELEASES|GitHub Releases")
 
-    # Build support field value
-    local support_value=""
+    # Build support links array
+    local support_links=()
     if [ -n "$DISCORD_SUPPORT" ]; then
-        support_value="[Discord]($DISCORD_SUPPORT)"
+        support_links+=("$DISCORD_SUPPORT|Discord")
     fi
-    [ -n "$support_value" ] && support_value="$support_value\\n"
-    support_value="${support_value}[Report Issues]($GH_ISSUES)"
+    support_links+=("$GH_ISSUES|Report Issues")
     if [ -n "$GH_PROJECT" ]; then
-        support_value="$support_value\\n[Roadmap]($GH_PROJECT)"
+        support_links+=("$GH_PROJECT|Roadmap")
     fi
 
-    # Build the JSON payload
-    cat << EOJSON
-{
-  "embeds": [{
-    "title": "$title",
-    "url": "$title_url",
-    "description": $desc_json,
-    "color": $color,
-    "fields": [
-      {
-        "name": "Download",
-        "value": "$download_value",
-        "inline": true
-      },
-      {
-        "name": "Support",
-        "value": "$support_value",
-        "inline": true
-      }
-    ],
-    "footer": {
-      "text": "$ADDON_NAME - World of Warcraft"
-    },
-    "timestamp": "$timestamp"
-  }]
+    # Build the JSON payload using Python for proper escaping
+    python3 -c "
+import json
+import sys
+
+# Parse download links
+download_parts = '''${download_links[*]}'''.split()
+download_lines = []
+for part in download_parts:
+    if '|' in part:
+        url, label = part.split('|', 1)
+        download_lines.append(f'[{label}]({url})')
+download_value = '\\n'.join(download_lines)
+
+# Parse support links
+support_parts = '''${support_links[*]}'''.split()
+support_lines = []
+for part in support_parts:
+    if '|' in part:
+        url, label = part.split('|', 1)
+        support_lines.append(f'[{label}]({url})')
+support_value = '\\n'.join(support_lines)
+
+payload = {
+    'embeds': [{
+        'title': '''$title''',
+        'url': '''$title_url''',
+        'description': '''$description''',
+        'color': $color,
+        'fields': [
+            {
+                'name': 'Download',
+                'value': download_value,
+                'inline': True
+            },
+            {
+                'name': 'Support',
+                'value': support_value,
+                'inline': True
+            }
+        ],
+        'footer': {
+            'text': '''$ADDON_NAME - World of Warcraft'''
+        },
+        'timestamp': '''$timestamp'''
+    }]
 }
-EOJSON
+
+print(json.dumps(payload, ensure_ascii=False, indent=2))
+"
 }
 
 # === CHANGELOG PROCESSING ===
