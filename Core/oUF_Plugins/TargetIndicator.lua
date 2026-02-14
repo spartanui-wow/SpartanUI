@@ -18,7 +18,7 @@ do
 		-- Check states
 		local isTarget = UnitIsUnit(self.unit or unit, 'target') and (not DB or DB.ShowTarget)
 		local isFocus = UnitIsUnit(self.unit or unit, 'focus') and (not DB or DB.ShowFocus)
-		local isMouseover = (self:IsMouseOver() or (self.unit and UnitIsUnit(self.unit, 'mouseover'))) and (not DB or DB.ShowMouseover)
+		local isMouseover = (self.unit and UnitIsUnit(self.unit, 'mouseover')) and (not DB or DB.ShowMouseover)
 
 		-- Priority: target > focus > mouseover
 		local shouldShow = (isTarget or isFocus or isMouseover) and enabled
