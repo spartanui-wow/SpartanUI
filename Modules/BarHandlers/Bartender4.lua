@@ -569,12 +569,8 @@ local function OnEnable()
 		BT4Warning:RegisterEvent('ZONE_CHANGED_NEW_AREA')
 	end
 
-	--Disable BT4 Movement system
-	function Bartender4:Unlock()
-		-- print('Bartender4 movement system overridden by SpartanUI. Please use "/sui move" going forward.')
-		Unlock()
-	end
-
+	--Disable BT4 Movement system (SUI's MoveIt handles BT4 bar movers)
+	function Bartender4:Unlock() end
 	function Bartender4:Lock() end
 
 	-- Do what Bartender isn't - Make the Bag buttons the same size

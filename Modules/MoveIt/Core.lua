@@ -425,7 +425,9 @@ function MoveIt:OnEnable()
 	end, 'Toggle custom EditMode', nil, true)
 
 	local function OnKeyDown(self, key)
-		if MoveEnabled and key == 'ESCAPE' then
+		-- Check both legacy MoveEnabled flag and new MoverMode:IsActive()
+		local isMoveActive = MoveEnabled or (MoveIt.MoverMode and MoveIt.MoverMode:IsActive())
+		if isMoveActive and key == 'ESCAPE' then
 			if InCombatLockdown() then
 				self:SetPropagateKeyboardInput(true)
 				return
@@ -439,7 +441,6 @@ function MoveIt:OnEnable()
 
 	MoverWatcher:Hide()
 	MoverWatcher:SetFrameStrata('TOOLTIP')
-	MoverWatcher:SetScript('OnKeyDown', OnKeyDown)
 	MoverWatcher:SetScript('OnKeyDown', OnKeyDown)
 
 	self:RegisterEvent('PLAYER_REGEN_DISABLED', 'CombatLockdown')
@@ -459,6 +460,16 @@ function MoveIt:HandleProfileChange(event, database, newProfile)
 		local profileName = newProfile or SUI.SpartanUIDB:GetCurrentProfile()
 		MoveIt.EditModeProfileSync:OnSUIProfileChanged(event, database, profileName)
 	end
+end
+
+-- Expose MoverWatcher controls for MoverMode
+function MoveIt:ShowMoverWatcher()
+	MoverWatcher:Show()
+	MoverWatcher:EnableKeyboard(true)
+end
+
+function MoveIt:HideMoverWatcher()
+	MoverWatcher:Hide()
 end
 
 -- Expose shared state for other MoveIt files

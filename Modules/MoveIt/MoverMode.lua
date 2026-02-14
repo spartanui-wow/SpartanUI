@@ -163,6 +163,11 @@ function MoverMode:Enter()
 
 	isActive = true
 
+	-- Show MoverWatcher so it can intercept ESC key
+	if MoveIt.ShowMoverWatcher then
+		MoveIt:ShowMoverWatcher()
+	end
+
 	-- Show control toolbar
 	if MoveIt.ControlToolbar then
 		MoveIt.ControlToolbar:Show()
@@ -234,6 +239,11 @@ function MoverMode:Exit()
 
 	isActive = false
 	selectedOverlay = nil
+
+	-- Hide MoverWatcher so ESC key interception stops
+	if MoveIt.HideMoverWatcher then
+		MoveIt:HideMoverWatcher()
+	end
 
 	-- Hide control toolbar
 	if MoveIt.ControlToolbar then
