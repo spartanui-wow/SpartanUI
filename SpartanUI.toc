@@ -10,8 +10,7 @@
 ## X-Wago-ID: vEGPqeN1
 ## X-Github: https://github.com/spartanui-wow/SpartanUI
 ## X-oUF: SUIUF
-## RequiredDeps: LibsAddonTools
-## OptionalDeps: Bartender4
+## OptionalDeps: LibsAddonTools, Bartender4
 ## SavedVariables: SpartanUIDB, SUIErrorHandler
 ## SavedVariablesPerCharacter: SpartanUICharDB
 ## X-BugGrabber-Display: SUIErrorDisplay
@@ -24,6 +23,11 @@
 ## Category-ruRU: Пользовательский интерфейс
 ## Category-zhCN: 用户界面
 ## Category-zhTW: 使用者介面
+
+# ============================================
+# DEPENDENCY STUB (must load before everything)
+# ============================================
+Core\LibATStub.lua
 
 # ============================================
 # GENERAL LIBRARIES - SHARED (all versions)
