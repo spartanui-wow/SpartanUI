@@ -499,29 +499,35 @@ function MoverMode:StartDrag(mover)
 			cy = cy / s
 		end
 
-		-- Calculate target position (cursor + stored offset)
+		-- Calculate raw target position (cursor + stored offset, before any snapping)
 		local targetX = cx + mover.dragOffsetX
 		local targetY = cy + mover.dragOffsetY
 
-		-- Check for snaps and apply deltas during drag
+		-- Move mover to raw cursor position FIRST so snap detection reads the
+		-- unsnapped position. This prevents "sticky" snapping where the mover
+		-- can't break free from a grid line because CheckForSnaps was reading
+		-- the already-snapped position.
+		mover:ClearAllPoints()
+		mover:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', targetX, targetY)
+
+		-- Check for snaps at the raw position and apply deltas
 		if MagnetismManager and MagnetismManager:IsActive() then
 			local snapInfo = MagnetismManager:CheckForSnaps(mover)
 			if snapInfo then
 				MagnetismManager:ShowPreviewLines(snapInfo)
-				-- Apply snap deltas to the target position in real-time
 				local deltaX, deltaY = MagnetismManager:GetSnapDeltas(mover, targetX, targetY, snapInfo)
 				targetX = targetX + deltaX
 				targetY = targetY + deltaY
+
+				-- Apply snapped position
+				mover:ClearAllPoints()
+				mover:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', targetX, targetY)
 			else
 				MagnetismManager:HidePreviewLines()
 			end
 		elseif MagnetismManager then
 			MagnetismManager:HidePreviewLines()
 		end
-
-		-- Apply position (anchored to BOTTOMLEFT for absolute screen coordinates)
-		mover:ClearAllPoints()
-		mover:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', targetX, targetY)
 
 		-- Update settings panel position display during drag
 		local SettingsPanel = MoveIt.SettingsPanel

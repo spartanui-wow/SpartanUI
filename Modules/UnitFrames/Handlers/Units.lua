@@ -86,16 +86,67 @@ function Unit:Update(frame)
 	end
 
 	frameData.updater(frame)
+
+	-- Resize group holders so mover SizeChanged hook fires
+	-- Only resize the holder itself, not individual child frames
+	local unitName = frame.unitOnCreate
+	if Unit.defaultConfigs[unitName] and Unit.defaultConfigs[unitName].config.IsGroup then
+		local holder = BuiltFrames[unitName]
+		if holder then
+			holder:SetSize(Unit:GroupSize(unitName))
+		end
+	end
 end
 
+---Calculates the total size of a group frame holder.
+---Mirrors Blizzard's SecureGroupHeader configureChildren size formula.
+---All current group frames use vertical layout (point=TOP) where:
+---  singleColumnHeight = (unitsPerColumn - 1) * (frameHeight + ySpacing) + frameHeight
+---  singleColumnWidth = frameWidth
+---  totalWidth = singleColumnWidth + (maxColumns - 1) * (singleColumnWidth + columnSpacing)
 ---@param frameName UnitFrameName
 ---@return integer width
 ---@return integer height
 function Unit:GroupSize(frameName)
 	local CurFrameOpt = UF.CurrentSettings[frameName]
-	local FrameHeight = UF:CalculateHeight(frameName)
-	local height = (CurFrameOpt.unitsPerColumn or 10) * (FrameHeight + (CurFrameOpt.yOffset or 0))
-	local width = (CurFrameOpt.maxColumns or 4) * (CurFrameOpt.width + (CurFrameOpt.columnSpacing or 1))
+	local frameHeight = UF:CalculateHeight(frameName)
+	local frameWidth = CurFrameOpt.width
+	local unitsPerColumn = CurFrameOpt.unitsPerColumn or 10
+	local maxColumns = CurFrameOpt.maxColumns or 1
+	local columnSpacing = CurFrameOpt.columnSpacing or 0
+	local ySpacing = math.abs(CurFrameOpt.yOffset or 0)
+
+	-- Single column: frames stacked vertically with ySpacing gap between them
+	local columnHeight = (unitsPerColumn - 1) * (frameHeight + ySpacing) + frameHeight
+	local columnWidth = frameWidth
+
+	-- Multiple columns expand horizontally (columnAnchorPoint = LEFT)
+	local width = columnWidth + (maxColumns - 1) * (columnWidth + columnSpacing)
+	local height = columnHeight
+
+	if UF.BuildDebug then
+		UF:debug(
+			'GroupSize('
+				.. frameName
+				.. '): frameW='
+				.. frameWidth
+				.. ' frameH='
+				.. frameHeight
+				.. ' units='
+				.. unitsPerColumn
+				.. ' cols='
+				.. maxColumns
+				.. ' colSpacing='
+				.. columnSpacing
+				.. ' ySpacing='
+				.. ySpacing
+				.. ' => '
+				.. width
+				.. 'x'
+				.. height
+		)
+	end
+
 	return width, height
 end
 

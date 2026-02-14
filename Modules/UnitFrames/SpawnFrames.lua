@@ -14,6 +14,22 @@ function UF:CalculateHeight(frameName)
 	if elements.Power.enabled then
 		FrameHeight = FrameHeight + elements.Power.height
 	end
+
+	if UF.BuildDebug then
+		UF:debug(
+			'CalculateHeight('
+				.. frameName
+				.. '): Castbar='
+				.. (elements.Castbar.enabled and tostring(elements.Castbar.height) or 'OFF')
+				.. ' Health='
+				.. (elements.Health.enabled and tostring(elements.Health.height) or 'OFF')
+				.. ' Power='
+				.. (elements.Power.enabled and tostring(elements.Power.height) or 'OFF')
+				.. ' => '
+				.. FrameHeight
+		)
+	end
+
 	return FrameHeight
 end
 

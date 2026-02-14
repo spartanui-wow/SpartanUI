@@ -301,6 +301,36 @@ function UF:OnEnable()
 			local frame = UF.Unit:Get(unit)
 			if frame then
 				UF.Unit:Update(frame)
+				-- Resize holder to match calculated group size
+				frame:SetSize(UF.Unit:GroupSize(unit))
+
+				if UF.BuildDebug then
+					local holderW, holderH = frame:GetSize()
+					UF:debug('Group holder ' .. unit .. ' size after SetSize: ' .. holderW .. 'x' .. holderH)
+
+					-- Log header size if it exists
+					if frame.header then
+						local headerW, headerH = frame.header:GetSize()
+						UF:debug('  Header size: ' .. headerW .. 'x' .. headerH)
+						-- Log first child frame size
+						local child1 = frame.header:GetAttribute('child1')
+						if child1 then
+							local cw, ch = child1:GetSize()
+							UF:debug('  Child1 size: ' .. cw .. 'x' .. ch)
+						end
+					end
+
+					-- Log child frame sizes from holder.frames
+					if frame.frames then
+						UF:debug('  Child frames count: ' .. #frame.frames)
+						for i, child in ipairs(frame.frames) do
+							if i <= 3 then -- just first 3
+								local cw, ch = child:GetSize()
+								UF:debug('  frames[' .. i .. '] size: ' .. cw .. 'x' .. ch)
+							end
+						end
+					end
+				end
 			end
 		end
 	end
@@ -309,6 +339,14 @@ function UF:OnEnable()
 	for unit, config in pairs(UF.Unit:GetBuiltFrameList()) do
 		if not config.isChild then
 			MoveIt:CreateMover(UF.Unit:Get(unit), unit, nil, nil, 'Unit frames')
+
+			if UF.BuildDebug and config.IsGroup then
+				local frame = UF.Unit:Get(unit)
+				if frame and frame.mover then
+					local mw, mh = frame.mover:GetSize()
+					UF:debug('Mover for ' .. unit .. ' size: ' .. mw .. 'x' .. mh)
+				end
+			end
 		end
 	end
 
