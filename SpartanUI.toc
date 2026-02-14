@@ -10,7 +10,7 @@
 ## X-Wago-ID: vEGPqeN1
 ## X-Github: https://github.com/spartanui-wow/SpartanUI
 ## X-oUF: SUIUF
-## RequiredDeps: Libs-AddonTools
+## RequiredDeps: LibsAddonTools
 ## OptionalDeps: Bartender4
 ## SavedVariables: SpartanUIDB, SUIErrorHandler
 ## SavedVariablesPerCharacter: SpartanUICharDB

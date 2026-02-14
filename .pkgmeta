@@ -9,9 +9,3 @@ manual-changelog:
   markup-type: markdown
 
 enable-nolib-creation: no
-
-externals:
-  Libs-AddonTools: https://github.com/spartanui-wow/Libs-AddonTools.git
-
-move-folders:
-  SpartanUI/Libs-AddonTools: Libs-AddonTools
