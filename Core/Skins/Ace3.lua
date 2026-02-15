@@ -211,7 +211,19 @@ local function SkinAce3()
 				frame:SetClampedToScreen(true)
 				frame:RegisterForDrag('LeftButton')
 				frame:SetScript('OnDragStart', frame.StartMoving)
-				frame:SetScript('OnDragStop', frame.StopMovingOrSizing)
+				frame:SetScript('OnDragStop', function(self)
+					self:StopMovingOrSizing()
+					local widget = self.obj
+					if widget then
+						local status = widget.status or widget.localstatus
+						if status then
+							status.width = self:GetWidth()
+							status.height = self:GetHeight()
+							status.top = self:GetTop()
+							status.left = self:GetLeft()
+						end
+					end
+				end)
 			end
 
 			RemoveTextures(frame)
