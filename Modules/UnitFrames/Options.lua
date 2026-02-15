@@ -1568,7 +1568,7 @@ function Options:Initialize()
 					resetElement = {
 						name = L['Reset Element'],
 						type = 'execute',
-						order = 0,
+						order = 1.5,
 						hidden = function()
 							return not SUI.Options:hasChanges(UserSetting, UF.Unit.defaultConfigs[frameName].elements[elementName])
 						end,
