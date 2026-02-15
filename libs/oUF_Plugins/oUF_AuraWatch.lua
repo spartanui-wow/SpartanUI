@@ -164,6 +164,15 @@ local function postOnlyMissing(element, unit, offset)
 end
 
 local function updateIcon(element, unit, index, offset, filter, isDebuff, visible)
+	-- Validate unit token before calling GetAuraDataByIndex
+	-- API does not accept player/pet names or invalid tokens
+	local isValidUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
+
+	if not isValidUnit then
+		-- Invalid unit token (probably a player/pet name), skip this icon
+		return
+	end
+
 	local AuraData = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
 
 	if not AuraData then
