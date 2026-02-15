@@ -303,9 +303,9 @@ function MoveIt:OnInitialize()
 				},
 			},
 			-- Grid spacing for magnetism snap (pixels)
-			GridSpacing = 32,
+			GridSpacing = 40,
 			-- Grid snap: show grid overlay and snap to grid lines
-			GridSnapEnabled = true,
+			GridSnapEnabled = false,
 			-- Element snap: snap to other frame edges and corners
 			ElementSnapEnabled = true,
 			-- EditMode profile sync (optional feature)
@@ -361,6 +361,7 @@ function MoveIt:OnEnable()
 	if LibAT and LibAT.Logger then
 		MoveIt.logger = SUI.logger:RegisterCategory('MoveIt')
 		MoveIt.logger.info('MoveIt system initialized')
+		MoveIt.logger.debug(('FrameSnap loaded: %s, LibStub has LibSimpleSticky: %s'):format(tostring(MoveIt.FrameSnap ~= nil), tostring(LibStub and LibStub('LibSimpleSticky-1.0', true) ~= nil)))
 
 		-- Run migration handler (one-time cleanup)
 		if MoveIt.Migration then

@@ -222,23 +222,36 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 			return
 		end
 
-		self:StartMoving()
+		-- DUAL SNAPPING SYSTEM:
+		-- - LibSimpleSticky handles frame-to-frame snapping (via its own OnUpdate)
+		-- - MagnetismManager handles grid snapping (via our OnUpdate)
+
+		-- Start LibSimpleSticky for frame-to-frame snapping
+		local FrameSnap = MoveIt.FrameSnap
+		if MoveIt.logger then
+			MoveIt.logger.debug(('OnDragStart: FrameSnap=%s, hasIsEnabled=%s'):format(tostring(FrameSnap ~= nil), tostring(FrameSnap and FrameSnap.IsEnabled ~= nil)))
+		end
+		if FrameSnap and FrameSnap.IsEnabled and FrameSnap:IsEnabled() then
+			FrameSnap:StartSnapping(self)
+		else
+			self:StartMoving()
+		end
 
 		isDragging = true
 
-		-- Initialize magnetism for this drag session
+		-- Initialize magnetism for grid snapping only
 		local MagnetismManager = MoveIt.MagnetismManager
-		if MagnetismManager and MagnetismManager:IsActive() then
+		if MagnetismManager and MagnetismManager:IsGridSnapActive() then
 			MagnetismManager:BeginDragSession(self)
 		end
 
-		-- Create OnUpdate frame for continuous snap detection during drag
+		-- Create OnUpdate frame for grid snap preview lines
 		if not self.dragUpdateFrame then
 			self.dragUpdateFrame = CreateFrame('Frame')
 		end
 		self.dragUpdateFrame:SetScript('OnUpdate', function()
-			-- Check IsActive() each frame to handle Shift key toggle on Classic
-			if MagnetismManager and MagnetismManager:IsActive() then
+			-- Check IsGridSnapActive() each frame to handle toggle
+			if MagnetismManager and MagnetismManager:IsGridSnapActive() then
 				local snapInfo = MagnetismManager:CheckForSnaps(self)
 				if snapInfo then
 					MagnetismManager:ShowPreviewLines(snapInfo)
@@ -246,7 +259,7 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 					MagnetismManager:HidePreviewLines()
 				end
 			elseif MagnetismManager then
-				-- Hide preview lines when magnetism is disabled
+				-- Hide preview lines when grid snap is disabled
 				MagnetismManager:HidePreviewLines()
 			end
 
@@ -291,20 +304,30 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 			)
 		end
 
-		self:StopMovingOrSizing()
+		-- DUAL SNAPPING SYSTEM:
+		-- - LibSimpleSticky handles frame-to-frame snapping (StopMoving returns snap info)
+		-- - MagnetismManager handles grid snapping (ApplyFinalSnap)
 
-		-- Apply final snap if within range (may anchor to another frame)
-		local MagnetismManager = MoveIt.MagnetismManager
+		-- Stop LibSimpleSticky and check if we snapped to another frame
+		local FrameSnap = MoveIt.FrameSnap
 		local wasSnappedToFrame = false
-		if MagnetismManager and MagnetismManager:IsActive() then
-			wasSnappedToFrame = MagnetismManager:ApplyFinalSnap(self)
+		if FrameSnap and FrameSnap.StopSnapping and FrameSnap:IsEnabled() then
+			wasSnappedToFrame = FrameSnap:StopSnapping(self)
+		else
+			self:StopMovingOrSizing()
+		end
+
+		-- Apply grid snap if enabled (only if we didn't snap to a frame)
+		local MagnetismManager = MoveIt.MagnetismManager
+		if not wasSnappedToFrame and MagnetismManager and MagnetismManager:IsGridSnapActive() then
+			MagnetismManager:ApplyFinalSnap(self)
 			MagnetismManager:EndDragSession()
 		elseif MagnetismManager then
 			-- Still need to end the session even if not snapping
 			MagnetismManager:EndDragSession()
 		end
 
-		-- If not snapped to another frame, normalize to CENTER anchor for consistency
+		-- If not snapped to anything, normalize to CENTER anchor for consistency
 		if not wasSnappedToFrame then
 			-- Use the position from BEFORE StopMovingOrSizing
 			if preStopX and preStopY then

@@ -244,9 +244,11 @@ end
 
 -- Proximity range for frame-to-frame snapping (pixels)
 -- Frames must be within this distance to be considered for snapping
-MagnetismManager.proximityRange = 150
+-- This is a pre-filter to avoid checking every frame on screen
+MagnetismManager.proximityRange = 50
 
 ---Check if two frames are within proximity range (close enough to consider for snapping)
+---Uses LibSimpleSticky's approach: frames must overlap in one direction to be candidates
 ---@param frameA Frame First frame
 ---@param frameB Frame Second frame
 ---@return boolean
@@ -257,6 +259,22 @@ function MagnetismManager:IsWithinProximity(frameA, frameB)
 
 	local leftA, rightA, bottomA, topA = self:GetFrameSides(frameA)
 	local leftB, rightB, bottomB, topB = self:GetFrameSides(frameB)
+
+	-- CRITICAL FIX: Check if bounding boxes overlap in at least one direction
+	-- This prevents distant frames from becoming snap candidates even if aligned
+	-- (e.g., HudTooltip and BT4BarQueueStatus 400px apart horizontally but same Y level)
+	local xOverlap = (leftA <= rightB and leftB <= rightA)
+	local yOverlap = (bottomA <= topB and bottomB <= topA)
+
+	-- If frames don't overlap in either direction, they're too far apart
+	if not (xOverlap or yOverlap) then
+		if MoveIt.logger and self.debugLogging then
+			local nameA = (frameA.name or 'unknown')
+			local nameB = (frameB.name or 'unknown')
+			MoveIt.logger.debug(('Proximity REJECT (no overlap): %s -> %s'):format(nameA, nameB))
+		end
+		return false
+	end
 
 	-- Calculate the closest distance between the two frames' bounding boxes
 	local distX = 0
@@ -276,62 +294,30 @@ function MagnetismManager:IsWithinProximity(frameA, frameB)
 		distY = bottomA - topB
 	end
 
-	-- If either distance exceeds proximity range, frames are too far apart
-	return distX <= self.proximityRange and distY <= self.proximityRange
+	-- Both X and Y distance must be within proximity range
+	local isWithin = distX <= self.proximityRange and distY <= self.proximityRange
+
+	-- Debug logging for distance-based rejections
+	if MoveIt.logger and self.debugLogging and not isWithin and (distX > 100 or distY > 100) then
+		local nameA = (frameA.name or 'unknown')
+		local nameB = (frameB.name or 'unknown')
+		MoveIt.logger.debug(('Proximity REJECT (distance): %s -> %s (distX=%.1f, distY=%.1f, range=%d)'):format(nameA, nameB, distX, distY, self.proximityRange))
+	end
+
+	return isWithin
 end
 
 ---Get eligible magnetic frames for snapping
+---NOTE: With LibSimpleSticky handling frame-to-frame snapping, this now ONLY returns UIParent for grid snapping
 ---@param movingFrame Frame The frame being moved
 ---@return table eligibleFrames {horizontal = {}, vertical = {}}
 function MagnetismManager:GetEligibleMagneticFrames(movingFrame)
+	-- MagnetismManager now handles ONLY grid snapping
+	-- LibSimpleSticky (via FrameSnap) handles frame-to-frame snapping
 	local eligibleFrames = {
 		horizontal = { UIParent },
 		vertical = { UIParent },
 	}
-
-	-- Check if "Snap to elements" is enabled - if not, only snap to UIParent/grid
-	if not self:IsElementSnapActive() then
-		return eligibleFrames
-	end
-
-	-- Add SUI anchors if they exist and are within proximity
-	if SUI_BottomAnchor and SUI_BottomAnchor:IsShown() and self:IsWithinProximity(movingFrame, SUI_BottomAnchor) then
-		table.insert(eligibleFrames.horizontal, SUI_BottomAnchor)
-		table.insert(eligibleFrames.vertical, SUI_BottomAnchor)
-	end
-	if SUI_TopAnchor and SUI_TopAnchor:IsShown() and self:IsWithinProximity(movingFrame, SUI_TopAnchor) then
-		table.insert(eligibleFrames.horizontal, SUI_TopAnchor)
-		table.insert(eligibleFrames.vertical, SUI_TopAnchor)
-	end
-
-	-- Add other visible movers that are within proximity range
-	-- EXCEPT: frames that have circular dependency relationships
-	local moverCount = 0
-	local skippedChildren = 0
-	for name, mover in pairs(MoveIt.MoverList or {}) do
-		if mover and mover:IsShown() and mover ~= movingFrame then
-			-- Skip frames with circular dependencies:
-			-- 1. Frames currently anchored TO us (our children)
-			-- 2. Frames we have a registered relationship with (parent/child from initial positioning)
-			local isAnchored = self:IsFrameAnchoredTo(mover, movingFrame)
-			local hasRelationship = self:HasFrameRelationship(mover, movingFrame)
-
-			if isAnchored or hasRelationship then
-				skippedChildren = skippedChildren + 1
-			-- Only consider frames within proximity range
-			elseif self:IsWithinProximity(movingFrame, mover) then
-				table.insert(eligibleFrames.horizontal, mover)
-				table.insert(eligibleFrames.vertical, mover)
-				moverCount = moverCount + 1
-			end
-		end
-	end
-
-	-- Only log once per drag session, not every frame
-	if skippedChildren > 0 and MoveIt.logger and self.debugLogging and not self.loggedChildSkip then
-		self.loggedChildSkip = true
-		MoveIt.logger.debug(('Skipping %d frame(s) with dependencies on %s'):format(skippedChildren, movingFrame.name or 'unknown'))
-	end
 
 	return eligibleFrames
 end
@@ -867,8 +853,9 @@ end
 ---@param magneticFrameInfos table|nil Current snap info
 function MagnetismManager:UpdateSnapTargetHighlights(magneticFrameInfos)
 	-- Collect new snap targets (only frame-to-frame snaps, not UIParent/grid)
+	-- AND only if frame snapping is actually enabled
 	local newTargets = {}
-	if magneticFrameInfos then
+	if magneticFrameInfos and self:IsElementSnapActive() then
 		for _, info in ipairs(magneticFrameInfos) do
 			if info.frame and info.frame ~= UIParent then
 				newTargets[info.frame] = true
@@ -1324,6 +1311,9 @@ function MagnetismManager:ApplyFinalSnap(movingFrame)
 			local attached = self:SnapFrameToInfo(movingFrame, info)
 			if attached then
 				wasAttachedToFrame = true
+				-- Stop processing remaining snaps once attached to a frame
+				-- This prevents grid snaps from overwriting frame-to-frame anchors
+				break
 			end
 		end
 	else

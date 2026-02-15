@@ -7,6 +7,7 @@
 	<!-- Sub-modules -->
 	<Script file="PositionCalculator.lua"/>
 	<Script file="MagnetismManager.lua"/>
+	<Script file="FrameSnap.lua"/>
 	<Script file="GridOverlay.lua"/>
 	<Script file="ControlToolbar.lua"/>
 	<Script file="MoverMode.lua"/>

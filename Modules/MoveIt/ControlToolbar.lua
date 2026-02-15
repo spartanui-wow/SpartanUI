@@ -96,6 +96,7 @@ function ControlToolbar:Create()
 	toolbar.resetBtn = resetBtn
 
 	-- Show Grid checkbox (controls both grid visibility and grid snapping)
+	-- Mutually exclusive with Frame Snap
 	local gridCheck = CreateFrame('CheckButton', 'SUI_MoveIt_GridCheck', toolbar, 'UICheckButtonTemplate')
 	gridCheck:SetSize(CONTROL_HEIGHT, CONTROL_HEIGHT)
 	gridCheck:SetPoint('TOPLEFT', toolbar, 'TOPLEFT', PADDING, controlsY)
@@ -112,6 +113,11 @@ function ControlToolbar:Create()
 		if MoveIt.MagnetismManager then
 			MoveIt.MagnetismManager:UpdateGridLines()
 		end
+		-- Mutually exclusive: uncheck Frame Snap when Grid Snap is enabled
+		if checked and toolbar.elemSnapCheck then
+			MoveIt.DB.ElementSnapEnabled = false
+			toolbar.elemSnapCheck:SetChecked(false)
+		end
 	end)
 	local gridLabel = toolbar:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
 	gridLabel:SetPoint('LEFT', gridCheck, 'RIGHT', 2, 0)
@@ -119,11 +125,21 @@ function ControlToolbar:Create()
 	toolbar.gridCheck = gridCheck
 
 	-- Frame Snap checkbox (controls frame-to-frame snapping)
+	-- Mutually exclusive with Grid Snap
 	local elemSnapCheck = CreateFrame('CheckButton', 'SUI_MoveIt_ElemSnapCheck', toolbar, 'UICheckButtonTemplate')
 	elemSnapCheck:SetSize(CONTROL_HEIGHT, CONTROL_HEIGHT)
 	elemSnapCheck:SetPoint('LEFT', gridLabel, 'RIGHT', 12, 0)
 	elemSnapCheck:SetScript('OnClick', function(self)
-		MoveIt.DB.ElementSnapEnabled = self:GetChecked()
+		local checked = self:GetChecked()
+		MoveIt.DB.ElementSnapEnabled = checked
+		-- Mutually exclusive: uncheck Grid Snap when Frame Snap is enabled
+		if checked and toolbar.gridCheck then
+			MoveIt.DB.GridSnapEnabled = false
+			toolbar.gridCheck:SetChecked(false)
+			if MoveIt.GridOverlay then
+				MoveIt.GridOverlay:Hide()
+			end
+		end
 	end)
 	local elemSnapLabel = toolbar:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
 	elemSnapLabel:SetPoint('LEFT', elemSnapCheck, 'RIGHT', 2, 0)
@@ -133,16 +149,16 @@ function ControlToolbar:Create()
 	-- Grid Size slider
 	local gridSizeLabel = toolbar:CreateFontString(nil, 'OVERLAY', 'GameFontHighlightSmall')
 	gridSizeLabel:SetPoint('LEFT', elemSnapLabel, 'RIGHT', 14, 0)
-	gridSizeLabel:SetText('Grid: ' .. (MoveIt.DB.GridSpacing or 32))
+	gridSizeLabel:SetText('Grid: ' .. (MoveIt.DB.GridSpacing or 40))
 	toolbar.gridSizeLabel = gridSizeLabel
 
 	local gridSlider = CreateFrame('Slider', 'SUI_MoveIt_GridSlider', toolbar, 'OptionsSliderTemplate')
-	gridSlider:SetSize(80, 16)
+	gridSlider:SetSize(160, 16) -- Doubled width from 80 to 160
 	gridSlider:SetPoint('LEFT', gridSizeLabel, 'RIGHT', 6, 0)
 	gridSlider:SetMinMaxValues(16, 64)
 	gridSlider:SetValueStep(4)
 	gridSlider:SetObeyStepOnDrag(true)
-	gridSlider:SetValue(MoveIt.DB.GridSpacing or 32)
+	gridSlider:SetValue(MoveIt.DB.GridSpacing or 40)
 	-- Hide the built-in min/max/value text
 	local sliderLow = gridSlider.Low or _G[gridSlider:GetName() .. 'Low']
 	local sliderHigh = gridSlider.High or _G[gridSlider:GetName() .. 'High']
@@ -166,6 +182,17 @@ function ControlToolbar:Create()
 		if MoveIt.MagnetismManager then
 			MoveIt.MagnetismManager:UpdateGridLines()
 		end
+	end)
+	-- Enable mousewheel for easier value adjustment
+	gridSlider:EnableMouseWheel(true)
+	gridSlider:SetScript('OnMouseWheel', function(self, delta)
+		local currentValue = self:GetValue()
+		local step = self:GetValueStep()
+		local newValue = currentValue + (delta * step)
+		-- Clamp to min/max
+		local minVal, maxVal = self:GetMinMaxValues()
+		newValue = math.max(minVal, math.min(maxVal, newValue))
+		self:SetValue(newValue)
 	end)
 	toolbar.gridSlider = gridSlider
 

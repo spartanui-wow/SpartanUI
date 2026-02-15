@@ -170,6 +170,10 @@ local function updateIcon(element, unit, index, offset, filter, isDebuff, visibl
 
 	if not isValidUnit then
 		-- Invalid unit token (probably a player/pet name), skip this icon
+		-- Debug: Log the invalid unit for investigation
+		if SUI and SUI.logger then
+			SUI.logger.warning('AuraWatch: Invalid unit token detected: ' .. tostring(unit))
+		end
 		return
 	end
 
@@ -257,7 +261,17 @@ local function filterIcons(element, unit, filter, limit, isDebuff, offset, dontH
 end
 
 local function UpdateAuras(self, event, unit, isFullUpdate, updatedAuras)
-	if not unit or self.unit ~= unit then
+	-- Validate event unit token - allows update even if self.unit is invalid (player name)
+	-- This handles the case where frames have invalid unit tokens but events provide correct ones
+	local isValidEventUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
+
+	if not unit then
+		return
+	end
+
+	-- If event unit is valid, use it (even if self.unit doesn't match)
+	-- If event unit is invalid, require exact match with self.unit
+	if not isValidEventUnit and self.unit ~= unit then
 		return
 	end
 
@@ -292,7 +306,12 @@ local function UpdateAuras(self, event, unit, isFullUpdate, updatedAuras)
 end
 
 local function Update(self, event, unit)
-	if self.unit ~= unit then
+	-- Validate event unit token - allows update even if self.unit is invalid (player name)
+	local isValidEventUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
+
+	-- If event unit is valid, use it (even if self.unit doesn't match)
+	-- If event unit is invalid, require exact match with self.unit
+	if not unit or (not isValidEventUnit and self.unit ~= unit) then
 		return
 	end
 
