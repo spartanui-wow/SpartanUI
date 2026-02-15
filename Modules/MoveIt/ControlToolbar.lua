@@ -67,7 +67,7 @@ function ControlToolbar:Create()
 
 	-- Done button (bottom right) - black AH-style
 	local doneBtn = LibAT.UI.CreateButton(toolbar, 70, CONTROL_HEIGHT, 'Done', true)
-	doneBtn:SetPoint('BOTTOMRIGHT', toolbar, 'BOTTOMRIGHT', -5, 5)
+	doneBtn:SetPoint('BOTTOMRIGHT', toolbar, 'BOTTOMRIGHT', -5, 4)
 	doneBtn:SetScript('OnClick', function()
 		if MoveIt.MoverMode then
 			MoveIt.MoverMode:Exit()
@@ -77,7 +77,7 @@ function ControlToolbar:Create()
 
 	-- Reset All button (bottom left) - black AH-style
 	local resetBtn = LibAT.UI.CreateButton(toolbar, 80, CONTROL_HEIGHT, 'Reset All', true)
-	resetBtn:SetPoint('BOTTOMLEFT', toolbar, 'BOTTOMLEFT', 5, 5)
+	resetBtn:SetPoint('BOTTOMLEFT', toolbar, 'BOTTOMLEFT', 3, 3)
 	resetBtn:SetScript('OnClick', function()
 		StaticPopupDialogs['SUI_MOVEIT_RESET_ALL'] = {
 			text = 'Reset all frames to default positions? This cannot be undone.',

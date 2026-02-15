@@ -245,7 +245,7 @@ local DBdefault = {
 				['EncounterBar'] = 'TOP,UIParent,TOP,0,-90',
 				['TopCenterContainer'] = 'TOP,UIParent,TOP,0,-50',
 				['ArchaeologyBar'] = 'TOP,UIParent,TOP,0,-50',
-				['HudTooltip'] = 'BOTTOMRIGHT,UIParent,BOTTOMRIGHT,-100,220',
+				['HudTooltip'] = 'BOTTOMRIGHT,UIParent,BOTTOMRIGHT,-300,220',
 			},
 			Color = {
 				Art = false,
