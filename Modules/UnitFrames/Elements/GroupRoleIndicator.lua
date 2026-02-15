@@ -1,13 +1,51 @@
 local UF = SUI.UF
 
+-- Originally sourced from Blizzard_Deprecated/Deprecated_10_1_5.lua
+local function GetTexCoordsForRoleSmallCircle(role)
+	if role == 'TANK' then
+		return 0, 19 / 64, 22 / 64, 41 / 64
+	elseif role == 'HEALER' then
+		return 20 / 64, 39 / 64, 1 / 64, 20 / 64
+	elseif role == 'DAMAGER' then
+		return 20 / 64, 39 / 64, 22 / 64, 41 / 64
+	end
+end
+
 ---@param frame table
 local function Build(frame)
-	frame.GroupRoleIndicator = frame.raised:CreateTexture(nil, 'BORDER')
-	frame.GroupRoleIndicator:SetTexture('Interface\\AddOns\\SpartanUI\\images\\icon_role.tga')
-	frame.GroupRoleIndicator.Sizeable = true
-	frame.GroupRoleIndicator:Hide()
-	function frame.GroupRoleIndicator:PostUpdate(role)
-		local DB = frame.GroupRoleIndicator.DB
+	local element = frame.raised:CreateTexture(nil, 'BORDER')
+	element:SetTexture('Interface\\AddOns\\SpartanUI\\images\\icon_role.tga')
+	element.Sizeable = true
+	element:Hide()
+
+	-- Override oUF's Update function to use custom SpartanUI texture instead of atlas
+	element.Override = function(self, event)
+		local parent = self.GroupRoleIndicator
+
+		if parent.PreUpdate then
+			parent:PreUpdate()
+		end
+
+		local role = UnitGroupRolesAssigned(self.unit)
+		local customTexture = 'Interface\\AddOns\\SpartanUI\\images\\icon_role.tga'
+
+		if role == 'TANK' or role == 'HEALER' or role == 'DAMAGER' then
+			parent:SetTexture(customTexture)
+			-- Set texture coordinates for the specific role icon
+			parent:SetTexCoord(GetTexCoordsForRoleSmallCircle(role))
+			parent:Show()
+		else
+			parent:Hide()
+		end
+
+		if parent.PostUpdate then
+			return parent:PostUpdate(role)
+		end
+	end
+
+	-- PostUpdate handles visibility based on user settings
+	function element:PostUpdate(role)
+		local DB = element.DB
 		if DB.ShowTank and role == 'TANK' then
 			self:Show()
 		elseif DB.ShowHealer and role == 'HEALER' then
@@ -15,10 +53,11 @@ local function Build(frame)
 		elseif DB.ShowDPS and role == 'DAMAGER' then
 			self:Show()
 		else
-			-- if DB.ShowDPS and role == '' then
 			self:Hide()
 		end
 	end
+
+	frame.GroupRoleIndicator = element
 end
 
 ---@param unitName string
