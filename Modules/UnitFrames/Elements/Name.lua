@@ -47,6 +47,12 @@ end
 ---@param frame table
 local function Update(frame)
 	local DB = frame.Name.DB
+	if not DB.enabled then
+		frame.Name:Hide()
+		return
+	end
+	frame.Name:Show()
+
 	SUI.Font:Format(frame.Name, DB.textSize, 'UnitFrames')
 	frame.Name:SetJustifyH(DB.SetJustifyH)
 	frame.Name:SetJustifyV(DB.SetJustifyV)

@@ -1173,7 +1173,11 @@ function Options:AddDynamicText(frameName, OptionSet, element)
 						--Update memory
 						UF.CurrentSettings[frameName].elements[element].text[count].position[info[#info]] = val
 						--Update the DB
-						UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[element].text[count].position[info[#info]] = val
+						local userText = UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[element].text[count]
+						if not userText.position then
+							userText.position = {}
+						end
+						userText.position[info[#info]] = val
 						--Update the screen
 						local position = UF.CurrentSettings[frameName].elements[element].text[count].position
 						UF.Unit[frameName][element].TextElements[count]:ClearAllPoints()

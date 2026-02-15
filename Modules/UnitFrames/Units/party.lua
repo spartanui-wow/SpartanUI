@@ -62,6 +62,8 @@ local function GroupBuilder(holder)
 			'TOPLEFT',
 			'oUF-initialConfigFunction',
 			('self:SetWidth(%d) self:SetHeight(%d)'):format(UF.CurrentSettings.party.width, UF:CalculateHeight('party')),
+			'template',
+			'SUI_UNITPET, SUI_UNITTARGET',
 			'templateType',
 			'Button'
 		)

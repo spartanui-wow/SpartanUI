@@ -335,7 +335,9 @@ function UF:SpawnFrames()
 	-- Spawn all main frames
 	for frameName, config in pairs(UF.Unit:GetFrameList()) do
 		local settings = UF.CurrentSettings[frameName]
-		if settings.enabled then
+		-- Child group frames (partypet, partytarget) always need their holder created
+		-- so template-spawned children can register. The Updater controls visibility.
+		if settings.enabled or (config.isChild and config.IsGroup) then
 			if config.IsGroup then
 				local groupElement = UF.Unit:BuildGroup(frameName)
 				local firstElement = groupElement.header or groupElement.frames[1] or groupElement

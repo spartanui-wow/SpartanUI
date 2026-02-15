@@ -22,12 +22,14 @@ end
 
 local function Updater(frame)
 	local db = frame.DB
-	if not InCombatLockdown() then
-		if db.enabled then
-			frame:Enable()
-		else
-			frame:Disable()
-		end
+	if not db or InCombatLockdown() then
+		return
+	end
+
+	if db.enabled then
+		frame:Enable()
+	else
+		frame:Disable()
 	end
 end
 
