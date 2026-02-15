@@ -20,10 +20,10 @@ local UFPositionDefaults = {
 	['focus'] = 'BOTTOMLEFT,SUI_UF_target,TOP,0,30',
 	['focustarget'] = 'BOTTOMLEFT,SUI_UF_focus,BOTTOMRIGHT,5,0',
 	['boss'] = 'RIGHT,UIParent,RIGHT,-9,162',
-	['party'] = 'TOPLEFT,UIParent,TOPLEFT,20,-40',
+	['party'] = 'CENTER,UIParent,CENTER,132,4',
 	['partypet'] = 'BOTTOMRIGHT,frame,BOTTOMLEFT,-2,0',
 	['partytarget'] = 'LEFT,frame,RIGHT,2,0',
-	['raid'] = 'TOPLEFT,UIParent,TOPLEFT,20,-40',
+	['raid'] = 'CENTER,UIParent,CENTER,-730,-122',
 	['arena'] = 'RIGHT,UIParent,RIGHT,-366,191',
 }
 UF.Artwork = {}
