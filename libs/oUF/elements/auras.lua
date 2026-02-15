@@ -638,6 +638,16 @@ local function UpdateAuras(self, event, unit, updateInfo)
 			buffs.active = table.wipe(buffs.active or {})
 			buffsChanged = true
 
+			-- Validate unit token before calling GetAuraSlots
+			-- GetAuraSlots does not accept player/pet names or compound units
+			-- Valid unit tokens: player, pet, party1-4, raid1-40, boss1-8, arena1-5, target, focus, etc.
+			local isValidUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
+
+			if not isValidUnit then
+				-- Invalid unit token (probably a player/pet name), skip aura update
+				return
+			end
+
 			local slots = { C_UnitAuras.GetAuraSlots(unit, buffFilter) }
 			for i = 2, #slots do
 				local data = processData(buffs, unit, C_UnitAuras.GetAuraDataBySlot(unit, slots[i]), buffFilter)
@@ -753,6 +763,16 @@ local function UpdateAuras(self, event, unit, updateInfo)
 			debuffs.all = table.wipe(debuffs.all or {})
 			debuffs.active = table.wipe(debuffs.active or {})
 			debuffsChanged = true
+
+			-- Validate unit token before calling GetAuraSlots
+			-- GetAuraSlots does not accept player/pet names or compound units
+			-- Valid unit tokens: player, pet, party1-4, raid1-40, boss1-8, arena1-5, target, focus, etc.
+			local isValidUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
+
+			if not isValidUnit then
+				-- Invalid unit token (probably a player/pet name), skip aura update
+				return
+			end
 
 			local slots = { C_UnitAuras.GetAuraSlots(unit, debuffFilter) }
 			for i = 2, #slots do
