@@ -79,6 +79,7 @@ function module:OnEnable()
 	-- Register export blacklist patterns
 	if LibAT and LibAT.ProfileManager then
 		LibAT.ProfileManager:RegisterExportBlacklist({
+			'Chatbox.chatLog.history', -- Chat log history (transient data)
 			'StopTalking.history', -- Voice line history (can be large)
 			'StopTalking.whitelist', -- Whitelisted voice lines (transient data)
 		})
