@@ -76,6 +76,14 @@ function module:OnEnable()
 		SUI:Error('LibAT ProfileManager not available - profile import/export disabled')
 	end
 
+	-- Register export blacklist patterns
+	if LibAT and LibAT.ProfileManager then
+		LibAT.ProfileManager:RegisterExportBlacklist({
+			'StopTalking.history', -- Voice line history (can be large)
+			'StopTalking.whitelist', -- Whitelisted voice lines (transient data)
+		})
+	end
+
 	-- Register chat commands
 	SUI:AddChatCommand('export', module.ExportUI, 'Export your settings')
 	SUI:AddChatCommand('import', module.ImportUI, 'Import settings')
