@@ -606,19 +606,25 @@ function MoverMode:StopDrag(mover)
 		MagnetismManager:EndDragSession()
 	end
 
-	-- If frame-to-frame snap occurred, anchor to snap target
-	local wasSnappedToFrame = mover.frameSnapTarget ~= nil
-	if wasSnappedToFrame then
-		local LibSticky = LibStub and LibStub('LibSimpleSticky-1.0', true)
-		if LibSticky then
-			LibSticky:AnchorFrame(mover)
+	-- If frame-to-frame snap occurred, anchor to snap target (not parent)
+	local snapTarget = mover.frameSnapTarget
+	if snapTarget then
+		local xA, yA = mover:GetCenter()
+		local xB, yB = snapTarget:GetCenter()
+		local sA = mover:GetEffectiveScale()
+		local sB = snapTarget:GetEffectiveScale()
+		if xA and yA and xB and yB and sA and sA > 0 and sB then
+			xB, yB = (xB * sB) / sA, (yB * sB) / sA
+			local xo, yo = xA - xB, yA - yB
+			mover:ClearAllPoints()
+			mover:SetPoint('CENTER', snapTarget, 'CENTER', xo, yo)
 		end
 		if MoveIt.logger then
-			local targetName = mover.frameSnapTarget and (mover.frameSnapTarget.name or mover.frameSnapTarget:GetName()) or 'unknown'
+			local targetName = snapTarget.name or snapTarget:GetName() or 'unknown'
 			MoveIt.logger.debug(('Frame snap: %s anchored to %s'):format(name or 'unknown', targetName))
 		end
 	else
-		-- Normalize to CENTER anchor for consistency
+		-- Normalize to CENTER,UIParent for consistency
 		local centerX, centerY = mover:GetCenter()
 		if centerX and centerY then
 			local uiCenterX, uiCenterY = UIParent:GetCenter()
@@ -631,9 +637,12 @@ function MoverMode:StopDrag(mover)
 
 	mover.frameSnapTarget = nil
 
-	-- Save position
+	-- Save position and show (moved) indicator
 	if MoveIt.SaveMoverPosition and name then
 		MoveIt:SaveMoverPosition(name)
+	end
+	if mover.MovedText then
+		mover.MovedText:Show()
 	end
 
 	-- Call postdrag callback if exists
