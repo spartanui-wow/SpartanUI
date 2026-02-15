@@ -561,12 +561,7 @@ function MagnetismManager:FindClosestGridLine(movingFrame, verticalLines)
 			end
 		end
 
-		-- Only log grid snap if we found one within magnetism range (reduce spam)
-		if MoveIt.logger and self.debugLogging and closestGridLinePos and closestDistance and closestDistance <= self.magnetismRange then
-			MoveIt.logger.debug(
-				('Grid snap candidate: %s line at %.0f, frame %s, dist=%.1f, offset=%.0f'):format(verticalLines and 'V' or 'H', closestGridLinePos, closestPoint, closestDistance, closestOffset)
-			)
-		end
+		-- Grid snap logging handled in GetMagneticFrameInfos (rate limited)
 	end
 
 	return closestDistance, closestPoint, closestRelativePoint, closestOffset, closestGridLinePos
@@ -1122,10 +1117,6 @@ function MagnetismManager:SetupPreviewLine(line, info, anchor)
 			elseif anchor == 'Right' then
 				linePos = self.uiParentRight
 			end
-
-			if MoveIt.logger and self.debugLogging then
-				MoveIt.logger.debug(('SetupPreviewLine UIParent VERTICAL: anchor=%s lineX=%.0f gridOffset=%.0f'):format(anchor, linePos, gridOffset))
-			end
 		else
 			isVertical = false
 			if anchor == 'CenterHorizontal' then
@@ -1134,10 +1125,6 @@ function MagnetismManager:SetupPreviewLine(line, info, anchor)
 				linePos = self.uiParentTop
 			elseif anchor == 'Bottom' then
 				linePos = self.uiParentBottom
-			end
-
-			if MoveIt.logger and self.debugLogging then
-				MoveIt.logger.debug(('SetupPreviewLine UIParent HORIZONTAL: anchor=%s lineY=%.0f gridOffset=%.0f'):format(anchor, linePos, gridOffset))
 			end
 		end
 	else
