@@ -11,6 +11,10 @@ RaidRoleIndicator - A `Texture` representing the unit's raid assignment.
 
 This element updates by changing the texture.
 
+## Options
+
+.useAtlasSize - Makes the element use preprogrammed atlas' size instead of its set dimensions (boolean)
+
 ## Examples
 
     -- Position and size
@@ -25,9 +29,6 @@ This element updates by changing the texture.
 local _, ns = ...
 local oUF = ns.oUF
 
-local MAINTANK_ICON = [[Interface\GROUPFRAME\UI-GROUP-MAINTANKICON]]
-local MAINASSIST_ICON = [[Interface\GROUPFRAME\UI-GROUP-MAINASSISTICON]]
-
 local function Update(self, event)
 	local element = self.RaidRoleIndicator
 	local unit = self.unit
@@ -37,19 +38,19 @@ local function Update(self, event)
 
 	* self - the RaidRoleIndicator element
 	--]]
-	if(element.PreUpdate) then
+	if element.PreUpdate then
 		element:PreUpdate()
 	end
 
 	local role, isShown
-	if(UnitInRaid(unit) and not UnitHasVehicleUI(unit)) then
-		if(GetPartyAssignment('MAINTANK', unit)) then
+	if UnitInRaid(unit) and not UnitHasVehicleUI(unit) then
+		if GetPartyAssignment('MAINTANK', unit) then
 			isShown = true
-			element:SetTexture(MAINTANK_ICON)
+			element:SetAtlas('RaidFrame-Icon-MainTank', element.useAtlasSize)
 			role = 'MAINTANK'
-		elseif(GetPartyAssignment('MAINASSIST', unit)) then
+		elseif GetPartyAssignment('MAINASSIST', unit) then
 			isShown = true
-			element:SetTexture(MAINASSIST_ICON)
+			element:SetAtlas('RaidFrame-Icon-MainAssist', element.useAtlasSize)
 			role = 'MAINASSIST'
 		end
 	end
@@ -62,7 +63,7 @@ local function Update(self, event)
 	* self - the RaidRoleIndicator element
 	* role - the unit's raid assignment (string?)['MAINTANK', 'MAINASSIST']
 	--]]
-	if(element.PostUpdate) then
+	if element.PostUpdate then
 		return element:PostUpdate(role)
 	end
 end
@@ -84,7 +85,7 @@ end
 
 local function Enable(self)
 	local element = self.RaidRoleIndicator
-	if(element) then
+	if element then
 		element.__owner = self
 		element.ForceUpdate = ForceUpdate
 
@@ -96,7 +97,7 @@ end
 
 local function Disable(self)
 	local element = self.RaidRoleIndicator
-	if(element) then
+	if element then
 		element:Hide()
 
 		self:UnregisterEvent('GROUP_ROSTER_UPDATE', Path)

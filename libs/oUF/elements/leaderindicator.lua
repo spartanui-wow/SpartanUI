@@ -11,6 +11,10 @@ LeaderIndicator - A `Texture` used to display if the unit is a leader.
 
 This element updates by changing the texture.
 
+## Options
+
+.useAtlasSize - Makes the element use preprogrammed atlas' size instead of its set dimensions (boolean)
+
 ## Examples
 
     -- Position and size
@@ -34,7 +38,7 @@ local function Update(self, event)
 
 	* self - the LeaderIndicator element
 	--]]
-	if(element.PreUpdate) then
+	if element.PreUpdate then
 		element:PreUpdate()
 	end
 
@@ -49,19 +53,17 @@ local function Update(self, event)
 	-- true for the instance leader.
 	local isInLFGInstance = HasLFGRestrictions()
 	local isLeader
-	if(IsInInstance()) then
+	if IsInInstance() then
 		isLeader = UnitIsGroupLeader(unit)
 	else
 		isLeader = UnitLeadsAnyGroup(unit)
 	end
 
-	if(isLeader) then
-		if(isInLFGInstance) then
-			element:SetTexture([[Interface\LFGFrame\UI-LFG-ICON-PORTRAITROLES]])
-			element:SetTexCoord(0, 0.296875, 0.015625, 0.3125)
+	if isLeader then
+		if isInLFGInstance then
+			element:SetAtlas('UI-HUD-UnitFrame-Player-Group-GuideIcon', element.useAtlasSize)
 		else
-			element:SetTexture([[Interface\GroupFrame\UI-Group-LeaderIcon]])
-			element:SetTexCoord(0, 1, 0, 1)
+			element:SetAtlas('UI-HUD-UnitFrame-Player-Group-LeaderIcon', element.useAtlasSize)
 		end
 
 		element:Show()
@@ -76,7 +78,7 @@ local function Update(self, event)
 	* isLeader        - indicates whether the unit is the leader of the group (boolean)
 	* isInLFGInstance - indicates whether the current party is subject to LFG restrictions (boolean)
 	--]]
-	if(element.PostUpdate) then
+	if element.PostUpdate then
 		return element:PostUpdate(isLeader, isInLFGInstance)
 	end
 end
@@ -89,7 +91,7 @@ local function Path(self, ...)
 	* event - the event triggering the update (string)
 	* ...   - the arguments accompanying the event
 	--]]
-	return (self.LeaderIndicator.Override or Update) (self, ...)
+	return (self.LeaderIndicator.Override or Update)(self, ...)
 end
 
 local function ForceUpdate(element)
@@ -98,7 +100,7 @@ end
 
 local function Enable(self)
 	local element = self.LeaderIndicator
-	if(element) then
+	if element then
 		element.__owner = self
 		element.ForceUpdate = ForceUpdate
 
@@ -112,7 +114,7 @@ end
 
 local function Disable(self)
 	local element = self.LeaderIndicator
-	if(element) then
+	if element then
 		element:Hide()
 
 		self:UnregisterEvent('UNIT_FLAGS', Path)

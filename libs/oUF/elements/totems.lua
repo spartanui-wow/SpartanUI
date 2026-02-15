@@ -5,16 +5,12 @@ Handles the updating and visibility of totems.
 
 ## Widget
 
-Totems - A `table` to hold sub-widgets.
+Totems - A `table` to hold widgets of any kind.
 
 ## Sub-Widgets
 
-Totem - Any UI widget.
-
-## Sub-Widget Options
-
-.Icon     - A `Texture` representing the totem icon.
-.Cooldown - A `Cooldown` representing the duration of the totem.
+.Icon     - An optional `Texture` widget representing the totem icon.
+.Cooldown - An optional `Cooldown` widget representing the duration of the totem.
 
 ## Notes
 
@@ -92,10 +88,7 @@ local function UpdateTotem(self, event, slot)
 
 	local totem = element[TOTEM_PRIORITIES[slot]]
 	local haveTotem, name, start, duration, icon = GetTotemInfo(slot)
-	-- WoW 12.0+: haveTotem and duration can be secret values - check accessibility
-	local canAccessHave = canaccessvalue(haveTotem)
-	local canAccessDuration = canaccessvalue(duration)
-	if canAccessHave and canAccessDuration and haveTotem and duration > 0 then
+	if haveTotem and duration > 0 then
 		if totem.Icon then
 			totem.Icon:SetTexture(icon)
 		end

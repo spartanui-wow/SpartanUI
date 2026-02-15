@@ -9,7 +9,7 @@ PhaseIndicator - Any UI widget.
 
 ## Sub-Widgets
 
-Icon - A `Texture` to represent the phased status.
+.Icon - A `Texture` to represent the phased status.
 
 ## Notes
 
@@ -43,29 +43,35 @@ Used to populate the tooltip when the widget is hovered.
 --]]
 local function UpdateTooltip(element)
 	local text = PartyUtil.GetPhasedReasonString(element.reason, element.__owner.unit)
-	if(text) then
+	if text then
 		GameTooltip:SetText(text, nil, nil, nil, nil, true)
 		GameTooltip:Show()
 	end
 end
 
 local function onEnter(element)
-	if(GameTooltip:IsForbidden() or not element:IsVisible()) then return end
+	if GameTooltip:IsForbidden() or not element:IsVisible() then
+		return
+	end
 
-	if(element.reason) then
+	if element.reason then
 		GameTooltip:SetOwner(element, 'ANCHOR_BOTTOMRIGHT')
 		element:UpdateTooltip()
 	end
 end
 
 local function onLeave()
-	if(GameTooltip:IsForbidden()) then return end
+	if GameTooltip:IsForbidden() then
+		return
+	end
 
 	GameTooltip:Hide()
 end
 
 local function Update(self, event, unit)
-	if(self.unit ~= unit) then return end
+	if self.unit ~= unit then
+		return
+	end
 
 	local element = self.PhaseIndicator
 
@@ -74,14 +80,14 @@ local function Update(self, event, unit)
 
 	* self - the PhaseIndicator element
 	--]]
-	if(element.PreUpdate) then
+	if element.PreUpdate then
 		element:PreUpdate()
 	end
 
 	-- BUG: UnitPhaseReason returns wrong data for friendly NPCs in phased scenarios like WM or Chromie Time
 	-- https://github.com/Stanzilla/WoWUIBugs/issues/49
 	local phaseReason = UnitIsPlayer(unit) and UnitIsConnected(unit) and UnitPhaseReason(unit) or nil
-	if(phaseReason) then
+	if phaseReason then
 		element:Show()
 	else
 		element:Hide()
@@ -96,7 +102,7 @@ local function Update(self, event, unit)
 	* isInSamePhase - indicates whether the unit is in the same phase as the player (boolean)
 	* phaseReason   - the reason why the unit is in a different phase (number?)
 	--]]
-	if(element.PostUpdate) then
+	if element.PostUpdate then
 		return element:PostUpdate(not phaseReason, phaseReason)
 	end
 end
@@ -109,7 +115,7 @@ local function Path(self, ...)
 	* event - the event triggering the update (string)
 	* ...   - the arguments accompanying the event
 	--]]
-	return (self.PhaseIndicator.Override or Update) (self, ...)
+	return (self.PhaseIndicator.Override or Update)(self, ...)
 end
 
 local function ForceUpdate(element)
@@ -118,23 +124,23 @@ end
 
 local function Enable(self)
 	local element = self.PhaseIndicator
-	if(element) then
+	if element then
 		element.__owner = self
 		element.ForceUpdate = ForceUpdate
 
 		self:RegisterEvent('UNIT_PHASE', Path)
 
 		local icon = (element.Icon or element)
-		if(icon:IsObjectType('Texture') and not icon:GetTexture()) then
-			icon:SetTexture([[Interface\TargetingFrame\UI-PhasingIcon]])
+		if icon:IsObjectType('Texture') and not icon:GetTexture() then
+			icon:SetAtlas('RaidFrame-Icon-Phasing')
 		end
 
-		if(element.IsMouseEnabled and element:IsMouseEnabled()) then
-			if(not element:GetScript('OnEnter')) then
+		if element.IsMouseEnabled and element:IsMouseEnabled() then
+			if not element:GetScript('OnEnter') then
 				element:SetScript('OnEnter', onEnter)
 			end
 
-			if(not element:GetScript('OnLeave')) then
+			if not element:GetScript('OnLeave') then
 				element:SetScript('OnLeave', onLeave)
 			end
 
@@ -147,7 +153,7 @@ end
 
 local function Disable(self)
 	local element = self.PhaseIndicator
-	if(element) then
+	if element then
 		element:Hide()
 
 		self:UnregisterEvent('UNIT_PHASE', Path)
