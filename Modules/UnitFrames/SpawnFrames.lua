@@ -342,18 +342,29 @@ function UF:SpawnFrames()
 				local groupElement = UF.Unit:BuildGroup(frameName)
 				local firstElement = groupElement.header or groupElement.frames[1] or groupElement
 				if firstElement then
+					local isChildGroup = config.isChild and config.IsGroup
 					local function GroupFrameUpdateAll(groupFrame)
-						UnregisterAttributeDriver(firstElement, 'state-visibility')
-						if VisibilityCheck(frameName) and UF.CurrentSettings[frameName].enabled then
-							firstElement:Show()
-
+						if isChildGroup then
+							-- Child groups (partypet, partytarget) are managed by header template.
+							-- Always update children - the Updater handles individual visibility.
 							for _, f in pairs(groupFrame.frames) do
 								if f.UpdateAll then
 									f:UpdateAll()
 								end
 							end
 						else
-							firstElement:Hide()
+							UnregisterAttributeDriver(firstElement, 'state-visibility')
+							if VisibilityCheck(frameName) and UF.CurrentSettings[frameName].enabled then
+								firstElement:Show()
+
+								for _, f in pairs(groupFrame.frames) do
+									if f.UpdateAll then
+										f:UpdateAll()
+									end
+								end
+							else
+								firstElement:Hide()
+							end
 						end
 					end
 
