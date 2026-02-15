@@ -2120,14 +2120,7 @@ function module:CreateMover()
 		return
 	end
 
-	-- Set dirty dimensions to match actual Minimap circle, not the taller SUIMinimap holder
-	SUIMinimap.dirtyWidth = Minimap:GetWidth()
-	SUIMinimap.dirtyHeight = Minimap:GetHeight()
-
 	MoveIt:CreateMover(SUIMinimap, 'Minimap')
-
-	-- Use Minimap for future size tracking (not SUIMinimap which includes extra height)
-	MoveIt:UpdateMover('Minimap', Minimap, true)
 end
 
 function module:SwitchMinimapPosition(inVehicle)
