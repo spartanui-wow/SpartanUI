@@ -119,7 +119,11 @@ local function Update(frame)
 
 	-- Position click overlay on top of the active portrait (skip overlay mode - main frame already handles clicks)
 	if clickOverlay and DB.position ~= 'overlay' then
-		clickOverlay:SetAllPoints(frame.Portrait)
+		-- Can't use SetAllPoints on protected frame to a PlayerModel/Texture region
+		-- Instead, use two anchor points to match the portrait's bounds
+		local portrait = frame.Portrait
+		clickOverlay:SetPoint('TOPLEFT', portrait, 'TOPLEFT')
+		clickOverlay:SetPoint('BOTTOMRIGHT', portrait, 'BOTTOMRIGHT')
 		clickOverlay:SetScale(DB.scale)
 		clickOverlay:Show()
 	end
