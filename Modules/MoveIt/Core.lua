@@ -361,7 +361,6 @@ function MoveIt:OnEnable()
 	if LibAT and LibAT.Logger then
 		MoveIt.logger = SUI.logger:RegisterCategory('MoveIt')
 		MoveIt.logger.info('MoveIt system initialized')
-		MoveIt.logger.debug(('FrameSnap loaded: %s, LibStub has LibSimpleSticky: %s'):format(tostring(MoveIt.FrameSnap ~= nil), tostring(LibStub and LibStub('LibSimpleSticky-1.0', true) ~= nil)))
 
 		-- Run migration handler (one-time cleanup)
 		if MoveIt.Migration then

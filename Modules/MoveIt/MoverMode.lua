@@ -457,6 +457,37 @@ function MoverMode:SelectOverlay(mover)
 	end
 end
 
+---Build list of frames this mover can snap to (for LibSimpleSticky)
+---@param mover Frame The mover being dragged
+---@return table snapFrames List of frames to snap to
+local function BuildSnapTargetList(mover)
+	local snapFrames = {}
+	local MagnetismManager = MoveIt.MagnetismManager
+
+	-- Add SUI anchors
+	if SUI_BottomAnchor and SUI_BottomAnchor:IsShown() then
+		table.insert(snapFrames, SUI_BottomAnchor)
+	end
+	if SUI_TopAnchor and SUI_TopAnchor:IsShown() then
+		table.insert(snapFrames, SUI_TopAnchor)
+	end
+
+	-- Add other visible movers (except self and related frames)
+	for name, other in pairs(MoveIt.MoverList or {}) do
+		if other and other:IsShown() and other ~= mover then
+			local skip = false
+			if MagnetismManager then
+				skip = MagnetismManager:IsFrameAnchoredTo(other, mover) or MagnetismManager:HasFrameRelationship(other, mover)
+			end
+			if not skip then
+				table.insert(snapFrames, other)
+			end
+		end
+	end
+
+	return snapFrames
+end
+
 ---Start dragging a mover (manual position tracking for real-time snapping)
 ---@param mover Frame The mover being dragged
 function MoverMode:StartDrag(mover)
@@ -480,9 +511,14 @@ function MoverMode:StartDrag(mover)
 	mover.dragOffsetX = moverCenterX - cursorX
 	mover.dragOffsetY = moverCenterY - cursorY
 
-	-- Initialize magnetism for this drag session
+	-- Build frame snap target list (LibSimpleSticky integration)
+	local LibSticky = MoveIt.DB.ElementSnapEnabled and LibStub and LibStub('LibSimpleSticky-1.0', true) or nil
+	local snapFrames = LibSticky and BuildSnapTargetList(mover) or nil
+	mover.frameSnapTarget = nil
+
+	-- Initialize magnetism for grid snapping
 	local MagnetismManager = MoveIt.MagnetismManager
-	if MagnetismManager and MagnetismManager:IsActive() then
+	if MagnetismManager and MagnetismManager:IsGridSnapActive() then
 		MagnetismManager:BeginDragSession(mover)
 	end
 
@@ -503,23 +539,31 @@ function MoverMode:StartDrag(mover)
 		local targetX = cx + mover.dragOffsetX
 		local targetY = cy + mover.dragOffsetY
 
-		-- Move mover to raw cursor position FIRST so snap detection reads the
-		-- unsnapped position. This prevents "sticky" snapping where the mover
-		-- can't break free from a grid line because CheckForSnaps was reading
-		-- the already-snapped position.
+		-- Move mover to raw cursor position FIRST (before snap detection)
 		mover:ClearAllPoints()
 		mover:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', targetX, targetY)
 
-		-- Check for snaps at the raw position and apply deltas
-		if MagnetismManager and MagnetismManager:IsActive() then
+		-- Frame-to-frame snapping (LibSimpleSticky) - shift key bypasses
+		mover.frameSnapTarget = nil
+		if LibSticky and snapFrames and not IsShiftKeyDown() then
+			for _, other in ipairs(snapFrames) do
+				if other ~= mover and other:IsVisible() and mover ~= other:GetParent() then
+					if LibSticky:SnapFrame(mover, other, 0, 0, 0, 0) then
+						mover.frameSnapTarget = other
+						break
+					end
+				end
+			end
+		end
+
+		-- Grid snapping (only if not already snapped to a frame)
+		if not mover.frameSnapTarget and MagnetismManager and MagnetismManager:IsGridSnapActive() then
 			local snapInfo = MagnetismManager:CheckForSnaps(mover)
 			if snapInfo then
 				MagnetismManager:ShowPreviewLines(snapInfo)
 				local deltaX, deltaY = MagnetismManager:GetSnapDeltas(mover, targetX, targetY, snapInfo)
 				targetX = targetX + deltaX
 				targetY = targetY + deltaY
-
-				-- Apply snapped position
 				mover:ClearAllPoints()
 				mover:SetPoint('CENTER', UIParent, 'BOTTOMLEFT', targetX, targetY)
 			else
@@ -537,7 +581,7 @@ function MoverMode:StartDrag(mover)
 	end)
 
 	if MoveIt.logger then
-		MoveIt.logger.debug(('Start drag: %s'):format(mover.name or 'unknown'))
+		MoveIt.logger.debug(('Start drag: %s (frameSnap=%s, targets=%d)'):format(mover.name or 'unknown', tostring(LibSticky ~= nil), snapFrames and #snapFrames or 0))
 	end
 end
 
@@ -556,18 +600,25 @@ function MoverMode:StopDrag(mover)
 		mover.dragUpdateFrame:SetScript('OnUpdate', nil)
 	end
 
-	-- Apply final snap for frame-to-frame re-anchoring (creates parent-child relationships)
+	-- End grid snap session
 	local MagnetismManager = MoveIt.MagnetismManager
-	local wasSnappedToFrame = false
-	if MagnetismManager and MagnetismManager:IsActive() then
-		wasSnappedToFrame = MagnetismManager:ApplyFinalSnap(mover)
-		MagnetismManager:EndDragSession()
-	elseif MagnetismManager then
+	if MagnetismManager then
 		MagnetismManager:EndDragSession()
 	end
 
-	-- If not anchored to another frame, normalize to CENTER anchor for consistency
-	if not wasSnappedToFrame then
+	-- If frame-to-frame snap occurred, anchor to snap target
+	local wasSnappedToFrame = mover.frameSnapTarget ~= nil
+	if wasSnappedToFrame then
+		local LibSticky = LibStub and LibStub('LibSimpleSticky-1.0', true)
+		if LibSticky then
+			LibSticky:AnchorFrame(mover)
+		end
+		if MoveIt.logger then
+			local targetName = mover.frameSnapTarget and (mover.frameSnapTarget.name or mover.frameSnapTarget:GetName()) or 'unknown'
+			MoveIt.logger.debug(('Frame snap: %s anchored to %s'):format(name or 'unknown', targetName))
+		end
+	else
+		-- Normalize to CENTER anchor for consistency
 		local centerX, centerY = mover:GetCenter()
 		if centerX and centerY then
 			local uiCenterX, uiCenterY = UIParent:GetCenter()
@@ -577,6 +628,8 @@ function MoverMode:StopDrag(mover)
 			mover:SetPoint('CENTER', UIParent, 'CENTER', offsetX, offsetY)
 		end
 	end
+
+	mover.frameSnapTarget = nil
 
 	-- Save position
 	if MoveIt.SaveMoverPosition and name then

@@ -226,16 +226,7 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 		-- - LibSimpleSticky handles frame-to-frame snapping (via its own OnUpdate)
 		-- - MagnetismManager handles grid snapping (via our OnUpdate)
 
-		-- Start LibSimpleSticky for frame-to-frame snapping
-		local FrameSnap = MoveIt.FrameSnap
-		if MoveIt.logger then
-			MoveIt.logger.debug(('OnDragStart: FrameSnap=%s, hasIsEnabled=%s'):format(tostring(FrameSnap ~= nil), tostring(FrameSnap and FrameSnap.IsEnabled ~= nil)))
-		end
-		if FrameSnap and FrameSnap.IsEnabled and FrameSnap:IsEnabled() then
-			FrameSnap:StartSnapping(self)
-		else
-			self:StartMoving()
-		end
+		self:StartMoving()
 
 		isDragging = true
 
@@ -278,85 +269,7 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 		end
 		isDragging = false
 
-		-- Stop OnUpdate for snap detection
-		if self.dragUpdateFrame then
-			self.dragUpdateFrame:SetScript('OnUpdate', nil)
-		end
-
-		-- Get position BEFORE StopMovingOrSizing changes it
-		-- GetCenterOffset returns where the frame's center is relative to UIParent center
-		local preStopX, preStopY = MoveIt.PositionCalculator:GetCenterOffset(self)
-
-		if MoveIt.logger then
-			local point, anchor, secondaryPoint, x, y = self:GetPoint()
-			local anchorName = anchor and anchor:GetName() or 'nil'
-			MoveIt.logger.debug(
-				('OnDragStop %s: before StopMovingOrSizing anchor=%s,%s,%s,%.1f,%.1f centerOffset=%.1f,%.1f'):format(
-					self.name or 'unknown',
-					point or 'nil',
-					anchorName,
-					secondaryPoint or 'nil',
-					x or 0,
-					y or 0,
-					preStopX or 0,
-					preStopY or 0
-				)
-			)
-		end
-
-		-- DUAL SNAPPING SYSTEM:
-		-- - LibSimpleSticky handles frame-to-frame snapping (StopMoving returns snap info)
-		-- - MagnetismManager handles grid snapping (ApplyFinalSnap)
-
-		-- Stop LibSimpleSticky and check if we snapped to another frame
-		local FrameSnap = MoveIt.FrameSnap
-		local wasSnappedToFrame = false
-		if FrameSnap and FrameSnap.StopSnapping and FrameSnap:IsEnabled() then
-			wasSnappedToFrame = FrameSnap:StopSnapping(self)
-		else
-			self:StopMovingOrSizing()
-		end
-
-		-- Apply grid snap if enabled (only if we didn't snap to a frame)
-		local MagnetismManager = MoveIt.MagnetismManager
-		if not wasSnappedToFrame and MagnetismManager and MagnetismManager:IsGridSnapActive() then
-			MagnetismManager:ApplyFinalSnap(self)
-			MagnetismManager:EndDragSession()
-		elseif MagnetismManager then
-			-- Still need to end the session even if not snapping
-			MagnetismManager:EndDragSession()
-		end
-
-		-- If not snapped to anything, normalize to CENTER anchor for consistency
-		if not wasSnappedToFrame then
-			-- Use the position from BEFORE StopMovingOrSizing
-			if preStopX and preStopY then
-				if MoveIt.logger then
-					local moverScale = self:GetEffectiveScale()
-					local parentScale = self.parent and self.parent:GetEffectiveScale() or 1
-					local uiScale = UIParent:GetEffectiveScale()
-					MoveIt.logger.debug(
-						('OnDragStop %s: setting CENTER anchor to %.1f,%.1f (moverScale=%.3f parentScale=%.3f uiScale=%.3f)'):format(
-							self.name or 'unknown',
-							preStopX,
-							preStopY,
-							moverScale,
-							parentScale,
-							uiScale
-						)
-					)
-				end
-				self:ClearAllPoints()
-				self:SetPoint('CENTER', UIParent, 'CENTER', preStopX, preStopY)
-
-				-- Verify position after setting
-				if MoveIt.logger then
-					local point, anchor, secondaryPoint, x, y = self:GetPoint()
-					local anchorName = anchor and anchor:GetName() or 'nil'
-					MoveIt.logger.debug(('OnDragStop %s: after SetPoint verify=%s,%s,%s,%.1f,%.1f'):format(self.name or 'unknown', point or 'nil', anchorName, secondaryPoint or 'nil', x or 0, y or 0))
-				end
-			end
-		end
+		self:StopMovingOrSizing()
 
 		SaveMoverPosition()
 
