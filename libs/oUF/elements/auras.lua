@@ -639,12 +639,25 @@ local function UpdateAuras(self, event, unit, updateInfo)
 			buffsChanged = true
 
 			-- Validate unit token before calling GetAuraSlots
-			-- GetAuraSlots does not accept player/pet names or compound units
-			-- Valid unit tokens: player, pet, party1-4, raid1-40, boss1-8, arena1-5, target, focus, etc.
-			local isValidUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
+			-- GetAuraSlots does not accept player/pet names or compound units (e.g. partypet, focustarget)
+			local isValidUnit = unit
+				and type(unit) == 'string'
+				and (
+					unit == 'player'
+					or unit == 'pet'
+					or unit == 'target'
+					or unit == 'focus'
+					or unit == 'vehicle'
+					or unit == 'mouseover'
+					or unit:match('^party%d+$')
+					or unit:match('^raid%d+$')
+					or unit:match('^boss%d+$')
+					or unit:match('^arena%d+$')
+					or unit:match('^nameplate%d+$')
+					or unit:match('^spectated%d+$')
+				)
 
 			if not isValidUnit then
-				-- Invalid unit token (probably a player/pet name), skip aura update
 				return
 			end
 
@@ -765,12 +778,25 @@ local function UpdateAuras(self, event, unit, updateInfo)
 			debuffsChanged = true
 
 			-- Validate unit token before calling GetAuraSlots
-			-- GetAuraSlots does not accept player/pet names or compound units
-			-- Valid unit tokens: player, pet, party1-4, raid1-40, boss1-8, arena1-5, target, focus, etc.
-			local isValidUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
+			-- GetAuraSlots does not accept player/pet names or compound units (e.g. partypet, focustarget)
+			local isValidUnit = unit
+				and type(unit) == 'string'
+				and (
+					unit == 'player'
+					or unit == 'pet'
+					or unit == 'target'
+					or unit == 'focus'
+					or unit == 'vehicle'
+					or unit == 'mouseover'
+					or unit:match('^party%d+$')
+					or unit:match('^raid%d+$')
+					or unit:match('^boss%d+$')
+					or unit:match('^arena%d+$')
+					or unit:match('^nameplate%d+$')
+					or unit:match('^spectated%d+$')
+				)
 
 			if not isValidUnit then
-				-- Invalid unit token (probably a player/pet name), skip aura update
 				return
 			end
 
