@@ -53,8 +53,6 @@ Core\Handlers\MinimapErrorIcon.lua
 # ============================================
 # GENERAL LIBRARIES CONTINUED - SHARED
 # ============================================
-libs\LibCompress\lib.xml
-libs\LibBase64-1.0\lib.xml
 libs\HereBeDragons\HereBeDragons-2.0.lua
 libs\LibSharedMedia-3.0\lib.xml
 libs\AceGUI-3.0-SharedMediaWidgets\widget.xml

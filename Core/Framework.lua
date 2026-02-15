@@ -78,10 +78,7 @@ end
 ---@field AceDB AceDB-3.0
 ---@field AceDBO AceDBOptions-3.0
 ---@field AceGUI AceGUI-3.0
----@field Compress LibCompress
----@field LibBase64 LibBase64-1.0
 ---@field LSM LibSharedMedia-3.0
----@field LEM LibEditMode
 ---@field LibQTip LibQTip-2.0
 SUI.Lib = {}
 SUI.Handlers = {}
@@ -107,8 +104,6 @@ SUI.AddLib('AceCD', 'AceConfigDialog-3.0')
 SUI.AddLib('AceDB', 'AceDB-3.0')
 SUI.AddLib('AceDBO', 'AceDBOptions-3.0')
 SUI.AddLib('AceGUI', 'AceGUI-3.0')
-SUI.AddLib('Compress', 'LibCompress')
-SUI.AddLib('Base64', 'LibBase64-1.0-SUI')
 SUI.AddLib('LSM', 'LibSharedMedia-3.0')
 -- Retail-only libraries (EditMode is only complete on Retail)
 if SUI.IsRetail then
