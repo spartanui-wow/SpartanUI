@@ -1,8 +1,19 @@
 local _G, SUI = _G, SUI
 local module = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
 local MoveIt = SUI.MoveIt
--- Helper functions
--- local ExtraAB = SUI:NewModule('ExtraAB') ---@type SUI.Module
+
+local function GetBlizzMoverPosition(name)
+	local data = SUI.ThemeRegistry:GetBlizzMovers(SUI.DB.Artwork.Style)
+	if data and data[name] then
+		return data[name]
+	end
+	-- Legacy fallback for old SavedVariables
+	local styles = SUI.DB.Styles
+	if styles and styles[SUI.DB.Artwork.Style] and styles[SUI.DB.Artwork.Style].BlizzMovers then
+		return styles[SUI.DB.Artwork.Style].BlizzMovers[name]
+	end
+	return nil
+end
 
 -- Blizz Mover Management
 ---@class BlizzMoverCache
@@ -119,7 +130,7 @@ end
 local function GenerateHolder(name, frame)
 	local holder = CreateFrame('Frame', name .. 'Holder', UIParent)
 
-	local dbEntry = SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers[name]
+	local dbEntry = GetBlizzMoverPosition(name)
 	if dbEntry then
 		local point, anchor, secondaryPoint, x, y = strsplit(',', dbEntry)
 		holder:SetPoint(point, anchor, secondaryPoint, x, y)
@@ -166,7 +177,7 @@ local function TalkingHead()
 		return
 	end
 
-	local point, anchor, secondaryPoint, x, y = strsplit(',', SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers.TalkingHead)
+	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('TalkingHead') or 'TOP,SpartanUI,TOP,0,-18')
 	local THUIHolder = CreateFrame('Frame', 'THUIHolder', SpartanUI)
 	THUIHolder:SetPoint(point, anchor, secondaryPoint, x, y)
 	THUIHolder:Hide()
@@ -467,7 +478,7 @@ local function VehicleLeaveButton()
 		-- Cache original position before moving
 		CacheOriginalPosition(moverName, frame)
 
-		local point, _, secondaryPoint, x, y = strsplit(',', SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers.VehicleLeaveButton)
+		local point, _, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleLeaveButton') or 'BOTTOM,SpartanUI,BOTTOM,0,250')
 		local VehicleBtnHolder = CreateFrame('Frame', 'VehicleBtnHolder', SpartanUI)
 		VehicleBtnHolder:SetSize(frame:GetSize())
 		VehicleBtnHolder:SetPoint(point, UIParent, secondaryPoint, x, y)
@@ -510,7 +521,7 @@ local function VehicleSeatIndicator()
 	-- Cache original position before moving
 	CacheOriginalPosition(moverName, SeatIndicator)
 
-	local point, anchor, secondaryPoint, x, y = strsplit(',', SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers.VehicleSeatIndicator)
+	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleSeatIndicator') or 'RIGHT,SpartanUI,RIGHT,-10,-30')
 	local VehicleSeatHolder = CreateFrame('Frame', 'VehicleSeatHolder', SpartanUI)
 	VehicleSeatHolder:SetSize(SeatIndicator:GetSize())
 	VehicleSeatHolder:SetPoint(point, anchor, secondaryPoint, x, y)
@@ -658,7 +669,7 @@ local function EncounterBar()
 	holder:SetSize(200, 60) -- Default encounter bar size
 
 	-- Position from style
-	local point, anchor, secondaryPoint, x, y = strsplit(',', SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers.EncounterBar or 'CENTER,UIParent,CENTER,0,0')
+	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('EncounterBar') or 'CENTER,UIParent,CENTER,0,0')
 	holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 
 	-- Create mover
@@ -709,7 +720,7 @@ local function ArchaeologyBar()
 	holder:SetSize(200, 40) -- Default archaeology bar size
 
 	-- Position from style
-	local point, anchor, secondaryPoint, x, y = strsplit(',', SUI.DB.Styles[SUI.DB.Artwork.Style].BlizzMovers.ArchaeologyBar or 'CENTER,UIParent,CENTER,0,0')
+	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('ArchaeologyBar') or 'CENTER,UIParent,CENTER,0,0')
 	holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 
 	-- Create mover
