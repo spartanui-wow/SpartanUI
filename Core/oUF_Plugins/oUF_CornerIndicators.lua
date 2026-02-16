@@ -103,13 +103,19 @@ local function CheckCorner_NewAPI(unit, cornerCfg)
 
 	if trackType == 'debuffType' then
 		-- Scan HARMFUL auras for matching dispel type
-		-- Use table lookup instead of == comparison (secret values can be table keys but not compared)
-		local match = { [trackValue] = true }
+		-- WoW 12.0: aura.dispelName can be secret - cannot use as table key OR in comparisons
 		local found = false
 		AuraUtil.ForEachAura(unit, 'HARMFUL', nil, function(aura)
-			if aura.dispelName and match[aura.dispelName] then
-				found = true
-				return true -- Stop iteration
+			if aura.dispelName then
+				-- Check if value is accessible before using it
+				local SUI = SUI
+				if SUI and SUI.BlizzAPI and SUI.BlizzAPI.canaccessvalue(aura.dispelName) then
+					-- Safe to compare
+					if aura.dispelName == trackValue then
+						found = true
+						return true -- Stop iteration
+					end
+				end
 			end
 		end, true)
 		return found
@@ -122,13 +128,19 @@ local function CheckCorner_NewAPI(unit, cornerCfg)
 		return aura ~= nil
 	elseif trackType == 'buff' then
 		-- Scan HELPFUL auras for matching name
-		-- Use table lookup instead of == comparison (secret values can be table keys but not compared)
-		local match = { [trackValue] = true }
+		-- WoW 12.0: aura.name can be secret - cannot use as table key OR in comparisons
 		local found = false
 		AuraUtil.ForEachAura(unit, 'HELPFUL', nil, function(aura)
-			if aura.name and match[aura.name] then
-				found = true
-				return true
+			if aura.name then
+				-- Check if value is accessible before using it
+				local SUI = SUI
+				if SUI and SUI.BlizzAPI and SUI.BlizzAPI.canaccessvalue(aura.name) then
+					-- Safe to compare
+					if aura.name == trackValue then
+						found = true
+						return true
+					end
+				end
 			end
 		end, true)
 		return found

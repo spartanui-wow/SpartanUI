@@ -1,14 +1,21 @@
 -- oUF RaidDebuffs Element
--- Shows important debuffs (CC, boss mechanics, dispellable) on raid/party frames
+-- DEPRECATED: This plugin is no longer used by the RaidDebuffs element.
 --
--- RETAIL 12.1+: Uses CROWD_CONTROL and RAID_PLAYER_DISPELLABLE aura filters
--- RETAIL 12.0: Uses secret-value-safe APIs and color curves for dispel detection
--- CLASSIC: Uses full aura data access with priority system
+-- The modern RaidDebuffs element (Modules/UnitFrames/Elements/RaidDebuffs.lua)
+-- uses the standard oUF Debuffs system with HARMFUL|RAID filter instead.
+--
+-- This file is kept for potential future Classic-specific needs but is not
+-- registered or used in the current implementation.
 
 local _, ns = ...
 local oUF = ns.oUF or oUF
 
 if not oUF then
+	return
+end
+
+-- Early return - this plugin is no longer used
+do
 	return
 end
 
