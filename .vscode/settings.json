@@ -1241,7 +1241,8 @@
     "UIFrameFadeIn",
     "UIFrameFadeOut",
     "ChallengesFrame",
-    "SecondsToTime"
+    "SecondsToTime",
+    "GameFontNormalSmall"
   ],
   "Lua.workspace.ignoreDir": [".vscode", "libs/*"],
   "Lua.diagnostics.enable": true,
