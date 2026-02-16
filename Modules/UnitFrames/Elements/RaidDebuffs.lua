@@ -2,73 +2,76 @@ local UF = SUI.UF
 local L = SUI.L
 
 -- ============================================================
--- RAID DEBUFFS ELEMENT
--- Shows a large center icon for important debuffs (CC, boss mechanics)
+-- RAID DEBUFFS ELEMENT (Retail + Classic)
+-- Shows a single large center icon for the highest priority raid debuff
 --
--- The oUF plugin (Core/oUF_Plugins/oUF_RaidDebuffs.lua) handles:
--- - Finding the most important debuff using priority system
--- - Secret-value-safe APIs for Retail
--- - Dispel type detection and border coloring
--- - Duration display via cooldown spiral or text
---
--- This element file handles:
--- - Building the visual frame (icon, cooldown, border, text)
--- - Applying user settings (size, position, enabled state)
--- - Options UI
+-- Uses modern C_UnitAuras filter system (HARMFUL|RAID) instead of legacy plugin
+-- This is essentially "Debuffs with num=1 and RAID filter" but with custom positioning
 -- ============================================================
+
+---@param element any
+---@param unit? UnitId
+---@param isFullUpdate? boolean
+local function updateSettings(element, unit, isFullUpdate)
+	local DB = element.DB
+	element.size = DB.size or 32
+	element.num = 1 -- Always show only 1 debuff (highest priority)
+	element.spacing = 0
+	element.initialAnchor = 'CENTER'
+	element.growthX = 'RIGHT'
+	element.growthY = 'DOWN'
+end
 
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	-- Create the main container
-	local element = CreateFrame('Frame', nil, frame)
-	element.DB = DB
+	-- Create debuff display using oUF's Debuffs system
+	local element = CreateFrame('Frame', frame.unitOnCreate .. 'RaidDebuffs', frame.raised or frame)
+
+	element.PostUpdateButton = function(self, button, unit, data, position)
+		button.data = data
+		button.unit = unit
+		-- Always show duration via cooldown spiral (Retail-safe)
+		button.showDuration = false -- Text duration disabled (uses cooldown spiral instead)
+	end
+
+	element.PostCreateButton = function(self, button)
+		-- Use same button creation as Debuffs element
+		UF.Auras:PostCreateButton('Debuffs', button)
+	end
+
+	---@param unit UnitId
+	---@param data UnitAuraInfo
+	local FilterAura = function(element, unit, data)
+		-- Override filter to use HARMFUL|RAID specifically for raid debuffs
+		local customElement = {
+			DB = {
+				retail = {
+					filterMode = 'raid_debuffs', -- Uses HARMFUL|RAID filter
+				},
+				classic = element.DB.classic or {},
+			},
+		}
+		return UF.Auras:Filter(customElement, unit, data)
+	end
+
+	local PreUpdate = function(self)
+		updateSettings(element)
+		-- Sort by priority (highest priority shown first)
+		element.SortDebuffs = UF.Auras:CreateSortFunction('priority')
+	end
+
+	-- Set FilterAura for both Retail and Classic
+	element.FilterAura = FilterAura
+	element.PreUpdate = PreUpdate
+
+	-- Position manually (not using SizeChange from Debuffs since we're always 1 icon)
 	element:SetSize(DB.size or 32, DB.size or 32)
-	element:SetPoint(DB.position and DB.position.anchor or 'CENTER', frame, DB.position and DB.position.anchor or 'CENTER', DB.position and DB.position.x or 0, DB.position and DB.position.y or 0)
-	element:SetFrameLevel(frame:GetFrameLevel() + 10)
+	local anchor = DB.position and DB.position.anchor or 'CENTER'
+	local x = DB.position and DB.position.x or 0
+	local y = DB.position and DB.position.y or 0
+	element:SetPoint(anchor, frame, anchor, x, y)
 
-	-- Background
-	local bg = element:CreateTexture(nil, 'BACKGROUND')
-	bg:SetAllPoints()
-	bg:SetColorTexture(0, 0, 0, 0.5)
-	element.bg = bg
-
-	-- Icon texture
-	local icon = element:CreateTexture(nil, 'ARTWORK')
-	icon:SetPoint('TOPLEFT', element, 'TOPLEFT', 2, -2)
-	icon:SetPoint('BOTTOMRIGHT', element, 'BOTTOMRIGHT', -2, 2)
-	icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-	element.icon = icon
-
-	-- Border (colored by dispel type)
-	local border = element:CreateTexture(nil, 'OVERLAY')
-	border:SetAllPoints()
-	border:SetTexture('Interface\\Buttons\\UI-ActionButton-Border')
-	border:SetBlendMode('ADD')
-	element.border = border
-
-	-- Cooldown spiral
-	local cd = CreateFrame('Cooldown', nil, element, 'CooldownFrameTemplate')
-	cd:SetAllPoints(icon)
-	cd:SetDrawEdge(false)
-	cd:SetHideCountdownNumbers(true)
-	element.cd = cd
-
-	-- Duration text (for Classic, or as fallback)
-	local time = element:CreateFontString(nil, 'OVERLAY')
-	time:SetFont(SUI.Font:GetFont('UnitFrames'), 12, 'OUTLINE')
-	time:SetPoint('CENTER', element, 'CENTER', 0, 0)
-	time:SetJustifyH('CENTER')
-	element.time = time
-
-	-- Stack count
-	local count = element:CreateFontString(nil, 'OVERLAY')
-	count:SetFont(SUI.Font:GetFont('UnitFrames'), 10, 'OUTLINE')
-	count:SetPoint('BOTTOMRIGHT', element, 'BOTTOMRIGHT', -1, 1)
-	count:SetJustifyH('RIGHT')
-	element.count = count
-
-	element:Hide()
 	frame.RaidDebuffs = element
 end
 
@@ -76,28 +79,15 @@ end
 ---@param settings? table
 local function Update(frame, settings)
 	local element = frame.RaidDebuffs
-	if not element then
-		return
-	end
-
 	local DB = settings or element.DB
-	if not DB then
-		return
-	end
-	element.DB = DB
 
-	-- Store showDuration setting for oUF plugin to use
-	element.showDuration = DB.showDuration
-
-	-- Check if enabled
-	if not DB.enabled then
+	if DB.enabled then
+		element:Show()
+	else
 		element:Hide()
-		return
 	end
 
-	-- Update size from settings
-	local size = DB.size or 32
-	element:SetSize(size, size)
+	updateSettings(element)
 
 	-- Update position
 	element:ClearAllPoints()
@@ -105,6 +95,9 @@ local function Update(frame, settings)
 	local x = DB.position and DB.position.x or 0
 	local y = DB.position and DB.position.y or 0
 	element:SetPoint(anchor, frame, anchor, x, y)
+
+	-- Update size
+	element:SetSize(DB.size or 32, DB.size or 32)
 
 	-- Force oUF to update the element
 	if element.ForceUpdate then
@@ -125,7 +118,7 @@ local function Options(unitName, OptionSet)
 
 	OptionSet.args.size = {
 		name = L['Size'],
-		desc = L['Size of the debuff icon'],
+		desc = L['Size of the raid debuff icon'],
 		type = 'range',
 		order = 1,
 		min = 16,
@@ -139,30 +132,37 @@ local function Options(unitName, OptionSet)
 		end,
 	}
 
-	OptionSet.args.showDuration = {
-		name = L['Show Duration'],
-		desc = L['Show duration text on the icon (Classic only - Retail uses cooldown spiral)'],
-		type = 'toggle',
+	OptionSet.args.info = {
+		name = L['About Raid Debuffs'],
+		type = 'description',
 		order = 2,
+		fontSize = 'medium',
+		width = 'full',
 		get = function()
-			return ElementSettings.showDuration ~= false
-		end,
-		set = function(_, val)
-			OptUpdate('showDuration', val)
+			return L["Shows the highest priority raid-relevant debuff (boss mechanics, crowd control, etc.) using WoW's RAID filter. This automatically shows important debuffs that Blizzard flags for raid awareness."]
 		end,
 	}
 end
 
 ---@type SUI.UF.Elements.Settings
 local Settings = {
-	-- Disabled: Aura APIs return "secret" values in TWW 12.0 that can't be tested by addons
-	enabled = false,
+	enabled = true,
 	size = 32,
-	showDuration = true,
 	position = {
 		anchor = 'CENTER',
 		x = 0,
 		y = 0,
+	},
+	-- Retail filter config (uses HARMFUL|RAID)
+	retail = {
+		filterMode = 'raid_debuffs',
+	},
+	-- Classic filter config (same logic, different APIs)
+	classic = {
+		rules = {
+			duration = false,
+			caster = false,
+		},
 	},
 	config = {
 		type = 'Indicator',
