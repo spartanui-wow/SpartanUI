@@ -310,7 +310,6 @@ function MoveIt:OnInitialize()
 			ElementSnapEnabled = true,
 			-- EditMode profile sync (optional feature)
 			-- When enabled, changes to SUI profiles will automatically switch the EditMode profile
-			-- This only affects frames SUI doesn't manage (bags, minimap, objective tracker, etc.)
 			SyncEditModeProfile = false,
 		},
 		global = {

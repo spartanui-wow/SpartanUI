@@ -323,14 +323,15 @@ function MoverMode:StyleMover(name, mover)
 	-- Hook mouse events for selection and hover
 	if not mover.editModeHooked then
 		mover:HookScript('OnEnter', function(self)
-			if not isDragging and MoverMode:IsActive() then
+			if not isDragging and MoverMode:IsActive() and self ~= selectedOverlay then
 				self:SetBackdropColor(unpack(COLORS.overlayHover))
 				self:SetBackdropBorderColor(unpack(COLORS.borderHover))
 			end
 		end)
 
 		mover:HookScript('OnLeave', function(self)
-			if self ~= selectedOverlay and not isDragging and MoverMode:IsActive() then
+			if self ~= selectedOverlay and MoverMode:IsActive() then
+				-- Always restore to normal color on leave, even during drag
 				self:SetBackdropColor(unpack(COLORS.overlay))
 				self:SetBackdropBorderColor(unpack(COLORS.border))
 			end
@@ -628,8 +629,38 @@ function MoverMode:StopDrag(mover)
 		local centerX, centerY = mover:GetCenter()
 		if centerX and centerY then
 			local uiCenterX, uiCenterY = UIParent:GetCenter()
-			local offsetX = centerX - uiCenterX
-			local offsetY = centerY - uiCenterY
+
+			if MoveIt.logger then
+				local moverScale = mover:GetScale() or 1.0
+				local moverEffectiveScale = mover:GetEffectiveScale() or 1.0
+				MoveIt.logger.debug(('StopDrag normalize: mover center=(%.1f,%.1f) UI center=(%.1f,%.1f)'):format(centerX, centerY, uiCenterX, uiCenterY))
+				MoveIt.logger.debug(('Mover scale=%.2f effectiveScale=%.2f'):format(moverScale, moverEffectiveScale))
+			end
+
+			-- Account for scale differences between mover and UIParent
+			-- GetCenter() returns coordinates in parent space, affected by frame's scale
+			local moverScale = mover:GetEffectiveScale()
+			local uiScale = UIParent:GetEffectiveScale()
+
+			-- Convert to screen coordinates
+			local screenCenterX = centerX * moverScale
+			local screenCenterY = centerY * moverScale
+			local screenUICenterX = uiCenterX * uiScale
+			local screenUICenterY = uiCenterY * uiScale
+
+			-- Calculate offset in screen coordinates
+			local screenOffsetX = screenCenterX - screenUICenterX
+			local screenOffsetY = screenCenterY - screenUICenterY
+
+			-- Convert back to mover's coordinate space for SetPoint
+			local offsetX = screenOffsetX / moverScale
+			local offsetY = screenOffsetY / moverScale
+
+			if MoveIt.logger then
+				MoveIt.logger.debug(('Screen coords: mover=(%.1f,%.1f) UI=(%.1f,%.1f)'):format(screenCenterX, screenCenterY, screenUICenterX, screenUICenterY))
+				MoveIt.logger.debug(('Screen offset: (%.1f,%.1f) -> Mover offset: (%.1f,%.1f)'):format(screenOffsetX, screenOffsetY, offsetX, offsetY))
+			end
+
 			mover:ClearAllPoints()
 			mover:SetPoint('CENTER', UIParent, 'CENTER', offsetX, offsetY)
 		end
@@ -648,6 +679,14 @@ function MoverMode:StopDrag(mover)
 	-- Call postdrag callback if exists
 	if mover.postdrag then
 		mover.postdrag(mover)
+	end
+
+	-- Reset all movers to default color (fixes stuck hover states during drag)
+	for moverName, otherMover in pairs(MoveIt.MoverList or {}) do
+		if otherMover and otherMover ~= selectedOverlay and otherMover:IsShown() then
+			otherMover:SetBackdropColor(unpack(COLORS.overlay))
+			otherMover:SetBackdropBorderColor(unpack(COLORS.border))
+		end
 	end
 
 	if MoveIt.logger then

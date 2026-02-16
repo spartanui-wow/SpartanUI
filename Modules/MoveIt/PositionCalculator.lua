@@ -75,9 +75,18 @@ function PositionCalculator:CalculateDragPosition(mover, cursorX, cursorY)
 	-- Calculate the anchor frame's anchor point position in screen coordinates
 	local anchorX, anchorY = self:GetAnchorPointPosition(anchorFrame, anchorPoint)
 
+	if MoveIt.logger then
+		local moverName = mover:GetName() or 'UnknownMover'
+		MoveIt.logger.debug(('CalculateDragPosition: mover=%s cursor=(%.1f,%.1f) anchor=%s at (%.1f,%.1f)'):format(moverName, cursorX, cursorY, anchorPoint, anchorX, anchorY))
+	end
+
 	-- Calculate offset from that anchor point
 	local offsetX = cursorX - anchorX
 	local offsetY = cursorY - anchorY
+
+	if MoveIt.logger then
+		MoveIt.logger.debug(('Initial delta: dx=%.1f, dy=%.1f'):format(offsetX, offsetY))
+	end
 
 	-- Adjust offset based on which corner of the mover we're anchoring from
 	-- This ensures the mover appears where the cursor is
@@ -99,6 +108,11 @@ function PositionCalculator:CalculateDragPosition(mover, cursorX, cursorY)
 	else
 		-- Center
 		offsetY = offsetY - (moverHeight / 2)
+	end
+
+	if MoveIt.logger then
+		MoveIt.logger.debug(('Selected anchor: %s (mover size=%.1fx%.1f)'):format(point, moverWidth, moverHeight))
+		MoveIt.logger.debug(('Final offset: x=%.1f, y=%.1f'):format(offsetX, offsetY))
 	end
 
 	return {
@@ -125,6 +139,19 @@ function PositionCalculator:GetAnchorPointPosition(frame, anchorPoint)
 	local top = frame:GetTop() or 0
 	local bottom = frame:GetBottom() or 0
 
+	-- Log raw coordinates for debugging scale issues
+	if MoveIt.logger then
+		local frameName = frame:GetName() or 'UnknownFrame'
+		local frameScale = frame:GetScale() or 1.0
+		local frameEffectiveScale = frame:GetEffectiveScale() or 1.0
+		local parentScale = (frame:GetParent() and frame:GetParent():GetScale()) or 1.0
+
+		MoveIt.logger.debug(
+			('GetAnchorPointPosition: frame=%s anchorPoint=%s scale=%.2f effectiveScale=%.2f parentScale=%.2f'):format(frameName, anchorPoint, frameScale, frameEffectiveScale, parentScale)
+		)
+		MoveIt.logger.debug(('Raw coords: left=%.1f right=%.1f top=%.1f bottom=%.1f'):format(left, right, top, bottom))
+	end
+
 	local x, y
 
 	-- Calculate X coordinate based on anchor point
@@ -143,6 +170,10 @@ function PositionCalculator:GetAnchorPointPosition(frame, anchorPoint)
 		y = bottom
 	else
 		y = (top + bottom) / 2
+	end
+
+	if MoveIt.logger then
+		MoveIt.logger.debug(('Anchor %s calculated: x=%.1f, y=%.1f (unscaled)'):format(anchorPoint, x, y))
 	end
 
 	return x, y

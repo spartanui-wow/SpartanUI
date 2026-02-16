@@ -377,7 +377,7 @@ function MoveIt:Options()
 				end,
 			},
 			EditModeSyncDescription = {
-				name = "This feature allows SpartanUI profile changes to automatically switch your EditMode profile. This only affects frames SUI doesn't manage (bags, minimap, objective tracker, etc.). SpartanUI frame positioning is handled by custom movers.",
+				name = "This feature allows SpartanUI profile changes to automatically switch your EditMode profile. This only affects frames SUI doesn't manage (Chat, objective tracker, etc.). SpartanUI frame positioning is handled by custom movers.",
 				type = 'description',
 				fontSize = 'medium',
 				order = 201,

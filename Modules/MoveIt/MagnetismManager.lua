@@ -809,7 +809,28 @@ function MagnetismManager:BeginDragSession(movingFrame)
 	self:UpdateGridLines() -- Refresh grid lines based on current EditMode settings
 
 	if MoveIt.logger then
-		MoveIt.logger.debug(('BeginDragSession: %s (grid=%s, spacing=%d)'):format(movingFrame.name or 'unknown', tostring(self.gridEnabled), self.gridSpacing or 0))
+		local frameName = movingFrame.name or 'unknown'
+		local moverScale = movingFrame:GetScale() or 1.0
+		local moverEffectiveScale = movingFrame:GetEffectiveScale() or 1.0
+		local parentScale = (movingFrame:GetParent() and movingFrame:GetParent():GetScale()) or 1.0
+
+		-- Get source frame if available (for BT4 bars)
+		local sourceFrame = movingFrame.frame
+		local sourceScale = sourceFrame and sourceFrame:GetScale() or 'N/A'
+		local sourceEffectiveScale = sourceFrame and sourceFrame:GetEffectiveScale() or 'N/A'
+
+		MoveIt.logger.debug(('BeginDragSession: %s (grid=%s, spacing=%d)'):format(frameName, tostring(self.gridEnabled), self.gridSpacing or 0))
+		MoveIt.logger.debug(('Mover scale=%.2f effectiveScale=%.2f parentScale=%.2f'):format(moverScale, moverEffectiveScale, parentScale))
+
+		if sourceFrame then
+			MoveIt.logger.debug(('Source frame scale=%s effectiveScale=%s'):format(tostring(sourceScale), tostring(sourceEffectiveScale)))
+		end
+
+		-- Log initial position
+		local centerX, centerY = movingFrame:GetCenter()
+		if centerX and centerY then
+			MoveIt.logger.debug(('Starting position: center=(%.1f,%.1f)'):format(centerX, centerY))
+		end
 	end
 
 	if self.previewLinesAvailable and self.previewLineContainer then
