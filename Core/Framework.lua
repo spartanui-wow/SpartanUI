@@ -201,6 +201,16 @@ local DBdefault = {
 	SetupWizard = {
 		FirstLaunch = true,
 	},
+	ThemeSettings = {
+		['**'] = {
+			Color = {
+				Art = false,
+				PlayerFrames = false,
+				PartyFrames = false,
+				RaidFrames = false,
+			},
+		},
+	},
 	Styles = {
 		['**'] = {
 			Frames = {},
