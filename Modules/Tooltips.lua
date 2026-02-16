@@ -518,9 +518,17 @@ local TooltipSetUnit = function(self, data)
 		end
 
 		if colors then
-			if UnitIsAFK(unit) then
+			-- WoW 12.0: UnitIsAFK/UnitIsDND return secret booleans in PvP/M+
+			local isAFK = UnitIsAFK(unit)
+			local isDND = UnitIsDND(unit)
+
+			-- Check accessibility FIRST before ANY boolean test
+			local canAccessAFK = SUI.BlizzAPI.canaccessvalue(isAFK)
+			local canAccessDND = SUI.BlizzAPI.canaccessvalue(isDND)
+
+			if canAccessAFK and isAFK then
 				GameTooltipTextLeft1:SetFormattedText('|cffFF0000%s|r |c%s%s|r', L['AFK'], colors.colorStr, nameString)
-			elseif UnitIsDND(unit) then
+			elseif canAccessDND and isDND then
 				GameTooltipTextLeft1:SetFormattedText('|cffFFA500%s|r |c%s%s|r', L['DND'], colors.colorStr, nameString)
 			else
 				GameTooltipTextLeft1:SetFormattedText('|c%s%s|r', colors.colorStr, nameString)
