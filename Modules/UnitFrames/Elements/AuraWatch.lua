@@ -40,7 +40,13 @@ local function Build(frame, DB)
 		if settings.onlyIfCastable and not SpellKnown then
 			button:Hide()
 		end
-		if InCombatLockdown() and not settings.displayInCombat then
+
+		-- WoW 12.0: Check for restricted content (combat, PvP matches, M+ dungeons)
+		local isRestricted = InCombatLockdown()
+			or (C_PvP and C_PvP.IsInBrawl and C_PvP.IsInBrawl())
+			or (C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID and C_ChallengeMode.GetActiveChallengeMapID() ~= nil)
+
+		if isRestricted and not settings.displayInCombat then
 			button:Hide()
 		end
 	end
