@@ -146,7 +146,7 @@ end
 
 ---@type SUI.UF.Elements.Settings
 local Settings = {
-	enabled = true,
+	enabled = false,
 	size = 32,
 	position = {
 		anchor = 'CENTER',

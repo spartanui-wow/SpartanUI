@@ -338,7 +338,7 @@ end
 
 ---@type SUI.UF.Elements.Settings
 local Settings = {
-	enabled = true,
+	enabled = false,
 	size = 24,
 	showSwipe = true,
 	showDuration = true,

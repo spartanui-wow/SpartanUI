@@ -5,6 +5,7 @@ local ElementProps = {}
 
 ---@class SUI.UF.Elements.Config
 ---@field NoBulkUpdate? boolean
+---@field NoGenericOptions? boolean
 ---@field type? ElementType
 ---@field DisplayName? string
 ---@field Description? string

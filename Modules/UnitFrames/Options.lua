@@ -1626,8 +1626,10 @@ function Options:Initialize()
 			elseif elementConfig.type == 'StatusBar' then
 				Options:StatusBarDefaults(frameName, ElementOptSet, elementName)
 			elseif elementConfig.type == 'Indicator' then
-				Options:IndicatorAddDisplay(ElementOptSet)
-				Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+				if not elementConfig.NoGenericOptions then
+					Options:IndicatorAddDisplay(ElementOptSet)
+					Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+				end
 				if elementName == 'CombatIndicator' then
 					ElementOptSet.args.display.args.glow = {
 						name = L['Glow'],
