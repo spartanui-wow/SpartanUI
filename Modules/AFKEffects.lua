@@ -295,8 +295,17 @@ function module:PLAYER_FLAGS_CHANGED()
 		return
 	end
 
-	-- WoW 12.0.0: Use UnitIsAFK instead of chat messages to avoid secret value issues
+	-- WoW 12.0: Check secret value accessibility before boolean test
 	local playerIsAFK = UnitIsAFK('player')
+	local canAccess = SUI.BlizzAPI.canaccessvalue(playerIsAFK)
+
+	-- If secret value (in PvP/M+), skip AFK detection entirely
+	-- AFK effects shouldn't trigger during combat content anyway
+	if not canAccess then
+		-- Secret value - cannot determine AFK state in restricted content
+		-- This is acceptable: AFK detection disabled in PvP/M+ is reasonable
+		return
+	end
 
 	if playerIsAFK and not isAFK then
 		-- Player just went AFK
