@@ -85,6 +85,10 @@ function DBManager:SetupModule(module, defaults, globalDefaults, options)
 	module.DBGlobalDefaults = globalDefaults
 	module.CurrentSettings = {}
 
+	-- Store real defaults on the AceDB child DB so the export pipeline can strip them
+	-- (AceDB only stores wildcard structure, not actual default values)
+	module.Database.realDefaults = { profile = defaults, global = globalDefaults }
+
 	-- Initialize global defaults (ensure tables exist)
 	for key, defaultValue in pairs(globalDefaults) do
 		if module.DBG[key] == nil and type(defaultValue) == 'table' then

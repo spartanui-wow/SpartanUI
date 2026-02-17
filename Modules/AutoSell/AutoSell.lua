@@ -35,81 +35,6 @@ local highestILVL = function()
 	return CurrentHighestILVL
 end
 
--- Default blacklist (excluded from sparse DB pattern - always stored fully in module.DB)
-local DEFAULT_BLACKLIST = {
-	Items = {
-		-- Shadowlands
-		180276, --Locked Toolbox Key
-		175757, --Construct Supply Key
-		27944, --Talisman of True Treasure Tracking
-		156725, --red-crystal-monocle
-		156726, --yellow-crystal-monocle
-		156727, --green-crystal-monocle
-		156724, --blue-crystal-monocle
-		-- BFA
-		168135, --Titans Blood
-		166846, --spare parts
-		168327, --chain ignitercoil
-		166971, --empty energy cell
-		170500, --energy cell
-		166970, --energy cell
-		169475, --Barnacled Lockbox
-		137642, --Mark Of Honor
-		168217, --Hardened Spring
-		168136, --Azerokk's Fist
-		168216, --Tempered Plating
-		168215, --Machined Gear Assembly
-		169334, --Strange Oceanic Sediment
-		170193, --Sea Totem
-		168802, --Nazjatar Battle Commendation
-		171090, --Battleborn Sigil
-		153647, --Tome of the quiet mind
-		-- Cata
-		71141, -- Eternal Ember
-		-- Legion
-		129276, -- Beginner's Guide to Dimensional Rifting
-		-- MOP
-		80914, -- Mourning Glory
-		-- Misc Items
-		141446, --Tome of the Tranquil Mind
-		81055, -- Darkmoon ride ticket
-		150372, -- Arsenal: The Warglaives of Azzinoth
-		32837, -- Warglaive of Azzinoth
-		--Professions
-		6219, -- Arclight Spanner
-		140209, --imported blacksmith hammer
-		5956, -- Blacksmith Hammer
-		7005, --skinning knife
-		2901, --mining pick
-		-- Classic WoW
-		6256, -- Fishing Pole
-		--Start Shredder Operating Manual pages
-		16645,
-		16646,
-		16647,
-		16648,
-		16649,
-		16650,
-		16651,
-		16652,
-		16653,
-		16654,
-		16655,
-		16656,
-		2730,
-		--End Shredder Operating Manual pages
-		63207, -- Wrap of unity
-		63206, -- Wrap of unity
-	},
-	Types = {
-		'Container',
-		'Companions',
-		'Holiday',
-		'Mounts',
-		'Quest',
-	},
-}
-
 ---@class SUI.Module.AutoSell.DB
 local DbDefaults = {
 	FirstLaunch = true,
@@ -125,9 +50,82 @@ local DbDefaults = {
 	Blue = false,
 	Purple = false,
 	GearTokens = false,
-	AutoRepair = false,
+	AutoRepair = true,
 	UseGuildBankRepair = false,
 	ShowBagMarking = true,
+	Blacklist = {
+		Items = {
+			-- Shadowlands
+			180276, --Locked Toolbox Key
+			175757, --Construct Supply Key
+			27944, --Talisman of True Treasure Tracking
+			156725, --red-crystal-monocle
+			156726, --yellow-crystal-monocle
+			156727, --green-crystal-monocle
+			156724, --blue-crystal-monocle
+			-- BFA
+			168135, --Titans Blood
+			166846, --spare parts
+			168327, --chain ignitercoil
+			166971, --empty energy cell
+			170500, --energy cell
+			166970, --energy cell
+			169475, --Barnacled Lockbox
+			137642, --Mark Of Honor
+			168217, --Hardened Spring
+			168136, --Azerokk's Fist
+			168216, --Tempered Plating
+			168215, --Machined Gear Assembly
+			169334, --Strange Oceanic Sediment
+			170193, --Sea Totem
+			168802, --Nazjatar Battle Commendation
+			171090, --Battleborn Sigil
+			153647, --Tome of the quiet mind
+			-- Cata
+			71141, -- Eternal Ember
+			-- Legion
+			129276, -- Beginner's Guide to Dimensional Rifting
+			-- MOP
+			80914, -- Mourning Glory
+			-- Misc Items
+			141446, --Tome of the Tranquil Mind
+			81055, -- Darkmoon ride ticket
+			150372, -- Arsenal: The Warglaives of Azzinoth
+			32837, -- Warglaive of Azzinoth
+			--Professions
+			6219, -- Arclight Spanner
+			140209, --imported blacksmith hammer
+			5956, -- Blacksmith Hammer
+			7005, --skinning knife
+			2901, --mining pick
+			-- Classic WoW
+			6256, -- Fishing Pole
+			--Start Shredder Operating Manual pages
+			16645,
+			16646,
+			16647,
+			16648,
+			16649,
+			16650,
+			16651,
+			16652,
+			16653,
+			16654,
+			16655,
+			16656,
+			2730,
+			--End Shredder Operating Manual pages
+			63207, -- Wrap of unity
+			63206, -- Wrap of unity
+		},
+		Types = {
+			'Container',
+			'Companions',
+			'Holiday',
+			'Mounts',
+			'Quest',
+		},
+	},
 }
 
 ---@class SUI.Module.AutoSell.CharDB
@@ -167,8 +165,10 @@ local function MigrateToDBM(profileDB)
 		end
 	end
 
-	-- Blacklist stays fully in DB (not part of sparse pattern)
-	-- Don't touch it during migration
+	-- Strip seeded Blacklist from DB (now lives in DbDefaults/CurrentSettings)
+	if profileDB.Blacklist then
+		profileDB.Blacklist = nil
+	end
 
 	profileDB._dbm_migrated = true
 end
@@ -189,14 +189,19 @@ local function buildBlacklistLookup()
 	blacklistLookup.items = {}
 	blacklistLookup.types = {}
 
-	-- Build item blacklist lookup
-	for _, itemID in ipairs(module.DB.Blacklist.Items) do
-		blacklistLookup.items[itemID] = true
+	-- Build item blacklist lookup from CurrentSettings (merged defaults + user changes)
+	-- false entries = user explicitly removed a default item, skip them
+	for _, itemID in pairs(module.CurrentSettings.Blacklist.Items) do
+		if itemID and itemID ~= false then
+			blacklistLookup.items[itemID] = true
+		end
 	end
 
-	-- Build type blacklist lookup
-	for _, itemType in ipairs(module.DB.Blacklist.Types) do
-		blacklistLookup.types[itemType] = true
+	-- Build type blacklist lookup from CurrentSettings
+	for _, itemType in pairs(module.CurrentSettings.Blacklist.Types) do
+		if itemType and itemType ~= false then
+			blacklistLookup.types[itemType] = true
+		end
 	end
 
 	blacklistLookup.valid = true
@@ -841,13 +846,13 @@ function module:DebugItemSellability(link)
 	end
 
 	-- Profile blacklist checks
-	if SUI:IsInTable(module.DB.Blacklist.Items, itemID) then
+	if SUI:IsInTable(module.CurrentSettings.Blacklist.Items, itemID) then
 		print('|cffFF0000BLOCKED:|r In profile item blacklist')
 		return
-	elseif SUI:IsInTable(module.DB.Blacklist.Types, itemType) then
+	elseif SUI:IsInTable(module.CurrentSettings.Blacklist.Types, itemType) then
 		print("|cffFF0000BLOCKED:|r Item type '" .. itemType .. "' in profile type blacklist")
 		return
-	elseif SUI:IsInTable(module.DB.Blacklist.Types, itemSubType) then
+	elseif SUI:IsInTable(module.CurrentSettings.Blacklist.Types, itemSubType) then
 		print("|cffFF0000BLOCKED:|r Item subtype '" .. itemSubType .. "' in profile type blacklist")
 		return
 	else
@@ -967,15 +972,13 @@ function module:OnInitialize()
 		SUI.DBM:RefreshSettings(module)
 	end
 
-	-- Seed Blacklist from DEFAULT_BLACKLIST for new profiles (or if missing)
-	if not module.DB.Blacklist then
-		module.DB.Blacklist = SUI:CopyData({}, DEFAULT_BLACKLIST)
-	end
-	if not module.DB.Blacklist.Items then
-		module.DB.Blacklist.Items = SUI:CopyData({}, DEFAULT_BLACKLIST.Items)
-	end
-	if not module.DB.Blacklist.Types then
-		module.DB.Blacklist.Types = SUI:CopyData({}, DEFAULT_BLACKLIST.Types)
+	-- One-time migration: strip seeded Blacklist from DB (now in DbDefaults/CurrentSettings)
+	-- Check raw SV data to avoid AceDB wildcard/default resolution
+	local profileKey = module.Database.keys.profile
+	local rawProfile = module.Database.sv.profiles[profileKey]
+	if rawProfile and rawProfile.Blacklist then
+		rawProfile.Blacklist = nil
+		SUI.DBM:RefreshSettings(module)
 	end
 
 	-- Setup logging system for AutoSell

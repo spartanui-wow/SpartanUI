@@ -971,7 +971,7 @@ function SUI:InitializeProfile(profile)
 	-- Artwork structure required by SetActiveStyle
 	if not profile.Artwork then
 		profile.Artwork = {
-			Style = 'Classic',
+			Style = 'War',
 			Viewport = {
 				enabled = false,
 				top = 0,
@@ -983,7 +983,7 @@ function SUI:InitializeProfile(profile)
 		}
 	else
 		if not profile.Artwork.Style then
-			profile.Artwork.Style = 'Classic'
+			profile.Artwork.Style = 'War'
 		end
 		if not profile.Artwork.Viewport then
 			profile.Artwork.Viewport = {

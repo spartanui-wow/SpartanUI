@@ -200,6 +200,12 @@ local function Update(self, event, unit)
 		return
 	end
 
+	-- Respect the enabled setting from SUI's element DB
+	if element.DB and not element.DB.enabled then
+		element:Hide()
+		return
+	end
+
 	--[[ Callback: DefensiveIndicator:PreUpdate()
 	Called before the element has been updated.
 

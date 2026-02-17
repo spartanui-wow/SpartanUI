@@ -133,52 +133,56 @@ local function BuildOptions()
 		local listOpt = OptionTable.args[mode].args.list.args
 		table.wipe(listOpt)
 
-		for itemId, entry in pairs(module.DB.Blacklist[mode]) do
-			local label
+		for itemId, entry in pairs(module.CurrentSettings.Blacklist[mode]) do
+			-- Skip entries explicitly removed by user (false = user deleted a default)
+			if entry ~= false then
+				local label
 
-			if type(entry) == 'number' then
-				-- Check the cache first
-				local itemLink = itemCache[entry]
-				if itemLink then
-					-- If the item link is in the cache, use it
-					label = itemLink .. ' (' .. entry .. ')'
-				else
-					-- Request item info which may return nil initially
-					local _, itemLink = C_Item.GetItemInfo(entry)
+				if type(entry) == 'number' then
+					-- Check the cache first
+					local itemLink = itemCache[entry]
 					if itemLink then
-						-- If the item link is available, use it
+						-- If the item link is in the cache, use it
 						label = itemLink .. ' (' .. entry .. ')'
-						itemCache[entry] = itemLink -- Cache it
 					else
-						-- If the item link is not available, display an error and the item ID in Red
-						label = '|cffff0000' .. entry .. ' NOT FOUND|r'
-						-- Request the server to send the item info
-						eventFrame:RegisterEvent('GET_ITEM_INFO_RECEIVED')
+						-- Request item info which may return nil initially
+						local _, itemLink2 = C_Item.GetItemInfo(entry)
+						if itemLink2 then
+							-- If the item link is available, use it
+							label = itemLink2 .. ' (' .. entry .. ')'
+							itemCache[entry] = itemLink2 -- Cache it
+						else
+							-- If the item link is not available, display an error and the item ID in Red
+							label = '|cffff0000' .. entry .. ' NOT FOUND|r'
+							-- Request the server to send the item info
+							eventFrame:RegisterEvent('GET_ITEM_INFO_RECEIVED')
+						end
 					end
+				else
+					-- If the entry is not a number, use it directly
+					label = entry
 				end
-			else
-				-- If the entry is not a number, use it directly
-				label = entry
-			end
 
-			listOpt[itemId .. 'label'] = {
-				type = 'description',
-				width = 'double',
-				fontSize = 'medium',
-				order = itemId,
-				name = label,
-			}
-			listOpt[tostring(itemId)] = {
-				type = 'execute',
-				name = L['Delete'],
-				width = 'half',
-				order = itemId + 0.05,
-				func = function(info)
-					module.DB.Blacklist[mode][itemId] = nil
-					module:InvalidateBlacklistCache()
-					buildItemList(mode)
-				end,
-			}
+				listOpt[itemId .. 'label'] = {
+					type = 'description',
+					width = 'double',
+					fontSize = 'medium',
+					order = itemId,
+					name = label,
+				}
+				listOpt[tostring(itemId)] = {
+					type = 'execute',
+					name = L['Delete'],
+					width = 'half',
+					order = itemId + 0.05,
+					func = function(info)
+						module.DB.Blacklist[mode][itemId] = false
+						SUI.DBM:RefreshSettings(module)
+						module:InvalidateBlacklistCache()
+						buildItemList(mode)
+					end,
+				}
+			end
 		end
 	end
 
@@ -360,6 +364,7 @@ local function BuildOptions()
 						end
 						-- Add the item ID to the blacklist
 						module.DB.Blacklist.Items[#info - 1] = input
+						SUI.DBM:RefreshSettings(module)
 						module:InvalidateBlacklistCache()
 						buildItemList(info[#info - 1])
 					end,
@@ -397,6 +402,7 @@ local function BuildOptions()
 						end
 						-- Add the item class to the blacklist
 						module.DB.Blacklist.Types[#info - 1] = input
+						SUI.DBM:RefreshSettings(module)
 						module:InvalidateBlacklistCache()
 						buildItemList(info[#info - 1])
 					end,
