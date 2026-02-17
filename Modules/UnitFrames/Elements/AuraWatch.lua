@@ -39,15 +39,38 @@ local function Build(frame, DB)
 		local SpellKnown = IsSpellInSpellBookCompat(button.spellID)
 		if settings.onlyIfCastable and not SpellKnown then
 			button:Hide()
+			return
 		end
 
 		-- WoW 12.0: Check for restricted content (combat, PvP matches, M+ dungeons)
 		local isRestricted = InCombatLockdown()
+			or (C_PvP and C_PvP.IsMatchActive and C_PvP.IsMatchActive())
 			or (C_PvP and C_PvP.IsInBrawl and C_PvP.IsInBrawl())
 			or (C_ChallengeMode and C_ChallengeMode.GetActiveChallengeMapID and C_ChallengeMode.GetActiveChallengeMapID() ~= nil)
 
 		if isRestricted and not settings.displayInCombat then
 			button:Hide()
+			return
+		end
+
+		-- Hide when unit is in a different phase
+		if DB.hideWhenPhased and unit then
+			local phaseReason = UnitIsPlayer(unit) and UnitIsConnected(unit) and UnitPhaseReason(unit) or nil
+			if phaseReason then
+				button:Hide()
+				return
+			end
+		end
+
+		-- Hide when unit is out of range (only works for party/raid members)
+		if DB.hideWhenOutOfRange and unit and UnitIsConnected(unit) and UnitInParty(unit) then
+			local inRange = UnitInRange(unit)
+			if not SUI.BlizzAPI or SUI.BlizzAPI.canaccessvalue(inRange) then
+				if not inRange then
+					button:Hide()
+					return
+				end
+			end
 		end
 	end
 	frame.AuraWatch = element
@@ -181,6 +204,36 @@ local function Options(unitName, OptionSet, DB)
 		UF.Unit[unitName]:ElementUpdate('AuraWatch')
 	end
 
+	OptionSet.args.hideWhenPhased = {
+		name = L['Hide when phased'],
+		desc = L['Hide aura icons when the unit is in a different phase'],
+		type = 'toggle',
+		order = 2,
+		get = function()
+			return ElementSettings.hideWhenPhased
+		end,
+		set = function(_, val)
+			ElementSettings.hideWhenPhased = val
+			UserSetting.hideWhenPhased = val
+			UF.Unit[unitName]:ElementUpdate('AuraWatch')
+		end,
+	}
+
+	OptionSet.args.hideWhenOutOfRange = {
+		name = L['Hide when out of range'],
+		desc = L['Hide aura icons when the unit is out of range'],
+		type = 'toggle',
+		order = 3,
+		get = function()
+			return ElementSettings.hideWhenOutOfRange
+		end,
+		set = function(_, val)
+			ElementSettings.hideWhenOutOfRange = val
+			UserSetting.hideWhenOutOfRange = val
+			UF.Unit[unitName]:ElementUpdate('AuraWatch')
+		end,
+	}
+
 	OptionSet.args.watched = {
 		name = L['Tracked Auras'],
 		type = 'group',
@@ -224,6 +277,8 @@ end
 ---@class SUI.UF.Unit.Settings.AuraWatch : SUI.UF.Unit.Settings
 ---@field watched table<integer|string, SUI.UF.Unit.Settings.AuraWatch.Watched>
 ---@field size number
+---@field hideWhenPhased boolean
+---@field hideWhenOutOfRange boolean
 
 -- Get default watched spells (class-aware if AuraWatchSpells is loaded)
 local function GetDefaultWatched()
@@ -242,6 +297,8 @@ end
 ---@class SUI.UF.Unit.Settings.AuraWatch
 local Settings = {
 	size = 20,
+	hideWhenPhased = true,
+	hideWhenOutOfRange = false,
 	watched = GetDefaultWatched(),
 	config = {
 		type = 'Auras',
