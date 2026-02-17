@@ -37,7 +37,7 @@ Auras.FILTER_PRESETS = {
 	all_buffs = 'HELPFUL',
 	player_buffs = 'HELPFUL|PLAYER',
 	raid_buffs = 'HELPFUL|RAID',
-	healing_mode = 'HELPFUL|RAID_IN_COMBAT',
+	healing_mode = 'HELPFUL|PLAYER|RAID_IN_COMBAT',
 	external_defensives = 'HELPFUL|EXTERNAL_DEFENSIVE',
 	big_defensives = 'HELPFUL|BIG_DEFENSIVE',
 	important_buffs = 'HELPFUL|IMPORTANT',
@@ -46,7 +46,7 @@ Auras.FILTER_PRESETS = {
 	all_debuffs = 'HARMFUL',
 	player_debuffs = 'HARMFUL|PLAYER',
 	raid_debuffs = 'HARMFUL|RAID',
-	dispellable = 'HARMFUL|RAID_PLAYER_DISPELLABLE',
+	dispellable = 'RAID_PLAYER_DISPELLABLE',
 	crowd_control = 'HARMFUL|CROWD_CONTROL',
 	important_debuffs = 'HARMFUL|IMPORTANT',
 
@@ -165,63 +165,34 @@ Auras.LogAuraSecretStatus = LogAuraSecretStatus
 ---@return boolean
 function Auras:FilterRetail(element, unit, data, config)
 	local filterMode = config and config.filterMode or 'blizzard_default'
-	local customFilter = config and config.customFilter -- NEW: raw string override
+	local customFilter = config and config.customFilter
 	local auraInstanceID = data.auraInstanceID
 
 	if not auraInstanceID then
 		return false
 	end
 
-	-- Power users can provide raw filter string (overrides filterMode)
+	-- Custom filter string takes priority over preset
 	if customFilter and customFilter ~= '' then
-		local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, customFilter)
-		return not isFilteredOut
+		return not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, customFilter)
 	end
 
-	-- Determine base filter (HELPFUL for buffs, HARMFUL for debuffs)
-	local baseFilter = element.__owner.Buffs and 'HELPFUL' or 'HARMFUL'
-	local filterString
-
-	-- Map filterMode to Blizzard filter string
-	if filterMode == 'all_buffs' or filterMode == 'all_debuffs' or filterMode == 'all' then
-		-- Show all auras of this type (no additional filtering beyond base HELPFUL/HARMFUL)
-		return true
-	elseif filterMode == 'player_buffs' or filterMode == 'player_debuffs' or filterMode == 'player_auras' then
-		filterString = baseFilter .. '|PLAYER'
-	elseif filterMode == 'raid_buffs' or filterMode == 'raid_debuffs' or filterMode == 'raid_auras' then
-		filterString = baseFilter .. '|RAID'
-	elseif filterMode == 'healing_mode' then
-		filterString = 'HELPFUL|RAID_IN_COMBAT'
-	elseif filterMode == 'dispellable' then
-		filterString = 'HARMFUL|RAID_PLAYER_DISPELLABLE'
-	elseif filterMode == 'external_defensives' then
-		filterString = 'HELPFUL|EXTERNAL_DEFENSIVE'
-	elseif filterMode == 'big_defensives' then
-		filterString = 'HELPFUL|BIG_DEFENSIVE'
-	elseif filterMode == 'crowd_control' then
-		filterString = 'HARMFUL|CROWD_CONTROL'
-	elseif filterMode == 'important_buffs' or filterMode == 'important_debuffs' then
-		filterString = baseFilter .. '|IMPORTANT'
-	elseif filterMode == 'blizzard_default' then
-		-- Player frame: show all your auras
-		-- Others: raid-relevant only
-		local isPlayer = UnitIsUnit(unit, 'player')
-		if isPlayer then
-			return true -- Show all player auras
-		else
-			filterString = baseFilter .. '|RAID'
+	-- blizzard_default is context-dependent: player sees all, others get RAID filter
+	if filterMode == 'blizzard_default' then
+		if UnitIsUnit(unit, 'player') then
+			return true
 		end
-	else
-		-- Fallback: show all
-		return true
+		local baseFilter = element.__owner.Buffs and 'HELPFUL' or 'HARMFUL'
+		return not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, baseFilter .. '|RAID')
 	end
 
-	-- Apply filter string if set
+	-- Look up filter string from FILTER_PRESETS
+	local filterString = self.FILTER_PRESETS[filterMode]
 	if filterString then
-		local isFilteredOut = C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, filterString)
-		return not isFilteredOut
+		return not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, filterString)
 	end
 
+	-- Unknown filterMode - show all
 	return true
 end
 

@@ -31,6 +31,178 @@ local function Options()
 end
 
 function module:OnInitialize()
+	SUI.ThemeRegistry:Register(
+		-- Metadata (always in memory)
+		{
+			name = 'Fel',
+			displayName = 'Fel',
+			apiVersion = 1,
+			description = 'Demonic interface with green fel energy accents',
+			setup = {
+				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Fel',
+			},
+			applicableTo = { player = true, target = true },
+		},
+		-- Data callback (lazy-loaded on first access)
+		function()
+			return {
+				frames = {
+					player = {
+						elements = {
+							SpartanArt = {
+								top = {
+									enabled = true,
+									graphic = 'Fel',
+								},
+								bg = {
+									enabled = true,
+									graphic = 'Fel',
+								},
+								bottom = {
+									enabled = true,
+									graphic = 'Fel',
+								},
+							},
+							Name = {
+								enabled = true,
+								SetJustifyH = 'LEFT',
+								position = {
+									anchor = 'BOTTOM',
+									x = 0,
+									y = -16,
+								},
+							},
+						},
+					},
+					target = {
+						elements = {
+							SpartanArt = {
+								top = {
+									enabled = true,
+									graphic = 'Fel',
+								},
+								bg = {
+									enabled = true,
+									graphic = 'Fel',
+								},
+								bottom = {
+									enabled = true,
+									graphic = 'Fel',
+								},
+							},
+							Name = {
+								enabled = true,
+								SetJustifyH = 'LEFT',
+								position = {
+									anchor = 'BOTTOM',
+									x = 0,
+									y = -16,
+								},
+							},
+						},
+					},
+				},
+				artwork = {},
+				unitframes = {
+					artwork = {
+						top = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\UnitFrames',
+							TexCoord = { 0.1796875, 0.736328125, 0, 0.099609375 },
+							heightScale = 0.25,
+							yScale = -0.05,
+							alpha = 0.8,
+						},
+						bg = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\UnitFrames',
+							TexCoord = { 0.02, 0.385, 0.45, 0.575 },
+							PVPAlpha = 0.4,
+						},
+						bottom = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\UnitFrames',
+							heightScale = 0.115,
+							yScale = 0.0158,
+							TexCoord = { 0.1796875, 0.736328125, 0.197265625, 0.244140625 },
+							PVPAlpha = 0.8,
+						},
+					},
+					displayName = 'Fel',
+					setup = {
+						image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Fel',
+					},
+				},
+				barPositions = {
+					['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,175',
+					['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-607,177',
+					['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-661,191',
+					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,250,151',
+					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,661,174',
+				},
+				statusBars = {
+					Left = {
+						bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\StatusBar.png',
+						alpha = 0.9,
+						size = { 370, 20 },
+						texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
+						MaxWidth = 48,
+					},
+					Right = {
+						bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\StatusBar.png',
+						alpha = 0.9,
+						size = { 370, 20 },
+						texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
+						MaxWidth = 48,
+					},
+				},
+				minimap = {
+					variants = {
+						Fel = SUI.IsRetail and {
+							size = { 180, 180 },
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
+							engulfed = true,
+							elements = {
+								background = {
+									texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Engulfed',
+									size = { 260, 260 },
+									position = 'CENTER,Minimap,CENTER,5,25',
+								},
+							},
+						} or {
+							size = { 140, 140 },
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
+							engulfed = true,
+							background = {
+								texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Engulfed',
+								size = { 220, 220 },
+								position = 'CENTER,Minimap,CENTER,5,25',
+							},
+						},
+						FelCalmed = SUI.IsRetail and {
+							size = { 180, 180 },
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
+							engulfed = false,
+							elements = {
+								background = {
+									texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Calmed',
+									size = { 200, 200 },
+									position = 'CENTER,Minimap,CENTER,3,-1',
+								},
+							},
+						} or {
+							size = { 140, 140 },
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
+							engulfed = false,
+							background = {
+								texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Calmed',
+								size = { 162, 162 },
+								position = 'CENTER,Minimap,CENTER,3,-1',
+							},
+						},
+					},
+				},
+			}
+		end
+	)
+
 	---@class SUI.Skins.Fel.Settings
 	local defaults = {
 		minimap = {
@@ -42,121 +214,13 @@ function module:OnInitialize()
 
 	-- Register profile change callbacks
 	SUI.DBM:RegisterSequentialProfileRefresh(module)
-	-- BarHandler
-	local BarHandler = SUI.Handlers.BarSystem
-	BarHandler.BarPosition.BT4.Fel = {
-		['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,175',
-		['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-607,177',
-		['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-661,191',
-		--
-		['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,250,151',
-		['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,661,174',
-	}
-
-	-- Unitframes
-	if SUI.UF then
-		---@type SUI.Style.Settings.UnitFrames
-		local ufsettings = {
-			artwork = {
-				top = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\UnitFrames',
-					TexCoord = { 0.1796875, 0.736328125, 0, 0.099609375 },
-					heightScale = 0.25,
-					yScale = -0.05,
-					alpha = 0.8,
-				},
-				bg = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\UnitFrames',
-					TexCoord = { 0.02, 0.385, 0.45, 0.575 },
-					PVPAlpha = 0.4,
-				},
-				bottom = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\UnitFrames',
-					heightScale = 0.115,
-					yScale = 0.0158,
-					TexCoord = { 0.1796875, 0.736328125, 0.197265625, 0.244140625 },
-					PVPAlpha = 0.8,
-				},
-			},
-			displayName = 'Fel',
-			setup = {
-				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Fel',
-			},
-		}
-		SUI.UF.Style:Register('Fel', ufsettings)
-	end
-
-	---@type SUI.Style.Settings.Minimap
-	local minimapSettings = SUI.IsRetail
-			and {
-				-- Retail Fel theme settings (Engulfed variant)
-				size = { 180, 180 },
-				position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
-				engulfed = true,
-				elements = {
-					background = {
-						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Engulfed',
-						size = { 260, 260 },
-						position = 'CENTER,Minimap,CENTER,5,25',
-					},
-				},
-			}
-		or {
-			-- Classic client Fel theme settings (Engulfed variant)
-			size = { 140, 140 },
-			position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
-			engulfed = true,
-			background = {
-				texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Engulfed',
-				size = { 220, 220 },
-				position = 'CENTER,Minimap,CENTER,5,25',
-			},
-		}
-	SUI.Minimap:Register('Fel', minimapSettings)
-	local minimapSettingsCalmed = SUI.IsRetail
-			and {
-				-- Retail Fel theme settings (Calmed variant)
-				size = { 180, 180 },
-				position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
-				engulfed = false,
-				elements = {
-					background = {
-						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Calmed',
-						size = { 200, 200 },
-						position = 'CENTER,Minimap,CENTER,3,-1',
-					},
-				},
-			}
-		or {
-			-- Classic client Fel theme settings (Calmed variant)
-			size = { 140, 140 },
-			position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
-			engulfed = false,
-			background = {
-				texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Calmed',
-				size = { 162, 162 },
-				position = 'CENTER,Minimap,CENTER,3,-1',
-			},
-		}
-	SUI.Minimap:Register('FelCalmed', minimapSettingsCalmed)
-
-	local statusBarModule = SUI:GetModule('Artwork.StatusBars') ---@type SUI.Module.Artwork.StatusBars
-	---@type SUI.Style.Settings.StatusBars
-	local StatusBarsSettings = {
-		bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\StatusBar.png',
-		alpha = 0.9,
-		size = { 370, 20 },
-		texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
-		MaxWidth = 48,
-	}
-	statusBarModule:RegisterStyle('Fel', { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) })
 
 	module:CreateArtwork()
 	Options()
 end
 
 function module:OnEnable()
-	if SUI.DB.Artwork.Style ~= 'Fel' then
+	if SUI:GetActiveStyle() ~= 'Fel' then
 		module:Disable()
 	else
 		module:EnableArtwork()
@@ -170,13 +234,13 @@ function module:OnDisable()
 end
 
 function module:SetupVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		RegisterStateDriver(SUI_Art_Fel, 'visibility', '[overridebar][vehicleui] hide; show')
 	end
 end
 
 function module:RemoveVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		UnregisterStateDriver(SUI_Art_Fel, 'visibility')
 	end
 end

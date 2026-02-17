@@ -2,7 +2,7 @@ local SUI, L = SUI, SUI.L
 local module = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
 
 function module:SetupOptions()
-	if SUI.DB.Artwork.Style == '' then
+	if module.CurrentSettings.Style == '' then
 		return
 	end
 
@@ -48,27 +48,28 @@ function module:SetupOptions()
 		type = 'toggle',
 		order = 3,
 		get = function(info)
-			return SUI.DB.Artwork.VehicleUI
+			return module.CurrentSettings.VehicleUI
 		end,
 		set = function(info, val)
 			if InCombatLockdown() then
 				SUI:Print(ERR_NOT_IN_COMBAT)
 				return
 			end
-			SUI.DB.Artwork.VehicleUI = val
+			SUI.DBM:Set(module, 'VehicleUI', val)
 			--Make sure bartender knows to do it, or not...
 			if Bartender4 then
 				Bartender4.db.profile.blizzardVehicle = val
 				Bartender4:UpdateBlizzardVehicle()
 			end
 
-			if SUI.DB.Artwork.VehicleUI then
-				if SUI:GetModule('Style.' .. SUI.DB.Artwork.Style).SetupVehicleUI() ~= nil then
-					SUI:GetModule('Style.' .. SUI.DB.Artwork.Style):SetupVehicleUI()
+			local activeStyle = module.CurrentSettings.Style
+			if module.CurrentSettings.VehicleUI then
+				if SUI:GetModule('Style.' .. activeStyle).SetupVehicleUI() ~= nil then
+					SUI:GetModule('Style.' .. activeStyle):SetupVehicleUI()
 				end
 			else
-				if SUI:GetModule('Style.' .. SUI.DB.Artwork.Style).RemoveVehicleUI() ~= nil then
-					SUI:GetModule('Style.' .. SUI.DB.Artwork.Style):RemoveVehicleUI()
+				if SUI:GetModule('Style.' .. activeStyle).RemoveVehicleUI() ~= nil then
+					SUI:GetModule('Style.' .. activeStyle):RemoveVehicleUI()
 				end
 			end
 		end,
@@ -103,7 +104,7 @@ function module:SetupOptions()
 				order = 1,
 				desc = L['Allow SpartanUI To manage the viewport'],
 				get = function(info)
-					return SUI.DB.Artwork.Viewport.enabled
+					return module.CurrentSettings.Viewport.enabled
 				end,
 				set = function(info, val)
 					if InCombatLockdown() then
@@ -116,10 +117,12 @@ function module:SetupOptions()
 						WorldFrame:SetPoint('TOPLEFT', 0, 0)
 						WorldFrame:SetPoint('BOTTOMRIGHT', 0, 0)
 					end
-					SUI.DB.Artwork.Viewport.enabled = val
+					module.DB.Viewport = module.DB.Viewport or {}
+					module.DB.Viewport.enabled = val
+					SUI.DBM:RefreshSettings(module)
 
 					for _, v in ipairs({ 'Top', 'Bottom', 'Left', 'Right' }) do
-						ArtworkOpts['Viewport'].args['viewportoffset' .. v].disabled = not SUI.DB.Artwork.Viewport.enabled
+						ArtworkOpts['Viewport'].args['viewportoffset' .. v].disabled = not module.CurrentSettings.Viewport.enabled
 					end
 
 					module:updateViewport()
@@ -134,10 +137,13 @@ function module:SetupOptions()
 				max = 200,
 				step = 0.1,
 				get = function(info)
-					return SUI.DB.Artwork.Viewport.offset.top
+					return module.CurrentSettings.Viewport.offset.top
 				end,
 				set = function(info, val)
-					SUI.DB.Artwork.Viewport.offset.top = val
+					module.DB.Viewport = module.DB.Viewport or {}
+					module.DB.Viewport.offset = module.DB.Viewport.offset or {}
+					module.DB.Viewport.offset.top = val
+					SUI.DBM:RefreshSettings(module)
 					module:updateViewport()
 				end,
 			},
@@ -149,10 +155,13 @@ function module:SetupOptions()
 				max = 200,
 				step = 0.1,
 				get = function(info)
-					return SUI.DB.Artwork.Viewport.offset.bottom
+					return module.CurrentSettings.Viewport.offset.bottom
 				end,
 				set = function(info, val)
-					SUI.DB.Artwork.Viewport.offset.bottom = val
+					module.DB.Viewport = module.DB.Viewport or {}
+					module.DB.Viewport.offset = module.DB.Viewport.offset or {}
+					module.DB.Viewport.offset.bottom = val
+					SUI.DBM:RefreshSettings(module)
 					module:updateViewport()
 				end,
 			},
@@ -164,10 +173,13 @@ function module:SetupOptions()
 				max = 200,
 				step = 0.1,
 				get = function(info)
-					return SUI.DB.Artwork.Viewport.offset.left
+					return module.CurrentSettings.Viewport.offset.left
 				end,
 				set = function(info, val)
-					SUI.DB.Artwork.Viewport.offset.left = val
+					module.DB.Viewport = module.DB.Viewport or {}
+					module.DB.Viewport.offset = module.DB.Viewport.offset or {}
+					module.DB.Viewport.offset.left = val
+					SUI.DBM:RefreshSettings(module)
 					module:updateViewport()
 				end,
 			},
@@ -179,17 +191,20 @@ function module:SetupOptions()
 				max = 200,
 				step = 0.1,
 				get = function(info)
-					return SUI.DB.Artwork.Viewport.offset.right
+					return module.CurrentSettings.Viewport.offset.right
 				end,
 				set = function(info, val)
-					SUI.DB.Artwork.Viewport.offset.right = val
+					module.DB.Viewport = module.DB.Viewport or {}
+					module.DB.Viewport.offset = module.DB.Viewport.offset or {}
+					module.DB.Viewport.offset.right = val
+					SUI.DBM:RefreshSettings(module)
 					module:updateViewport()
 				end,
 			},
 		},
 	}
 	for _, v in ipairs({ 'Top', 'Bottom', 'Left', 'Right' }) do
-		ArtworkOpts.Viewport.args['viewportoffset' .. v].disabled = not SUI.DB.Artwork.Viewport.enabled
+		ArtworkOpts.Viewport.args['viewportoffset' .. v].disabled = not module.CurrentSettings.Viewport.enabled
 	end
 
 	ArtworkOpts.Offset = {
@@ -213,10 +228,13 @@ function module:SetupOptions()
 						max = 500,
 						step = 0.1,
 						get = function(info)
-							return SUI.DB.Artwork.Offset.Horizontal.Top
+							return module.CurrentSettings.Offset.Horizontal.Top
 						end,
 						set = function(info, val)
-							SUI.DB.Artwork.Offset.Horizontal.Top = val
+							module.DB.Offset = module.DB.Offset or {}
+							module.DB.Offset.Horizontal = module.DB.Offset.Horizontal or {}
+							module.DB.Offset.Horizontal.Top = val
+							SUI.DBM:RefreshSettings(module)
 							module:updateHorizontalOffset()
 						end,
 					},
@@ -229,10 +247,13 @@ function module:SetupOptions()
 						max = 500,
 						step = 0.1,
 						get = function(info)
-							return SUI.DB.Artwork.Offset.Horizontal.Bottom
+							return module.CurrentSettings.Offset.Horizontal.Bottom
 						end,
 						set = function(info, val)
-							SUI.DB.Artwork.Offset.Horizontal.Bottom = val
+							module.DB.Offset = module.DB.Offset or {}
+							module.DB.Offset.Horizontal = module.DB.Offset.Horizontal or {}
+							module.DB.Offset.Horizontal.Bottom = val
+							SUI.DBM:RefreshSettings(module)
 							module:updateHorizontalOffset()
 						end,
 					},
@@ -256,17 +277,19 @@ function module:SetupOptions()
 					max = 200,
 					step = 0.1,
 					get = function(info)
-						return SUI.DB.Artwork.Offset[v]
+						return module.CurrentSettings.Offset[v]
 					end,
 					set = function(info, val)
 						if InCombatLockdown() then
 							SUI:Print(ERR_NOT_IN_COMBAT)
 						else
-							if SUI.DB.Artwork.Offset[v .. 'Auto'] then
+							if module.CurrentSettings.Offset[v .. 'Auto'] then
 								SUI:Print(L['Offset is set AUTO'])
 							else
 								val = tonumber(val)
-								SUI.DB.Artwork.Offset[v] = val
+								module.DB.Offset = module.DB.Offset or {}
+								module.DB.Offset[v] = val
+								SUI.DBM:RefreshSettings(module)
 								module:updateOffset()
 							end
 						end
@@ -277,10 +300,12 @@ function module:SetupOptions()
 					type = 'toggle',
 					order = 3.1,
 					get = function(info)
-						return SUI.DB.Artwork.Offset[v .. 'Auto']
+						return module.CurrentSettings.Offset[v .. 'Auto']
 					end,
 					set = function(info, val)
-						SUI.DB.Artwork.Offset[v .. 'Auto'] = val
+						module.DB.Offset = module.DB.Offset or {}
+						module.DB.Offset[v .. 'Auto'] = val
+						SUI.DBM:RefreshSettings(module)
 						module:updateOffset()
 					end,
 				},
@@ -304,8 +329,9 @@ function module:SetupOptions()
 			type = 'group',
 			inline = true,
 			hidden = function(info)
-				if module.BarBG[SUI.DB.Artwork.Style] then
-					if module.BarBG[SUI.DB.Artwork.Style][key] then
+				local activeStyle = module.CurrentSettings.Style
+				if module.BarBG[activeStyle] then
+					if module.BarBG[activeStyle][key] then
 						return false
 					end
 				end
@@ -729,7 +755,7 @@ function module:SetupOptions()
 			desc = mover.desc,
 			width = 'full',
 			get = function(info)
-				return SUI.DB.Artwork.BlizzMoverStates[mover.key].enabled
+				return module.CurrentSettings.BlizzMoverStates[mover.key].enabled
 			end,
 			set = function(info, val)
 				if InCombatLockdown() then
@@ -737,7 +763,10 @@ function module:SetupOptions()
 					return
 				end
 
-				SUI.DB.Artwork.BlizzMoverStates[mover.key].enabled = val
+				module.DB.BlizzMoverStates = module.DB.BlizzMoverStates or {}
+				module.DB.BlizzMoverStates[mover.key] = module.DB.BlizzMoverStates[mover.key] or {}
+				module.DB.BlizzMoverStates[mover.key].enabled = val
+				SUI.DBM:RefreshSettings(module)
 
 				-- Call the appropriate enable/disable function
 				if val then

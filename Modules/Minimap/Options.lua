@@ -29,7 +29,7 @@ local function GetOption(info)
 		return nil
 	end
 
-	local customSettings = module.DB.customSettings[SUI.DB.Artwork.Style]
+	local customSettings = module.DB.customSettings[SUI:GetActiveStyle()]
 	if customSettings then
 		local customElement = customSettings.elements and customSettings.elements[element] or customSettings[element]
 		if customElement and customElement[option] ~= nil then
@@ -48,22 +48,22 @@ local function SetOption(info, value)
 	if module.Settings.elements then
 		-- Retail structure
 		module.Settings.elements[element][option] = value
-		if not module.DB.customSettings[SUI.DB.Artwork.Style].elements then
-			module.DB.customSettings[SUI.DB.Artwork.Style].elements = {}
+		if not module.DB.customSettings[SUI:GetActiveStyle()].elements then
+			module.DB.customSettings[SUI:GetActiveStyle()].elements = {}
 		end
-		if not module.DB.customSettings[SUI.DB.Artwork.Style].elements[element] then
-			module.DB.customSettings[SUI.DB.Artwork.Style].elements[element] = {}
+		if not module.DB.customSettings[SUI:GetActiveStyle()].elements[element] then
+			module.DB.customSettings[SUI:GetActiveStyle()].elements[element] = {}
 		end
-		module.DB.customSettings[SUI.DB.Artwork.Style].elements[element][option] = value
+		module.DB.customSettings[SUI:GetActiveStyle()].elements[element][option] = value
 	else
 		-- Classic flat structure
 		if module.Settings[element] then
 			module.Settings[element][option] = value
 		end
-		if not module.DB.customSettings[SUI.DB.Artwork.Style][element] then
-			module.DB.customSettings[SUI.DB.Artwork.Style][element] = {}
+		if not module.DB.customSettings[SUI:GetActiveStyle()][element] then
+			module.DB.customSettings[SUI:GetActiveStyle()][element] = {}
 		end
-		module.DB.customSettings[SUI.DB.Artwork.Style][element][option] = value
+		module.DB.customSettings[SUI:GetActiveStyle()][element][option] = value
 	end
 
 	module:Update(true)
@@ -131,7 +131,7 @@ local function GetPositionOption(info)
 
 	local positionString = elementSettings.position
 
-	local customSettings = module.DB.customSettings[SUI.DB.Artwork.Style]
+	local customSettings = module.DB.customSettings[SUI:GetActiveStyle()]
 	if customSettings then
 		local customElement = customSettings.elements and customSettings.elements[element] or customSettings[element]
 		if customElement and customElement.position and type(customElement.position) == 'string' then
@@ -169,7 +169,7 @@ local function SetPositionOption(info, value)
 
 	local positionString = elementSettings.position
 
-	local customSettings = module.DB.customSettings[SUI.DB.Artwork.Style]
+	local customSettings = module.DB.customSettings[SUI:GetActiveStyle()]
 	if customSettings then
 		local customElement = customSettings.elements and customSettings.elements[element] or customSettings[element]
 		if customElement and type(customElement.position) == 'string' then
@@ -198,21 +198,21 @@ local function SetPositionOption(info, value)
 
 	if module.Settings.elements then
 		-- Retail structure
-		if not module.DB.customSettings[SUI.DB.Artwork.Style].elements then
-			module.DB.customSettings[SUI.DB.Artwork.Style].elements = {}
+		if not module.DB.customSettings[SUI:GetActiveStyle()].elements then
+			module.DB.customSettings[SUI:GetActiveStyle()].elements = {}
 		end
-		if not module.DB.customSettings[SUI.DB.Artwork.Style].elements[element] then
-			module.DB.customSettings[SUI.DB.Artwork.Style].elements[element] = {}
+		if not module.DB.customSettings[SUI:GetActiveStyle()].elements[element] then
+			module.DB.customSettings[SUI:GetActiveStyle()].elements[element] = {}
 		end
 		module.Settings.elements[element].position = newPositionString
-		module.DB.customSettings[SUI.DB.Artwork.Style].elements[element].position = newPositionString
+		module.DB.customSettings[SUI:GetActiveStyle()].elements[element].position = newPositionString
 	else
 		-- Classic flat structure
-		if not module.DB.customSettings[SUI.DB.Artwork.Style][element] then
-			module.DB.customSettings[SUI.DB.Artwork.Style][element] = {}
+		if not module.DB.customSettings[SUI:GetActiveStyle()][element] then
+			module.DB.customSettings[SUI:GetActiveStyle()][element] = {}
 		end
 		module.Settings[element].position = newPositionString
-		module.DB.customSettings[SUI.DB.Artwork.Style][element].position = newPositionString
+		module.DB.customSettings[SUI:GetActiveStyle()][element].position = newPositionString
 	end
 
 	module:Update(true)
@@ -270,7 +270,7 @@ function module:BuildOptions()
 							return module.Settings.shape
 						end,
 						set = function(_, value)
-							module.DB.customSettings[SUI.DB.Artwork.Style].shape = value
+							module.DB.customSettings[SUI:GetActiveStyle()].shape = value
 							module:Update(true)
 						end,
 					},
@@ -285,7 +285,7 @@ function module:BuildOptions()
 							return module.Settings.size[1]
 						end,
 						set = function(_, value)
-							module.DB.customSettings[SUI.DB.Artwork.Style].size = { value, value }
+							module.DB.customSettings[SUI:GetActiveStyle()].size = { value, value }
 							module:Update(true)
 						end,
 					},
@@ -297,7 +297,7 @@ function module:BuildOptions()
 							return module.Settings.scaleWithArt
 						end,
 						set = function(_, value)
-							module.DB.customSettings[SUI.DB.Artwork.Style].scaleWithArt = value
+							module.DB.customSettings[SUI:GetActiveStyle()].scaleWithArt = value
 							module:Update(true)
 						end,
 					},
@@ -309,7 +309,7 @@ function module:BuildOptions()
 							return module.Settings.rotate
 						end,
 						set = function(_, value)
-							module.DB.customSettings[SUI.DB.Artwork.Style].rotate = value
+							module.DB.customSettings[SUI:GetActiveStyle()].rotate = value
 							module:Update(true)
 						end,
 					},
@@ -318,11 +318,11 @@ function module:BuildOptions()
 						type = 'execute',
 						order = 50,
 						hidden = function()
-							return not SUI.Options:hasChanges(module.DB.customSettings[SUI.DB.Artwork.Style], module.BaseOpt)
+							return not SUI.Options:hasChanges(module.DB.customSettings[SUI:GetActiveStyle()], module.BaseOpt)
 						end,
 						func = function()
 							-- Reset the element's settings to default
-							module.DB.customSettings[SUI.DB.Artwork.Style] = nil
+							module.DB.customSettings[SUI:GetActiveStyle()] = nil
 
 							-- Trigger a full update of the UnitFrames
 							module:Update(true)
@@ -378,7 +378,7 @@ function module:BuildOptions()
 									return module.Settings.useVehicleMover ~= false -- Default to true if nil or true
 								end,
 								set = function(_, val)
-									local currentStyle = SUI.DB.Artwork.Style
+									local currentStyle = SUI:GetActiveStyle()
 									if not module.DB.customSettings[currentStyle] then
 										module.DB.customSettings[currentStyle] = {}
 									end
@@ -453,7 +453,7 @@ function module:BuildOptions()
 	end
 
 	local function getCustomElementSettings(elName)
-		local style = SUI.DB.Artwork.Style
+		local style = SUI:GetActiveStyle()
 		if not module.DB.customSettings[style] then
 			return nil
 		end
@@ -465,7 +465,7 @@ function module:BuildOptions()
 	end
 
 	local function ensureCustomElementPath(elName)
-		local style = SUI.DB.Artwork.Style
+		local style = SUI:GetActiveStyle()
 		if not module.DB.customSettings[style] then
 			module.DB.customSettings[style] = {}
 		end
@@ -486,7 +486,7 @@ function module:BuildOptions()
 	end
 
 	local function clearCustomElement(elName)
-		local style = SUI.DB.Artwork.Style
+		local style = SUI:GetActiveStyle()
 		if not module.DB.customSettings[style] then
 			return
 		end

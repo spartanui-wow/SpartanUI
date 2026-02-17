@@ -18,13 +18,14 @@ local function Options()
 				hasAlpha = true,
 				order = 0.5,
 				get = function(info)
-					if not SUI.DB.Styles.Arcane.Color.Art then
-						return { 1, 1, 1, 1 }
+					local art = SUI.ThemeRegistry:GetSetting('Arcane', 'Color.Art')
+					if not art then
+						return 1, 1, 1, 1
 					end
-					return unpack(SUI.DB.Styles.Arcane.Color.Art)
+					return unpack(art)
 				end,
 				set = function(info, r, g, b, a)
-					SUI.DB.Styles.Arcane.Color.Art = { r, g, b, a }
+					SUI.ThemeRegistry:SetSetting('Arcane', 'Color.Art', { r, g, b, a })
 					module:SetColor()
 				end,
 			},
@@ -33,7 +34,8 @@ local function Options()
 				type = 'toggle',
 				order = 0.6,
 				get = function(info)
-					if SUI.DB.Styles.Arcane.Color.Art then
+					local art = SUI.ThemeRegistry:GetSetting('Arcane', 'Color.Art')
+					if art then
 						return true
 					else
 						return false
@@ -41,10 +43,10 @@ local function Options()
 				end,
 				set = function(info, val)
 					if val then
-						SUI.DB.Styles.Arcane.Color.Art = { 1, 1, 1, 1 }
+						SUI.ThemeRegistry:SetSetting('Arcane', 'Color.Art', { 1, 1, 1, 1 })
 						module:SetColor()
 					else
-						SUI.DB.Styles.Arcane.Color.Art = false
+						SUI.ThemeRegistry:SetSetting('Arcane', 'Color.Art', false)
 						module:SetColor()
 					end
 				end,
@@ -54,114 +56,256 @@ local function Options()
 end
 
 function module:OnInitialize()
-	-- Bartender 4 Settings
-	local BarHandler = SUI.Handlers.BarSystem
-	BarHandler.BarPosition.BT4.Arcane = {
-		['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,175',
-		['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-607,177',
-		['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-661,191',
-		--
-		['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,310,151',
-		['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,661,174',
-	}
-
-	-- Unitframes Settings
-	if SUI.UF then
-		---@type SUI.Style.Settings.UnitFrames
-		local RedUFSettings = {
-			displayName = 'Arcane red',
-			setup = {
-				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_ArcaneRed',
-			},
-			artwork = {
-				top = {
-					heightScale = 0.225,
-					yScale = -0.09,
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
-					TexCoord = { 0.533203125, 1, 0, 0.19921875 },
-				},
-				bg = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
-					TexCoord = { 0.533203125, 1, 0.46484375, 0.75 },
-				},
-				bottom = {
-					heightScale = 0.075,
-					-- yScale = 0.0223,
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
-					TexCoord = { 0.533203125, 1, 0.374, 0.403 },
-				},
-			},
-		}
-		SUI.UF.Style:Register('ArcaneRed', RedUFSettings)
-
-		---@type SUI.Style.Settings.UnitFrames
-		local BlueUFSettings = {
-			displayName = 'Arcane blue',
+	-- Register Arcane theme with ThemeRegistry
+	SUI.ThemeRegistry:Register(
+		-- Metadata (always in memory)
+		{
+			name = 'Arcane',
+			displayName = 'Arcane',
+			apiVersion = 1,
+			description = 'Mystical arcane-themed interface with blue energy accents',
 			setup = {
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Arcane',
 			},
-			artwork = {
-				top = {
-					heightScale = 0.225,
-					yScale = -0.09,
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
-					TexCoord = { 0, 0.458984375, 0, 0.19921875 },
-				},
-				bg = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
-					TexCoord = { 0, 0.458984375, 0.46484375, 0.75 },
-				},
-				bottom = {
-					heightScale = 0.075,
-					-- yScale = 0,
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
-					TexCoord = { 0, 0.458984375, 0.374, 0.403 },
-				},
-			},
-		}
-		SUI.UF.Style:Register('Arcane', BlueUFSettings)
-	end
+			applicableTo = { player = true, target = true },
+		},
+		-- Data callback (lazy-loaded on first access)
+		function()
+			---@type SUI.Style.Settings.StatusBars
+			local StatusBarsSettings = {
+				bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\StatusBar',
+				alpha = 0.9,
+				size = { 370, 20 },
+				texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
+				MaxWidth = 48,
+			}
 
-	---@type SUI.Style.Settings.Minimap
-	local minimapSettings = SUI.IsRetail
-			and {
-				-- Retail Arcane theme settings
-				size = { 180, 180 },
-				position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,0,20',
-				elements = {
-					background = {
-						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\minimap',
-						size = { 220, 220 },
+			return {
+				frames = {
+					player = {
+						elements = {
+							Name = {
+								enabled = true,
+								SetJustifyH = 'LEFT',
+								position = {
+									anchor = 'BOTTOM',
+									x = 0,
+									y = -16,
+								},
+							},
+							SpartanArt = {
+								top = {
+									enabled = true,
+									graphic = 'Arcane',
+								},
+								bg = {
+									enabled = true,
+									graphic = 'Arcane',
+								},
+								bottom = {
+									enabled = true,
+									graphic = 'Arcane',
+								},
+							},
+						},
+					},
+					target = {
+						elements = {
+							Name = {
+								enabled = true,
+								SetJustifyH = 'LEFT',
+								position = {
+									anchor = 'BOTTOM',
+									x = 0,
+									y = -16,
+								},
+							},
+							SpartanArt = {
+								top = {
+									enabled = true,
+									graphic = 'Arcane',
+								},
+								bg = {
+									enabled = true,
+									graphic = 'Arcane',
+								},
+								bottom = {
+									enabled = true,
+									graphic = 'Arcane',
+								},
+							},
+						},
 					},
 				},
+				color = {
+					Art = false,
+				},
+				slidingTrays = {
+					left = {
+						enabled = true,
+						collapsed = false,
+					},
+					right = {
+						enabled = true,
+						collapsed = false,
+					},
+				},
+				barPositions = {
+					['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,175',
+					['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-607,177',
+					['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-661,191',
+					--
+					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,310,151',
+					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,661,174',
+				},
+				minimap = SUI.IsRetail and {
+					size = { 180, 180 },
+					position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,0,20',
+					elements = {
+						background = {
+							texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\minimap',
+							size = { 220, 220 },
+						},
+					},
+				} or {
+					size = { 140, 140 },
+					position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,0,20',
+					background = {
+						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\minimap',
+						size = { 180, 180 },
+					},
+				},
+				unitframes = {
+					displayName = 'Arcane blue',
+					setup = {
+						image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Arcane',
+					},
+					artwork = {
+						top = {
+							heightScale = 0.225,
+							yScale = -0.09,
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
+							TexCoord = { 0, 0.458984375, 0, 0.19921875 },
+						},
+						bg = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
+							TexCoord = { 0, 0.458984375, 0.46484375, 0.75 },
+						},
+						bottom = {
+							heightScale = 0.075,
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
+							TexCoord = { 0, 0.458984375, 0.374, 0.403 },
+						},
+					},
+				},
+				statusBars = { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) },
 			}
-		or {
-			-- Classic client Arcane theme settings
-			size = { 140, 140 },
-			position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,0,20',
-			background = {
-				texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\minimap',
-				size = { 180, 180 },
+		end
+	)
+
+	-- Register ArcaneRed theme variant with ThemeRegistry
+	SUI.ThemeRegistry:Register({
+		name = 'ArcaneRed',
+		displayName = 'Arcane Red',
+		apiVersion = 1,
+		description = 'Crimson arcane-themed interface with red energy accents',
+		setup = {
+			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_ArcaneRed',
+		},
+		applicableTo = { player = true, target = true },
+	}, function()
+		return {
+			frames = {
+				player = {
+					elements = {
+						SpartanArt = {
+							top = {
+								enabled = true,
+								graphic = 'ArcaneRed',
+							},
+							bg = {
+								enabled = true,
+								graphic = 'ArcaneRed',
+							},
+							bottom = {
+								enabled = true,
+								graphic = 'ArcaneRed',
+							},
+						},
+						Name = {
+							enabled = true,
+							SetJustifyH = 'LEFT',
+							position = {
+								anchor = 'BOTTOM',
+								x = 0,
+								y = -16,
+							},
+						},
+					},
+				},
+				target = {
+					elements = {
+						SpartanArt = {
+							top = {
+								enabled = true,
+								graphic = 'ArcaneRed',
+							},
+							bg = {
+								enabled = true,
+								graphic = 'ArcaneRed',
+							},
+							bottom = {
+								enabled = true,
+								graphic = 'ArcaneRed',
+							},
+						},
+						Name = {
+							enabled = true,
+							SetJustifyH = 'LEFT',
+							position = {
+								anchor = 'BOTTOM',
+								x = 0,
+								y = -16,
+							},
+						},
+					},
+				},
+			},
+			unitframes = {
+				displayName = 'Arcane red',
+				setup = {
+					image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_ArcaneRed',
+				},
+				artwork = {
+					top = {
+						heightScale = 0.225,
+						yScale = -0.09,
+						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
+						TexCoord = { 0.533203125, 1, 0, 0.19921875 },
+					},
+					bg = {
+						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
+						TexCoord = { 0.533203125, 1, 0.46484375, 0.75 },
+					},
+					bottom = {
+						heightScale = 0.075,
+						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\UnitFrames',
+						TexCoord = { 0.533203125, 1, 0.374, 0.403 },
+					},
+				},
 			},
 		}
-	SUI.Minimap:Register('Arcane', minimapSettings)
+	end)
 
-	local statusBarModule = SUI:GetModule('Artwork.StatusBars') ---@type SUI.Module.Artwork.StatusBars
-	---@type SUI.Style.Settings.StatusBars
-	local StatusBarsSettings = {
-		bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\StatusBar',
-		alpha = 0.9,
-		size = { 370, 20 },
-		texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
-		MaxWidth = 48,
-	}
-	statusBarModule:RegisterStyle('Arcane', { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) })
+	-- Enable themes in options screen
+	SUI.opt.args['General'].args['style'].args['OverallStyle'].args['Arcane'].disabled = false
+	SUI.opt.args['General'].args['style'].args['Artwork'].args['Arcane'].disabled = false
 
 	module:CreateArtwork()
 end
 
 function module:OnEnable()
-	if SUI.DB.Artwork.Style ~= 'Arcane' then
+	if SUI:GetActiveStyle() ~= 'Arcane' then
 		module:Disable()
 	else
 		hooksecurefunc('UIParent_ManageFramePositions', function()
@@ -176,7 +320,8 @@ function module:OnEnable()
 			end
 		end)
 
-		if SUI.DB.Styles.Arcane.Color.Art then
+		local art = SUI.ThemeRegistry:GetSetting('Arcane', 'Color.Art')
+		if art then
 			module:SetColor()
 		end
 		Options()
@@ -191,8 +336,9 @@ end
 
 function module:SetColor()
 	local r, g, b, a = 1, 1, 1, 1
-	if SUI.DB.Styles.Arcane.Color.Art then
-		r, g, b, a = unpack(SUI.DB.Styles.Arcane.Color.Art)
+	local art = SUI.ThemeRegistry:GetSetting('Arcane', 'Color.Art')
+	if art then
+		r, g, b, a = unpack(art)
 	end
 
 	SUI_Art_Arcane.Left:SetVertexColor(r, g, b, a)
@@ -209,13 +355,13 @@ function module:SetColor()
 end
 
 function module:SetupVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		RegisterStateDriver(SUI_Art_Arcane, 'visibility', '[overridebar][vehicleui] hide; show')
 	end
 end
 
 function module:RemoveVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		UnregisterStateDriver(SUI_Art_Arcane, 'visibility')
 	end
 end

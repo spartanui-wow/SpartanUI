@@ -78,7 +78,7 @@ local trayWatcherEvents = function()
 		if not module:GetTraySettings(key).enabled then
 			module.Trays[key].expanded:Hide()
 			module.Trays[key].collapsed:Hide()
-		elseif SUI.DB.Artwork.SlidingTrays[key].collapsed then
+		elseif module.CurrentSettings.SlidingTrays[key].collapsed then
 			module.Trays[key].expanded:Hide()
 			module.Trays[key].collapsed:Show()
 			SetBarVisibility(key, 'hide')
@@ -101,13 +101,27 @@ local CollapseToggle = function(self)
 	end
 
 	local key = self.key
-	if SUI.DB.Artwork.SlidingTrays[key].collapsed then
-		SUI.DB.Artwork.SlidingTrays[key].collapsed = false
+	if module.CurrentSettings.SlidingTrays[key].collapsed then
+		if not module.DB.SlidingTrays then
+			module.DB.SlidingTrays = {}
+		end
+		if not module.DB.SlidingTrays[key] then
+			module.DB.SlidingTrays[key] = {}
+		end
+		module.DB.SlidingTrays[key].collapsed = false
+		SUI.DBM:RefreshSettings(module)
 		module.Trays[key].expanded:Show()
 		module.Trays[key].collapsed:Hide()
 		SetBarVisibility(key, 'show')
 	else
-		SUI.DB.Artwork.SlidingTrays[key].collapsed = true
+		if not module.DB.SlidingTrays then
+			module.DB.SlidingTrays = {}
+		end
+		if not module.DB.SlidingTrays[key] then
+			module.DB.SlidingTrays[key] = {}
+		end
+		module.DB.SlidingTrays[key].collapsed = true
+		SUI.DBM:RefreshSettings(module)
 		module.Trays[key].expanded:Hide()
 		module.Trays[key].collapsed:Show()
 		SetBarVisibility(key, 'hide')
@@ -205,7 +219,7 @@ function module:SlidingTrays(StyleSettings)
 	if StyleSettings then
 		settings = SUI:CopyTable(settings, StyleSettings)
 		-- Store the skin name and register the skin settings
-		local skinName = SUI.DB.Artwork.Style
+		local skinName = SUI:GetActiveStyle()
 		if not module.TrayData.Trays[skinName] then
 			module.TrayData.Trays[skinName] = {}
 		end
@@ -214,7 +228,7 @@ function module:SlidingTrays(StyleSettings)
 	end
 
 	-- Store the current skin name for later use
-	settings.currentSkin = SUI.DB.Artwork.Style
+	settings.currentSkin = SUI:GetActiveStyle()
 
 	module:Options()
 
@@ -223,7 +237,7 @@ function module:SlidingTrays(StyleSettings)
 
 	for _, key in ipairs(trayIDs) do
 		if not module.Trays[key] then
-			local tray = CreateFrame('Frame', 'SlidingTray_' .. key, _G['SUI_Art_' .. SUI.DB.Artwork.Style])
+			local tray = CreateFrame('Frame', 'SlidingTray_' .. key, _G['SUI_Art_' .. SUI:GetActiveStyle()])
 			tray:SetFrameStrata('BACKGROUND')
 			tray:SetAlpha(0.8)
 			tray:SetSize(400, 45)
@@ -287,7 +301,7 @@ function module:SlidingTrays(StyleSettings)
 			tray.expanded = expanded
 			tray.collapsed = collapsed
 
-			if SUI.DB.Artwork.SlidingTrays[key].collapsed then
+			if module.CurrentSettings.SlidingTrays[key].collapsed then
 				SetBarVisibility(key, 'hide')
 			else
 				SetBarVisibility(key, 'show')
@@ -340,7 +354,7 @@ function module:SlidingTrays(StyleSettings)
 end
 
 function module:GetTraySettings(side)
-	local currentSkin = SUI.DB.Artwork.Style
+	local currentSkin = SUI:GetActiveStyle()
 
 	-- Initialize skin data if needed
 	if not module.TrayData.Trays[currentSkin] then
@@ -370,7 +384,7 @@ function module:GetTraySettings(side)
 end
 
 function module:SetTraySettings(side, key, value)
-	local currentSkin = SUI.DB.Artwork.Style
+	local currentSkin = SUI:GetActiveStyle()
 
 	-- Initialize skin data if needed
 	if not module.TrayData.Trays[currentSkin] then
@@ -418,7 +432,7 @@ function module:Options()
 
 	local function resetTrayToDefaults(side)
 		-- Clear user settings for this side, which will fall back to skin defaults
-		local currentSkin = SUI.DB.Artwork.Style
+		local currentSkin = SUI:GetActiveStyle()
 		if module.TrayData.Trays[currentSkin] and module.TrayData.Trays[currentSkin][side] then
 			module.TrayData.Trays[currentSkin][side] = nil
 		end
@@ -545,8 +559,8 @@ function module:Options()
 							skinFrames = {
 								name = function()
 									local skinFrames = ''
-									if skinTrayFrames[SUI.DB.Artwork.Style] and skinTrayFrames[SUI.DB.Artwork.Style].left then
-										skinFrames = skinTrayFrames[SUI.DB.Artwork.Style].left
+									if skinTrayFrames[SUI:GetActiveStyle()] and skinTrayFrames[SUI:GetActiveStyle()].left then
+										skinFrames = skinTrayFrames[SUI:GetActiveStyle()].left
 									end
 									return '|cff4A9AFF' .. L['Skin Frames'] .. '|r: ' .. (skinFrames ~= '' and skinFrames or L['None'])
 								end,
@@ -569,7 +583,7 @@ function module:Options()
 									return module:GetTraySettings('left').customFrames
 								end,
 								set = function(info, val)
-									SUI.DB.Artwork.Trays[SUI.DB.Artwork.Style].left.customFrames = val
+									module:SetTraySettings('left', 'customFrames', val)
 								end,
 							},
 							addFrame = {
@@ -748,8 +762,8 @@ function module:Options()
 							skinFrames = {
 								name = function()
 									local skinFrames = ''
-									if skinTrayFrames[SUI.DB.Artwork.Style] and skinTrayFrames[SUI.DB.Artwork.Style].right then
-										skinFrames = skinTrayFrames[SUI.DB.Artwork.Style].right
+									if skinTrayFrames[SUI:GetActiveStyle()] and skinTrayFrames[SUI:GetActiveStyle()].right then
+										skinFrames = skinTrayFrames[SUI:GetActiveStyle()].right
 									end
 									return '|cff4A9AFF' .. L['Skin Frames'] .. '|r: ' .. (skinFrames ~= '' and skinFrames or L['None'])
 								end,
@@ -772,7 +786,7 @@ function module:Options()
 									return module:GetTraySettings('right').customFrames
 								end,
 								set = function(info, val)
-									SUI.DB.Artwork.Trays[SUI.DB.Artwork.Style].right.customFrames = val
+									module:SetTraySettings('right', 'customFrames', val)
 								end,
 							},
 							addFrame = {
@@ -787,9 +801,9 @@ function module:Options()
 									if val and val ~= '' then
 										local current = module:GetTraySettings('right').customFrames
 										if current == '' then
-											SUI.DB.Artwork.Trays[SUI.DB.Artwork.Style].right.customFrames = val
+											module:SetTraySettings('right', 'customFrames', val)
 										else
-											SUI.DB.Artwork.Trays[SUI.DB.Artwork.Style].right.customFrames = current .. ',' .. val
+											module:SetTraySettings('right', 'customFrames', current .. ',' .. val)
 										end
 									end
 								end,
@@ -800,7 +814,7 @@ function module:Options()
 								order = 5,
 								desc = L['Clear all custom frames from this tray'],
 								func = function()
-									SUI.DB.Artwork.Trays[SUI.DB.Artwork.Style].right.customFrames = ''
+									module:SetTraySettings('right', 'customFrames', '')
 								end,
 							},
 						},
@@ -965,16 +979,6 @@ function module:UpdateTextureOrientations()
 			-- Apply mouseover coordinates
 			module.Trays[key].expanded.textureMouseover:SetTexCoord(unpack(arrowMouseover))
 			module.Trays[key].collapsed.textureMouseover:SetTexCoord(unpack(arrowMouseover))
-		end
-	end
-
-	-- Ensure SlidingTrays is initialized
-	if not SUI.DB.Artwork.SlidingTrays then
-		SUI.DB.Artwork.SlidingTrays = {}
-	end
-	for _, key in ipairs(trayIDs) do
-		if not SUI.DB.Artwork.SlidingTrays[key] then
-			SUI.DB.Artwork.SlidingTrays[key] = { collapsed = false }
 		end
 	end
 
@@ -1147,8 +1151,8 @@ function module:GetCombinedFrameList(side)
 	local userFrames = ''
 
 	-- Get skin-provided frames for current style
-	if skinTrayFrames[SUI.DB.Artwork.Style] and skinTrayFrames[SUI.DB.Artwork.Style][side] then
-		skinFrames = skinTrayFrames[SUI.DB.Artwork.Style][side]
+	if skinTrayFrames[SUI:GetActiveStyle()] and skinTrayFrames[SUI:GetActiveStyle()][side] then
+		skinFrames = skinTrayFrames[SUI:GetActiveStyle()][side]
 	end
 
 	-- Get user custom frames from DB

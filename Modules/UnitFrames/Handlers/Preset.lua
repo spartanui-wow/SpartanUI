@@ -97,40 +97,23 @@ function Preset:Get(presetName)
 	return registry[presetName]
 end
 
----Auto-register presets from SUI.DB.Styles.
+---Auto-register presets from ThemeRegistry metadata.
 ---Called during UF initialization after DB is available.
----Each theme's Frames data becomes a preset, with applicableTo derived from which frame types have configs.
+---Uses theme metadata for applicableTo (no lazy-load triggered).
 function Preset:RegisterFromStyles()
-	if not SUI.DB or not SUI.DB.Styles then
-		return
-	end
-
-	for styleName, styleData in pairs(SUI.DB.Styles) do
-		if styleName ~= '**' and type(styleData) == 'table' and styleData.Frames and next(styleData.Frames) then
-			-- Determine which frame groups this preset applies to
-			local applicableTo = {}
-			for frameName, _ in pairs(styleData.Frames) do
-				local groupLeader = self:GetGroupLeader(frameName)
-				applicableTo[groupLeader] = true
+	-- Primary: register from ThemeRegistry metadata (no lazy-load triggered)
+	local themeList = SUI.ThemeRegistry and SUI.ThemeRegistry:GetList()
+	if themeList then
+		for themeName, metadata in pairs(themeList) do
+			if metadata.applicableTo and next(metadata.applicableTo) then
+				self:Register(themeName, {
+					displayName = metadata.displayName or themeName,
+					applicableTo = metadata.applicableTo,
+					source = 'theme',
+					themeName = themeName,
+					setup = metadata.setup,
+				})
 			end
-
-			-- Get display info from UF.Style registry if available
-			local styleSetup = nil
-			if UF.Style and UF.Style.registry and UF.Style.registry[styleName] then
-				local styleSettings = UF.Style.registry[styleName].settings
-				if styleSettings and styleSettings.setup then
-					styleSetup = styleSettings.setup
-				end
-			end
-
-			self:Register(styleName, {
-				displayName = styleName,
-				frameConfigs = styleData.Frames,
-				applicableTo = applicableTo,
-				source = 'theme',
-				themeName = styleName,
-				setup = styleSetup,
-			})
 		end
 	end
 end

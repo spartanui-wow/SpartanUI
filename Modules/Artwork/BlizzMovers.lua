@@ -3,14 +3,9 @@ local module = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
 local MoveIt = SUI.MoveIt
 
 local function GetBlizzMoverPosition(name)
-	local data = SUI.ThemeRegistry:GetBlizzMovers(SUI.DB.Artwork.Style)
+	local data = SUI.ThemeRegistry:GetBlizzMovers(module.CurrentSettings.Style)
 	if data and data[name] then
 		return data[name]
-	end
-	-- Legacy fallback for old SavedVariables
-	local styles = SUI.DB.Styles
-	if styles and styles[SUI.DB.Artwork.Style] and styles[SUI.DB.Artwork.Style].BlizzMovers then
-		return styles[SUI.DB.Artwork.Style].BlizzMovers[name]
 	end
 	return nil
 end
@@ -129,16 +124,16 @@ end
 ---@return Frame
 local function GenerateHolder(name, frame)
 	local holder = CreateFrame('Frame', name .. 'Holder', UIParent)
+	holder:EnableMouse(false)
 
 	local dbEntry = GetBlizzMoverPosition(name)
 	if dbEntry then
 		local point, anchor, secondaryPoint, x, y = strsplit(',', dbEntry)
-		holder:SetPoint(point, anchor, secondaryPoint, x, y)
-	elseif frame then
+		holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+	elseif frame and frame:GetPoint() then
 		local point, relativeTo, relativePoint, x, y = frame:GetPoint()
-		holder:SetPoint(point, relativeTo, relativePoint, x, y)
+		holder:SetPoint(point, relativeTo or UIParent, relativePoint or point, x or 0, y or 0)
 	else
-		-- Default position if neither DB entry nor frame is available
 		holder:SetPoint('CENTER', UIParent, 'CENTER', 0, 0)
 	end
 
@@ -148,8 +143,6 @@ local function GenerateHolder(name, frame)
 	else
 		holder:SetSize(256, 64)
 	end
-
-	holder:Hide()
 
 	return holder
 end
@@ -172,15 +165,15 @@ local function TalkingHead()
 	local moverName = 'TalkingHead'
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		return
 	end
 
 	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('TalkingHead') or 'TOP,SpartanUI,TOP,0,-18')
 	local THUIHolder = CreateFrame('Frame', 'THUIHolder', SpartanUI)
-	THUIHolder:SetPoint(point, anchor, secondaryPoint, x, y)
-	THUIHolder:Hide()
+	THUIHolder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+	THUIHolder:EnableMouse(false)
 
 	local SetupTalkingHead = function()
 		local frame = TalkingHeadFrame
@@ -237,149 +230,6 @@ local function TalkingHead()
 	end
 end
 
--- local function AbilityBars()
--- 	-- Use custom holder-based movers for both ExtraActionBar and ZoneAbility
--- 	local NeedsReparent = false
--- 	local ExtraAbilityContainer = _G['ExtraAbilityContainer']
--- 	local ExtraActionBarFrame = _G['ExtraActionBarFrame']
--- 	local ZoneAbilityFrame = _G['ZoneAbilityFrame']
-
--- 	if not ExtraActionBarFrame then
--- 		return
--- 	end
-
--- 	-- Check if movers are enabled
--- 	local extraActionEnabled = SUI.DB.Artwork.BlizzMoverStates['ExtraActionBar'].enabled
--- 	local zoneAbilityEnabled = SUI.DB.Artwork.BlizzMoverStates['ZoneAbility'].enabled
-
--- 	if not extraActionEnabled then
--- 		RestoreOriginalPosition('ExtraActionBar')
--- 	end
--- 	if not zoneAbilityEnabled and ZoneAbilityFrame then
--- 		RestoreOriginalPosition('ZoneAbility')
--- 	end
-
--- 	if not extraActionEnabled and not zoneAbilityEnabled then
--- 		return
--- 	end
-
--- 	-- Cache original positions before moving
--- 	if extraActionEnabled then
--- 		CacheOriginalPosition('ExtraActionBar', ExtraActionBarFrame)
--- 	end
--- 	if zoneAbilityEnabled and ZoneAbilityFrame then
--- 		CacheOriginalPosition('ZoneAbility', ZoneAbilityFrame)
--- 	end
-
--- 	-- Create holders
--- 	local ExtraActionBarHolder = GenerateHolder('ExtraActionBar')
--- 	local ZoneAbilityHolder = GenerateHolder('ZoneAbility')
--- 	ExtraAB.ExtraActionBarHolder = ExtraActionBarHolder
--- 	ExtraAB.ZoneAbilityHolder = ZoneAbilityHolder
-
--- 	ExtraActionBarHolder:SetSize(100, 70)
--- 	ZoneAbilityHolder:SetSize(100, 70)
-
--- 	if extraActionEnabled then
--- 		ExtraActionBarHolder:Show()
--- 	else
--- 		ExtraActionBarHolder:Hide()
--- 	end
-
--- 	if zoneAbilityEnabled then
--- 		ZoneAbilityHolder:Show()
--- 	else
--- 		ZoneAbilityHolder:Hide()
--- 	end
-
--- 	-- Set up ExtraActionBarFrame
--- 	if extraActionEnabled then
--- 		ExtraActionBarFrame:SetParent(ExtraActionBarHolder)
--- 		ExtraActionBarFrame:ClearAllPoints()
--- 		ExtraActionBarFrame:SetPoint('CENTER', ExtraActionBarHolder, 'CENTER')
--- 		ExtraActionBarFrame.ignoreInLayout = true
--- 	end
-
--- 	-- Set up ZoneAbilityFrame
--- 	if zoneAbilityEnabled and ZoneAbilityFrame then
--- 		ZoneAbilityFrame:SetParent(ZoneAbilityHolder)
--- 		ZoneAbilityFrame:ClearAllPoints()
--- 		ZoneAbilityFrame:SetPoint('CENTER', ZoneAbilityHolder, 'CENTER')
--- 		ZoneAbilityFrame.ignoreInLayout = true
--- 	end
-
--- 	-- Set up ExtraAbilityContainer
--- 	if ExtraAbilityContainer and (extraActionEnabled or zoneAbilityEnabled) then
--- 		ExtraAbilityContainer.HighlightSystem = SUI.noop
--- 		ExtraAbilityContainer.ClearHighlight = SUI.noop
--- 		ExtraAbilityContainer:SetScript('OnShow', nil)
--- 		ExtraAbilityContainer:SetScript('OnUpdate', nil)
--- 		ExtraAbilityContainer.OnUpdate = nil -- remove BaseLayoutMixin.OnUpdate
--- 		ExtraAbilityContainer.IsLayoutFrame = nil -- dont let it get readded
--- 	end
-
--- 	-- Hook functions to prevent movement
--- 	if extraActionEnabled then
--- 		hooksecurefunc(ExtraActionBarFrame, 'SetPoint', function(self)
--- 			if self:GetParent() ~= ExtraActionBarHolder then
--- 				self:ClearAllPoints()
--- 				self:SetPoint('CENTER', ExtraActionBarHolder, 'CENTER')
--- 			end
--- 		end)
--- 	end
-
--- 	if zoneAbilityEnabled and ZoneAbilityFrame then
--- 		hooksecurefunc(ZoneAbilityFrame, 'SetPoint', function(self)
--- 			if self:GetParent() ~= ZoneAbilityHolder then
--- 				self:ClearAllPoints()
--- 				self:SetPoint('CENTER', ZoneAbilityHolder, 'CENTER')
--- 			end
--- 		end)
--- 	end
-
--- 	-- Create movers
--- 	if extraActionEnabled then
--- 		MoveIt:CreateMover(ExtraActionBarHolder, 'ExtraActionBar', 'Extra action button', nil, 'Blizzard UI')
--- 		ExtraActionBarHolder:EnableMouse(false)
--- 		if module.BlizzMoverCache['ExtraActionBar'] then
--- 			if module.BlizzMoverCache['ExtraActionBar'] then
--- 				module.BlizzMoverCache['ExtraActionBar'].holder = ExtraActionBarHolder
--- 			end
--- 		end
--- 	end
-
--- 	if zoneAbilityEnabled and ZoneAbilityFrame then
--- 		MoveIt:CreateMover(ZoneAbilityHolder, 'ZoneAbility', 'Zone ability button', nil, 'Blizzard UI')
--- 		ZoneAbilityHolder:EnableMouse(false)
--- 		if module.BlizzMoverCache['ZoneAbility'] then
--- 			if module.BlizzMoverCache['ZoneAbility'] then
--- 				module.BlizzMoverCache['ZoneAbility'].holder = ZoneAbilityHolder
--- 			end
--- 		end
--- 	end
-
--- 	-- Update the layout when new frames are added
--- 	if ExtraAbilityContainer then
--- 		hooksecurefunc(ExtraAbilityContainer, 'AddFrame', function()
--- 			ExtraAB.Reparent()
--- 		end)
--- 	end
-
--- 	if ZoneAbilityFrame then
--- 		hooksecurefunc(ZoneAbilityFrame, 'SetParent', function(_, parent)
--- 			if parent ~= ZoneAbilityHolder and not NeedsReparent then
--- 				ExtraAB.Reparent()
--- 			end
--- 		end)
--- 	end
-
--- 	hooksecurefunc(ExtraActionBarFrame, 'SetParent', function(_, parent)
--- 		if parent ~= ExtraActionBarHolder and not NeedsReparent then
--- 			ExtraAB.Reparent()
--- 		end
--- 	end)
--- end
-
 local function FramerateFrame()
 	local moverName = 'FramerateFrame'
 	local frame = _G['FramerateFrame']
@@ -389,7 +239,7 @@ local function FramerateFrame()
 	end
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -397,7 +247,7 @@ local function FramerateFrame()
 	-- Cache original position before moving
 	CacheOriginalPosition(moverName, frame)
 
-	local holder = GenerateHolder(moverName)
+	local holder = GenerateHolder(moverName, frame)
 	holder:SetSize(64, 20)
 	AttachToHolder(frame, holder)
 	MoveIt:CreateMover(holder, moverName, 'Framerate frame', nil, 'Blizzard UI')
@@ -423,7 +273,7 @@ local function AlertFrame()
 	end
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		if groupLootContainer and module.BlizzMoverCache[moverName .. '_GroupLoot'] then
 			RestoreOriginalPosition(moverName .. '_GroupLoot')
@@ -437,7 +287,7 @@ local function AlertFrame()
 		CacheOriginalPosition(moverName .. '_GroupLoot', groupLootContainer)
 	end
 
-	local holder = GenerateHolder(moverName)
+	local holder = GenerateHolder(moverName, alertFrame)
 	holder:SetSize(180, 40)
 
 	AttachToHolder(alertFrame, holder, 'BOTTOM')
@@ -470,7 +320,7 @@ local function VehicleLeaveButton()
 		end
 
 		-- Check if mover is enabled
-		if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+		if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 			RestoreOriginalPosition(moverName)
 			return
 		end
@@ -480,8 +330,9 @@ local function VehicleLeaveButton()
 
 		local point, _, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleLeaveButton') or 'BOTTOM,SpartanUI,BOTTOM,0,250')
 		local VehicleBtnHolder = CreateFrame('Frame', 'VehicleBtnHolder', SpartanUI)
+		VehicleBtnHolder:EnableMouse(false)
 		VehicleBtnHolder:SetSize(frame:GetSize())
-		VehicleBtnHolder:SetPoint(point, UIParent, secondaryPoint, x, y)
+		VehicleBtnHolder:SetPoint(point, UIParent, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 		MoveIt:CreateMover(VehicleBtnHolder, moverName, 'Vehicle leave button', nil, 'Blizzard UI')
 
 		frame:ClearAllPoints()
@@ -513,7 +364,7 @@ local function VehicleSeatIndicator()
 	end
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -523,9 +374,9 @@ local function VehicleSeatIndicator()
 
 	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleSeatIndicator') or 'RIGHT,SpartanUI,RIGHT,-10,-30')
 	local VehicleSeatHolder = CreateFrame('Frame', 'VehicleSeatHolder', SpartanUI)
+	VehicleSeatHolder:EnableMouse(false)
 	VehicleSeatHolder:SetSize(SeatIndicator:GetSize())
-	VehicleSeatHolder:SetPoint(point, anchor, secondaryPoint, x, y)
-	VehicleSeatHolder:Hide()
+	VehicleSeatHolder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 	local function SetPosition(_, _, anchorPoint)
 		if anchorPoint ~= VehicleSeatHolder then
 			SeatIndicator:ClearAllPoints()
@@ -551,7 +402,7 @@ local function WidgetPowerBarContainer()
 	local playerPowerBarAlt = _G['PlayerPowerBarAlt']
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		if playerPowerBarAlt and module.BlizzMoverCache[moverName .. '_PowerBarAlt'] then
 			RestoreOriginalPosition(moverName .. '_PowerBarAlt')
@@ -567,7 +418,13 @@ local function WidgetPowerBarContainer()
 		CacheOriginalPosition(moverName .. '_PowerBarAlt', playerPowerBarAlt)
 	end
 
-	local holder = GenerateHolder(moverName)
+	local holder = GenerateHolder(moverName, widgetFrame or playerPowerBarAlt)
+
+	-- Default position: just below the top center widget container
+	if not GetBlizzMoverPosition(moverName) then
+		holder:ClearAllPoints()
+		holder:SetPoint('TOP', _G['TopCenterContainerHolder'] or UIParent, 'BOTTOM', 0, -5)
+	end
 
 	if widgetFrame then
 		AttachToHolder(widgetFrame, holder)
@@ -598,7 +455,7 @@ local function TopCenterContainer()
 	end
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -656,7 +513,7 @@ local function EncounterBar()
 	end
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName] or not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName] or not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -665,12 +522,14 @@ local function EncounterBar()
 	CacheOriginalPosition(moverName, frame)
 
 	-- Create holder frame
-	local holder = CreateFrame('Frame', 'SUI_EncounterBarHolder', UIParent)
-	holder:SetSize(200, 60) -- Default encounter bar size
+	local holder = GenerateHolder(moverName, frame)
+	holder:SetSize(200, 60)
 
-	-- Position from style
-	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('EncounterBar') or 'CENTER,UIParent,CENTER,0,0')
-	holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+	-- Default position: just below the top center widget container
+	if not GetBlizzMoverPosition(moverName) then
+		holder:ClearAllPoints()
+		holder:SetPoint('TOP', _G['TopCenterContainerHolder'] or UIParent, 'BOTTOM', 0, -5)
+	end
 
 	-- Create mover
 	MoveIt:CreateMover(holder, moverName, 'Encounter Bar', nil, 'Blizzard UI')
@@ -707,7 +566,7 @@ local function ArchaeologyBar()
 	end
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName] or not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName] or not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -716,12 +575,8 @@ local function ArchaeologyBar()
 	CacheOriginalPosition(moverName, frame)
 
 	-- Create holder frame
-	local holder = CreateFrame('Frame', 'SUI_ArchaeologyBarHolder', UIParent)
-	holder:SetSize(200, 40) -- Default archaeology bar size
-
-	-- Position from style
-	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('ArchaeologyBar') or 'CENTER,UIParent,CENTER,0,0')
-	holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+	local holder = GenerateHolder(moverName, frame)
+	holder:SetSize(200, 40)
 
 	-- Create mover
 	MoveIt:CreateMover(holder, moverName, 'Archaeology Bar', nil, 'Blizzard UI')
@@ -754,7 +609,7 @@ local function HudTooltip()
 	end
 
 	-- Check if mover is enabled
-	if not SUI.DB.Artwork.BlizzMoverStates[moverName].enabled then
+	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -793,18 +648,13 @@ end
 
 -- This is the main inpoint
 function module.BlizzMovers()
-	-- Frames using LibEditModeOverride (Retail only):
-	-- In TBC/Classic, these will fall back to custom holder-based movers
 	TalkingHead() -- TalkingHeadFrame (systemID 13)
 	VehicleLeaveButton() -- MainMenuBarVehicleLeaveButton (systemID 14)
-	-- AbilityBars() -- ExtraActionBarFrame + ZoneAbilityFrame (systemID 11)
-	EncounterBar() -- EncounterBar (systemID 10)
 	ArchaeologyBar() -- ArcheologyDigsiteProgressBar (systemID 21)
-
-	-- Frames using custom movers (all versions):
 	FramerateFrame() -- No EditMode support
 	AlertFrame() -- No EditMode support
 	TopCenterContainer() -- No EditMode support (UIWidgetTopCenterContainerFrame)
+	EncounterBar() -- EncounterBar (systemID 10)
 	VehicleSeatIndicator() -- Has EditMode but not well supported
 	WidgetPowerBarContainer() -- No EditMode support
 	HudTooltip() -- Override Blizzard Edit Mode tooltip positioning

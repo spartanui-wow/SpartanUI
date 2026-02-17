@@ -6,49 +6,72 @@ local unpack = unpack
 ----------------------------------------------------------------------------------------------------
 
 function module:OnInitialize()
-	local BarHandler = SUI.Handlers.BarSystem
-	BarHandler.BarPosition.BT4.Minimal = {
-		['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-1,90',
-		['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-1,45',
-		--
-		['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,1,1',
-		['BT4Bar4'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,1,1',
-		--
-		['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-232,1',
-		['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,260,1',
-		--
-		['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,0,130',
-		['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,0,130',
-		--
-		['BT4BarStanceBar'] = 'TOP,SpartanUI,TOP,-301,0',
-		['BT4BarPetBar'] = 'TOP,SpartanUI,TOP,-558,0',
-		['MultiCastActionBarFrame'] = 'TOP,SpartanUI,TOP,-558,0',
-		--
-		['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,322,0',
-		['BT4BarBagBar'] = 'TOP,SpartanUI,TOP,595,0',
-	}
-	BarHandler.BarScale.BT4.Minimal = {
-		['BT4Bar1'] = 0.78,
-		['BT4Bar2'] = 0.78,
-		['BT4Bar3'] = 0.78,
-		['BT4Bar4'] = 0.78,
-		['BT4Bar5'] = 0.78,
-		['BT4Bar6'] = 0.7,
-		['BT4Bar7'] = 0.7,
-		['BT4Bar8'] = 0.78,
-		['BT4Bar9'] = 0.78,
-		['BT4Bar10'] = 0.78,
-		['BT4BarBagBar'] = 0.6,
-		['BT4BarExtraActionBar'] = 0.8,
-		['BT4BarStanceBar'] = 0.6,
-		['BT4BarPetBar'] = 0.6,
-		['MultiCastActionBarFrame'] = 0.6,
-		['BT4BarMicroMenu'] = 0.6,
-	}
-
-	local minimapSettings = SUI.IsRetail
-			and {
-				-- Retail Minimal theme settings
+	SUI.ThemeRegistry:Register({
+		name = 'Minimal',
+		displayName = 'Minimal',
+		apiVersion = 1,
+		description = 'Clean minimal interface with configurable artwork panels',
+		setup = {
+			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Minimal',
+		},
+		applicableTo = {},
+	}, function()
+		return {
+			color = {
+				Art = {
+					0.6156862745098039,
+					0.1215686274509804,
+					0.1215686274509804,
+					0.9,
+				},
+			},
+			options = {
+				HideCenterGraphic = false,
+				HideTopLeft = false,
+				HideTopRight = false,
+				HideBottomLeft = false,
+				HideBottomRight = false,
+				UseClassColors = false,
+			},
+			barPositions = {
+				['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-1,90',
+				['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-1,45',
+				--
+				['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,1,1',
+				['BT4Bar4'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,1,1',
+				--
+				['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-232,1',
+				['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,260,1',
+				--
+				['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,0,130',
+				['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,0,130',
+				--
+				['BT4BarStanceBar'] = 'TOP,SpartanUI,TOP,-301,0',
+				['BT4BarPetBar'] = 'TOP,SpartanUI,TOP,-558,0',
+				['MultiCastActionBarFrame'] = 'TOP,SpartanUI,TOP,-558,0',
+				--
+				['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,322,0',
+				['BT4BarBagBar'] = 'TOP,SpartanUI,TOP,595,0',
+			},
+			barScales = {
+				['BT4Bar1'] = 0.78,
+				['BT4Bar2'] = 0.78,
+				['BT4Bar3'] = 0.78,
+				['BT4Bar4'] = 0.78,
+				['BT4Bar5'] = 0.78,
+				['BT4Bar6'] = 0.7,
+				['BT4Bar7'] = 0.7,
+				['BT4Bar8'] = 0.78,
+				['BT4Bar9'] = 0.78,
+				['BT4Bar10'] = 0.78,
+				['BT4BarBagBar'] = 0.6,
+				['BT4BarExtraActionBar'] = 0.8,
+				['BT4BarStanceBar'] = 0.6,
+				['BT4BarPetBar'] = 0.6,
+				['MultiCastActionBarFrame'] = 0.6,
+				['BT4BarMicroMenu'] = 0.6,
+			},
+			minimap = SUI.IsRetail and {
 				UnderVehicleUI = false,
 				scaleWithArt = false,
 				position = 'TOPRIGHT,SUI_Art_Minimal_Base3,TOPRIGHT,-10,-10',
@@ -59,32 +82,28 @@ function module:OnInitialize()
 						enabled = false,
 					},
 				},
-			}
-		or {
-			-- Classic client Minimal theme settings
-			UnderVehicleUI = false,
-			scaleWithArt = false,
-			position = 'TOPRIGHT,SUI_Art_Minimal_Base3,TOPRIGHT,-10,-10',
-			shape = 'square',
-			size = { 140, 140 },
-			background = {
-				enabled = false,
+			} or {
+				UnderVehicleUI = false,
+				scaleWithArt = false,
+				position = 'TOPRIGHT,SUI_Art_Minimal_Base3,TOPRIGHT,-10,-10',
+				shape = 'square',
+				size = { 140, 140 },
+				background = {
+					enabled = false,
+				},
+			},
+			unitframes = {
+				displayName = 'Minimal',
+				setup = {
+					image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Minimal',
+				},
 			},
 		}
-	SUI.Minimap:Register('Minimal', minimapSettings)
-
-	if SUI.UF then
-		SUI.UF.Style:Register('Minimal', {
-			displayName = 'Minimal',
-			setup = {
-				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Minimal',
-			},
-		})
-	end
+	end)
 end
 
 function module:OnEnable()
-	if SUI.DB.Artwork.Style ~= 'Minimal' then
+	if SUI:GetActiveStyle() ~= 'Minimal' then
 		module:Disable()
 	else
 		module:Options()
@@ -113,31 +132,31 @@ function module:OnEnable()
 		module:SetColor()
 
 		-- Show or hide individual elements based on settings
-		if SUI.DB.Styles.Minimal.HideCenterGraphic then
+		if SUI.ThemeRegistry:GetSetting('Minimal', 'HideCenterGraphic') then
 			SUI_Art_Minimal_Base1:Hide()
 		else
 			SUI_Art_Minimal_Base1:Show()
 		end
 
-		if SUI.DB.Styles.Minimal.HideTopLeft then
+		if SUI.ThemeRegistry:GetSetting('Minimal', 'HideTopLeft') then
 			SUI_Art_Minimal_Base2:Hide()
 		else
 			SUI_Art_Minimal_Base2:Show()
 		end
 
-		if SUI.DB.Styles.Minimal.HideTopRight then
+		if SUI.ThemeRegistry:GetSetting('Minimal', 'HideTopRight') then
 			SUI_Art_Minimal_Base3:Hide()
 		else
 			SUI_Art_Minimal_Base3:Show()
 		end
 
-		if SUI.DB.Styles.Minimal.HideBottomLeft then
+		if SUI.ThemeRegistry:GetSetting('Minimal', 'HideBottomLeft') then
 			SUI_Art_Minimal_Base4:Hide()
 		else
 			SUI_Art_Minimal_Base4:Show()
 		end
 
-		if SUI.DB.Styles.Minimal.HideBottomRight then
+		if SUI.ThemeRegistry:GetSetting('Minimal', 'HideBottomRight') then
 			SUI_Art_Minimal_Base5:Hide()
 		else
 			SUI_Art_Minimal_Base5:Show()
@@ -165,11 +184,11 @@ function module:Options()
 				type = 'toggle',
 				order = 1,
 				get = function(info)
-					return SUI.DB.Styles.Minimal.HideCenterGraphic
+					return SUI.ThemeRegistry:GetSetting('Minimal', 'HideCenterGraphic')
 				end,
 				set = function(info, val)
-					SUI.DB.Styles.Minimal.HideCenterGraphic = val
-					if SUI.DB.Styles.Minimal.HideCenterGraphic then
+					SUI.ThemeRegistry:SetSetting('Minimal', 'HideCenterGraphic', val)
+					if SUI.ThemeRegistry:GetSetting('Minimal', 'HideCenterGraphic') then
 						SUI_Art_Minimal_Base1:Hide()
 					else
 						SUI_Art_Minimal_Base1:Show()
@@ -181,11 +200,11 @@ function module:Options()
 				type = 'toggle',
 				order = 2,
 				get = function(info)
-					return SUI.DB.Styles.Minimal.HideTopLeft
+					return SUI.ThemeRegistry:GetSetting('Minimal', 'HideTopLeft')
 				end,
 				set = function(info, val)
-					SUI.DB.Styles.Minimal.HideTopLeft = val
-					if SUI.DB.Styles.Minimal.HideTopLeft then
+					SUI.ThemeRegistry:SetSetting('Minimal', 'HideTopLeft', val)
+					if SUI.ThemeRegistry:GetSetting('Minimal', 'HideTopLeft') then
 						SUI_Art_Minimal_Base2:Hide()
 					else
 						SUI_Art_Minimal_Base2:Show()
@@ -197,11 +216,11 @@ function module:Options()
 				type = 'toggle',
 				order = 3,
 				get = function(info)
-					return SUI.DB.Styles.Minimal.HideTopRight
+					return SUI.ThemeRegistry:GetSetting('Minimal', 'HideTopRight')
 				end,
 				set = function(info, val)
-					SUI.DB.Styles.Minimal.HideTopRight = val
-					if SUI.DB.Styles.Minimal.HideTopRight then
+					SUI.ThemeRegistry:SetSetting('Minimal', 'HideTopRight', val)
+					if SUI.ThemeRegistry:GetSetting('Minimal', 'HideTopRight') then
 						SUI_Art_Minimal_Base3:Hide()
 					else
 						SUI_Art_Minimal_Base3:Show()
@@ -213,11 +232,11 @@ function module:Options()
 				type = 'toggle',
 				order = 4,
 				get = function(info)
-					return SUI.DB.Styles.Minimal.HideBottomLeft
+					return SUI.ThemeRegistry:GetSetting('Minimal', 'HideBottomLeft')
 				end,
 				set = function(info, val)
-					SUI.DB.Styles.Minimal.HideBottomLeft = val
-					if SUI.DB.Styles.Minimal.HideBottomLeft then
+					SUI.ThemeRegistry:SetSetting('Minimal', 'HideBottomLeft', val)
+					if SUI.ThemeRegistry:GetSetting('Minimal', 'HideBottomLeft') then
 						SUI_Art_Minimal_Base4:Hide()
 					else
 						SUI_Art_Minimal_Base4:Show()
@@ -229,11 +248,11 @@ function module:Options()
 				type = 'toggle',
 				order = 5,
 				get = function(info)
-					return SUI.DB.Styles.Minimal.HideBottomRight
+					return SUI.ThemeRegistry:GetSetting('Minimal', 'HideBottomRight')
 				end,
 				set = function(info, val)
-					SUI.DB.Styles.Minimal.HideBottomRight = val
-					if SUI.DB.Styles.Minimal.HideBottomRight then
+					SUI.ThemeRegistry:SetSetting('Minimal', 'HideBottomRight', val)
+					if SUI.ThemeRegistry:GetSetting('Minimal', 'HideBottomRight') then
 						SUI_Art_Minimal_Base5:Hide()
 					else
 						SUI_Art_Minimal_Base5:Show()
@@ -246,10 +265,10 @@ function module:Options()
 				order = 6,
 				desc = L['Use your class colors for artwork instead of custom colors'],
 				get = function(info)
-					return SUI.DB.Styles.Minimal.UseClassColors
+					return SUI.ThemeRegistry:GetSetting('Minimal', 'UseClassColors')
 				end,
 				set = function(info, val)
-					SUI.DB.Styles.Minimal.UseClassColors = val
+					SUI.ThemeRegistry:SetSetting('Minimal', 'UseClassColors', val)
 					module:SetColor()
 				end,
 			},
@@ -261,14 +280,18 @@ function module:Options()
 				width = 'full',
 				desc = L['XP and Rep Bars are known issues and need a redesign to look right'],
 				hidden = function(info)
-					return SUI.DB.Styles.Minimal.UseClassColors
+					return SUI.ThemeRegistry:GetSetting('Minimal', 'UseClassColors')
 				end,
 				get = function(info)
-					return unpack(SUI.DB.Styles.Minimal.Color.Art)
+					local art = SUI.ThemeRegistry:GetSetting('Minimal', 'Color.Art')
+					if art then
+						return unpack(art)
+					end
+					return 1, 1, 1, 1
 				end,
 				set = function(info, r, g, b, a)
 					SUI.Log('Options - Artwork Color changed to r:' .. r .. ' g:' .. g .. ' b:' .. b .. ' a:' .. a, 'Style.Minimal', 'debug')
-					SUI.DB.Styles.Minimal.Color.Art = { r, g, b, a }
+					SUI.ThemeRegistry:SetSetting('Minimal', 'Color.Art', { r, g, b, a })
 					module:SetColor()
 				end,
 			},
@@ -290,9 +313,9 @@ function module:SetColor()
 	local r, g, b, a
 
 	SUI.Log('SetColor: Starting color update', 'Style.Minimal', 'debug')
-	SUI.Log('SetColor: UseClassColors setting = ' .. tostring(SUI.DB.Styles.Minimal.UseClassColors), 'Style.Minimal', 'debug')
+	SUI.Log('SetColor: UseClassColors setting = ' .. tostring(SUI.ThemeRegistry:GetSetting('Minimal', 'UseClassColors')), 'Style.Minimal', 'debug')
 
-	if SUI.DB.Styles.Minimal.UseClassColors then
+	if SUI.ThemeRegistry:GetSetting('Minimal', 'UseClassColors') then
 		-- Get player class colors
 		local _, class = UnitClass('player')
 		local classColor = RAID_CLASS_COLORS[class]
@@ -302,12 +325,18 @@ function module:SetColor()
 			SUI.Log('SetColor: Using class colors - r:' .. r .. ' g:' .. g .. ' b:' .. b .. ' a:' .. a, 'Style.Minimal', 'debug')
 		else
 			-- Fallback to default if class color not found
-			r, g, b, a = unpack(SUI.DB.Styles.Minimal.Color.Art)
+			local art = SUI.ThemeRegistry:GetSetting('Minimal', 'Color.Art')
+			if art then
+				r, g, b, a = unpack(art)
+			end
 			SUI.Log('SetColor: Class color not found, using fallback colors - r:' .. r .. ' g:' .. g .. ' b:' .. b .. ' a:' .. a, 'Style.Minimal', 'debug')
 		end
 	else
 		-- Use custom colors
-		r, g, b, a = unpack(SUI.DB.Styles.Minimal.Color.Art)
+		local art = SUI.ThemeRegistry:GetSetting('Minimal', 'Color.Art')
+		if art then
+			r, g, b, a = unpack(art)
+		end
 		SUI.Log('SetColor: Using custom colors - r:' .. r .. ' g:' .. g .. ' b:' .. b .. ' a:' .. a, 'Style.Minimal', 'debug')
 	end
 

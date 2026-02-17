@@ -37,7 +37,7 @@ AuraPresets.Presets = {
 			number = 10,
 			size = 24,
 			rows = 2,
-			retail = { filterMode = 'raid_auras' },
+			retail = { filterMode = 'raid_debuffs' },
 			classic = {
 				rules = {
 					isHarmful = true,
@@ -59,7 +59,7 @@ AuraPresets.Presets = {
 			number = 8,
 			size = 20,
 			rows = 2,
-			retail = { filterMode = 'raid_auras' },
+			retail = { filterMode = 'raid_buffs' },
 			classic = {
 				rules = {
 					isFromPlayerOrPlayerPet = true,
@@ -77,7 +77,7 @@ AuraPresets.Presets = {
 			number = 8,
 			size = 26,
 			rows = 1,
-			retail = { filterMode = 'blizzard_default' },
+			retail = { filterMode = 'all_debuffs' },
 			classic = {
 				rules = {
 					isHarmful = true,
@@ -92,14 +92,14 @@ AuraPresets.Presets = {
 	-- DPS Focus: DoTs, offensive buffs, and procs
 	dps = {
 		name = 'DPS',
-		description = 'Optimized for damage dealers. Shows your DoTs, offensive buffs, and procs.',
+		description = 'Optimized for damage dealers. Shows your buffs and your DoTs on the target.',
 		Buffs = {
 			showDuration = true,
 			sortMode = 'priority',
 			number = 10,
 			size = 20,
 			rows = 2,
-			retail = { filterMode = 'player_auras' },
+			retail = { filterMode = 'player_buffs' },
 			classic = {
 				rules = {
 					isFromPlayerOrPlayerPet = true,
@@ -116,7 +116,7 @@ AuraPresets.Presets = {
 			number = 8,
 			size = 22,
 			rows = 1,
-			retail = { filterMode = 'player_auras' },
+			retail = { filterMode = 'player_debuffs' },
 			classic = {
 				rules = {
 					isFromPlayerOrPlayerPet = true,
@@ -132,14 +132,14 @@ AuraPresets.Presets = {
 	-- Tank Focus: Defensive cooldowns and threat-related auras
 	tank = {
 		name = 'Tank',
-		description = 'Optimized for tanks. Shows defensive cooldowns, mitigation buffs, and threat-related debuffs.',
+		description = 'Optimized for tanks. Shows your defensive buffs and all debuffs on you.',
 		Buffs = {
 			showDuration = true,
 			sortMode = 'priority',
 			number = 10,
 			size = 24,
 			rows = 2,
-			retail = { filterMode = 'player_auras' },
+			retail = { filterMode = 'player_buffs' },
 			classic = {
 				rules = {
 					isFromPlayerOrPlayerPet = true,
@@ -156,7 +156,7 @@ AuraPresets.Presets = {
 			number = 8,
 			size = 26,
 			rows = 1,
-			retail = { filterMode = 'blizzard_default' },
+			retail = { filterMode = 'all_debuffs' },
 			classic = {
 				rules = {
 					isHarmful = true,
@@ -171,14 +171,14 @@ AuraPresets.Presets = {
 	-- Minimal: Clean display with fewer auras
 	minimal = {
 		name = 'Minimal',
-		description = 'Clean, minimal display. Shows only the most important auras.',
+		description = 'Shows only the most important auras with a clean, small layout.',
 		Buffs = {
 			showDuration = true,
 			sortMode = 'priority',
 			number = 4,
 			size = 18,
 			rows = 1,
-			retail = { filterMode = 'blizzard_default' },
+			retail = { filterMode = 'important_buffs' },
 			classic = {
 				rules = {
 					isFromPlayerOrPlayerPet = true,
@@ -195,7 +195,7 @@ AuraPresets.Presets = {
 			number = 4,
 			size = 20,
 			rows = 1,
-			retail = { filterMode = 'blizzard_default' },
+			retail = { filterMode = 'important_debuffs' },
 			classic = {
 				rules = {
 					isHarmful = true,
@@ -212,14 +212,14 @@ AuraPresets.Presets = {
 if SUI.IsRetail then
 	AuraPresets.Presets.show_all = {
 		name = 'Show All',
-		description = 'Shows all auras that Blizzard allows. Useful for seeing everything.',
+		description = 'Shows every buff and debuff with no filtering.',
 		Buffs = {
 			showDuration = true,
 			sortMode = 'priority',
 			number = 16,
 			size = 18,
 			rows = 2,
-			retail = { filterMode = 'all' },
+			retail = { filterMode = 'all_buffs' },
 		},
 		Debuffs = {
 			showDuration = true,
@@ -227,20 +227,20 @@ if SUI.IsRetail then
 			number = 16,
 			size = 18,
 			rows = 2,
-			retail = { filterMode = 'all' },
+			retail = { filterMode = 'all_debuffs' },
 		},
 	}
 
 	AuraPresets.Presets.pvp = {
 		name = 'PvP',
-		description = 'PvP-oriented. Shows your buffs and all enemy debuffs.',
+		description = 'PvP-oriented. Shows your buffs and all crowd control debuffs.',
 		Buffs = {
 			showDuration = true,
 			sortMode = 'priority',
 			number = 10,
 			size = 22,
 			rows = 2,
-			retail = { filterMode = 'player_auras' },
+			retail = { filterMode = 'player_buffs' },
 		},
 		Debuffs = {
 			showDuration = true,
@@ -248,13 +248,13 @@ if SUI.IsRetail then
 			number = 10,
 			size = 22,
 			rows = 2,
-			retail = { filterMode = 'blizzard_default' },
+			retail = { filterMode = 'crowd_control' },
 		},
 	}
 
 	AuraPresets.Presets.raid_healer = {
 		name = 'Raid Healer',
-		description = 'Focused healing layout for organized raiding. HoTs on buffs, raid-important debuffs.',
+		description = 'Healing layout for organized raiding. HoTs on buffs, raid-important debuffs.',
 		Buffs = {
 			showDuration = true,
 			sortMode = 'priority',
@@ -269,7 +269,7 @@ if SUI.IsRetail then
 			number = 8,
 			size = 26,
 			rows = 1,
-			retail = { filterMode = 'raid_auras' },
+			retail = { filterMode = 'raid_debuffs' },
 		},
 	}
 end

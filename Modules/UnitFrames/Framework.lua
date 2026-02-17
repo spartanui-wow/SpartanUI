@@ -30,8 +30,8 @@ UF.Artwork = {}
 UF.MountIds = {}
 
 ---@param msg string
----@param frame UnitId
----@param element string
+---@param frame? UnitId
+---@param element? string
 function UF:debug(msg, frame, element)
 	if UF.Log then
 		UF.Log.debug((frame and frame .. '-' or '') .. (element and element .. '-' or '') .. msg)
@@ -57,6 +57,7 @@ function UF:IsFriendlyFrame(frameName)
 		'target',
 		'targettarget',
 	}
+	---@diagnostic disable-next-line: undefined-field
 	if SUI:IsInTable(FriendlyFrame, frameName) or frameName:match('party') or frameName:match('raid') then
 		return true
 	end
@@ -67,7 +68,7 @@ end
 function UF:PositionFrame(unit)
 	local positionData = UFPositionDefaults
 	-- If artwork is enabled load the art's position data if supplied
-	local posData = UF.Style:Get(SUI.DB.Artwork.Style).positions
+	local posData = UF.Style:Get(SUI:GetActiveStyle()).positions
 	if SUI:IsModuleEnabled('Artwork') and posData then
 		positionData = SUI:CopyData(posData, UFPositionDefaults)
 	end
@@ -137,7 +138,7 @@ local function MigrateFromLegacy()
 
 	if oldStyle == 'Grid' then
 		-- Grid only had raid+party configs; other frames should use artwork style
-		local artStyle = SUI.DB.Artwork.Style or 'War'
+		local artStyle = SUI:GetActiveStyle() or 'War'
 		for groupLeader, _ in pairs(UF.Preset.FrameGroups) do
 			if groupLeader == 'raid' or groupLeader == 'party' then
 				UF.DB.Presets[groupLeader] = 'Grid'
@@ -187,22 +188,22 @@ local function LoadDB()
 		local presetName = UF.Preset:GetActive(groupLeader)
 
 		-- Merge preset config for this specific frame
-		local presetFrames = SUI.DB.Styles[presetName] and SUI.DB.Styles[presetName].Frames
+		local presetFrames = SUI.ThemeRegistry:GetFrameConfigs(presetName)
 		if presetFrames and presetFrames[frameName] then
 			UF.CurrentSettings[frameName] = SUI:MergeData(UF.CurrentSettings[frameName], presetFrames[frameName], true)
 		elseif UF.Artwork[presetName] then
 			-- Fallback for aliased styles (e.g., ArcaneRed -> Arcane skin)
 			local skin = UF.Artwork[presetName].skin
-			local skinFrames = SUI.DB.Styles[skin] and SUI.DB.Styles[skin].Frames
+			local skinFrames = SUI.ThemeRegistry:GetFrameConfigs(skin)
 			if skinFrames and skinFrames[frameName] then
 				UF.CurrentSettings[frameName] = SUI:MergeData(UF.CurrentSettings[frameName], skinFrames[frameName], true)
 			end
 		end
 
 		-- SpartanArt fallback: if preset doesn't define SpartanArt, inherit from global artwork theme
-		local artStyle = SUI.DB.Artwork.Style
+		local artStyle = SUI:GetActiveStyle()
 		if artStyle and artStyle ~= presetName then
-			local artFrames = SUI.DB.Styles[artStyle] and SUI.DB.Styles[artStyle].Frames
+			local artFrames = SUI.ThemeRegistry:GetFrameConfigs(artStyle)
 			if artFrames and artFrames[frameName] and artFrames[frameName].elements and artFrames[frameName].elements.SpartanArt then
 				local presetHasArt = presetFrames and presetFrames[frameName] and presetFrames[frameName].elements and presetFrames[frameName].elements.SpartanArt
 				if not presetHasArt then
@@ -257,8 +258,6 @@ function UF:OnInitialize()
 	-- Migrate from legacy single-style to per-frame presets
 	MigrateFromLegacy()
 
-	LoadDB()
-
 	if SUI.IsRetail then
 		for _, mountID in next, C_MountJournal.GetMountIDs() do
 			local _, spellID = C_MountJournal.GetMountInfoByID(mountID)
@@ -272,7 +271,10 @@ function UF:OnEnable()
 		return
 	end
 
-	-- Register presets from theme style configs (SUI.DB.Styles)
+	-- Load theme frame configs (must happen in OnEnable, after themes register in OnInitialize)
+	LoadDB()
+
+	-- Register presets from ThemeRegistry metadata
 	UF.Preset:RegisterFromStyles()
 
 	-- Spawn Frames
@@ -353,7 +355,7 @@ function UF:OnEnable()
 	-- Register frame relationships for magnetism after movers are created
 	if MoveIt.MagnetismManager then
 		local positionData = UFPositionDefaults
-		local posData = UF.Style:Get(SUI.DB.Artwork.Style).positions
+		local posData = UF.Style:Get(SUI:GetActiveStyle()).positions
 		if SUI:IsModuleEnabled('Artwork') and posData then
 			positionData = SUI:CopyData(posData, UFPositionDefaults)
 		end

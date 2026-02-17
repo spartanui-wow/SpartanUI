@@ -48,6 +48,7 @@ local function GroupBuilder(holder)
 		UF:debug('Raid GroupBuilder ENTRY - Creating raid header')
 	end
 
+	---@diagnostic disable-next-line: undefined-field
 	local configFunc = ('self:SetWidth(%d) self:SetHeight(%d)'):format(UF.CurrentSettings.raid.width, UF:CalculateHeight('raid'))
 	if UF.BuildDebug then
 		UF:debug('Raid GroupBuilder - Config function: ' .. configFunc)
@@ -185,6 +186,7 @@ local function Update(frame)
 	-- Force header to update its configuration when settings change
 	if frame and frame.header then
 		-- Update the initialConfigFunction with new dimensions
+		---@diagnostic disable-next-line: undefined-field
 		local configFunc = ('self:SetWidth(%d) self:SetHeight(%d)'):format(UF.CurrentSettings.raid.width, UF:CalculateHeight('raid'))
 		frame.header:SetAttribute('initialConfigFunction', configFunc)
 

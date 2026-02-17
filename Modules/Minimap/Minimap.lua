@@ -275,18 +275,19 @@ end
 
 function module:UpdateSettings()
 	-- Defensive check: if Artwork module isn't initialized yet, defer update
-	if not SUI.DB.Artwork or not SUI.DB.Artwork.Style then
+	if not SUI:GetActiveStyle() then
 		return
 	end
+
+	-- Ensure active theme data is loaded (triggers BridgeToSubsystems which populates Registry)
+	local currentStyle = module.styleOverride or SUI:GetActiveStyle()
+	SUI.ThemeRegistry:GetData(currentStyle)
 
 	module.Settings = nil
 	-- Start with base settings (version-specific)
 	---@type SUI.Style.Settings.IMinimap
 	local baseSettings = SUI.IsRetail and BaseSettings or BaseSettingsClassic
 	module.Settings = SUI:CopyData(baseSettings, {})
-
-	-- Apply theme settings if available
-	local currentStyle = module.styleOverride or SUI.DB.Artwork.Style
 	if Registry[currentStyle] then
 		module.Settings = SUI:MergeData(module.Settings, Registry[currentStyle].settings, true)
 	end
@@ -1642,13 +1643,13 @@ function module:SetupButtonBag()
 
 			-- Save the angle
 			addonSettings.bagButtonAngle = angle
-			if not module.DB.customSettings[SUI.DB.Artwork.Style].elements then
-				module.DB.customSettings[SUI.DB.Artwork.Style].elements = {}
+			if not module.DB.customSettings[SUI:GetActiveStyle()].elements then
+				module.DB.customSettings[SUI:GetActiveStyle()].elements = {}
 			end
-			if not module.DB.customSettings[SUI.DB.Artwork.Style].elements.addonButtons then
-				module.DB.customSettings[SUI.DB.Artwork.Style].elements.addonButtons = {}
+			if not module.DB.customSettings[SUI:GetActiveStyle()].elements.addonButtons then
+				module.DB.customSettings[SUI:GetActiveStyle()].elements.addonButtons = {}
 			end
-			module.DB.customSettings[SUI.DB.Artwork.Style].elements.addonButtons.bagButtonAngle = angle
+			module.DB.customSettings[SUI:GetActiveStyle()].elements.addonButtons.bagButtonAngle = angle
 
 			UpdateButtonPosition()
 		end)
@@ -1783,7 +1784,7 @@ function module:SetButtonHidden(buttonName, hidden)
 	addonSettings.hiddenButtons[buttonName] = hidden or nil -- nil to remove from table when not hidden
 
 	-- Save to custom settings
-	local style = SUI.DB.Artwork.Style
+	local style = SUI:GetActiveStyle()
 	if not module.DB.customSettings[style] then
 		module.DB.customSettings[style] = {}
 	end
@@ -2214,7 +2215,7 @@ function module:Update(fullUpdate)
 		module:SetupExpansionButton()
 
 		-- Setup vehicle UI monitoring if conditions are met
-		if module.Settings.UnderVehicleUI and module.Settings.useVehicleMover ~= false and SUI.DB.Artwork.VehicleUI and (not MoveIt:IsMoved('Minimap')) then
+		if module.Settings.UnderVehicleUI and module.Settings.useVehicleMover ~= false and SUI:GetArtworkSetting('VehicleUI') and (not MoveIt:IsMoved('Minimap')) then
 			-- Initialize vehicle UI monitoring if not already done
 			if not VehicleUIWatcher.monitoringSetup then
 				SetupVehicleUIMonitoring()
@@ -2302,7 +2303,7 @@ function module:InitializeVehicleMover()
 			module.Settings.vehiclePosition = position
 
 			-- Save to user settings
-			local currentStyle = SUI.DB.Artwork and SUI.DB.Artwork.Style
+			local currentStyle = SUI:GetActiveStyle()
 			if currentStyle and module.DB and module.DB.customSettings then
 				if not module.DB.customSettings[currentStyle] then
 					module.DB.customSettings[currentStyle] = {}
@@ -2351,7 +2352,7 @@ function module:ResetVehiclePosition()
 	VehicleMover:SetPoint(point, _G[anchor], secondaryPoint, x, y)
 
 	module.Settings.vehiclePosition = module.BaseOpt.vehiclePosition
-	local currentStyle = SUI.DB.Artwork and SUI.DB.Artwork.Style
+	local currentStyle = SUI:GetActiveStyle()
 	if currentStyle and module.DB and module.DB.customSettings and module.DB.customSettings[currentStyle] then
 		module.DB.customSettings[currentStyle].vehiclePosition = nil
 	end
@@ -2417,7 +2418,7 @@ function module:CheckOverrideActionBar()
 		if IsVehicleUIActive() then
 			if not module.Settings.firstVehicleDetected and module.Settings.UnderVehicleUI and module.Settings.useVehicleMover ~= false then
 				module.Settings.firstVehicleDetected = true
-				local currentStyle = SUI.DB.Artwork and SUI.DB.Artwork.Style
+				local currentStyle = SUI:GetActiveStyle()
 				if currentStyle and module.DB and module.DB.customSettings then
 					if not module.DB.customSettings[currentStyle] then
 						module.DB.customSettings[currentStyle] = {}
@@ -2486,7 +2487,7 @@ function module:OnInitialize()
 	-- Check for other addons modifying the minimap
 	module:DetectMinimapAddons()
 
-	local currentStyle = SUI.DB.Artwork and SUI.DB.Artwork.Style
+	local currentStyle = SUI:GetActiveStyle()
 	if currentStyle and module.DB and module.DB.customSettings then
 		if not module.DB.customSettings[currentStyle] then
 			module.DB.customSettings[currentStyle] = {}

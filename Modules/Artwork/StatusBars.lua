@@ -173,8 +173,8 @@ local function GetStyleSettings(ContainerKey)
 	local settings = SUI:CopyData({}, StyleSetting[ContainerKey])
 
 	-- Layer theme settings on top
-	if StyleSetting.skinsettings[SUI.DB.Artwork.Style] and StyleSetting.skinsettings[SUI.DB.Artwork.Style][ContainerKey] then
-		settings = SUI:CopyData(StyleSetting.skinsettings[SUI.DB.Artwork.Style][ContainerKey], settings)
+	if StyleSetting.skinsettings[SUI:GetActiveStyle()] and StyleSetting.skinsettings[SUI:GetActiveStyle()][ContainerKey] then
+		settings = SUI:CopyData(StyleSetting.skinsettings[SUI:GetActiveStyle()][ContainerKey], settings)
 	end
 
 	-- Layer user DB settings on top

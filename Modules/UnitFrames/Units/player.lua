@@ -153,6 +153,7 @@ local Settings = {
 		},
 		CombatIndicator = {
 			enabled = true,
+			glow = true,
 			position = {
 				anchor = 'TOPRIGHT',
 				x = 10,

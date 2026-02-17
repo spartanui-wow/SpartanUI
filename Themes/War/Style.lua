@@ -7,165 +7,245 @@ module.Settings = {}
 ----------------------------------------------------------------------------------------------------
 
 function module:OnInitialize()
-	-- Bartender 4 Settings
-	local BarHandler = SUI.Handlers.BarSystem
-	BarHandler.BarPosition.BT4.War = {
-		['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
-		['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
-		['MultiCastActionBarFrame'] = 'TOP,SpartanUI,TOP,-558,0',
-	}
-
-	-- Add Retail-only bars
-	if SUI.IsRetail then
-		BarHandler.BarPosition.BT4.War['BT4BarStanceBar'] = 'TOP,SpartanUI,TOP,-301,0'
-		BarHandler.BarPosition.BT4.War['BT4BarPetBar'] = 'TOP,SpartanUI,TOP,-558,0'
-		BarHandler.BarPosition.BT4.War['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,324,0'
-		BarHandler.BarPosition.BT4.War['BT4BarBagBar'] = 'TOP,SpartanUI,TOP,595,0'
-	end
-
-	-- Unitframes Settings
-	local ImageInfo = {
-		Alliance = {
-			bg = {
-				Coords = { 0.572265625, 0.96875, 0.74609375, 1 },
-			},
-			top = {
-				Coords = { 0.03125, 0.458984375, 0, 0.1796875 },
-			},
-			bottom = {
-				Coords = { 0.03125, 0.458984375, 0.37109375, 0.421875 },
-			},
+	SUI.ThemeRegistry:Register({
+		name = 'War',
+		displayName = 'War',
+		apiVersion = 1,
+		description = 'Faction-themed interface with sliding action bar trays',
+		setup = {
+			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_War',
 		},
-		Horde = {
-			bg = {
-				Coords = { 0.572265625, 0.96875, 0.74609375, 1 },
+		applicableTo = { player = true, target = true },
+	}, function()
+		local ImageInfo = {
+			Alliance = {
+				bg = {
+					Coords = { 0.572265625, 0.96875, 0.74609375, 1 },
+				},
+				top = {
+					Coords = { 0.03125, 0.458984375, 0, 0.1796875 },
+				},
+				bottom = {
+					Coords = { 0.03125, 0.458984375, 0.37109375, 0.421875 },
+				},
 			},
-			top = {
-				Coords = { 0.541015625, 1, 0, 0.1796875 },
+			Horde = {
+				bg = {
+					Coords = { 0.572265625, 0.96875, 0.74609375, 1 },
+				},
+				top = {
+					Coords = { 0.541015625, 1, 0, 0.1796875 },
+				},
+				bottom = {
+					Coords = { 0.541015625, 1, 0.37109375, 0.421875 },
+				},
 			},
-			bottom = {
-				Coords = { 0.541015625, 1, 0.37109375, 0.421875 },
-			},
-		},
-	}
-	local pathFunc = function(frame, position)
-		local factionGroup = select(1, UnitFactionGroup('player'))
-		if frame then
-			factionGroup = select(1, UnitFactionGroup(frame.unit)) or 'Neutral'
+		}
+		local pathFunc = function(frame, position)
+			local factionGroup = select(1, UnitFactionGroup('player'))
+			if frame then
+				factionGroup = select(1, UnitFactionGroup(frame.unit)) or 'Neutral'
+			end
+
+			if factionGroup == 'Horde' or factionGroup == 'Alliance' then
+				return 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\UnitFrames'
+			end
+			if position == 'bg' then
+				return 'Interface\\AddOns\\SpartanUI\\images\\statusbars\\Smoothv2'
+			end
+
+			return false
+		end
+		local TexCoordFunc = function(frame, position)
+			local factionGroup = select(1, UnitFactionGroup('player'))
+			if frame then
+				factionGroup = select(1, UnitFactionGroup(frame.unit)) or 'Neutral'
+			end
+
+			if ImageInfo[factionGroup] and ImageInfo[factionGroup][position] then
+				return ImageInfo[factionGroup][position].Coords
+			else
+				return { 1, 1, 1, 1 }
+			end
 		end
 
-		if factionGroup == 'Horde' or factionGroup == 'Alliance' then
-			return 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\UnitFrames'
-		end
-		if position == 'bg' then
-			return 'Interface\\AddOns\\SpartanUI\\images\\statusbars\\Smoothv2'
-		end
-
-		return false
-	end
-	local TexCoordFunc = function(frame, position)
-		local factionGroup = select(1, UnitFactionGroup('player'))
-		if frame then
-			factionGroup = select(1, UnitFactionGroup(frame.unit)) or 'Neutral'
+		local barPositions = {
+			['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
+			['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
+			['MultiCastActionBarFrame'] = 'TOP,SpartanUI,TOP,-558,0',
+		}
+		if SUI.IsRetail then
+			barPositions['BT4BarStanceBar'] = 'TOP,SpartanUI,TOP,-301,0'
+			barPositions['BT4BarPetBar'] = 'TOP,SpartanUI,TOP,-558,0'
+			barPositions['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,324,0'
+			barPositions['BT4BarBagBar'] = 'TOP,SpartanUI,TOP,595,0'
 		end
 
-		if ImageInfo[factionGroup] and ImageInfo[factionGroup][position] then
-			return ImageInfo[factionGroup][position].Coords
-		else
-			return { 1, 1, 1, 1 }
-		end
-	end
-
-	if SUI.Minimap then
-		---@type SUI.Style.Settings.Minimap
-		local minimapSettings = SUI.IsRetail
-				and {
-					-- Retail War theme settings
-					size = { 180, 180 },
-					position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,11,-10',
+		return {
+			frames = {
+				player = {
 					elements = {
-						background = {
-							texture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\minimap',
-							size = { 220, 220 },
+						SpartanArt = {
+							top = {
+								enabled = true,
+								graphic = 'War',
+							},
+							bg = {
+								enabled = true,
+								graphic = 'War',
+							},
+							bottom = {
+								enabled = true,
+								graphic = 'War',
+							},
+						},
+						Name = {
+							enabled = true,
+							SetJustifyH = 'LEFT',
+							position = {
+								anchor = 'BOTTOM',
+								x = 0,
+								y = -16,
+							},
+						},
+						Buffs = {
+							position = {
+								relativeTo = 'Name',
+								y = -15,
+							},
+						},
+						Debuffs = {
+							position = {
+								relativeTo = 'Name',
+								y = -15,
+							},
 						},
 					},
-				}
-			or {
-				-- Classic client War theme settings
+				},
+				target = {
+					elements = {
+						SpartanArt = {
+							top = {
+								enabled = true,
+								graphic = 'War',
+							},
+							bg = {
+								enabled = true,
+								graphic = 'War',
+							},
+							bottom = {
+								enabled = true,
+								graphic = 'War',
+							},
+						},
+						Name = {
+							enabled = true,
+							SetJustifyH = 'LEFT',
+							position = {
+								anchor = 'BOTTOM',
+								x = 0,
+								y = -16,
+							},
+						},
+						Buffs = {
+							position = {
+								relativeTo = 'Name',
+								y = -5,
+							},
+						},
+						Debuffs = {
+							position = {
+								relativeTo = 'Name',
+								y = -5,
+							},
+						},
+					},
+				},
+			},
+			slidingTrays = {
+				left = {
+					enabled = true,
+					collapsed = false,
+				},
+				right = {
+					enabled = true,
+					collapsed = false,
+				},
+			},
+			barPositions = barPositions,
+			minimap = SUI.IsRetail and {
+				size = { 180, 180 },
+				position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,11,-10',
+				elements = {
+					background = {
+						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\minimap',
+						size = { 220, 220 },
+					},
+				},
+			} or {
 				size = { 140, 140 },
 				position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,1,-10',
 				background = {
 					texture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\minimap',
 					size = { 180, 180 },
 				},
-			}
-		SUI.Minimap:Register('War', minimapSettings)
-	end
-
-	if SUI.UF then
-		---@type SUI.Style.Settings.UnitFrames
-		local ufsettings = {
-			displayName = 'War',
-			setup = {
-				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_War',
 			},
-			artwork = {
-				top = {
-					path = pathFunc,
-					TexCoord = TexCoordFunc,
-					heightScale = 0.225,
-					yScale = -0.0555,
-					PVPAlpha = 0.6,
+			unitframes = {
+				displayName = 'War',
+				setup = {
+					image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_War',
 				},
-				bg = {
-					path = pathFunc,
-					TexCoord = TexCoordFunc,
-					PVPAlpha = 0.7,
+				artwork = {
+					top = {
+						path = pathFunc,
+						TexCoord = TexCoordFunc,
+						heightScale = 0.225,
+						yScale = -0.0555,
+						PVPAlpha = 0.6,
+					},
+					bg = {
+						path = pathFunc,
+						TexCoord = TexCoordFunc,
+						PVPAlpha = 0.7,
+					},
+					bottom = {
+						path = pathFunc,
+						TexCoord = TexCoordFunc,
+						heightScale = 0.0825,
+						yScale = 0.0223,
+						PVPAlpha = 0.7,
+					},
 				},
-				bottom = {
-					path = pathFunc,
-					TexCoord = TexCoordFunc,
-					heightScale = 0.0825,
-					yScale = 0.0223,
-					PVPAlpha = 0.7,
+				positions = {
+					['player'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-45,250',
 				},
 			},
-			positions = {
-				['player'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-45,250',
+			statusBars = {
+				Left = {
+					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\StatusBar-' .. UnitFactionGroup('Player'),
+					alpha = 0.9,
+					size = { 370, 20 },
+					TooltipSize = { 350, 100 },
+					TooltipTextSize = { 330, 80 },
+					texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
+					GlowPoint = { x = 1, y = 0 },
+					MaxWidth = 18,
+					Position = SUI.IsRetail and 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-40,-2' or 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-80,-2',
+				},
+				Right = {
+					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\StatusBar-' .. UnitFactionGroup('Player'),
+					alpha = 0.9,
+					size = { 370, 20 },
+					TooltipSize = { 350, 100 },
+					TooltipTextSize = { 330, 80 },
+					texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
+					GlowPoint = { x = 1, y = 0 },
+					MaxWidth = 18,
+					Position = SUI.IsRetail and 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,100,-2' or 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,90,-2',
+				},
 			},
 		}
-		SUI.UF.Style:Register('War', ufsettings)
-	end
-
-	local statusBarModule = SUI:GetModule('Artwork.StatusBars', true) ---@type SUI.Module.Artwork.StatusBars
-	---@type SUI.Style.Settings.StatusBars.Storage
-	local StatusBarsSettings = {
-		Left = {
-			bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\StatusBar-' .. UnitFactionGroup('Player'),
-			alpha = 0.9,
-			size = { 370, 20 },
-			TooltipSize = { 350, 100 },
-			TooltipTextSize = { 330, 80 },
-			texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
-			GlowPoint = { x = 1, y = 0 },
-			MaxWidth = 18,
-			Position = SUI.IsRetail and 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-40,-2' or 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-80,-2',
-		},
-		Right = {
-			bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\StatusBar-' .. UnitFactionGroup('Player'),
-			alpha = 0.9,
-			size = { 370, 20 },
-			TooltipSize = { 350, 100 },
-			TooltipTextSize = { 330, 80 },
-			texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
-			GlowPoint = { x = 1, y = 0 },
-			MaxWidth = 18,
-			Position = SUI.IsRetail and 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,100,-2' or 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,90,-2',
-		},
-	}
-	if statusBarModule then
-		statusBarModule:RegisterStyle('War', StatusBarsSettings)
-	end
+	end)
 
 	if Artwork_Core then
 		module:CreateArtwork()
@@ -173,7 +253,7 @@ function module:OnInitialize()
 end
 
 function module:OnEnable()
-	if SUI.DB.Artwork.Style ~= 'War' then
+	if SUI:GetActiveStyle() ~= 'War' then
 		module:Disable()
 	else
 		--Setup Sliding Trays
@@ -215,13 +295,13 @@ function module:TooltipLoc(tooltip, parent)
 end
 
 function module:SetupVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		RegisterStateDriver(SUI_Art_War, 'visibility', '[overridebar][vehicleui] hide; show')
 	end
 end
 
 function module:RemoveVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		UnregisterStateDriver(SUI_Art_War, 'visibility')
 	end
 end

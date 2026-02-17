@@ -25,8 +25,10 @@ local function BridgeToSubsystems(themeName, data)
 	if data.minimap then
 		local minimap = SUI:GetModule('Minimap', true)
 		if minimap then
-			if data.minimap.hasVariants then
-				minimap:RegisterWithVariants(themeName, data.minimap.variants)
+			if data.minimap.variants then
+				for variantName, settings in pairs(data.minimap.variants) do
+					minimap:Register(variantName, settings)
+				end
 			else
 				minimap:Register(themeName, data.minimap)
 			end
@@ -202,6 +204,14 @@ end
 function ThemeRegistry:GetCallbacks(themeName)
 	local data = EnsureLoaded(themeName)
 	return data and data.callbacks
+end
+
+---Load all registered themes' data (triggers lazy load for any not yet loaded).
+---Used by subsystem consumers that need the complete list (e.g., UF Style dropdowns).
+function ThemeRegistry:EnsureAllLoaded()
+	for themeName, _ in pairs(registry) do
+		EnsureLoaded(themeName)
+	end
 end
 
 ---Check if a theme's data has been loaded (without triggering load)

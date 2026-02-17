@@ -113,6 +113,9 @@ function module:OnInitialize()
 			end,
 			func = function()
 				SUI:SetActiveStyle(skin)
+				if SUI.UF then
+					SUI.UF:SetActiveStyle(skin)
+				end
 			end,
 		}
 		-- Setup artwork button

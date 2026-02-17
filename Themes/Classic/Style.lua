@@ -8,10 +8,24 @@ local artFrame = CreateFrame('Frame', 'SUI_Art_Classic', SpartanUI)
 local SkinnedFrames = {}
 local FramesToSkin = { 'player', 'target' }
 
+local ActionBarsDefaults = {
+	Allalpha = 100,
+	Allenable = true,
+	popup1 = { anim = true, alpha = 100, enable = true },
+	popup2 = { anim = true, alpha = 100, enable = true },
+	bar1 = { alpha = 100, enable = true },
+	bar2 = { alpha = 100, enable = true },
+	bar3 = { alpha = 100, enable = true },
+	bar4 = { alpha = 100, enable = true },
+	bar5 = { alpha = 100, enable = true },
+	bar6 = { alpha = 100, enable = true },
+}
+
 function module:SetColor()
 	local r, g, b, a = 1, 1, 1, 1
-	if SUI.DB.Styles.Classic.Color.Art then
-		r, g, b, a = unpack(SUI.DB.Styles.Classic.Color.Art)
+	local art = SUI.ThemeRegistry:GetSetting('Classic', 'Color.Art')
+	if art then
+		r, g, b, a = unpack(art)
 	end
 
 	for i = 1, 10 do
@@ -36,13 +50,13 @@ function module:SetColor()
 end
 
 function module:SetupVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		RegisterStateDriver(SUI_Art_Classic, 'visibility', '[petbattle][overridebar][vehicleui] hide; show')
 	end
 end
 
 function module:RemoveVehicleUI()
-	if not SUI.DB.Artwork.VehicleUI then
+	if not SUI:GetArtworkSetting('VehicleUI') then
 		UnregisterStateDriver(SUI_Art_Classic, 'visibility')
 	end
 end
@@ -158,7 +172,7 @@ local function CreateArtwork()
 	artFrame.FarRight:SetPoint('BOTTOMLEFT', artFrame.Right, 'BOTTOMRIGHT')
 	artFrame.FarRight:SetPoint('BOTTOMRIGHT', SpartanUI, 'BOTTOMRIGHT')
 
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		RegisterStateDriver(SUI_Art_Classic, 'visibility', '[petbattle][overridebar][vehicleui] hide; show')
 	end
 
@@ -170,16 +184,16 @@ local function CreateArtwork()
 			local elapsed = select(1, ...)
 			self.TimeSinceLastUpdate = self.TimeSinceLastUpdate + elapsed
 			if self.TimeSinceLastUpdate > self.UpdateInterval then
-				-- Check if ActionBars DB exists before accessing it
-				if SUI.DB.ActionBars and SUI.DB.ActionBars['popup1'] then
-					if not MouseIsOver(plate.mask1) and not MouseIsOver(plate.POP1) and SUI.DB.ActionBars['popup1'].anim then -- popup1 animation
+				local abSettings = module.CurrentSettings
+				if abSettings.popup1 and abSettings.popup1.anim then
+					if not MouseIsOver(plate.mask1) and not MouseIsOver(plate.POP1) then
 						plate.mask1:Show()
 					else
 						plate.mask1:Hide()
 					end
 				end
-				if SUI.DB.ActionBars and SUI.DB.ActionBars['popup2'] then
-					if not MouseIsOver(plate.mask2) and not MouseIsOver(plate.POP2) and SUI.DB.ActionBars['popup2'].anim then -- popup2 animation
+				if abSettings.popup2 and abSettings.popup2.anim then
+					if not MouseIsOver(plate.mask2) and not MouseIsOver(plate.POP2) then
 						plate.mask2:Show()
 					else
 						plate.mask2:Hide()
@@ -264,13 +278,17 @@ local function Options()
 				type = 'toggle',
 				order = 2,
 				get = function(info)
-					return SUI.DB.ActionBars.Allenable
+					return module.CurrentSettings.Allenable
 				end,
 				set = function(info, val)
-					SUI.DB.ActionBars.Allenable = val
+					module.DB.Allenable = val
 					for i = 1, 6 do
-						SUI.DB.ActionBars['bar' .. i].enable = val
+						if not module.DB['bar' .. i] then
+							module.DB['bar' .. i] = {}
+						end
+						module.DB['bar' .. i].enable = val
 					end
+					SUI.DBM:RefreshSettings(module)
 				end,
 			},
 			Allalpha = {
@@ -282,12 +300,17 @@ local function Options()
 				max = 100,
 				step = 1,
 				get = function(info)
-					return SUI.DB.ActionBars.Allalpha
+					return module.CurrentSettings.Allalpha
 				end,
 				set = function(info, val)
+					module.DB.Allalpha = val
 					for i = 1, 6 do
-						SUI.DB.ActionBars['bar' .. i].alpha, SUI.DB.ActionBars.Allalpha = val, val
+						if not module.DB['bar' .. i] then
+							module.DB['bar' .. i] = {}
+						end
+						module.DB['bar' .. i].alpha = val
 					end
+					SUI.DBM:RefreshSettings(module)
 				end,
 			},
 			Bar1 = {
@@ -303,11 +326,11 @@ local function Options()
 						step = 1,
 						width = 'double',
 						get = function(info)
-							return SUI.DB.ActionBars.bar1.alpha
+							return module.CurrentSettings.bar1.alpha
 						end,
 						set = function(info, val)
-							if SUI.DB.ActionBars.bar1.enable == true then
-								SUI.DB.ActionBars.bar1.alpha = val
+							if module.CurrentSettings.bar1.enable then
+								SUI.DBM:Set(module, 'bar1.alpha', val)
 							end
 						end,
 					},
@@ -315,10 +338,10 @@ local function Options()
 						name = L['Enabled'],
 						type = 'toggle',
 						get = function(info)
-							return SUI.DB.ActionBars.bar1.enable
+							return module.CurrentSettings.bar1.enable
 						end,
 						set = function(info, val)
-							SUI.DB.ActionBars.bar1.enable = val
+							SUI.DBM:Set(module, 'bar1.enable', val)
 						end,
 					},
 				},
@@ -336,11 +359,11 @@ local function Options()
 						step = 1,
 						width = 'double',
 						get = function(info)
-							return SUI.DB.ActionBars.bar2.alpha
+							return module.CurrentSettings.bar2.alpha
 						end,
 						set = function(info, val)
-							if SUI.DB.ActionBars.bar2.enable == true then
-								SUI.DB.ActionBars.bar2.alpha = val
+							if module.CurrentSettings.bar2.enable then
+								SUI.DBM:Set(module, 'bar2.alpha', val)
 							end
 						end,
 					},
@@ -348,10 +371,10 @@ local function Options()
 						name = L['Enabled'],
 						type = 'toggle',
 						get = function(info)
-							return SUI.DB.ActionBars.bar2.enable
+							return module.CurrentSettings.bar2.enable
 						end,
 						set = function(info, val)
-							SUI.DB.ActionBars.bar2.enable = val
+							SUI.DBM:Set(module, 'bar2.enable', val)
 						end,
 					},
 				},
@@ -369,11 +392,11 @@ local function Options()
 						step = 1,
 						width = 'double',
 						get = function(info)
-							return SUI.DB.ActionBars.bar3.alpha
+							return module.CurrentSettings.bar3.alpha
 						end,
 						set = function(info, val)
-							if SUI.DB.ActionBars.bar3.enable == true then
-								SUI.DB.ActionBars.bar3.alpha = val
+							if module.CurrentSettings.bar3.enable then
+								SUI.DBM:Set(module, 'bar3.alpha', val)
 							end
 						end,
 					},
@@ -381,10 +404,10 @@ local function Options()
 						name = L['Enabled'],
 						type = 'toggle',
 						get = function(info)
-							return SUI.DB.ActionBars.bar3.enable
+							return module.CurrentSettings.bar3.enable
 						end,
 						set = function(info, val)
-							SUI.DB.ActionBars.bar3.enable = val
+							SUI.DBM:Set(module, 'bar3.enable', val)
 						end,
 					},
 				},
@@ -402,11 +425,11 @@ local function Options()
 						step = 1,
 						width = 'double',
 						get = function(info)
-							return SUI.DB.ActionBars.bar4.alpha
+							return module.CurrentSettings.bar4.alpha
 						end,
 						set = function(info, val)
-							if SUI.DB.ActionBars.bar4.enable == true then
-								SUI.DB.ActionBars.bar4.alpha = val
+							if module.CurrentSettings.bar4.enable then
+								SUI.DBM:Set(module, 'bar4.alpha', val)
 							end
 						end,
 					},
@@ -414,10 +437,10 @@ local function Options()
 						name = L['Enabled'],
 						type = 'toggle',
 						get = function(info)
-							return SUI.DB.ActionBars.bar4.enable
+							return module.CurrentSettings.bar4.enable
 						end,
 						set = function(info, val)
-							SUI.DB.ActionBars.bar4.enable = val
+							SUI.DBM:Set(module, 'bar4.enable', val)
 						end,
 					},
 				},
@@ -435,11 +458,11 @@ local function Options()
 						step = 1,
 						width = 'double',
 						get = function(info)
-							return SUI.DB.ActionBars.bar5.alpha
+							return module.CurrentSettings.bar5.alpha
 						end,
 						set = function(info, val)
-							if SUI.DB.ActionBars.bar5.enable == true then
-								SUI.DB.ActionBars.bar5.alpha = val
+							if module.CurrentSettings.bar5.enable then
+								SUI.DBM:Set(module, 'bar5.alpha', val)
 							end
 						end,
 					},
@@ -447,10 +470,10 @@ local function Options()
 						name = L['Enabled'],
 						type = 'toggle',
 						get = function(info)
-							return SUI.DB.ActionBars.bar5.enable
+							return module.CurrentSettings.bar5.enable
 						end,
 						set = function(info, val)
-							SUI.DB.ActionBars.bar5.enable = val
+							SUI.DBM:Set(module, 'bar5.enable', val)
 						end,
 					},
 				},
@@ -468,11 +491,11 @@ local function Options()
 						step = 1,
 						width = 'double',
 						get = function(info)
-							return SUI.DB.ActionBars.bar6.alpha
+							return module.CurrentSettings.bar6.alpha
 						end,
 						set = function(info, val)
-							if SUI.DB.ActionBars.bar6.enable == true then
-								SUI.DB.ActionBars.bar6.alpha = val
+							if module.CurrentSettings.bar6.enable then
+								SUI.DBM:Set(module, 'bar6.alpha', val)
 							end
 						end,
 					},
@@ -480,10 +503,10 @@ local function Options()
 						name = L['Enabled'],
 						type = 'toggle',
 						get = function(info)
-							return SUI.DB.ActionBars.bar6.enable
+							return module.CurrentSettings.bar6.enable
 						end,
 						set = function(info, val)
-							SUI.DB.ActionBars.bar6.enable = val
+							SUI.DBM:Set(module, 'bar6.enable', val)
 						end,
 					},
 				},
@@ -501,10 +524,10 @@ local function Options()
 				order = 1,
 				width = 'full',
 				get = function(info)
-					return SUI.DB.ActionBars.popup1.anim
+					return module.CurrentSettings.popup1.anim
 				end,
 				set = function(info, val)
-					SUI.DB.ActionBars.popup1.anim = val
+					SUI.DBM:Set(module, 'popup1.anim', val)
 				end,
 			},
 			popup1alpha = {
@@ -515,11 +538,11 @@ local function Options()
 				max = 100,
 				step = 1,
 				get = function(info)
-					return SUI.DB.ActionBars.popup1.alpha
+					return module.CurrentSettings.popup1.alpha
 				end,
 				set = function(info, val)
-					if SUI.DB.ActionBars.popup1.enable == true then
-						SUI.DB.ActionBars.popup1.alpha = val
+					if module.CurrentSettings.popup1.enable then
+						SUI.DBM:Set(module, 'popup1.alpha', val)
 					end
 				end,
 			},
@@ -528,10 +551,10 @@ local function Options()
 				type = 'toggle',
 				order = 3,
 				get = function(info)
-					return SUI.DB.ActionBars.popup1.enable
+					return module.CurrentSettings.popup1.enable
 				end,
 				set = function(info, val)
-					SUI.DB.ActionBars.popup1.enable = val
+					SUI.DBM:Set(module, 'popup1.enable', val)
 				end,
 			},
 			popup2anim = {
@@ -540,10 +563,10 @@ local function Options()
 				order = 4,
 				width = 'full',
 				get = function(info)
-					return SUI.DB.ActionBars.popup2.anim
+					return module.CurrentSettings.popup2.anim
 				end,
 				set = function(info, val)
-					SUI.DB.ActionBars.popup2.anim = val
+					SUI.DBM:Set(module, 'popup2.anim', val)
 				end,
 			},
 			popup2alpha = {
@@ -554,11 +577,11 @@ local function Options()
 				max = 100,
 				step = 1,
 				get = function(info)
-					return SUI.DB.ActionBars.popup2.alpha
+					return module.CurrentSettings.popup2.alpha
 				end,
 				set = function(info, val)
-					if SUI.DB.ActionBars.popup2.enable == true then
-						SUI.DB.ActionBars.popup2.alpha = val
+					if module.CurrentSettings.popup2.enable then
+						SUI.DBM:Set(module, 'popup2.alpha', val)
 					end
 				end,
 			},
@@ -567,10 +590,10 @@ local function Options()
 				type = 'toggle',
 				order = 6,
 				get = function(info)
-					return SUI.DB.ActionBars.popup2.enable
+					return module.CurrentSettings.popup2.enable
 				end,
 				set = function(info, val)
-					SUI.DB.ActionBars.popup2.enable = val
+					SUI.DBM:Set(module, 'popup2.enable', val)
 				end,
 			},
 		},
@@ -586,13 +609,14 @@ local function Options()
 				hasAlpha = true,
 				order = 0.5,
 				get = function(info)
-					if not SUI.DB.Styles.Classic.Color.Art then
+					local art = SUI.ThemeRegistry:GetSetting('Classic', 'Color.Art')
+					if not art then
 						return 1, 1, 1, 1
 					end
-					return unpack(SUI.DB.Styles.Classic.Color.Art)
+					return unpack(art)
 				end,
 				set = function(info, r, g, b, a)
-					SUI.DB.Styles.Classic.Color.Art = { r, g, b, a }
+					SUI.ThemeRegistry:SetSetting('Classic', 'Color.Art', { r, g, b, a })
 					module:SetColor()
 				end,
 			},
@@ -601,7 +625,8 @@ local function Options()
 				type = 'toggle',
 				order = 0.6,
 				get = function(info)
-					if SUI.DB.Styles.Classic.Color.Art then
+					local art = SUI.ThemeRegistry:GetSetting('Classic', 'Color.Art')
+					if art then
 						return true
 					else
 						return false
@@ -609,10 +634,10 @@ local function Options()
 				end,
 				set = function(info, val)
 					if val then
-						SUI.DB.Styles.Classic.Color.Art = { 1, 1, 1, 1 }
+						SUI.ThemeRegistry:SetSetting('Classic', 'Color.Art', { 1, 1, 1, 1 })
 						module:SetColor()
 					else
-						SUI.DB.Styles.Classic.Color.Art = false
+						SUI.ThemeRegistry:SetSetting('Classic', 'Color.Art', false)
 						module:SetColor()
 					end
 				end,
@@ -688,128 +713,472 @@ local function Options()
 end
 
 function module:OnInitialize()
-	local BarHandler = SUI.Handlers.BarSystem
+	SUI.DBM:SetupModule(self, ActionBarsDefaults, nil, { autoCalculateDepth = true })
 
-	BarHandler.BarPosition.BT4.Classic = SUI.IsRetail
-			and {
-				['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,104',
-				['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,47',
-				--
-				['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,104',
-				['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,47',
-				--
-				['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
-				['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
-				--
-				['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				--
-				['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
-				['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				--
-				['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,282,138',
-				['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,628,168',
-			}
-		or {
-			['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,82',
-			['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,35',
-			--
-			['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,81',
-			['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,35',
-			--
-			['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
-			['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
-			--
-			['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-			['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-			--
-			['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
-			['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-			['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-			--
-			['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,144',
-			['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,647,163',
-		}
-	BarHandler.BarScale.BT4.Classic = {
-		['BT4Bar5'] = SUI.IsRetail and 0.63 or 0.75,
-		['BT4Bar6'] = SUI.IsRetail and 0.63 or 0.75,
-		['BT4BarStanceBar'] = 0.7,
-		['BT4BarMicroMenu'] = SUI.IsRetail and 0.7 or 0.6,
-	}
+	-- One-time migration from old root module.CurrentSettings location
+	if module.CurrentSettings and not SUI.DB._actionBarsMigrated then
+		for k, v in pairs(module.CurrentSettings) do
+			if type(v) == 'table' then
+				for subKey, subVal in pairs(v) do
+					if ActionBarsDefaults[k] and subVal ~= ActionBarsDefaults[k][subKey] then
+						if not self.DB[k] then
+							self.DB[k] = {}
+						end
+						self.DB[k][subKey] = subVal
+					end
+				end
+			elseif v ~= ActionBarsDefaults[k] then
+				self.DB[k] = v
+			end
+		end
+		module.CurrentSettings = nil
+		SUI.DB._actionBarsMigrated = true
+		SUI.DBM:RefreshSettings(self)
+	end
 
-	if SUI.UF then
-		local UF = SUI.UF
-		---@type SUI.Style.Settings.UnitFrames
-		local ufsettings = {
-			artwork = {
-				full = {
-					perUnit = true,
-					UnitFrameCallback = UnitFrameCallback,
-					player = {
-						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_plate1',
-						height = 80,
-						widthScale = 2.2,
-						TexCoord = { 0.19140625, 0.810546875, 0.1796875, 0.8203125 },
-						position = {
-							anchor = 'CENTER',
-							x = 34,
-							y = 7,
+	SUI.ThemeRegistry:Register({
+		name = 'Classic',
+		displayName = 'Classic',
+		apiVersion = 1,
+		description = 'Traditional WoW-style interface with portrait rings and action bar backgrounds',
+		setup = {
+			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Classic',
+		},
+		applicableTo = { player = true, target = true, pet = true, targettarget = true },
+	}, function()
+		return {
+			frames = {
+				player = {
+					width = 153,
+					scale = 0.91,
+					elements = {
+						Buffs = {
+							rows = 4,
+							growthy = 'UP',
+							position = {
+								y = 8,
+								relativeTo = 'Name',
+								relativePoint = 'TOPLEFT',
+								anchor = 'BOTTOMLEFT',
+								x = -23,
+							},
+						},
+						Debuffs = {
+							rows = 4,
+							growthy = 'UP',
+							position = {
+								y = 8,
+								relativeTo = 'Name',
+								anchor = 'BOTTOMRIGHT',
+								relativePoint = 'TOPRIGHT',
+							},
+						},
+						Castbar = {
+							height = 15,
+						},
+						Health = {
+							offset = 2,
+							height = 16,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perhp]%',
+									position = {
+										anchor = 'LEFT',
+										x = -35,
+										y = 0,
+									},
+								},
+							},
+						},
+						Power = {
+							offset = 2,
+							height = 14,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perpp]%',
+									position = {
+										anchor = 'LEFT',
+										x = -35,
+										y = 0,
+									},
+								},
+							},
+							position = {
+								y = -3,
+							},
+						},
+						Portrait = {
+							position = 'right',
+						},
+						RestingIndicator = {
+							position = {
+								anchor = 'TOPRIGHT',
+								x = 102,
+								y = 10,
+							},
+						},
+						ClassIcon = {
+							size = 18,
+							position = {
+								anchor = 'TOPRIGHT',
+								x = 20,
+								y = 16,
+							},
+						},
+						PvPIndicator = {
+							position = {
+								anchor = 'BOTTOMRIGHT',
+								x = 80,
+								y = 0,
+							},
+						},
+						RaidRoleIndicator = {
+							position = {
+								anchor = 'BOTTOMRIGHT',
+								x = 22,
+								y = 0,
+							},
+						},
+						SpartanArt = {
+							full = {
+								enabled = true,
+								graphic = 'Classic',
+							},
+						},
+						RareElite = {
+							mode = 'dragon',
+							alpha = 1,
+						},
+						CombatIndicator = {
+							enabled = true,
+							position = {
+								anchor = 'TOPRIGHT',
+								x = 102,
+								y = 10,
+							},
 						},
 					},
-					target = {
-						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_plate1',
-						height = 80,
-						widthScale = 2.2,
-						TexCoord = { 0.810546875, 0.19140625, 0.1796875, 0.8203125 },
-						position = {
-							anchor = 'CENTER',
-							x = -34,
-							y = 7,
+				},
+				target = {
+					width = 153,
+					scale = 0.91,
+					elements = {
+						Buffs = {
+							rows = 4,
+							growthy = 'UP',
+							position = {
+								y = 8,
+								relativeTo = 'Name',
+								relativePoint = 'TOPLEFT',
+								anchor = 'BOTTOMLEFT',
+								x = -23,
+							},
+						},
+						Debuffs = {
+							rows = 4,
+							growthy = 'UP',
+							position = {
+								y = 8,
+								relativeTo = 'Name',
+								anchor = 'BOTTOMRIGHT',
+								relativePoint = 'TOPRIGHT',
+							},
+						},
+						Health = {
+							offset = 2,
+							height = 16,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perhp]%',
+									position = {
+										anchor = 'RIGHT',
+										x = 40,
+									},
+								},
+							},
+						},
+						Power = {
+							offset = 2,
+							height = 16,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perpp]%',
+									position = {
+										anchor = 'RIGHT',
+										x = 40,
+									},
+								},
+							},
+							position = {
+								y = -3,
+							},
+						},
+						Castbar = {
+							height = 15,
+						},
+						ClassIcon = {
+							size = 18,
+							position = {
+								anchor = 'TOPLEFT',
+								x = -22,
+								y = 16,
+							},
+						},
+						PvPIndicator = {
+							position = {
+								anchor = 'BOTTOMLEFT',
+								x = -80,
+								y = 0,
+							},
+						},
+						RaidRoleIndicator = {
+							position = {
+								anchor = 'BOTTOMLEFT',
+								x = -22,
+								y = 0,
+							},
+						},
+						SpartanArt = {
+							full = {
+								enabled = true,
+								graphic = 'Classic',
+							},
+						},
+						RareElite = {
+							mode = 'dragon',
+							alpha = 1,
 						},
 					},
-					pet = {
-						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_2_dual',
-						height = 53,
-						widthScale = 1.6,
-						TexCoord = { 0.9453125, 0.25, 0, 0.78125 },
-						position = {
-							anchor = 'BOTTOMRIGHT',
-							x = 10,
-							y = -1,
+				},
+				pet = {
+					elements = {
+						Buffs = {
+							enabled = false,
+							position = {
+								y = 22,
+							},
+						},
+						Debuffs = {
+							rows = 4,
+							growthy = 'UP',
+							position = {
+								y = 8,
+								relativeTo = 'Name',
+								anchor = 'BOTTOMRIGHT',
+								relativePoint = 'TOPRIGHT',
+							},
+						},
+						Health = {
+							offset = 2,
+							height = 16,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perhp]%',
+									position = {
+										anchor = 'LEFT',
+										x = -35,
+										y = 0,
+									},
+								},
+							},
+						},
+						Power = {
+							offset = 2,
+							height = 14,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perpp]%',
+									position = {
+										anchor = 'LEFT',
+										x = -35,
+										y = 0,
+									},
+								},
+							},
+						},
+						Castbar = {
+							height = 15,
+						},
+						Name = {
+							position = {
+								y = 5,
+							},
+						},
+						SpartanArt = {
+							full = {
+								enabled = true,
+								graphic = 'Classic',
+							},
 						},
 					},
-					targettarget = {
-						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_2_dual',
-						height = 53,
-						widthScale = 1.6,
-						TexCoord = { 0.25, 0.9453125, 0, 0.78125 },
-						position = {
-							anchor = 'BOTTOMLEFT',
-							x = -10,
-							y = -1,
+				},
+				targettarget = {
+					elements = {
+						Buffs = {
+							enabled = false,
+						},
+						Debuffs = {
+							enabled = false,
+						},
+						Health = {
+							offset = 2,
+							height = 14,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perhp]%',
+									position = {
+										anchor = 'RIGHT',
+										x = 40,
+									},
+								},
+							},
+						},
+						Power = {
+							offset = 1,
+							height = 14,
+							text = {
+								['2'] = {
+									enabled = true,
+									text = '[perpp]%',
+									position = {
+										anchor = 'RIGHT',
+										x = 40,
+									},
+								},
+							},
+						},
+						Castbar = {
+							height = 14,
+						},
+						SpartanArt = {
+							full = {
+								enabled = true,
+								graphic = 'Classic',
+							},
 						},
 					},
 				},
 			},
-			positions = {
-				['player'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-182,160',
-				['pet'] = 'BOTTOMRIGHT,SUI_UF_player,BOTTOMLEFT,-50,-4',
-				['target'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,182,160',
-				['targettarget'] = 'BOTTOMLEFT,SUI_UF_target,BOTTOMRIGHT,50,-5',
+			blizzMovers = {
+				['VehicleLeaveButton'] = 'BOTTOM,SpartanUI,BOTTOM,0,195',
 			},
-			displayName = 'Classic',
-			setup = {
-				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Classic',
+			barPositions = SUI.IsRetail
+					and {
+						['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,104',
+						['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,47',
+						--
+						['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,104',
+						['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,47',
+						--
+						['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
+						['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
+						--
+						['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+						['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+						--
+						['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
+						['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+						['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+						--
+						['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,282,138',
+						['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,628,168',
+					}
+				or {
+					['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,82',
+					['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,35',
+					--
+					['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,81',
+					['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,35',
+					--
+					['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
+					['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
+					--
+					['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+					['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+					--
+					['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
+					['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+					['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+					--
+					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,144',
+					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,647,163',
+				},
+			barScales = {
+				['BT4Bar5'] = SUI.IsRetail and 0.63 or 0.75,
+				['BT4Bar6'] = SUI.IsRetail and 0.63 or 0.75,
+				['BT4BarStanceBar'] = 0.7,
+				['BT4BarMicroMenu'] = SUI.IsRetail and 0.7 or 0.6,
 			},
-		}
-		UF.Style:Register('Classic', ufsettings)
-	end
-
-	---@type SUI.Style.Settings.Minimap
-	local minimapSettings = SUI.IsRetail
-			and {
-				-- Retail Classic theme settings
+			unitframes = {
+				artwork = {
+					full = {
+						perUnit = true,
+						UnitFrameCallback = UnitFrameCallback,
+						player = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_plate1',
+							height = 80,
+							widthScale = 2.2,
+							TexCoord = { 0.19140625, 0.810546875, 0.1796875, 0.8203125 },
+							position = {
+								anchor = 'CENTER',
+								x = 34,
+								y = 7,
+							},
+						},
+						target = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_plate1',
+							height = 80,
+							widthScale = 2.2,
+							TexCoord = { 0.810546875, 0.19140625, 0.1796875, 0.8203125 },
+							position = {
+								anchor = 'CENTER',
+								x = -34,
+								y = 7,
+							},
+						},
+						pet = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_2_dual',
+							height = 53,
+							widthScale = 1.6,
+							TexCoord = { 0.9453125, 0.25, 0, 0.78125 },
+							position = {
+								anchor = 'BOTTOMRIGHT',
+								x = 10,
+								y = -1,
+							},
+						},
+						targettarget = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\base_2_dual',
+							height = 53,
+							widthScale = 1.6,
+							TexCoord = { 0.25, 0.9453125, 0, 0.78125 },
+							position = {
+								anchor = 'BOTTOMLEFT',
+								x = -10,
+								y = -1,
+							},
+						},
+					},
+				},
+				positions = {
+					['player'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-182,160',
+					['pet'] = 'BOTTOMRIGHT,SUI_UF_player,BOTTOMLEFT,-50,-4',
+					['target'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,182,160',
+					['targettarget'] = 'BOTTOMLEFT,SUI_UF_target,BOTTOMRIGHT,50,-5',
+				},
+				displayName = 'Classic',
+				setup = {
+					image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Classic',
+				},
+			},
+			minimap = SUI.IsRetail and {
 				size = { 155, 155 },
 				position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,1,6',
 				elements = {
@@ -824,47 +1193,42 @@ function module:OnInitialize()
 						xOffset = -10,
 					},
 				},
-			}
-		or {
-			-- Classic client Classic theme settings
-			size = { 160, 160 },
-			position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,0,14',
-			background = {
-				enabled = false,
+			} or {
+				size = { 160, 160 },
+				position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,0,14',
+				background = {
+					enabled = false,
+				},
+				zoomButtons = {
+					enabled = true,
+					scale = 0.8,
+					position = 'TOPLEFT,Minimap,BOTTOMRIGHT,-15,50',
+					spacing = 5,
+					xOffset = -10,
+				},
 			},
-			zoomButtons = {
-				enabled = true,
-				scale = 0.8,
-				position = 'TOPLEFT,Minimap,BOTTOMRIGHT,-15,50',
-				spacing = 5,
-				xOffset = -10,
+			statusBars = {
+				Left = {
+					size = { 370, 32 },
+					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\status-plate-exp',
+					Position = SUI.IsRetail and 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-75,-5' or 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-90,-5',
+					scale = SUI.IsRetail and 1 or 0.85,
+					texCords = { 0.150390625, 0.96875, 0, 1 },
+					MaxWidth = 15,
+				},
+				Right = {
+					size = { 370, 32 },
+					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\status-plate-rep',
+					Position = SUI.IsRetail and 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,69,-5' or 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,73,-5',
+					scale = SUI.IsRetail and 1 or 0.85,
+					texCords = { 0, 0.849609375, 0, 1 },
+					MaxWidth = 50,
+				},
 			},
 		}
-	SUI.Minimap:Register('Classic', minimapSettings)
+	end)
 
 	CreateArtwork()
-
-	local statusBarModule = SUI:GetModule('Artwork.StatusBars') ---@type SUI.Module.Artwork.StatusBars
-	---@type SUI.Style.Settings.StatusBars.Storage
-	local StatusBarsSettings = {
-		Left = {
-			size = { 370, 32 },
-			bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\status-plate-exp',
-			Position = SUI.IsRetail and 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-75,-5' or 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-90,-5',
-			scale = SUI.IsRetail and 1 or 0.85,
-			texCords = { 0.150390625, 0.96875, 0, 1 },
-			MaxWidth = 15,
-		},
-		Right = {
-			size = { 370, 32 },
-			bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Classic\\Images\\status-plate-rep',
-			Position = SUI.IsRetail and 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,69,-5' or 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,73,-5',
-			scale = SUI.IsRetail and 1 or 0.85,
-			texCords = { 0, 0.849609375, 0, 1 },
-			MaxWidth = 50,
-		},
-	}
-	statusBarModule:RegisterStyle('Classic', StatusBarsSettings)
 
 	if SUI.UF then
 		local function StyleChange()
@@ -882,7 +1246,7 @@ function module:OnInitialize()
 end
 
 function module:OnEnable()
-	if SUI.DB.Artwork.Style == 'Classic' then
+	if SUI:GetActiveStyle() == 'Classic' then
 		Options()
 
 		SUI_FramesAnchor:SetFrameStrata('BACKGROUND')
@@ -903,7 +1267,8 @@ function module:OnEnable()
 		if BT4BarMicroMenu then
 			BT4BarMicroMenu:SetFrameStrata('LOW')
 		end
-		if SUI.DB.Styles.Classic.Color.Art then
+		local art = SUI.ThemeRegistry:GetSetting('Classic', 'Color.Art')
+		if art then
 			module:SetColor()
 		end
 	else

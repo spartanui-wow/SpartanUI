@@ -300,22 +300,6 @@ local function Options(unitName, OptionSet)
 						UF.Unit[unitName]:ElementUpdate('Buffs')
 					end,
 				},
-				activeFilter = {
-					type = 'description',
-					name = function()
-						local retail = ElementSettings.retail
-						local customFilter = retail and retail.customFilter
-						if customFilter and customFilter ~= '' then
-							return '|cFF00FF00Active Filter:|r ' .. customFilter
-						end
-
-						local filterMode = retail and retail.filterMode or 'blizzard_default'
-						local filterString = UF.Auras.FILTER_PRESETS[filterMode] or 'HELPFUL'
-						return '|cFF808080Active Filter:|r ' .. filterString
-					end,
-					order = 1.5,
-					fontSize = 'small',
-				},
 				customFilterHeader = {
 					name = L['Advanced: Custom Filter String'],
 					type = 'header',
@@ -323,15 +307,24 @@ local function Options(unitName, OptionSet)
 				},
 				customFilter = {
 					name = L['Filter String'],
-					desc = L['Advanced: Enter raw filter string (e.g., "HELPFUL|RAID|PLAYER"). Overrides preset selection. Leave blank to use preset above.'],
+					desc = L['Advanced: Enter raw filter string (e.g., "HELPFUL||RAID||PLAYER"). Overrides preset selection. Clear the field to use the preset above.'],
 					type = 'input',
 					width = 'full',
 					order = 6,
 					get = function()
 						local retail = ElementSettings.retail
-						return retail and retail.customFilter or ''
+						local custom = retail and retail.customFilter
+						local filterStr
+						if custom and custom ~= '' then
+							filterStr = custom
+						else
+							local filterMode = retail and retail.filterMode or 'blizzard_default'
+							filterStr = UF.Auras.FILTER_PRESETS[filterMode] or 'HELPFUL'
+						end
+						return filterStr:gsub('|', '||')
 					end,
 					set = function(_, val)
+						val = val and val:gsub('||', '|') or val
 						ElementSettings.retail = ElementSettings.retail or {}
 						local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Buffs
 						userSettings.retail = userSettings.retail or {}
@@ -367,7 +360,7 @@ local function Options(unitName, OptionSet)
 					type = 'description',
 					order = 7,
 					fontSize = 'small',
-					name = 'Available Filters:\nHELPFUL, HARMFUL, PLAYER, RAID, RAID_IN_COMBAT, RAID_PLAYER_DISPELLABLE, EXTERNAL_DEFENSIVE, BIG_DEFENSIVE, CROWD_CONTROL, CANCELABLE, NOT_CANCELABLE, INCLUDE_NAME_PLATE_ONLY, MAW, IMPORTANT\n\nCombine with | (pipe) character, e.g., "HELPFUL|RAID|PLAYER"',
+					name = 'Available Filters:\nHELPFUL, HARMFUL, PLAYER, RAID, RAID_IN_COMBAT, RAID_PLAYER_DISPELLABLE, EXTERNAL_DEFENSIVE, BIG_DEFENSIVE, CROWD_CONTROL, CANCELABLE, NOT_CANCELABLE, INCLUDE_NAME_PLATE_ONLY, MAW, IMPORTANT\n\nCombine with | (pipe) character, e.g., "HELPFUL||RAID||PLAYER"',
 				},
 			},
 		}

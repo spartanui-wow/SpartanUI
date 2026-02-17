@@ -5,60 +5,124 @@ local Artwork_Core = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
 local artFrame = CreateFrame('Frame', 'SUI_Art_Tribal', SpartanUI)
 module.Settings = {}
 ----------------------------------------------------------------------------------------------------
-local InitRan = false
 function module:OnInitialize()
-	-- Bartender 4 Settings
-	local BarHandler = SUI.Handlers.BarSystem
-	BarHandler.BarPosition.BT4.Tribal = {
-		['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
-		['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
-		--
-		['BT4BarStanceBar'] = 'TOP,SpartanUI,TOP,-309,0',
-		['BT4BarPetBar'] = 'TOP,SpartanUI,TOP,-558,0',
-		['MultiCastActionBarFrame'] = 'TOP,SpartanUI,TOP,-558,0',
-		--
-		['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,285,0',
-		['BT4BarBagBar'] = 'TOP,SpartanUI,TOP,595,0',
-	}
-
-	-- Unitframes Settings
-	if SUI.UF then
-		---@type SUI.Style.Settings.UnitFrames
-		local ufsettings = {
-			artwork = {
-				top = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\UnitFrames',
-					TexCoord = { 0.25390625, 0.580078125, 0.583984375, 0.712890625 },
-					heightScale = 0.38,
-					widthScale = 0.6,
-					yScale = -0.072,
+	SUI.ThemeRegistry:Register({
+		name = 'Tribal',
+		displayName = 'Tribal',
+		apiVersion = 1,
+		description = 'Organic tribal-themed interface with earthy tones',
+		setup = {
+			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Tribal',
+		},
+		applicableTo = { player = true, target = true },
+	}, function()
+		return {
+			frames = {
+				player = {
+					elements = {
+						SpartanArt = {
+							top = {
+								enabled = true,
+								graphic = 'Tribal',
+							},
+							bg = {
+								enabled = true,
+								graphic = 'Tribal',
+							},
+							bottom = {
+								enabled = true,
+								graphic = 'Tribal',
+							},
+						},
+						Name = {
+							enabled = true,
+							SetJustifyH = 'LEFT',
+							position = {
+								anchor = 'BOTTOM',
+								x = 0,
+								y = -16,
+							},
+						},
+					},
 				},
-				bg = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\UnitFrames',
-					TexCoord = { 0.126953125, 0.734375, 0.171875, 0.291015625 },
-				},
-				bottom = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\UnitFrames',
-					TexCoord = { 0.869140625, 1, 0.3203125, 0.359375 },
-					heightScale = 0.15,
-					widthScale = 0.25,
+				target = {
+					elements = {
+						SpartanArt = {
+							top = {
+								enabled = true,
+								graphic = 'Tribal',
+							},
+							bg = {
+								enabled = true,
+								graphic = 'Tribal',
+							},
+							bottom = {
+								enabled = true,
+								graphic = 'Tribal',
+							},
+						},
+						Name = {
+							enabled = true,
+							SetJustifyH = 'LEFT',
+							position = {
+								anchor = 'BOTTOM',
+								x = 0,
+								y = -16,
+							},
+						},
+					},
 				},
 			},
-			positions = {
-				['player'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-45,250',
+			slidingTrays = {
+				left = {
+					enabled = true,
+					collapsed = false,
+				},
+				right = {
+					enabled = true,
+					collapsed = false,
+				},
 			},
-			displayName = 'Tribal',
-			setup = {
-				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Tribal',
+			unitframes = {
+				artwork = {
+					top = {
+						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\UnitFrames',
+						TexCoord = { 0.25390625, 0.580078125, 0.583984375, 0.712890625 },
+						heightScale = 0.38,
+						widthScale = 0.6,
+						yScale = -0.072,
+					},
+					bg = {
+						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\UnitFrames',
+						TexCoord = { 0.126953125, 0.734375, 0.171875, 0.291015625 },
+					},
+					bottom = {
+						path = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\UnitFrames',
+						TexCoord = { 0.869140625, 1, 0.3203125, 0.359375 },
+						heightScale = 0.15,
+						widthScale = 0.25,
+					},
+				},
+				positions = {
+					['player'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-45,250',
+				},
+				displayName = 'Tribal',
+				setup = {
+					image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Tribal',
+				},
 			},
-		}
-		SUI.UF.Style:Register('Tribal', ufsettings)
-	end
-
-	---@type SUI.Style.Settings.Minimap
-	local minimapSettings = SUI.IsRetail
-			and {
-				-- Retail Tribal theme settings
+			barPositions = {
+				['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
+				['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
+				--
+				['BT4BarStanceBar'] = 'TOP,SpartanUI,TOP,-309,0',
+				['BT4BarPetBar'] = 'TOP,SpartanUI,TOP,-558,0',
+				['MultiCastActionBarFrame'] = 'TOP,SpartanUI,TOP,-558,0',
+				--
+				['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,285,0',
+				['BT4BarBagBar'] = 'TOP,SpartanUI,TOP,595,0',
+			},
+			minimap = SUI.IsRetail and {
 				size = { 180, 180 },
 				position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
 				elements = {
@@ -68,35 +132,39 @@ function module:OnInitialize()
 						position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
 					},
 				},
-			}
-		or {
-			-- Classic client Tribal theme settings
-			size = { 140, 140 },
-			position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
-			background = {
-				texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\minimap',
-				size = { 180, 180 },
+			} or {
+				size = { 140, 140 },
 				position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
+				background = {
+					texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\minimap',
+					size = { 180, 180 },
+					position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
+				},
+			},
+			statusBars = {
+				Left = {
+					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\StatusBar',
+					alpha = 0.9,
+					size = { 370, 20 },
+					texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
+					MaxWidth = 48,
+				},
+				Right = {
+					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\StatusBar',
+					alpha = 0.9,
+					size = { 370, 20 },
+					texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
+					MaxWidth = 48,
+				},
 			},
 		}
-	SUI.Minimap:Register('Tribal', minimapSettings)
-
-	local statusBarModule = SUI:GetModule('Artwork.StatusBars') ---@type SUI.Module.Artwork.StatusBars
-	---@type SUI.Style.Settings.StatusBars
-	local StatusBarsSettings = {
-		bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\StatusBar',
-		alpha = 0.9,
-		size = { 370, 20 },
-		texCords = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
-		MaxWidth = 48,
-	}
-	statusBarModule:RegisterStyle('Tribal', { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) })
+	end)
 
 	module:CreateArtwork()
 end
 
 function module:OnEnable()
-	if SUI.DB.Artwork.Style ~= 'Tribal' then
+	if SUI:GetActiveStyle() ~= 'Tribal' then
 		module:Disable()
 	else
 		--Setup Sliding Trays
@@ -136,13 +204,13 @@ function module:TooltipLoc(tooltip, parent)
 end
 
 function module:SetupVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		RegisterStateDriver(SUI_Art_Tribal, 'visibility', '[overridebar][vehicleui] hide; show')
 	end
 end
 
 function module:RemoveVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		UnregisterStateDriver(SUI_Art_Tribal, 'visibility')
 	end
 end

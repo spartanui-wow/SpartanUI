@@ -19,10 +19,14 @@ local function Options()
 				order = 1,
 				width = 'full',
 				get = function(info)
-					return unpack(SUI.DB.Styles.Transparent.Color.Art)
+					local art = SUI.ThemeRegistry:GetSetting('Transparent', 'Color.Art')
+					if art then
+						return unpack(art)
+					end
+					return 1, 1, 1, 1
 				end,
 				set = function(info, r, g, b, a)
-					SUI.DB.Styles.Transparent.Color.Art = { r, g, b, a }
+					SUI.ThemeRegistry:SetSetting('Transparent', 'Color.Art', { r, g, b, a })
 					module:SetColor()
 				end,
 			},
@@ -31,132 +35,164 @@ local function Options()
 end
 
 function module:OnInitialize()
-	--Enable the in the Core options screen
-	SUI.opt.args['General'].args['style'].args['OverallStyle'].args['Transparent'].disabled = false
-	SUI.opt.args['General'].args['style'].args['Artwork'].args['Transparent'].disabled = false
-
-	local BarHandler = SUI.Handlers.BarSystem
-	BarHandler.BarPosition.BT4.Transparent = SUI.IsRetail
-			and {
-				['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,104',
-				['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,47',
-				--
-				['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,104',
-				['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,47',
-				--
-				['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
-				['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
-				--
-				['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				--
-				['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,165',
-				['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				--
-				['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,294,165',
-				['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,628,180',
-			}
-		or {
-			['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-347,80',
-			['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-347,25',
-			['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,344,80',
-			['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,344,25',
-			['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,0,5',
-			['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,3,5',
-			--
-			['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,186',
-			['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-581,187',
-			['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-581,187',
-			--
-			['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,295,155',
-			['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,611,188',
-			--
-			['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,15',
-			['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,15',
-		}
-
-	BarHandler.BarScale.BT4.Transparent = {
-		['BT4Bar1'] = SUI.IsRetail and 0.62 or 0.77,
-		['BT4Bar2'] = SUI.IsRetail and 0.62 or 0.77,
-		['BT4Bar3'] = SUI.IsRetail and 0.62 or 0.77,
-		['BT4Bar4'] = SUI.IsRetail and 0.62 or 0.77,
-		['BT4Bar5'] = SUI.IsRetail and 0.63 or 0.75,
-		['BT4Bar6'] = SUI.IsRetail and 0.63 or 0.75,
-		['BT4Bar7'] = SUI.IsRetail and 0.62 or 0.77,
-		['BT4Bar8'] = SUI.IsRetail and 0.62 or 0.77,
-		['BT4Bar9'] = SUI.IsRetail and 0.62 or 0.77,
-		['BT4BarMicroMenu'] = SUI.IsRetail and nil or 0.65,
-	}
-
-	local minimapSettings = SUI.IsRetail
-			and {
-				-- Retail Transparent theme settings
-				shape = 'square',
-				size = { 180, 180 },
-				position = 'CENTER,SUI_Art_Transparent,CENTER,-10,-5',
-				ZoneText = {
-					size = { 170, 12 },
-					position = 'BOTTOM,Minimap,TOP,0,2',
-				},
-			}
-		or {
-			-- Classic client Transparent theme settings
-			shape = 'square',
-			size = { 135, 135 },
-			position = 'CENTER,SUI_Art_Transparent,CENTER,-10,-5',
-			ZoneText = {
-				size = { 130, 12 },
-				position = 'BOTTOM,Minimap,TOP,0,2',
-			},
-		}
-	SUI:GetModule('Minimap'):Register('Transparent', minimapSettings)
-
-	-- Unitframes Settings
-	if SUI.UF then
-		---@type SUI.Style.Settings.UnitFrames
-		local ufsettings = {
-			artwork = {
-				top = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Transparent\\Images\\base_plate1',
-					TexCoord = { 0.03125, 0.458984375, 0, 0.2109375 },
-				},
-				bg = {
-					path = 'Interface\\AddOns\\SpartanUI\\Themes\\Transparent\\Images\\base_plate1',
-					TexCoord = { 0, 0.458984375, 0.74609375, 1 },
-				},
-			},
-			positions = {
-				['player'] = 'BOTTOMRIGHT,UIParent,BOTTOM,-123,138',
-				['pet'] = 'BOTTOMRIGHT,SUI_UF_player,BOTTOMLEFT,20,0',
-				['target'] = 'LEFT,SUI_UF_player,RIGHT,244,0',
-				['targettarget'] = 'BOTTOMLEFT,SUI_UF_target,BOTTOMRIGHT,50,0',
-			},
+	SUI.ThemeRegistry:Register(
+		-- Metadata (always in memory)
+		{
+			name = 'Transparent',
 			displayName = 'Transparent',
+			apiVersion = 1,
+			description = 'Minimalist transparent unit frame backgrounds',
 			setup = {
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Transparent',
 			},
-		}
-		SUI.UF.Style:Register('Transparent', ufsettings)
-	end
+			applicableTo = { player = true, target = true },
+		},
+		-- Data callback (lazy-loaded on first access)
+		function()
+			---@type SUI.Style.Settings.StatusBars.Storage
+			local StatusBarsSettings = {
+				Left = {
+					size = { 400, 15 },
+					Position = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-90,2',
+				},
+				Right = {
+					size = { 400, 15 },
+					Position = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,90,2',
+				},
+			}
 
-	local statusBarModule = SUI:GetModule('Artwork.StatusBars') ---@type SUI.Module.Artwork.StatusBars
-	---@type SUI.Style.Settings.StatusBars.Storage
-	local StatusBarsSettings = {
-		Left = {
-			size = { 400, 15 },
-			Position = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-90,2',
-		},
-		Right = {
-			size = { 400, 15 },
-			Position = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOM,90,2',
-		},
-	}
-	statusBarModule:RegisterStyle('Transparent', { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) })
+			return {
+				frames = {
+					player = {
+						elements = {
+							SpartanArt = {
+								top = {
+									enabled = true,
+									graphic = 'Transparent',
+								},
+								bg = {
+									enabled = true,
+									graphic = 'Transparent',
+								},
+							},
+							Portrait = {
+								position = 'right',
+							},
+						},
+					},
+					target = {
+						elements = {
+							SpartanArt = {
+								top = {
+									enabled = true,
+									graphic = 'Transparent',
+								},
+								bg = {
+									enabled = true,
+									graphic = 'Transparent',
+								},
+							},
+						},
+					},
+				},
+				color = {
+					Art = { 0.4784313725490196, 0.9137254901960784, 1, 0.9 },
+					PlayerFrames = { 0, 0.8, 0.9, 0.7 },
+					PartyFrames = { 0, 0.8, 0.9, 0.7 },
+					RaidFrames = { 0, 0.8, 0.9, 0.7 },
+				},
+				barPositions = SUI.IsRetail and {
+					['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,104',
+					['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,47',
+					['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,104',
+					['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,47',
+					['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
+					['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
+					['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+					['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+					['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,165',
+					['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+					['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,294,165',
+					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,628,180',
+				} or {
+					['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-347,80',
+					['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-347,25',
+					['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,344,80',
+					['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,344,25',
+					['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,0,5',
+					['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,3,5',
+					['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,186',
+					['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-581,187',
+					['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-581,187',
+					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,295,155',
+					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,611,188',
+					['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,15',
+					['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,15',
+				},
+				barScales = {
+					['BT4Bar1'] = SUI.IsRetail and 0.62 or 0.77,
+					['BT4Bar2'] = SUI.IsRetail and 0.62 or 0.77,
+					['BT4Bar3'] = SUI.IsRetail and 0.62 or 0.77,
+					['BT4Bar4'] = SUI.IsRetail and 0.62 or 0.77,
+					['BT4Bar5'] = SUI.IsRetail and 0.63 or 0.75,
+					['BT4Bar6'] = SUI.IsRetail and 0.63 or 0.75,
+					['BT4Bar7'] = SUI.IsRetail and 0.62 or 0.77,
+					['BT4Bar8'] = SUI.IsRetail and 0.62 or 0.77,
+					['BT4Bar9'] = SUI.IsRetail and 0.62 or 0.77,
+					['BT4BarMicroMenu'] = SUI.IsRetail and nil or 0.65,
+				},
+				minimap = SUI.IsRetail and {
+					shape = 'square',
+					size = { 140, 140 },
+					position = 'CENTER,SUI_Art_Transparent,CENTER,-8,-5',
+					ZoneText = {
+						size = { 170, 12 },
+						position = 'BOTTOM,Minimap,TOP,0,2',
+					},
+				} or {
+					shape = 'square',
+					size = { 135, 135 },
+					position = 'CENTER,SUI_Art_Transparent,CENTER,-10,-5',
+					ZoneText = {
+						size = { 130, 12 },
+						position = 'BOTTOM,Minimap,TOP,0,2',
+					},
+				},
+				unitframes = {
+					artwork = {
+						top = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Transparent\\Images\\base_plate1',
+							TexCoord = { 0.03125, 0.458984375, 0, 0.2109375 },
+						},
+						bg = {
+							path = 'Interface\\AddOns\\SpartanUI\\Themes\\Transparent\\Images\\base_plate1',
+							TexCoord = { 0, 0.458984375, 0.74609375, 1 },
+						},
+					},
+					positions = {
+						['player'] = 'BOTTOMRIGHT,UIParent,BOTTOM,-123,168',
+						['pet'] = 'BOTTOMRIGHT,SUI_UF_player,BOTTOMLEFT,20,0',
+						['target'] = 'LEFT,SUI_UF_player,RIGHT,244,0',
+						['targettarget'] = 'BOTTOMLEFT,SUI_UF_target,BOTTOMRIGHT,50,0',
+					},
+					displayName = 'Transparent',
+					setup = {
+						image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Transparent',
+					},
+				},
+				statusBars = { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) },
+			}
+		end
+	)
+
+	--Enable the in the Core options screen
+	SUI.opt.args['General'].args['style'].args['OverallStyle'].args['Transparent'].disabled = false
+	SUI.opt.args['General'].args['style'].args['Artwork'].args['Transparent'].disabled = false
 end
 
 function module:OnEnable()
-	if SUI.DB.Artwork.Style ~= 'Transparent' then
+	if SUI:GetActiveStyle() ~= 'Transparent' then
 		module:Disable()
 	else
 		local plate = CreateFrame('Frame', 'Transparent_ActionBarPlate', SUI_Art_Transparent)
@@ -167,7 +203,6 @@ function module:OnEnable()
 
 		local BarBGSettings = {
 			name = 'Transparent',
-			-- width = 400,
 			height = 37,
 			TexturePath = 'Interface\\AddOns\\SpartanUI\\Themes\\Transparent\\Images\\bar-backdrop1',
 			TexCoord = { 0.107421875, 0.896484375, 0.25, 0.765625 },
@@ -228,7 +263,7 @@ function module:OnEnable()
 		artFrame.FarRight:SetPoint('BOTTOMLEFT', artFrame.Right, 'BOTTOMRIGHT')
 		artFrame.FarRight:SetPoint('BOTTOMRIGHT', SpartanUI, 'BOTTOMRIGHT')
 
-		if SUI.DB.Artwork.VehicleUI then
+		if SUI:GetArtworkSetting('VehicleUI') then
 			RegisterStateDriver(SUI_Art_Transparent, 'visibility', '[petbattle][overridebar][vehicleui] hide; show')
 		end
 
@@ -254,13 +289,17 @@ end
 function module:SetupVehicleUI() end
 
 function module:RemoveVehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if SUI:GetArtworkSetting('VehicleUI') then
 		UnregisterStateDriver(SUI_Art_Transparent, 'visibility')
 	end
 end
 
 function module:SetColor()
-	local r, g, b, a = unpack(SUI.DB.Styles.Transparent.Color.Art)
+	local art = SUI.ThemeRegistry:GetSetting('Transparent', 'Color.Art')
+	if not art then
+		return
+	end
+	local r, g, b, a = unpack(art)
 	for i = 1, 6 do
 		if _G['Transparent_Bar' .. i .. 'BG'] then
 			_G['Transparent_Bar' .. i .. 'BG']:SetVertexColor(r, g, b)

@@ -9,6 +9,98 @@ local styleArt
 local petbattle = CreateFrame('FRAME')
 -------------------------------------------------
 
+local ArtworkDefaults = {
+	Style = 'War',
+	FirstLoad = true,
+	SetupDone = false,
+	VehicleUI = true,
+	barBG = {
+		['**'] = {
+			enabled = true,
+			alpha = 1,
+		},
+		['1'] = {},
+		['2'] = {},
+		['3'] = {},
+		['4'] = {},
+		['5'] = {},
+		['6'] = {},
+		['7'] = {},
+		['8'] = {},
+		['9'] = {},
+		['10'] = {},
+		Stance = {},
+		MenuBar = {},
+	},
+	Viewport = {
+		enabled = false,
+		offset = { top = 0, bottom = 0, left = 0, right = 0 },
+	},
+	SlidingTrays = {
+		['**'] = {
+			collapsed = false,
+		},
+	},
+	Trays = {
+		['**'] = {
+			left = {
+				enabled = true,
+				size = { width = 410, height = 45 },
+				collapseDirection = 'up',
+				customFrames = '',
+				color = { r = 1, g = 1, b = 1, a = 1 },
+			},
+			right = {
+				enabled = true,
+				size = { width = 410, height = 45 },
+				collapseDirection = 'up',
+				customFrames = '',
+				color = { r = 1, g = 1, b = 1, a = 1 },
+			},
+		},
+	},
+	Offset = {
+		Top = 0,
+		TopAuto = true,
+		Bottom = 0,
+		BottomAuto = true,
+		Horizontal = {
+			Bottom = 0,
+			Top = 0,
+		},
+	},
+	BlizzMoverStates = {
+		['**'] = {
+			enabled = true,
+		},
+	},
+}
+
+---Get the active artwork style name
+---@return string
+function SUI:GetActiveStyle()
+	if module.CurrentSettings then
+		return module.CurrentSettings.Style
+	end
+	-- Fallback before module init (shouldn't happen, but safety)
+	return (SUI.DB and SUI.DB.Artwork and SUI.DB.Artwork.Style) or 'War'
+end
+
+---Set the active artwork style
+---@param style string
+function SUI:SetActiveStyle(style)
+	if module.CurrentSettings and style ~= module.CurrentSettings.Style then
+		module:SetActiveStyle(style)
+	end
+end
+
+---Get an Artwork module setting (for external modules)
+---@param key string Dot-notation path like 'VehicleUI' or 'Viewport.enabled'
+---@return any
+function SUI:GetArtworkSetting(key)
+	return SUI.DBM:Get(module, key)
+end
+
 local function SetupPage()
 	local PageData = {
 		ID = 'ArtworkCore',
@@ -16,7 +108,7 @@ local function SetupPage()
 		SubTitle = 'Art Style',
 		Desc1 = 'Please pick an art style from the options below.',
 		Priority = true,
-		RequireDisplay = (not SUI.DB.Artwork.SetupDone or false),
+		RequireDisplay = (not module.CurrentSettings.SetupDone or false),
 		Display = function()
 			local SUI_Win = SUI.Setup.window.content
 			local UI = LibAT.UI
@@ -31,7 +123,7 @@ local function SetupPage()
 			end
 			local SetStyle = function(self)
 				local NewStyle = UI.GetRadioGroupValue('SUIArtwork')
-				if SUI.DB.Artwork.Style == NewStyle then
+				if module.CurrentSettings.Style == NewStyle then
 					return
 				end
 
@@ -55,7 +147,7 @@ local function SetupPage()
 				control.radio:SetValue(v)
 				control.radio:HookScript('OnClick', SetStyle)
 				control.radio:SetPoint('TOP', control, 'BOTTOM', 0, 0)
-				if v == SUI.DB.Artwork.Style then
+				if v == module.CurrentSettings.Style then
 					control.radio:SetChecked(true)
 				end
 
@@ -140,7 +232,8 @@ local function SetupPage()
 			SUI_Win.Artwork.slider:SetValue(SUI.DB.scale * 100)
 		end,
 		Next = function()
-			SUI.DB.Artwork.SetupDone = true
+			module.DB.SetupDone = true
+			SUI.DBM:RefreshSettings(module)
 		end,
 	}
 	SUI.Setup:AddPage(PageData)
@@ -160,13 +253,17 @@ local function StyleUpdate()
 end
 
 function module:SetActiveStyle(style)
-	if style and style ~= SUI.DB.Artwork.Style then
+	if style and style ~= module.CurrentSettings.Style then
 		-- Cache the styles to swap
-		local OldStyle = SUI:GetModule('Style.' .. SUI.DB.Artwork.Style)
+		local OldStyle = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
 		local NewStyle = SUI:GetModule('Style.' .. style)
 
 		-- Update the DB
-		SUI.DB.Artwork.Style = style
+		module.DB.Style = style
+		SUI.DBM:RefreshSettings(module)
+
+		-- Ensure new theme data is loaded before updating subsystems
+		SUI.ThemeRegistry:GetData(style)
 
 		-- Disable the current style and enable the one we want
 		OldStyle:Disable()
@@ -193,9 +290,20 @@ function module:SetActiveStyle(style)
 		end
 	end
 
-	-- Update style settings shortcut
-	module.ActiveStyle = SUI.DB.Styles[SUI.DB.Artwork.Style]
-	styleArt = _G['SUI_Art_' .. SUI.DB.Artwork.Style]
+	-- Build ActiveStyle from ThemeRegistry data + barBG from Artwork DB
+	local themeData = SUI.ThemeRegistry:GetData(module.CurrentSettings.Style) or {}
+	module.ActiveStyle = {
+		Artwork = {
+			barBG = module.CurrentSettings.barBG,
+		},
+	}
+	-- Merge in theme data fields for anything else that might read them
+	for k, v in pairs(themeData) do
+		if k ~= 'Artwork' then
+			module.ActiveStyle[k] = v
+		end
+	end
+	styleArt = _G['SUI_Art_' .. module.CurrentSettings.Style]
 
 	--Send Custom change event
 	SUI.Event:SendEvent('ARTWORK_STYLE_CHANGED')
@@ -209,7 +317,7 @@ function module:UpdateScale()
 	SpartanUI:SetScale(SUI.DB.scale)
 
 	-- Call style scale update if defined.
-	local style = SUI:GetModule('Style.' .. SUI.DB.Artwork.Style)
+	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
 	if style.UpdateScale then
 		style:UpdateScale()
 	end
@@ -232,7 +340,7 @@ function module:UpdateAlpha()
 		styleArt:SetAlpha(SUI.DB.alpha)
 	end
 	-- Call module scale update if defined.
-	local style = SUI:GetModule('Style.' .. SUI.DB.Artwork.Style)
+	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
 	if style.UpdateAlpha then
 		style:UpdateAlpha()
 	end
@@ -243,14 +351,14 @@ function module:updateOffset()
 		return
 	end
 
-	SUI.Log('updateOffset called - TopAuto: ' .. tostring(SUI.DB.Artwork.Offset.TopAuto) .. ', BottomAuto: ' .. tostring(SUI.DB.Artwork.Offset.BottomAuto), 'Artwork', 'debug')
+	SUI.Log('updateOffset called - TopAuto: ' .. tostring(module.CurrentSettings.Offset.TopAuto) .. ', BottomAuto: ' .. tostring(module.CurrentSettings.Offset.BottomAuto), 'Artwork', 'debug')
 
 	local Top, Bottom = 0, 0
 	local Tfubar, TChocolateBar, Ttitan, TLibsDataBar = 0, 0, 0, 0
 	local Bfubar, BChocolateBar, Btitan, BLibsDataBar = 0, 0, 0, 0
 	local SUITopOffset, SUIBottomOffset = 0, 0
 
-	if SUI.DB.Artwork.Offset.TopAuto or SUI.DB.Artwork.Offset.BottomAuto then
+	if module.CurrentSettings.Offset.TopAuto or module.CurrentSettings.Offset.BottomAuto then
 		-- FuBar Offset
 		for i = 1, 4 do
 			local bar = _G['FuBarFrame' .. i]
@@ -314,26 +422,29 @@ function module:updateOffset()
 		SUIBottomOffset = max(Bottom + Bfubar + Btitan + BChocolateBar, 0)
 
 		-- Update DB if set to auto (total offset including LibsDataBar)
-		if SUI.DB.Artwork.Offset.TopAuto then
-			SUI.DB.Artwork.Offset.Top = max(SUITopOffset + TLibsDataBar, 0)
+		if module.CurrentSettings.Offset.TopAuto then
+			module.DB.Offset = module.DB.Offset or {}
+			module.DB.Offset.Top = max(SUITopOffset + TLibsDataBar, 0)
 		end
-		if SUI.DB.Artwork.Offset.BottomAuto then
-			SUI.DB.Artwork.Offset.Bottom = max(SUIBottomOffset + BLibsDataBar, 0)
+		if module.CurrentSettings.Offset.BottomAuto then
+			module.DB.Offset = module.DB.Offset or {}
+			module.DB.Offset.Bottom = max(SUIBottomOffset + BLibsDataBar, 0)
 		end
+		SUI.DBM:RefreshSettings(module)
 	end
 
 	-- Call module update if defined.
-	local style = SUI:GetModule('Style.' .. SUI.DB.Artwork.Style)
+	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
 	if style.updateOffset then
-		style:updateOffset(SUI.DB.Artwork.Offset.Top, SUI.DB.Artwork.Offset.Bottom)
+		style:updateOffset(module.CurrentSettings.Offset.Top, module.CurrentSettings.Offset.Bottom)
 	end
 
 	SpartanUI:ClearAllPoints()
-	SpartanUI:SetPoint('TOPRIGHT', UIParent, 'TOPRIGHT', 0, (SUI.DB.Artwork.Offset.Top * -1))
-	if SUI.DB.Artwork.Offset.BottomAuto and _G['TitanPanelBottomAnchor'] then
+	SpartanUI:SetPoint('TOPRIGHT', UIParent, 'TOPRIGHT', 0, (module.CurrentSettings.Offset.Top * -1))
+	if module.CurrentSettings.Offset.BottomAuto and _G['TitanPanelBottomAnchor'] then
 		SpartanUI:SetPoint('BOTTOMLEFT', _G['TitanPanelBottomAnchor'], 'BOTTOMLEFT', 0, 0)
 	else
-		SpartanUI:SetPoint('BOTTOMLEFT', UIParent, 'BOTTOMLEFT', 0, SUI.DB.Artwork.Offset.Bottom)
+		SpartanUI:SetPoint('BOTTOMLEFT', UIParent, 'BOTTOMLEFT', 0, module.CurrentSettings.Offset.Bottom)
 	end
 
 	-- LibsDataBar integration is ONE-WAY:
@@ -343,28 +454,28 @@ end
 
 function module:updateHorizontalOffset()
 	SUI_BottomAnchor:ClearAllPoints()
-	SUI_BottomAnchor:SetPoint('BOTTOM', SpartanUI, 'BOTTOM', SUI.DB.Artwork.Offset.Horizontal.Bottom, 0)
+	SUI_BottomAnchor:SetPoint('BOTTOM', SpartanUI, 'BOTTOM', module.CurrentSettings.Offset.Horizontal.Bottom, 0)
 
 	SUI_TopAnchor:ClearAllPoints()
-	SUI_TopAnchor:SetPoint('TOP', SpartanUI, 'TOP', SUI.DB.Artwork.Offset.Horizontal.Top, 0)
+	SUI_TopAnchor:SetPoint('TOP', SpartanUI, 'TOP', module.CurrentSettings.Offset.Horizontal.Top, 0)
 
 	-- Call module scale update if defined.
-	local style = SUI:GetModule('Style.' .. SUI.DB.Artwork.Style)
+	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
 	if style.updateXOffset then
 		style:updateXOffset()
 	end
 end
 
 function module:updateViewport()
-	-- Defensive check: ensure Viewport exists in profile (might be missing after profile swap)
-	if not SUI.DB.Artwork or not SUI.DB.Artwork.Viewport then
+	-- Defensive check: ensure Viewport exists in settings (might be missing after profile swap)
+	if not module.CurrentSettings or not module.CurrentSettings.Viewport then
 		return
 	end
 
-	if not InCombatLockdown() and SUI.DB.Artwork.Viewport.enabled then
+	if not InCombatLockdown() and module.CurrentSettings.Viewport.enabled then
 		WorldFrame:ClearAllPoints()
-		WorldFrame:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', SUI.DB.Artwork.Viewport.offset.left, (SUI.DB.Artwork.Viewport.offset.top * -1))
-		WorldFrame:SetPoint('BOTTOMRIGHT', UIParent, 'BOTTOMRIGHT', (SUI.DB.Artwork.Viewport.offset.right * -1), SUI.DB.Artwork.Viewport.offset.bottom)
+		WorldFrame:SetPoint('TOPLEFT', UIParent, 'TOPLEFT', module.CurrentSettings.Viewport.offset.left, (module.CurrentSettings.Viewport.offset.top * -1))
+		WorldFrame:SetPoint('BOTTOMRIGHT', UIParent, 'BOTTOMRIGHT', (module.CurrentSettings.Viewport.offset.right * -1), module.CurrentSettings.Viewport.offset.bottom)
 	end
 end
 
@@ -373,9 +484,43 @@ function module:OnInitialize()
 		return
 	end
 
-	-- Register for sequential profile refresh (Artwork doesn't use RegisterNamespace, uses SUI.DB.Artwork directly)
-	-- We create a dummy Database object just for the refresh system
-	module.Database = { profile = SUI.DB.Artwork }
+	SUI.DBM:SetupModule(self, ArtworkDefaults, nil, { autoCalculateDepth = true })
+
+	-- One-time migration from old root SUI.DB.Artwork location
+	if SUI.DB.Artwork and not SUI.DB._artworkMigrated then
+		local oldData = SUI.DB.Artwork
+		for k, v in pairs(oldData) do
+			if type(v) == 'table' then
+				-- Deep compare for nested tables (Offset, Viewport, barBG, etc.)
+				if ArtworkDefaults[k] and type(ArtworkDefaults[k]) == 'table' then
+					local function migrateTable(src, defaults, dest)
+						for sk, sv in pairs(src) do
+							if sk == '**' then
+								-- Skip wildcards
+							elseif type(sv) == 'table' and type(defaults[sk]) == 'table' then
+								dest[sk] = dest[sk] or {}
+								migrateTable(sv, defaults[sk], dest[sk])
+							elseif sv ~= defaults[sk] then
+								dest[sk] = sv
+							end
+						end
+					end
+					self.DB[k] = self.DB[k] or {}
+					migrateTable(v, ArtworkDefaults[k], self.DB[k])
+					-- Clean up empty tables
+					if not next(self.DB[k]) then
+						self.DB[k] = nil
+					end
+				end
+			elseif v ~= ArtworkDefaults[k] then
+				self.DB[k] = v
+			end
+		end
+		SUI.DB.Artwork = nil
+		SUI.DB._artworkMigrated = true
+		SUI.DBM:RefreshSettings(self)
+	end
+
 	SUI.DBM:RegisterSequentialProfileRefresh(module, 'RefreshViewport')
 
 	-- Setup options
@@ -392,9 +537,9 @@ function module:OnInitialize()
 end
 
 local function VehicleUI()
-	if SUI.DB.Artwork.VehicleUI then
+	if module.CurrentSettings.VehicleUI then
 		local minimapModule = SUI:GetModule('Minimap', true)
-		local artFrame = _G['SUI_Art_' .. SUI.DB.Artwork.Style]
+		local artFrame = _G['SUI_Art_' .. module.CurrentSettings.Style]
 
 		petbattle:HookScript('OnHide', function()
 			if InCombatLockdown() then
@@ -424,21 +569,21 @@ end
 
 ---Refresh viewport settings from new profile
 function module:RefreshViewport()
-	-- Note: Artwork uses SUI.DB.Artwork directly, not module.DB
-	-- The sequential refresh system already updated SUI.DB reference in UpdateModuleConfigs
-
 	-- Re-apply viewport settings from new profile
-	if SUI.DB.Artwork and SUI.DB.Artwork.Viewport then
+	if module.CurrentSettings and module.CurrentSettings.Viewport then
 		module:updateViewport()
 	end
-
-	-- Don't call SetActiveStyle here - UpdateModuleConfigs handles it sequentially
 end
 
 function module:OnEnable()
 	if SUI:IsModuleDisabled('Artwork') then
 		return
 	end
+
+	-- Eagerly load the active theme's data so BridgeToSubsystems populates
+	-- all subsystem registries (Minimap, StatusBars, BarSystem, UF.Style)
+	-- before they run their own OnEnable
+	SUI.ThemeRegistry:GetData(module.CurrentSettings.Style)
 
 	if SUI.Handlers.BarSystem then
 		SUI.Handlers.BarSystem.Refresh()
@@ -470,11 +615,11 @@ function module:OnEnable()
 end
 
 function module:UpdateBarBG()
-	if not module.BarBG[SUI.DB.Artwork.Style] then
+	if not module.BarBG[module.CurrentSettings.Style] then
 		return
 	end
 	local usersettings = module.ActiveStyle.Artwork.barBG
-	for i, bgFrame in pairs(module.BarBG[SUI.DB.Artwork.Style]) do
+	for i, bgFrame in pairs(module.BarBG[module.CurrentSettings.Style]) do
 		if usersettings[i] then
 			if usersettings[i].enabled then
 				bgFrame:Show()

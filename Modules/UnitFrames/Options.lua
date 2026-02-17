@@ -531,6 +531,24 @@ function Options:AddAuraPresets(frameName, FrameOptSet)
 					return UF.AuraPresets:GetPresetList()
 				end,
 				get = function()
+					local branch = SUI.IsRetail and 'retail' or 'classic'
+					local buffsSettings = UF.CurrentSettings[frameName] and UF.CurrentSettings[frameName].elements.Buffs
+					local debuffsSettings = UF.CurrentSettings[frameName] and UF.CurrentSettings[frameName].elements.Debuffs
+					if not buffsSettings or not debuffsSettings then
+						return 'custom'
+					end
+
+					local buffsMode = buffsSettings[branch] and buffsSettings[branch].filterMode
+					local debuffsMode = debuffsSettings[branch] and debuffsSettings[branch].filterMode
+
+					for key, preset in pairs(UF.AuraPresets.Presets) do
+						local presetBuffs = preset.Buffs and preset.Buffs[branch] and preset.Buffs[branch].filterMode
+						local presetDebuffs = preset.Debuffs and preset.Debuffs[branch] and preset.Debuffs[branch].filterMode
+						if buffsMode == presetBuffs and debuffsMode == presetDebuffs then
+							return key
+						end
+					end
+
 					return 'custom'
 				end,
 				set = function(_, presetKey)
@@ -551,16 +569,18 @@ function Options:AddAuraPresets(frameName, FrameOptSet)
 				order = 3,
 				fontSize = 'small',
 				name = function()
-					local presetDescriptions = {
-						healer = '|cff00ff00Healer Focus:|r Shows your HoTs, defensive cooldowns, and dispellable debuffs prominently.',
-						raider = '|cff00ff00Raider:|r Prioritizes boss debuffs, raid cooldowns, and personal defensive buffs.',
-						dps = '|cff00ff00DPS:|r Shows your DoTs, offensive buffs, and procs. Sorted by time remaining.',
-						tank = '|cff00ff00Tank:|r Shows defensive cooldowns, mitigation buffs, and threat-related debuffs.',
-						minimal = '|cff00ff00Minimal:|r Clean, minimal display showing only the most important auras.',
-					}
+					local branch = SUI.IsRetail and 'retail' or 'classic'
 					local text = '|cffffffffAvailable Presets:|r\n'
-					for key, desc in pairs(presetDescriptions) do
-						text = text .. '\n' .. desc
+					for key, preset in pairs(UF.AuraPresets.Presets) do
+						local line = '|cff00ff00' .. preset.name .. ':|r ' .. preset.description
+						if SUI.IsRetail then
+							local buffsMode = preset.Buffs and preset.Buffs[branch] and preset.Buffs[branch].filterMode
+							local debuffsMode = preset.Debuffs and preset.Debuffs[branch] and preset.Debuffs[branch].filterMode
+							local buffsFilter = buffsMode and (UF.Auras.FILTER_PRESETS[buffsMode] or buffsMode) or '?'
+							local debuffsFilter = debuffsMode and (UF.Auras.FILTER_PRESETS[debuffsMode] or debuffsMode) or '?'
+							line = line .. '\n    Buffs: ' .. buffsFilter:gsub('|', '||') .. '  -  Debuffs: ' .. debuffsFilter:gsub('|', '||')
+						end
+						text = text .. '\n' .. line
 					end
 					return text
 				end,
@@ -1608,6 +1628,13 @@ function Options:Initialize()
 			elseif elementConfig.type == 'Indicator' then
 				Options:IndicatorAddDisplay(ElementOptSet)
 				Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+				if elementName == 'CombatIndicator' then
+					ElementOptSet.args.display.args.glow = {
+						name = L['Glow'],
+						type = 'toggle',
+						order = 4,
+					}
+				end
 			elseif elementConfig.type == 'Text' then
 				-- Options:IndicatorAddDisplay(ElementOptSet)
 				Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)

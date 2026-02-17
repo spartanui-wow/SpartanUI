@@ -33,14 +33,18 @@ end
 ---Does NOT change preset assignments (that's handled by UF.Preset).
 ---@param styleName? string
 function Style:Change(styleName)
-	local name = styleName or SUI.DB.Artwork.Style or 'War'
+	local name = styleName or SUI:GetActiveStyle() or 'War'
 	if registry[name] and registry[name].update then
 		registry[name].update()
 	end
 end
 
----Returns the ful list of registered styles
+---Returns the full list of registered styles.
+---Ensures all theme data is loaded so all styles are registered via BridgeToSubsystems.
 function Style:GetList()
+	if SUI.ThemeRegistry then
+		SUI.ThemeRegistry:EnsureAllLoaded()
+	end
 	return registry
 end
 
@@ -52,7 +56,7 @@ function Style:Get(styleName)
 		styleName = 'War'
 	end
 
-	local name = styleName or SUI.DB.Artwork.Style or 'War'
+	local name = styleName or SUI:GetActiveStyle() or 'War'
 	if registry[name] then
 		return registry[name].settings
 	end

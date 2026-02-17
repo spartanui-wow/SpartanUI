@@ -236,8 +236,8 @@ end
 
 local function loadScales()
 	scaleData = module.BarScale.BT4.default
-	if SUI:IsModuleEnabled('Artwork') and module.BarScale.BT4[SUI.DB.Artwork.Style] then
-		scaleData = SUI:MergeData(scaleData, module.BarScale.BT4[SUI.DB.Artwork.Style], true)
+	if SUI:IsModuleEnabled('Artwork') and module.BarScale.BT4[SUI:GetActiveStyle()] then
+		scaleData = SUI:MergeData(scaleData, module.BarScale.BT4[SUI:GetActiveStyle()], true)
 	end
 	scaleData = SUI:MergeData(scaleData, module.DB.custom.scale.BT4, true)
 end
@@ -245,8 +245,8 @@ end
 local function RefreshConfig()
 	local positionData = module.BarPosition.BT4.default
 	-- If artwork is enabled load the art's position data if supplied
-	if SUI:IsModuleEnabled('Artwork') and module.BarPosition.BT4[SUI.DB.Artwork.Style] then
-		positionData = SUI:MergeData(module.BarPosition.BT4[SUI.DB.Artwork.Style], module.BarPosition.BT4.default)
+	if SUI:IsModuleEnabled('Artwork') and module.BarPosition.BT4[SUI:GetActiveStyle()] then
+		positionData = SUI:MergeData(module.BarPosition.BT4[SUI:GetActiveStyle()], module.BarPosition.BT4.default)
 	end
 	loadScales()
 
@@ -422,27 +422,30 @@ local function Options()
 				type = 'toggle',
 				order = 6,
 				get = function(info)
-					return SUI.DB.Artwork.VehicleUI
+					return SUI:GetArtworkSetting('VehicleUI')
 				end,
 				set = function(info, val)
 					if InCombatLockdown() then
 						print(ERR_NOT_IN_COMBAT)
 						return
 					end
-					SUI.DB.Artwork.VehicleUI = val
+					local artModule = SUI:GetModule('Artwork', true)
+					if artModule then
+						SUI.DBM:Set(artModule, 'VehicleUI', val)
+					end
 					--Make sure bartender knows to do it, or not...
 					if Bartender4 then
 						Bartender4.db.profile.blizzardVehicle = val
 						Bartender4:UpdateBlizzardVehicle()
 					end
 
-					if SUI.DB.Artwork.VehicleUI then
-						if SUI:GetModule('Style.' .. SUI.DB.Artwork.Style).SetupVehicleUI() ~= nil then
-							SUI:GetModule('Style.' .. SUI.DB.Artwork.Style):SetupVehicleUI()
+					if val then
+						if SUI:GetModule('Style.' .. SUI:GetActiveStyle()).SetupVehicleUI() ~= nil then
+							SUI:GetModule('Style.' .. SUI:GetActiveStyle()):SetupVehicleUI()
 						end
 					else
-						if SUI:GetModule('Style.' .. SUI.DB.Artwork.Style).RemoveVehicleUI() ~= nil then
-							SUI:GetModule('Style.' .. SUI.DB.Artwork.Style):RemoveVehicleUI()
+						if SUI:GetModule('Style.' .. SUI:GetActiveStyle()).RemoveVehicleUI() ~= nil then
+							SUI:GetModule('Style.' .. SUI:GetActiveStyle()):RemoveVehicleUI()
 						end
 					end
 				end,
