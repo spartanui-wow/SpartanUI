@@ -31,7 +31,7 @@ local elementList = {
 	'DefensiveIndicator',
 	'RaidDebuffs',
 	'CornerIndicators',
-	'PrivateAuras', -- Blizzard-controlled raid mechanics auras
+	'PrivateAuras',
 }
 
 local function groupingOrder()

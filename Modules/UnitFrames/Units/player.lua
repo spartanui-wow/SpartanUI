@@ -38,7 +38,7 @@ local function Builder(frame)
 		'AdditionalPower',
 		'AlternativePower', -- Encounter-specific power (Torghast, Mythic+, etc.)
 		'EclipseBar', -- MOP Classic Balance Druid eclipse power bar (#565)
-		'PrivateAuras', -- Blizzard-controlled raid mechanics auras
+		'PrivateAuras',
 		-- 'AuraBars' -- DECOMMISSIONED: Not maintaining if unavailable in retail
 	}
 

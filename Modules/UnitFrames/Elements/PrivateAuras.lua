@@ -217,9 +217,6 @@ local Settings = {
 	position = {
 		anchor = 'BOTTOM',
 		relativeTo = 'Frame',
-		relativePoint = 'TOP',
-		x = 0,
-		y = 5,
 	},
 	config = {
 		type = 'Indicator',

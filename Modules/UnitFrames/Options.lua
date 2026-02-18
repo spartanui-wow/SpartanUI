@@ -1247,7 +1247,12 @@ function Options:AddGroupDisplay(frameName, OptionSet)
 			--Update the DB
 			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName][setting] = val
 			--Update the screen
-			UF.Unit:Get(frameName).header:SetAttribute(setting, val)
+			-- Don't forward showRaid to the oUF header: oUF uses that attribute to switch
+			-- spawned frames to raid* unit tokens, which breaks party frames (no raidpet/raidtarget configs).
+			-- Party frame visibility in raids is handled by VisibilityCheck/GroupWatcher instead.
+			if setting ~= 'showRaid' or frameName == 'raid' then
+				UF.Unit:Get(frameName).header:SetAttribute(setting, val)
+			end
 			UF.Unit:Get(frameName):UpdateAll()
 		end,
 		args = {

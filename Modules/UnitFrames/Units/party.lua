@@ -31,7 +31,7 @@ local elementList = {
 	'DefensiveIndicator',
 	'RaidDebuffs',
 	'CornerIndicators',
-	'PrivateAuras', -- Blizzard-controlled raid mechanics auras
+	'PrivateAuras',
 }
 
 local function GroupBuilder(holder)
@@ -41,7 +41,7 @@ local function GroupBuilder(holder)
 			'SUI_UF_party_Header',
 			nil,
 			'showRaid',
-			UF.CurrentSettings.party.showRaid,
+			false, -- Always false: oUF uses this to assign raid* unit tokens, which we don't support for party
 			'showParty',
 			true,
 			'showPlayer',
@@ -74,7 +74,7 @@ local function GroupBuilder(holder)
 			nil,
 			'party',
 			'showRaid',
-			UF.CurrentSettings.party.showRaid,
+			false, -- Always false: oUF uses this to assign raid* unit tokens, which we don't support for party
 			'showParty',
 			true,
 			'showPlayer',
@@ -278,6 +278,16 @@ local Settings = {
 		},
 		Power = {
 			height = 5,
+		},
+		RaidRoleIndicator = {
+			position = {
+				anchor = 'LEFT',
+				relativePoint = 'RIGHT',
+				relativeTo = 'Name',
+				x = 20,
+				y = -10,
+			},
+			size = 15,
 		},
 		TargetIndicator = {
 			enabled = true,
