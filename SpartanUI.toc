@@ -109,7 +109,6 @@ lang\localization.xml
 # ============================================
 Core\Framework.lua
 Core\Handlers\Database.lua
-Core\Handlers\_ThemeRegistry.Definition.lua
 Core\Handlers\ThemeRegistry.lua
 Core\BlizzAPI.lua
 Core\UI\Helpers.lua
