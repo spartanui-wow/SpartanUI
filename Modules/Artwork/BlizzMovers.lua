@@ -311,8 +311,6 @@ end
 local function VehicleLeaveButton()
 	local moverName = 'VehicleLeaveButton'
 
-	-- Use custom holder-based mover
-	-- When BT4 is loaded, this mover overrides BT4's positioning
 	local function MoverCreate()
 		local frame = MainMenuBarVehicleLeaveButton
 		if not frame then
@@ -329,20 +327,27 @@ local function VehicleLeaveButton()
 		CacheOriginalPosition(moverName, frame)
 
 		local point, _, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleLeaveButton') or 'BOTTOM,SpartanUI,BOTTOM,0,250')
-		local VehicleBtnHolder = CreateFrame('Frame', 'VehicleBtnHolder', SpartanUI)
+		local VehicleBtnHolder = CreateFrame('Frame', 'VehicleBtnHolder', UIParent)
 		VehicleBtnHolder:EnableMouse(false)
 		VehicleBtnHolder:SetSize(frame:GetSize())
 		VehicleBtnHolder:SetPoint(point, UIParent, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 		MoveIt:CreateMover(VehicleBtnHolder, moverName, 'Vehicle leave button', nil, 'Blizzard UI')
 
+		frame:SetParent(VehicleBtnHolder)
 		frame:ClearAllPoints()
 		frame:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
-		hooksecurefunc(frame, 'SetPoint', function(_, _, parent)
-			if parent ~= VehicleBtnHolder then
-				frame:ClearAllPoints()
-				frame:SetParent(UIParent)
-				frame:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
+		frame.SUIHolder = VehicleBtnHolder
+
+		hooksecurefunc(frame, 'SetPoint', function(self, _, anchor)
+			if anchor ~= VehicleBtnHolder then
+				self:ClearAllPoints()
+				self:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
 			end
+		end)
+
+		frame:HookScript('OnShow', function()
+			frame:ClearAllPoints()
+			frame:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
 		end)
 
 		-- Store holder reference
@@ -602,47 +607,74 @@ end
 
 local function HudTooltip()
 	local moverName = 'HudTooltip'
-	local frame = _G['GameTooltipDefaultContainer']
-
-	if not frame then
-		return
-	end
+	local retailContainer = _G['GameTooltipDefaultContainer']
 
 	-- Check if mover is enabled
 	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
-		RestoreOriginalPosition(moverName)
+		if retailContainer then
+			RestoreOriginalPosition(moverName)
+		end
 		return
 	end
 
-	-- Cache original position before moving
-	CacheOriginalPosition(moverName, frame)
+	if retailContainer then
+		-- Retail: move GameTooltipDefaultContainer — GameTooltip_SetDefaultAnchor reads GetPoint(1) from it
+		CacheOriginalPosition(moverName, retailContainer)
 
-	local holder = GenerateHolder(moverName, frame)
-	holder:SetSize(frame:GetSize())
+		local holder = GenerateHolder(moverName, retailContainer)
+		holder:SetSize(retailContainer:GetSize())
 
-	-- Attach using BOTTOMRIGHT so GameTooltip_SetDefaultAnchor reads a corner
-	-- anchor from GetPoint(1) and positions tooltips correctly
-	frame:ClearAllPoints()
-	frame:SetPoint('BOTTOMRIGHT', holder, 'BOTTOMRIGHT')
-	frame.SUIHolder = holder
-	frame.SUIHolderMountPoint = 'BOTTOMRIGHT'
+		-- Attach using BOTTOMRIGHT so GameTooltip_SetDefaultAnchor reads a corner
+		-- anchor from GetPoint(1) and positions tooltips correctly
+		retailContainer:ClearAllPoints()
+		retailContainer:SetPoint('BOTTOMRIGHT', holder, 'BOTTOMRIGHT')
+		retailContainer.SUIHolder = holder
+		retailContainer.SUIHolderMountPoint = 'BOTTOMRIGHT'
 
-	-- Prevent Blizzard Edit Mode from repositioning the container
-	hooksecurefunc(frame, 'SetPoint', function(self, _, anchor)
-		if self.SUIHolder and anchor ~= self.SUIHolder then
-			if InCombatLockdown() then
+		-- Prevent Blizzard Edit Mode from repositioning the container
+		hooksecurefunc(retailContainer, 'SetPoint', function(self, _, anchor)
+			if self.SUIHolder and anchor ~= self.SUIHolder then
+				if InCombatLockdown() then
+					return
+				end
+				self:ClearAllPoints()
+				self:SetPoint('BOTTOMRIGHT', self.SUIHolder, 'BOTTOMRIGHT')
+			end
+		end)
+
+		MoveIt:CreateMover(holder, moverName, 'HUD Tooltip', nil, 'Blizzard UI')
+
+		if module.BlizzMoverCache[moverName] then
+			module.BlizzMoverCache[moverName].holder = holder
+		end
+	else
+		-- Classic/TBC/MOP: GameTooltip_SetDefaultAnchor hardcodes UIParent as the anchor,
+		-- so we hook it to redirect the tooltip to our holder instead.
+		local holder = CreateFrame('Frame', moverName .. 'Holder', UIParent)
+		holder:EnableMouse(false)
+
+		local dbEntry = GetBlizzMoverPosition(moverName)
+		if dbEntry then
+			local point, anchor, secondaryPoint, x, y = strsplit(',', dbEntry)
+			holder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+		else
+			holder:SetPoint('BOTTOMRIGHT', UIParent, 'BOTTOMRIGHT', -13, 80)
+		end
+		holder:SetSize(256, 64)
+
+		hooksecurefunc('GameTooltip_SetDefaultAnchor', function(tooltip)
+			if not tooltip or tooltip:IsForbidden() then
 				return
 			end
-			self:ClearAllPoints()
-			self:SetPoint('BOTTOMRIGHT', self.SUIHolder, 'BOTTOMRIGHT')
+			tooltip:ClearAllPoints()
+			tooltip:SetPoint('BOTTOMRIGHT', holder, 'BOTTOMRIGHT')
+		end)
+
+		MoveIt:CreateMover(holder, moverName, 'HUD Tooltip', nil, 'Blizzard UI')
+
+		if module.BlizzMoverCache[moverName] then
+			module.BlizzMoverCache[moverName].holder = holder
 		end
-	end)
-
-	MoveIt:CreateMover(holder, moverName, 'HUD Tooltip', nil, 'Blizzard UI')
-
-	-- Store holder reference
-	if module.BlizzMoverCache[moverName] then
-		module.BlizzMoverCache[moverName].holder = holder
 	end
 end
 
