@@ -1107,8 +1107,8 @@ function module:OnInitialize()
 					['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
 					['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
 					--
-					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,144',
-					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,647,163',
+					['BT4BarMicroMenu'] = SUI.IsTBC and 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,159' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,144',
+					['BT4BarBagBar'] = SUI.IsMOP and 'BOTTOM,SUI_BottomAnchor,BOTTOM,660,163' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,620,163',
 				},
 			barScales = {
 				['BT4Bar5'] = SUI.IsRetail and 0.63 or 0.75,
