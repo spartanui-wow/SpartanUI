@@ -22,6 +22,7 @@
 	<Script file="HappinessIndicator.lua"/>
 	<Script file="PhaseIndicator.lua"/>
 	<Script file="Portrait.lua"/>
+	<Script file="PrivateAuras.lua"/>
 	<Script file="Power.lua"/>
 	<Script file="PvPIndicator.lua"/>
 	<Script file="PvPRoleIndicator.lua"/>
@@ -42,6 +43,6 @@
 	<Script file="SummonIndicator.lua"/>
 	<Script file="TargetIndicator.lua"/>
 	<Script file="ThreatIndicator.lua"/>
-	<!-- <Script file="Totems.lua"/> -->
+	<!-- <Script file="Totems.lua"/> TODO: 12.0.5 check on status of these https://github.com/oUF-wow/oUF/issues/767 -->
 	<Script file="WidgetXPBar.lua"/>
 </Ui>

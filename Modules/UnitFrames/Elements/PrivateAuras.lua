@@ -204,7 +204,7 @@ end
 ---@type SUI.UF.Elements.Settings
 local Settings = {
 	enabled = true,
-	size = 30,
+	size = 20,
 	spacing = 0,
 	num = 6,
 	width = 180,
