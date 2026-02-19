@@ -1646,161 +1646,163 @@ function Options:Initialize()
 				-- Options:IndicatorAddDisplay(ElementOptSet)
 				Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
 			elseif elementConfig.type == 'Auras' then
-				Options:IndicatorAddDisplay(ElementOptSet)
-				Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
-				Options:AddAuraLayout(frameName, ElementOptSet)
+				if not elementConfig.NoGenericOptions then
+					Options:IndicatorAddDisplay(ElementOptSet)
+					Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+					Options:AddAuraLayout(frameName, ElementOptSet)
 
-				-- Basic Filtering Options
-				local FilterGet, FilterSet
-				if SUI.IsRetail then
-					-- Retail: filter mode is handled by the element's own Options function
-					FilterGet = function()
-						return false
-					end
-					FilterSet = function() end
-				else
-					-- Classic: full rules-based filtering via classic sub-table
-					local classicSettings = ElementSettings.classic or ElementSettings
-					local classicRules = classicSettings.rules or {}
-					local classicUserSetting = UserSetting.classic or UserSetting
+					-- Basic Filtering Options
+					local FilterGet, FilterSet
+					if SUI.IsRetail then
+						-- Retail: filter mode is handled by the element's own Options function
+						FilterGet = function()
+							return false
+						end
+						FilterSet = function() end
+					else
+						-- Classic: full rules-based filtering via classic sub-table
+						local classicSettings = ElementSettings.classic or ElementSettings
+						local classicRules = classicSettings.rules or {}
+						local classicUserSetting = UserSetting.classic or UserSetting
 
-					FilterGet = function(info, key)
-						if info[#info - 1] == 'duration' then
-							return classicRules.duration and classicRules.duration[info[#info]] or false
-						else
-							return classicRules[key] or false
+						FilterGet = function(info, key)
+							if info[#info - 1] == 'duration' then
+								return classicRules.duration and classicRules.duration[info[#info]] or false
+							else
+								return classicRules[key] or false
+							end
+						end
+						FilterSet = function(info, key, val)
+							if info[#info - 1] == 'duration' then
+								if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
+									return
+								elseif (info[#info] == 'maxTime') and classicRules.duration and key < classicRules.duration.minTime then
+									return
+								end
+
+								-- Ensure classic config structure exists
+								classicSettings.rules = classicSettings.rules or {}
+								classicSettings.rules.duration = classicSettings.rules.duration or {}
+								classicUserSetting.rules = classicUserSetting.rules or {}
+								classicUserSetting.rules.duration = classicUserSetting.rules.duration or {}
+
+								--Update memory
+								classicSettings.rules.duration[info[#info]] = key
+								--Update the DB
+								classicUserSetting.rules.duration[info[#info]] = key
+							else
+								-- Ensure classic config structure exists
+								classicSettings.rules = classicSettings.rules or {}
+								classicUserSetting.rules = classicUserSetting.rules or {}
+
+								--Update memory
+								classicSettings.rules[key] = (val or false)
+								--Update the DB
+								classicUserSetting.rules[key] = (val or nil)
+							end
+							--Update Screen
+							UF.Unit[frameName]:ElementUpdate(elementName)
 						end
 					end
-					FilterSet = function(info, key, val)
-						if info[#info - 1] == 'duration' then
-							if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
-								return
-							elseif (info[#info] == 'maxTime') and classicRules.duration and key < classicRules.duration.minTime then
-								return
+					Options:AddAuraFilters(frameName, ElementOptSet, FilterSet, FilterGet)
+
+					-- Whitelist and Blacklist Options
+					local buildItemList
+
+					local spellLabel = {
+						type = 'description',
+						width = 'double',
+						fontSize = 'medium',
+						order = function(info)
+							return tonumber(string.match(info[#info], '(%d+)'))
+						end,
+						name = function(info)
+							local id = tonumber(string.match(info[#info], '(%d+)'))
+							local name = 'unknown'
+							if id then
+								local spellInfo = GetSpellInfoCompat(id)
+								if spellInfo then
+									name = string.format('|T%s:14:14:0:0|t %s (#%i)', spellInfo.iconID or 'Interface\\Icons\\Inv_misc_questionmark', spellInfo.name or L['Unknown'], id)
+								end
+							end
+							return name
+						end,
+					}
+
+					-- Whitelist/Blacklist uses classic sub-table
+					local wlClassicSettings = ElementSettings.classic or ElementSettings
+					local wlClassicUserSetting = UserSetting.classic or UserSetting
+
+					local spellDelete = {
+						type = 'execute',
+						name = L['Delete'],
+						width = 'half',
+						order = function(info)
+							return tonumber(string.match(info[#info], '(%d+)')) + 0.5
+						end,
+						func = function(info)
+							local id = tonumber(info[#info])
+							local mode = info[#info - 2]
+
+							--Remove Setting
+							if wlClassicSettings[mode] then
+								wlClassicSettings[mode][id] = nil
+							end
+							if wlClassicUserSetting[mode] then
+								wlClassicUserSetting[mode][id] = nil
 							end
 
-							-- Ensure classic config structure exists
-							classicSettings.rules = classicSettings.rules or {}
-							classicSettings.rules.duration = classicSettings.rules.duration or {}
-							classicUserSetting.rules = classicUserSetting.rules or {}
-							classicUserSetting.rules.duration = classicUserSetting.rules.duration or {}
+							--Update Screen
+							buildItemList(mode)
+							UF.Unit[frameName]:ElementUpdate(elementName)
+						end,
+					}
 
-							--Update memory
-							classicSettings.rules.duration[info[#info]] = key
-							--Update the DB
-							classicUserSetting.rules.duration[info[#info]] = key
-						else
-							-- Ensure classic config structure exists
-							classicSettings.rules = classicSettings.rules or {}
-							classicUserSetting.rules = classicUserSetting.rules or {}
+					buildItemList = function(mode)
+						local spellsOpt = ElementOptSet.args[mode].args.spells.args
+						table.wipe(spellsOpt)
 
-							--Update memory
-							classicSettings.rules[key] = (val or false)
-							--Update the DB
-							classicUserSetting.rules[key] = (val or nil)
+						local modeTable = wlClassicSettings[mode] or {}
+						for spellID, _ in pairs(modeTable) do
+							spellsOpt[spellID .. 'label'] = spellLabel
+							spellsOpt[tostring(spellID)] = spellDelete
 						end
-						--Update Screen
+					end
+					local additem = function(info, input)
+						local spellId
+						if type(input) == 'string' then
+							-- See if we got a spell link
+							if input:find('|Hspell:%d+') then
+								spellId = tonumber(input:match('|Hspell:(%d+)'))
+							elseif input:find('%[(.-)%]') then
+								local spellInfo = GetSpellInfoCompat(input:match('%[(.-)%]'))
+								spellId = spellInfo and spellInfo.spellID
+							else
+								local spellInfo = GetSpellInfoCompat(input)
+								spellId = spellInfo and spellInfo.spellID
+							end
+							if not spellId then
+								SUI:Print('Invalid spell name or ID')
+								return
+							end
+						end
+
+						local mode = info[#info - 1]
+						wlClassicSettings[mode] = wlClassicSettings[mode] or {}
+						wlClassicSettings[mode][spellId] = true
+						wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}
+						wlClassicUserSetting[mode][spellId] = true
+
 						UF.Unit[frameName]:ElementUpdate(elementName)
-					end
-				end
-				Options:AddAuraFilters(frameName, ElementOptSet, FilterSet, FilterGet)
-
-				-- Whitelist and Blacklist Options
-				local buildItemList
-
-				local spellLabel = {
-					type = 'description',
-					width = 'double',
-					fontSize = 'medium',
-					order = function(info)
-						return tonumber(string.match(info[#info], '(%d+)'))
-					end,
-					name = function(info)
-						local id = tonumber(string.match(info[#info], '(%d+)'))
-						local name = 'unknown'
-						if id then
-							local spellInfo = GetSpellInfoCompat(id)
-							if spellInfo then
-								name = string.format('|T%s:14:14:0:0|t %s (#%i)', spellInfo.iconID or 'Interface\\Icons\\Inv_misc_questionmark', spellInfo.name or L['Unknown'], id)
-							end
-						end
-						return name
-					end,
-				}
-
-				-- Whitelist/Blacklist uses classic sub-table
-				local wlClassicSettings = ElementSettings.classic or ElementSettings
-				local wlClassicUserSetting = UserSetting.classic or UserSetting
-
-				local spellDelete = {
-					type = 'execute',
-					name = L['Delete'],
-					width = 'half',
-					order = function(info)
-						return tonumber(string.match(info[#info], '(%d+)')) + 0.5
-					end,
-					func = function(info)
-						local id = tonumber(info[#info])
-						local mode = info[#info - 2]
-
-						--Remove Setting
-						if wlClassicSettings[mode] then
-							wlClassicSettings[mode][id] = nil
-						end
-						if wlClassicUserSetting[mode] then
-							wlClassicUserSetting[mode][id] = nil
-						end
-
-						--Update Screen
 						buildItemList(mode)
-						UF.Unit[frameName]:ElementUpdate(elementName)
-					end,
-				}
-
-				buildItemList = function(mode)
-					local spellsOpt = ElementOptSet.args[mode].args.spells.args
-					table.wipe(spellsOpt)
-
-					local modeTable = wlClassicSettings[mode] or {}
-					for spellID, _ in pairs(modeTable) do
-						spellsOpt[spellID .. 'label'] = spellLabel
-						spellsOpt[tostring(spellID)] = spellDelete
-					end
-				end
-				local additem = function(info, input)
-					local spellId
-					if type(input) == 'string' then
-						-- See if we got a spell link
-						if input:find('|Hspell:%d+') then
-							spellId = tonumber(input:match('|Hspell:(%d+)'))
-						elseif input:find('%[(.-)%]') then
-							local spellInfo = GetSpellInfoCompat(input:match('%[(.-)%]'))
-							spellId = spellInfo and spellInfo.spellID
-						else
-							local spellInfo = GetSpellInfoCompat(input)
-							spellId = spellInfo and spellInfo.spellID
-						end
-						if not spellId then
-							SUI:Print('Invalid spell name or ID')
-							return
-						end
 					end
 
-					local mode = info[#info - 1]
-					wlClassicSettings[mode] = wlClassicSettings[mode] or {}
-					wlClassicSettings[mode][spellId] = true
-					wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}
-					wlClassicUserSetting[mode][spellId] = true
-
-					UF.Unit[frameName]:ElementUpdate(elementName)
-					buildItemList(mode)
-				end
-
-				Options:AddAuraWhitelistBlacklist(frameName, ElementOptSet, additem)
-				if not SUI.IsRetail then
-					buildItemList('whitelist')
-					buildItemList('blacklist')
-				end
+					Options:AddAuraWhitelistBlacklist(frameName, ElementOptSet, additem)
+					if not SUI.IsRetail then
+						buildItemList('whitelist')
+						buildItemList('blacklist')
+					end
+				end -- if not NoGenericOptions
 			end
 
 			--Call Elements Custom function

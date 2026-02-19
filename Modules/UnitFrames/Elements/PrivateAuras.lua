@@ -219,7 +219,9 @@ local Settings = {
 		relativeTo = 'Frame',
 	},
 	config = {
-		type = 'Indicator',
+		type = 'Auras',
+		NoGenericOptions = true,
+		DisplayName = 'Private Auras',
 	},
 }
 

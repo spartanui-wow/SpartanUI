@@ -31,8 +31,15 @@ local function Build(frame, DB)
 	element.PostUpdateButton = function(self, button, unit, data, position)
 		button.data = data
 		button.unit = unit
-		-- Always show duration via cooldown spiral (Retail-safe)
-		button.showDuration = false -- Text duration disabled (uses cooldown spiral instead)
+		-- Text duration disabled (cooldown spiral used instead)
+		button.showDuration = false
+		if button.cooldown then
+			if DB.showCooldown ~= false then
+				button.cooldown:Show()
+			else
+				button.cooldown:Hide()
+			end
+		end
 	end
 
 	element.PostCreateButton = function(self, button)
@@ -116,31 +123,56 @@ local function Options(unitName, OptionSet)
 		UF.Unit[unitName]:ElementUpdate('RaidDebuffs')
 	end
 
-	OptionSet.args.size = {
-		name = L['Size'],
-		desc = L['Size of the raid debuff icon'],
-		type = 'range',
+	OptionSet.args.general = {
+		name = L['General'],
+		type = 'group',
+		inline = true,
 		order = 1,
-		min = 16,
-		max = 64,
-		step = 1,
-		get = function()
-			return ElementSettings.size or 32
-		end,
-		set = function(_, val)
-			OptUpdate('size', val)
-		end,
+		args = {
+			size = {
+				name = L['Size'],
+				desc = L['Size of the raid debuff icon'],
+				type = 'range',
+				order = 1,
+				min = 16,
+				max = 64,
+				step = 1,
+				get = function()
+					return ElementSettings.size or 32
+				end,
+				set = function(_, val)
+					OptUpdate('size', val)
+				end,
+			},
+			showCooldown = {
+				name = L['Show cooldown spiral'],
+				desc = L['Show the duration countdown spiral on the icon'],
+				type = 'toggle',
+				order = 2,
+				get = function()
+					return ElementSettings.showCooldown ~= false
+				end,
+				set = function(_, val)
+					OptUpdate('showCooldown', val)
+				end,
+			},
+		},
 	}
 
-	OptionSet.args.info = {
-		name = L['About Raid Debuffs'],
-		type = 'description',
+	OptionSet.args.filterInfo = {
+		name = L['Filter'],
+		type = 'group',
+		inline = true,
 		order = 2,
-		fontSize = 'medium',
-		width = 'full',
-		get = function()
-			return L["Shows the highest priority raid-relevant debuff (boss mechanics, crowd control, etc.) using WoW's RAID filter. This automatically shows important debuffs that Blizzard flags for raid awareness."]
-		end,
+		args = {
+			filterDesc = {
+				name = L['Filter: RAID (locked)\n\nShows the single highest priority raid-relevant debuff - boss mechanics, crowd control, and other effects that Blizzard flags for raid awareness. Uses the HARMFUL|RAID filter which cannot be changed.'],
+				type = 'description',
+				order = 1,
+				fontSize = 'medium',
+				width = 'full',
+			},
+		},
 	}
 end
 
@@ -148,6 +180,7 @@ end
 local Settings = {
 	enabled = false,
 	size = 32,
+	showCooldown = true,
 	position = {
 		anchor = 'CENTER',
 		x = 0,
@@ -165,7 +198,8 @@ local Settings = {
 		},
 	},
 	config = {
-		type = 'Indicator',
+		type = 'Auras',
+		NoGenericOptions = true,
 		DisplayName = 'Raid Debuffs',
 	},
 }
