@@ -351,8 +351,9 @@ local Settings = {
 		y = 0,
 	},
 	config = {
-		type = 'Indicator',
-		DisplayName = 'Defensive Indicator',
+		type = 'Auras',
+		NoGenericOptions = true,
+		DisplayName = 'Defensive',
 	},
 }
 

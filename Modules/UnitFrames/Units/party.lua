@@ -329,6 +329,9 @@ local Settings = {
 				y = 0,
 			},
 		},
+		Dispel = {
+			enabled = true,
+		},
 		PrivateAuras = {
 			enabled = true,
 		},

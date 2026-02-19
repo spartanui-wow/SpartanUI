@@ -194,6 +194,7 @@ end
 ---@param filterByPlayerDispels boolean
 ---@return table|nil auraData
 ---@return string|nil dispelType
+---@return number|nil slotIndex
 local function FindDispellableDebuff_Classic(unit, filterByPlayerDispels)
 	for i = 1, 40 do
 		local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, 'HARMFUL')
@@ -204,11 +205,11 @@ local function FindDispellableDebuff_Classic(unit, filterByPlayerDispels)
 		local dispelName = aura.dispelName
 		if dispelName then
 			if not filterByPlayerDispels or playerDispelTypes[dispelName] then
-				return aura, dispelName
+				return aura, dispelName, i
 			end
 		end
 	end
-	return nil, nil
+	return nil, nil, nil
 end
 
 -- Retail 12.0: Use truthiness on dispelName (safe with secrets) + class filter
@@ -249,13 +250,14 @@ end
 ---@param filterByPlayerDispels boolean
 ---@return table|nil auraData
 ---@return string|nil dispelType
+---@return number|nil slotIndex Classic only; nil on Retail
 local function FindDispellableDebuff(unit, filterByPlayerDispels)
 	if not unit or not UnitExists(unit) then
-		return nil, nil
+		return nil, nil, nil
 	end
 
 	if not UnitCanAssist('player', unit) then
-		return nil, nil
+		return nil, nil, nil
 	end
 
 	if SUI.IsRetail then
@@ -348,6 +350,39 @@ local function Build(frame, DB)
 	count:SetPoint('BOTTOMRIGHT', debuffFrame, 'BOTTOMRIGHT', -1, 1)
 	count:SetJustifyH('RIGHT')
 	element.count = count
+
+	-- Tooltip on hover
+	debuffFrame:EnableMouse(true)
+	local function RefreshTooltip(self)
+		local tooltipUnit = self._tooltipUnit
+		local instanceID = self._tooltipInstanceID
+		local slotIndex = self._tooltipSlotIndex
+		if not tooltipUnit then
+			return
+		end
+		GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
+		if SUI.IsRetail and instanceID then
+			GameTooltip:SetUnitDebuffByAuraInstanceID(tooltipUnit, instanceID, 'HARMFUL')
+		elseif slotIndex then
+			GameTooltip:SetUnitAura(tooltipUnit, slotIndex, 'HARMFUL')
+		end
+	end
+	debuffFrame:SetScript('OnEnter', function(self)
+		if not self._tooltipUnit then
+			return
+		end
+		RefreshTooltip(self)
+		GameTooltip:Show()
+		self:SetScript('OnUpdate', function()
+			if GameTooltip:IsOwned(self) then
+				RefreshTooltip(self)
+			end
+		end)
+	end)
+	debuffFrame:SetScript('OnLeave', function(self)
+		GameTooltip:Hide()
+		self:SetScript('OnUpdate', nil)
+	end)
 
 	element:Hide()
 	frame.Dispel = element
@@ -531,7 +566,7 @@ local function ApplyTypeIcon(element, unit, auraInstanceID, dispelType, DB)
 	end
 end
 
-local function ApplyDebuffIcon(element, unit, aura, auraInstanceID, dispelType, DB)
+local function ApplyDebuffIcon(element, unit, aura, auraInstanceID, slotIndex, dispelType, DB)
 	local iconDB = DB.debuffIcon or {}
 	if not iconDB.enabled then
 		element.debuffFrame:Hide()
@@ -605,6 +640,11 @@ local function ApplyDebuffIcon(element, unit, aura, auraInstanceID, dispelType, 
 		element.count:SetText('')
 	end
 
+	-- Store data needed for tooltip
+	element.debuffFrame._tooltipUnit = unit
+	element.debuffFrame._tooltipInstanceID = auraInstanceID
+	element.debuffFrame._tooltipSlotIndex = slotIndex
+
 	element.debuffFrame:Show()
 end
 
@@ -661,7 +701,7 @@ local function Update(frame, settings)
 	LayoutDebuffIcon(element, DB)
 
 	local filterByPlayerDispels = DB.onlyShowDispellable ~= false
-	local aura, dispelType = FindDispellableDebuff(unit, filterByPlayerDispels)
+	local aura, dispelType, slotIndex = FindDispellableDebuff(unit, filterByPlayerDispels)
 
 	if not aura then
 		HideAll(element)
@@ -676,7 +716,7 @@ local function Update(frame, settings)
 	-- Apply visuals to all sub-elements
 	ApplyBorderColor(element, unit, auraInstanceID, DB)
 	ApplyTypeIcon(element, unit, auraInstanceID, dispelType, DB)
-	ApplyDebuffIcon(element, unit, aura, auraInstanceID, dispelType, DB)
+	ApplyDebuffIcon(element, unit, aura, auraInstanceID, slotIndex, dispelType, DB)
 
 	element:Show()
 end
@@ -1163,7 +1203,7 @@ local Settings = {
 		},
 	},
 	config = {
-		type = 'Indicator',
+		type = 'Auras',
 		NoBulkUpdate = true,
 		NoGenericOptions = true,
 		DisplayName = 'Dispel',

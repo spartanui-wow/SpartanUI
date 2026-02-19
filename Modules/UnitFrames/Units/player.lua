@@ -185,6 +185,9 @@ local Settings = {
 			enabled = true,
 		},
 		SUI_RaidGroup = { enabled = true },
+		Dispel = {
+			enabled = true,
+		},
 		PrivateAuras = {
 			enabled = true,
 		},
