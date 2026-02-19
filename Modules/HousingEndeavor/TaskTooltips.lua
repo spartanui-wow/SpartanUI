@@ -20,6 +20,7 @@ end
 ----------------------------------------------------------------------------------------------------
 
 local tooltipHooked = false
+local lastLoggedScale = nil
 
 ---Calculate the contribution scale from activity log data
 ---Scale = actual_amount / progressContributionAmount
@@ -46,8 +47,9 @@ local function CalculateContributionScale()
 		local displayXP = taskIDToDisplayXP[entry.taskID]
 		if displayXP and displayXP > 0 and entry.amount and entry.amount > 0 then
 			local scale = entry.amount / displayXP
-			if module and module.logger then
+			if module and module.logger and scale ~= lastLoggedScale then
 				module.logger.debug(string.format('TaskTooltips: Calculated scale=%.6f from task %s (amount=%.2f, displayXP=%d)', scale, entry.taskName or 'unknown', entry.amount, displayXP))
+				lastLoggedScale = scale
 			end
 			return scale
 		end

@@ -68,9 +68,19 @@ local function CreateDataObject()
 
 				-- Milestones
 				for i, threshold in ipairs(progress.milestones) do
-					local icon = progress.currentXP >= threshold and CreateAtlasMarkup('housing-dashboard-small-checkmark', 14, 14)
-						or CreateAtlasMarkup('housing-dashboard-timertag-clock-icon', 14, 14)
-					local color = progress.currentXP >= threshold and { 0.5, 0.5, 0.5 } or { 1, 1, 1 }
+					local completed = progress.currentXP >= threshold
+					local isCurrent = not completed and i == progress.currentMilestone
+					local icon, color
+					if completed then
+						icon = CreateAtlasMarkup('housing-dashboard-small-checkmark', 14, 14)
+						color = { 0.2, 1, 0.2 }
+					elseif isCurrent then
+						icon = CreateAtlasMarkup('housing-dashboard-timertag-clock-icon', 14, 14)
+						color = { 1, 1, 1 }
+					else
+						icon = CreateAtlasMarkup('housing-dashboard-timertag-clock-icon', 14, 14)
+						color = { 0.5, 0.5, 0.5 }
+					end
 					tooltip:AddDoubleLine(icon .. ' ' .. L['Milestone'] .. ' ' .. i .. ':', string.format('%.0f XP', threshold), color[1], color[2], color[3], color[1], color[2], color[3])
 				end
 
@@ -99,24 +109,38 @@ local function CreateDataObject()
 end
 
 ---Update the LDB text display
-local function UpdateDataObject()
+---Exposed as module method so centralized OnMessage_UPDATED can call it
+function module:UpdateDataBroker()
 	if not dataObj then
+		if module.logger then
+			module.logger.debug('UpdateDataObject: no dataObj')
+		end
 		return
 	end
 	if not module.DB or not module.DB.dataBroker.enabled then
+		if module.logger then
+			module.logger.debug('UpdateDataObject: disabled')
+		end
 		dataObj.text = L['Disabled']
 		return
 	end
 
 	local progress = module:GetCurrentProgress()
 	if not progress then
+		if module.logger then
+			module.logger.debug('UpdateDataObject: no progress data')
+		end
 		dataObj.text = L['No data']
 		return
 	end
 
 	-- Format text based on user preference
 	local format = module.DB.dataBroker.format or 'short'
-	dataObj.text = module:FormatProgressText(format, progress)
+	local newText = module:FormatProgressText(format, progress)
+	if module.logger then
+		module.logger.debug('UpdateDataObject: setting text to "' .. newText .. '"')
+	end
+	dataObj.text = newText
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -126,24 +150,7 @@ end
 ---Initialize the DataBroker plugin
 function module:InitDataBroker()
 	CreateDataObject()
-	UpdateDataObject()
-
-	-- Update on settings changes
-	self:RegisterMessage('SUI_HOUSING_ENDEAVOR_SETTINGS_CHANGED', function()
-		UpdateDataObject()
-	end)
-
-	-- Update on data changes
-	self:RegisterMessage('SUI_HOUSING_ENDEAVOR_UPDATED', function()
-		UpdateDataObject()
-	end)
-
-	-- Periodic updates (in case events are missed)
-	self:ScheduleRepeatingTimer(function()
-		if module.DB and module.DB.dataBroker.enabled then
-			UpdateDataObject()
-		end
-	end, 30)
+	module:UpdateDataBroker()
 end
 
 -- Note: InitDataBroker is called from the main HousingEndeavor.lua OnEnable

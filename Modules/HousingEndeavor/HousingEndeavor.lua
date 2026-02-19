@@ -465,6 +465,9 @@ end
 ----------------------------------------------------------------------------------------------------
 
 function module:OnEvent_NEIGHBORHOOD_INITIATIVE_UPDATED()
+	if self.logger then
+		self.logger.info('EVENT: NEIGHBORHOOD_INITIATIVE_UPDATED at ' .. string.format('%.1f', GetTime()))
+	end
 	-- Clear caches for neighborhood switch
 	self.contributorCache = {}
 	self.contributorCacheTime = 0
@@ -480,12 +483,18 @@ function module:OnEvent_NEIGHBORHOOD_INITIATIVE_UPDATED()
 end
 
 function module:OnEvent_INITIATIVE_ACTIVITY_LOG_UPDATED()
+	if self.logger then
+		self.logger.info('EVENT: INITIATIVE_ACTIVITY_LOG_UPDATED at ' .. string.format('%.1f', GetTime()))
+	end
 	-- Activity log changed, rebuild cache (cooldown protected)
 	self:BuildTaskXPCache()
 	self:SendMessage('SUI_HOUSING_ENDEAVOR_UPDATED')
 end
 
 function module:OnEvent_INITIATIVE_TASK_COMPLETED()
+	if self.logger then
+		self.logger.info('EVENT: INITIATIVE_TASK_COMPLETED at ' .. string.format('%.1f', GetTime()))
+	end
 	-- Task completed, request fresh data and rebuild (cooldown protected)
 	self:RequestActivityLog()
 	self:BuildTaskXPCache()
@@ -493,6 +502,9 @@ function module:OnEvent_INITIATIVE_TASK_COMPLETED()
 end
 
 function module:OnEvent_PLAYER_ENTERING_WORLD()
+	if self.logger then
+		self.logger.info('EVENT: PLAYER_ENTERING_WORLD at ' .. string.format('%.1f', GetTime()) .. ' initialLoadDone=' .. tostring(self.initialLoadDone))
+	end
 	-- Only run once per session
 	if self.initialLoadDone then
 		return
@@ -500,6 +512,9 @@ function module:OnEvent_PLAYER_ENTERING_WORLD()
 	self.initialLoadDone = true
 
 	C_Timer.After(2, function()
+		if self.logger then
+			self.logger.info('PLAYER_ENTERING_WORLD timer fired at ' .. string.format('%.1f', GetTime()) .. ' available=' .. tostring(self:IsInitiativeAvailable()))
+		end
 		if self:IsInitiativeAvailable() then
 			self:RequestInitiativeInfo()
 			self:BuildTaskXPCache()
@@ -569,6 +584,9 @@ function module:OnEnable()
 	self:RegisterEvent('PLAYER_ENTERING_WORLD', 'OnEvent_PLAYER_ENTERING_WORLD')
 
 	-- Initial data request (only once)
+	if module.logger then
+		module.logger.info('OnEnable: requesting initial data at ' .. string.format('%.1f', GetTime()))
+	end
 	self:RequestInitiativeInfo()
 	self:BuildTaskXPCache()
 
@@ -612,6 +630,9 @@ function module:OnMessage_UPDATED()
 	if self.UpdateContributorDisplay then
 		self:UpdateContributorDisplay()
 	end
+	if self.UpdateDataBroker then
+		self:UpdateDataBroker()
+	end
 end
 
 ---Centralized handler for SUI_HOUSING_ENDEAVOR_SETTINGS_CHANGED message
@@ -624,6 +645,9 @@ function module:OnMessage_SETTINGS_CHANGED()
 	end
 	if self.UpdateContributorDisplay then
 		self:UpdateContributorDisplay()
+	end
+	if self.UpdateDataBroker then
+		self:UpdateDataBroker()
 	end
 end
 
