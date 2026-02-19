@@ -4,7 +4,6 @@ local elementList = {
 	'Name',
 	'Health',
 	'Castbar',
-	'Power',
 	'Portrait',
 	'SpartanArt',
 	'Buffs',

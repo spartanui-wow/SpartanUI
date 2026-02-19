@@ -46,9 +46,17 @@ local function CreateUnitFrame(self, unit)
 			self:SetParent(SUI_FramesAnchor)
 		end
 	end
-	if string.match(unit, 'boss') then
+	-- boss1..boss8 and arena1..arena5 spawn Blizzard target children (boss1target, etc.)
+	-- via SecureUnitButtonTemplate. These numbered compound children are not SUI frames
+	-- and must not be styled -- WoW 12.0 rejects compound tokens in all Unit APIs.
+	if string.match(unit, '%d+target$') then
+		return
+	end
+	-- boss1..boss8 and arena1..arena5 all share the boss/arena settings.
+	-- bosstarget and arenatarget are registered units with their own settings, skip remapping them.
+	if string.match(unit, 'boss%d') then
 		unit = 'boss'
-	elseif string.match(unit, 'arena') then
+	elseif string.match(unit, 'arena%d') then
 		unit = 'arena'
 	end
 	self.DB = UF.CurrentSettings[unit]
@@ -143,9 +151,14 @@ local function CreateUnitFrame(self, unit)
 			end
 		end
 
-		-- Tell everything to update to get current data
-		self:UpdateAllElements('OnUpdate')
-		self:UpdateTags()
+		-- Tell everything to update to get current data.
+		-- Skip if the unit doesn't exist yet -- WoW 12.0 errors on all Unit APIs
+		-- (UnitHealth, UnitPower, UnitGetDetailedHealPrediction, etc.) for compound
+		-- tokens like targettarget/focustarget when no such unit is currently present.
+		if not self.unit or UnitExists(self.unit) then
+			self:UpdateAllElements('OnUpdate')
+			self:UpdateTags()
+		end
 	end
 
 	---@param frame table
@@ -231,9 +244,13 @@ local function CreateUnitFrame(self, unit)
 			element:SetSize(data.width or frame:GetWidth(), data.height or frame:GetHeight())
 		end
 
-		-- Call the elements update function
+		-- Call the elements update function.
+		-- Skip if the unit doesn't exist yet -- WoW 12.0 rejects compound tokens
+		-- (targettarget, focustarget, etc.) in all Unit APIs when no unit is present.
 		if frame[elementName] and data.enabled and frame[elementName].ForceUpdate then
-			frame[elementName].ForceUpdate(element)
+			if not frame.unit or UnitExists(frame.unit) then
+				frame[elementName].ForceUpdate(element)
+			end
 		end
 	end
 

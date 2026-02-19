@@ -20,6 +20,7 @@ local UFPositionDefaults = {
 	['focus'] = 'BOTTOMLEFT,SUI_UF_target,TOP,0,30',
 	['focustarget'] = 'BOTTOMLEFT,SUI_UF_focus,BOTTOMRIGHT,5,0',
 	['boss'] = 'RIGHT,UIParent,RIGHT,-366,162',
+	['bosstarget'] = 'LEFT,SUI_UF_boss1,RIGHT,4,0',
 	['party'] = 'CENTER,UIParent,CENTER,-540,110',
 	['partypet'] = 'BOTTOMRIGHT,frame,BOTTOMLEFT,-2,0',
 	['partytarget'] = 'LEFT,frame,RIGHT,2,0',
@@ -88,18 +89,16 @@ function UF:PositionFrame(unit)
 		end
 	else
 		for frameName, config in pairs(UF.Unit:GetBuiltFrameList()) do
-			if not config.isChild then
+			if not config.isChild and positionData[frameName] then
 				local UnitFrame = UF.Unit:Get(frameName)
 				local point, anchor, secondaryPoint, x, y = strsplit(',', positionData[frameName])
-				if not anchor then
-					return
-				end
-
-				if UnitFrame.position then
-					UnitFrame:position(point, anchor, secondaryPoint, x, y, false, true)
-				else
-					UnitFrame:ClearAllPoints()
-					UnitFrame:SetPoint(point, anchor, secondaryPoint, x, y)
+				if anchor then
+					if UnitFrame.position then
+						UnitFrame:position(point, anchor, secondaryPoint, x, y, false, true)
+					else
+						UnitFrame:ClearAllPoints()
+						UnitFrame:SetPoint(point, anchor, secondaryPoint, x, y)
+					end
 				end
 			end
 		end
