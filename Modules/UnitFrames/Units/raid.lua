@@ -439,6 +439,9 @@ local Settings = {
 				y = 0,
 			},
 		},
+		PrivateAuras = {
+			enabled = true,
+		},
 	},
 	config = {
 		IsGroup = true,

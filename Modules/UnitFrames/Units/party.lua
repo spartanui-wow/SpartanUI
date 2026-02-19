@@ -190,13 +190,12 @@ local Settings = {
 			growthx = 'RIGHT',
 			growthy = 'UP',
 			position = {
-				anchor = 'BOTTOMLEFT',
-				relativePoint = 'TOPLEFT',
-				x = 0,
+				anchor = 'LEFT',
+				relativePoint = 'RIGHT',
 				y = 2,
 			},
 			retail = {
-				filterMode = 'healing_mode', -- Show HoTs and combat-relevant buffs
+				filterMode = 'healing_mode',
 			},
 		},
 		Debuffs = {
@@ -208,9 +207,8 @@ local Settings = {
 			growthx = 'RIGHT',
 			growthy = 'DOWN',
 			position = {
-				anchor = 'TOPLEFT',
-				relativePoint = 'BOTTOMLEFT',
-				x = 0,
+				anchor = 'RIGHT',
+				relativePoint = 'LEFT',
 				y = -2,
 			},
 			retail = {
@@ -330,6 +328,9 @@ local Settings = {
 				x = 0,
 				y = 0,
 			},
+		},
+		PrivateAuras = {
+			enabled = true,
 		},
 	},
 	config = {
