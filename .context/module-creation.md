@@ -1,6 +1,6 @@
 # SpartanUI Module Creation Guide
 
-> SpartanUI-specific module patterns. For shared Ace3 module patterns (lifecycle, file organization, AceConfig structure), see the root `.context/addon-architecture.md`.
+> SpartanUI-specific module patterns. For shared Ace3 module patterns (lifecycle, file organization, AceConfig structure), see the root `.context/ace3-guide.md`.
 
 ## 1. Module Structure
 

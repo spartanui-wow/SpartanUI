@@ -8,6 +8,7 @@ For shared patterns (logging, annotations, StyLua, API lookups, testing, pitfall
 
 - @.context/module-creation.md — How to create new SpartanUI modules (SUI:NewModule, DBM, options, localization)
 - @.context/Database.md — SUI.DBM Configuration Override Pattern (full API reference)
+- @.context/auras.md — WoW 12.0.1 aura system, all 14 filters, presets, visual customization
 
 ## Project Overview
 
