@@ -751,7 +751,8 @@ local function getTagFunc(tagstr)
 			_ENV._FRAME = parent
 
 			for i, f in next, funcs do
-				buffer[i] = f(unit, realUnit) or ''
+				local ok, val = xpcall(f, nierror, unit, realUnit)
+				buffer[i] = (ok and val) or ''
 			end
 
 			-- we do 1 to num because buffer is shared by all tags and can hold several unneeded vars

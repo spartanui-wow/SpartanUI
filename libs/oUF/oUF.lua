@@ -209,7 +209,7 @@ for k, v in
 			end
 
 			for _, func in next, self.__elements do
-				func(self, event, unit)
+				Private.xpcall(func, self, event, unit)
 			end
 
 			if self.PostUpdate then
