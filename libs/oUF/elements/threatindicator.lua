@@ -64,7 +64,7 @@ local function Update(self, event, unit)
 	end
 
 	local color
-	if status and status > 0 then
+	if status and canaccessvalue(status) and status > 0 then
 		color = self.colors.threat[status]
 
 		if element.SetVertexColor and color then
