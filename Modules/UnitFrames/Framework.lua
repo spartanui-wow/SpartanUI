@@ -77,7 +77,7 @@ function UF:PositionFrame(unit)
 	if unit then
 		local UnitFrame = UF.Unit:Get(unit)
 		local point, anchor, secondaryPoint, x, y = strsplit(',', positionData[unit])
-		if not anchor then
+		if not anchor or not _G[anchor] then
 			return
 		end
 
@@ -92,7 +92,7 @@ function UF:PositionFrame(unit)
 			if not config.isChild and positionData[frameName] then
 				local UnitFrame = UF.Unit:Get(frameName)
 				local point, anchor, secondaryPoint, x, y = strsplit(',', positionData[frameName])
-				if anchor then
+				if anchor and _G[anchor] then
 					if UnitFrame.position then
 						UnitFrame:position(point, anchor, secondaryPoint, x, y, false, true)
 					else
