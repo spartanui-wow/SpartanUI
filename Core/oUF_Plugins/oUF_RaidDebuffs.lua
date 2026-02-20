@@ -396,8 +396,9 @@ local function Update(self, event, unit)
 			-- Duration
 			local duration = aura.duration or 0
 			local expiration = aura.expirationTime or 0
+			local canAccessDuration = not isRetail or (SUI.BlizzAPI.canaccessvalue(duration) and SUI.BlizzAPI.canaccessvalue(expiration))
 
-			if element.cd and duration > 0 and expiration > 0 then
+			if element.cd and canAccessDuration and duration > 0 and expiration > 0 then
 				element.cd:SetCooldown(expiration - duration, duration)
 				element.cd:Show()
 			elseif element.cd then
@@ -405,7 +406,7 @@ local function Update(self, event, unit)
 			end
 
 			-- Text duration with OnUpdate (Classic only, or if showDuration enabled)
-			if element.showDuration ~= false and duration > 0 and expiration > 0 then
+			if element.showDuration ~= false and canAccessDuration and duration > 0 and expiration > 0 then
 				element.endTime = expiration
 				-- OnUpdate is handled by the element file
 			else
