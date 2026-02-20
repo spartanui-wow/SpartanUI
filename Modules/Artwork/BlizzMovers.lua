@@ -125,6 +125,7 @@ end
 local function GenerateHolder(name, frame)
 	local holder = CreateFrame('Frame', name .. 'Holder', UIParent)
 	holder:EnableMouse(false)
+	holder.isBlizzMoverHolder = true
 
 	local dbEntry = GetBlizzMoverPosition(name)
 	if dbEntry then
@@ -174,6 +175,7 @@ local function TalkingHead()
 	local THUIHolder = CreateFrame('Frame', 'THUIHolder', SpartanUI)
 	THUIHolder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 	THUIHolder:EnableMouse(false)
+	THUIHolder.isBlizzMoverHolder = true
 
 	local SetupTalkingHead = function()
 		local frame = TalkingHeadFrame
@@ -189,10 +191,10 @@ local function TalkingHead()
 		THUIHolder:SetSize(frame:GetSize())
 		MoveIt:CreateMover(THUIHolder, 'THUIHolder', 'Talking Head Frame', nil, 'Blizzard UI')
 
-		-- Parent frame to holder
-		frame:SetParent(THUIHolder)
+		-- Position frame relative to holder (no reparent - holder may be hidden outside move mode)
 		frame:ClearAllPoints()
 		frame:SetPoint('CENTER', THUIHolder, 'CENTER', 0, 0)
+		frame.SUIHolder = THUIHolder
 
 		-- Hook SetPoint to prevent Blizzard from repositioning
 		hooksecurefunc(frame, 'SetPoint', function(self, _, anchor)
@@ -329,11 +331,12 @@ local function VehicleLeaveButton()
 		local point, _, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleLeaveButton') or 'BOTTOM,SpartanUI,BOTTOM,0,250')
 		local VehicleBtnHolder = CreateFrame('Frame', 'VehicleBtnHolder', UIParent)
 		VehicleBtnHolder:EnableMouse(false)
+		VehicleBtnHolder.isBlizzMoverHolder = true
 		VehicleBtnHolder:SetSize(frame:GetSize())
 		VehicleBtnHolder:SetPoint(point, UIParent, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 		MoveIt:CreateMover(VehicleBtnHolder, moverName, 'Vehicle leave button', nil, 'Blizzard UI')
 
-		frame:SetParent(VehicleBtnHolder)
+		-- Position frame relative to holder (no reparent - holder may be hidden outside move mode)
 		frame:ClearAllPoints()
 		frame:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
 		frame.SUIHolder = VehicleBtnHolder
@@ -380,6 +383,7 @@ local function VehicleSeatIndicator()
 	local point, anchor, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleSeatIndicator') or 'RIGHT,SpartanUI,RIGHT,-10,-30')
 	local VehicleSeatHolder = CreateFrame('Frame', 'VehicleSeatHolder', SpartanUI)
 	VehicleSeatHolder:EnableMouse(false)
+	VehicleSeatHolder.isBlizzMoverHolder = true
 	VehicleSeatHolder:SetSize(SeatIndicator:GetSize())
 	VehicleSeatHolder:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 	local function SetPosition(_, _, anchorPoint)
@@ -539,10 +543,10 @@ local function EncounterBar()
 	-- Create mover
 	MoveIt:CreateMover(holder, moverName, 'Encounter Bar', nil, 'Blizzard UI')
 
-	-- Parent frame to holder
-	frame:SetParent(holder)
+	-- Position frame relative to holder (no reparent - holder may be hidden outside move mode)
 	frame:ClearAllPoints()
 	frame:SetPoint('CENTER', holder, 'CENTER', 0, 0)
+	frame.SUIHolder = holder
 
 	-- Hook SetPoint to prevent Blizzard repositioning
 	hooksecurefunc(frame, 'SetPoint', function(self, _, parentFrame)
@@ -586,10 +590,10 @@ local function ArchaeologyBar()
 	-- Create mover
 	MoveIt:CreateMover(holder, moverName, 'Archaeology Bar', nil, 'Blizzard UI')
 
-	-- Parent frame to holder
-	frame:SetParent(holder)
+	-- Position frame relative to holder (no reparent - holder may be hidden outside move mode)
 	frame:ClearAllPoints()
 	frame:SetPoint('CENTER', holder, 'CENTER', 0, 0)
+	frame.SUIHolder = holder
 
 	-- Hook SetPoint to prevent Blizzard repositioning
 	hooksecurefunc(frame, 'SetPoint', function(self, _, parentFrame)
@@ -652,6 +656,7 @@ local function HudTooltip()
 		-- so we hook it to redirect the tooltip to our holder instead.
 		local holder = CreateFrame('Frame', moverName .. 'Holder', UIParent)
 		holder:EnableMouse(false)
+		holder.isBlizzMoverHolder = true
 
 		local dbEntry = GetBlizzMoverPosition(moverName)
 		if dbEntry then

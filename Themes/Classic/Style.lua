@@ -185,14 +185,14 @@ local function CreateArtwork()
 			self.TimeSinceLastUpdate = self.TimeSinceLastUpdate + elapsed
 			if self.TimeSinceLastUpdate > self.UpdateInterval then
 				local abSettings = module.CurrentSettings
-				if abSettings.popup1 and abSettings.popup1.anim then
+				if abSettings.popup1 and abSettings.popup1.enable and abSettings.popup1.anim then
 					if not MouseIsOver(plate.mask1) and not MouseIsOver(plate.POP1) then
 						plate.mask1:Show()
 					else
 						plate.mask1:Hide()
 					end
 				end
-				if abSettings.popup2 and abSettings.popup2.anim then
+				if abSettings.popup2 and abSettings.popup2.enable and abSettings.popup2.anim then
 					if not MouseIsOver(plate.mask2) and not MouseIsOver(plate.POP2) then
 						plate.mask2:Show()
 					else
@@ -262,6 +262,46 @@ local function UnitFrameCallback(self, unit)
 			if self.RareElite.ForceUpdate then
 				self.RareElite:ForceUpdate()
 			end
+		end
+	end
+end
+
+function module:ApplyPopupSettings()
+	local plate = _G['Classic_ActionBarPlate']
+	if not plate or InCombatLockdown() then
+		return
+	end
+	local settings = module.CurrentSettings
+
+	local p1 = settings.popup1
+	if p1 then
+		plate.mask1:SetAlpha(p1.alpha / 100)
+		if p1.enable then
+			plate.POP1:Show()
+			if p1.anim then
+				plate.mask1:Show()
+			else
+				plate.mask1:Hide()
+			end
+		else
+			plate.POP1:Hide()
+			plate.mask1:Hide()
+		end
+	end
+
+	local p2 = settings.popup2
+	if p2 then
+		plate.mask2:SetAlpha(p2.alpha / 100)
+		if p2.enable then
+			plate.POP2:Show()
+			if p2.anim then
+				plate.mask2:Show()
+			else
+				plate.mask2:Hide()
+			end
+		else
+			plate.POP2:Hide()
+			plate.mask2:Hide()
 		end
 	end
 end
@@ -527,7 +567,9 @@ local function Options()
 					return module.CurrentSettings.popup1.anim
 				end,
 				set = function(info, val)
-					SUI.DBM:Set(module, 'popup1.anim', val)
+					SUI.DBM:Set(module, 'popup1.anim', val, function()
+						module:ApplyPopupSettings()
+					end)
 				end,
 			},
 			popup1alpha = {
@@ -542,7 +584,9 @@ local function Options()
 				end,
 				set = function(info, val)
 					if module.CurrentSettings.popup1.enable then
-						SUI.DBM:Set(module, 'popup1.alpha', val)
+						SUI.DBM:Set(module, 'popup1.alpha', val, function()
+							module:ApplyPopupSettings()
+						end)
 					end
 				end,
 			},
@@ -554,7 +598,9 @@ local function Options()
 					return module.CurrentSettings.popup1.enable
 				end,
 				set = function(info, val)
-					SUI.DBM:Set(module, 'popup1.enable', val)
+					SUI.DBM:Set(module, 'popup1.enable', val, function()
+						module:ApplyPopupSettings()
+					end)
 				end,
 			},
 			popup2anim = {
@@ -566,7 +612,9 @@ local function Options()
 					return module.CurrentSettings.popup2.anim
 				end,
 				set = function(info, val)
-					SUI.DBM:Set(module, 'popup2.anim', val)
+					SUI.DBM:Set(module, 'popup2.anim', val, function()
+						module:ApplyPopupSettings()
+					end)
 				end,
 			},
 			popup2alpha = {
@@ -581,7 +629,9 @@ local function Options()
 				end,
 				set = function(info, val)
 					if module.CurrentSettings.popup2.enable then
-						SUI.DBM:Set(module, 'popup2.alpha', val)
+						SUI.DBM:Set(module, 'popup2.alpha', val, function()
+							module:ApplyPopupSettings()
+						end)
 					end
 				end,
 			},
@@ -593,7 +643,9 @@ local function Options()
 					return module.CurrentSettings.popup2.enable
 				end,
 				set = function(info, val)
-					SUI.DBM:Set(module, 'popup2.enable', val)
+					SUI.DBM:Set(module, 'popup2.enable', val, function()
+						module:ApplyPopupSettings()
+					end)
 				end,
 			},
 		},
@@ -1267,6 +1319,8 @@ function module:OnEnable()
 		if BT4BarMicroMenu then
 			BT4BarMicroMenu:SetFrameStrata('LOW')
 		end
+		module:ApplyPopupSettings()
+
 		local art = SUI.ThemeRegistry:GetSetting('Classic', 'Color.Art')
 		if art then
 			module:SetColor()

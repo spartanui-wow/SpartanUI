@@ -190,6 +190,13 @@ function MoverMode:Enter()
 		end
 	end
 
+	-- Show Blizz mover holders so their contained frames are visible/interactive in move mode
+	for _, mover in pairs(MoveIt.MoverList or {}) do
+		if mover.parent and mover.parent.isBlizzMoverHolder then
+			mover.parent:Show()
+		end
+	end
+
 	-- Show and style existing movers with staggered animation using AceTimer
 	local delay = 0
 	for name, mover in pairs(MoveIt.MoverList or {}) do
@@ -275,6 +282,10 @@ function MoverMode:Exit()
 			-- Re-enable keyboard on movers for normal move mode
 			mover:EnableKeyboard(true)
 			mover:Hide()
+			-- Hide Blizz mover holders so they stop intercepting mouse events
+			if mover.parent and mover.parent.isBlizzMoverHolder then
+				mover.parent:Hide()
+			end
 		end
 	end
 

@@ -493,6 +493,12 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 	parent:ClearAllPoints()
 	parent:SetPoint('TOPLEFT', f, 0, 0)
 
+	-- Blizz mover holders intercept mouse events when visible (HookScript enables mouse).
+	-- Hide them immediately; MoverMode:Enter/Exit manages their visibility.
+	if parent.isBlizzMoverHolder then
+		parent:Hide()
+	end
+
 	self:AddToOptions(name, DisplayName, (groupName or 'General'), f)
 end
 
