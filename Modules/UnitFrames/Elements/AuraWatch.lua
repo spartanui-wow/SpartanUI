@@ -54,7 +54,7 @@ local function Build(frame, DB)
 		end
 
 		-- Hide when unit is in a different phase
-		if DB.hideWhenPhased and unit then
+		if DB.hideWhenPhased and unit and UnitPhaseReason then
 			local phaseReason = UnitIsPlayer(unit) and UnitIsConnected(unit) and UnitPhaseReason(unit) or nil
 			if phaseReason then
 				button:Hide()

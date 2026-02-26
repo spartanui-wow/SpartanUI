@@ -369,13 +369,27 @@ function Auras:GetAuraPriority(data)
 	local priority = PRIORITY_OTHER
 
 	if SUI.IsRetail then
-		-- RETAIL: Only use properties that oUF has pre-processed as safe
-		-- isPlayerAura is safe - created by oUF using C_UnitAuras.IsAuraFilteredOutByInstanceID
-		-- isHarmfulAura is safe - created by oUF from filter string
+		-- isPlayerAura is always safe (created by oUF)
 		if data.isPlayerAura then
 			priority = PRIORITY_PLAYER
 		end
-		-- That's all we can safely test in Retail - other properties are secret values
+
+		-- Check properties that may be accessible for non-secret spells (e.g. Blizzard-exempted healer HoTs)
+		if IsSafeValue(data.isBossAura) and data.isBossAura then
+			priority = PRIORITY_BOSS
+		end
+
+		if data.isHarmfulAura and IsSafeValue(data.dispelName) and data.dispelName then
+			priority = math.max(priority, PRIORITY_DISPELLABLE)
+		end
+
+		if IsSafeValue(data.isStealable) and data.isStealable then
+			priority = math.max(priority, PRIORITY_STEALABLE)
+		end
+
+		if IsSafeValue(data.isRaid) and data.isRaid then
+			priority = math.max(priority, PRIORITY_RAID)
+		end
 	else
 		-- CLASSIC: Full access to all aura properties
 		-- Boss auras are highest priority
@@ -877,20 +891,34 @@ function Auras.PostUpdateAura(element, unit, button, index)
 	end
 
 	if SUI.IsRetail then
-		-- RETAIL (12.0+): duration and expirationTime are SECRET VALUES
-		-- Cannot access them for text display - attempting to read causes errors
-		-- Duration countdown is shown via cooldown spiral (oUF uses SetCooldownFromDurationObject)
-		-- Hide our text duration display in Retail
-		button.expiration = nil
-		if button.Duration then
-			button.Duration:SetText('')
+		-- RETAIL: duration/expirationTime may be secret or accessible depending on spell exemptions
+		local duration = auraData.duration
+		local expiration = auraData.expirationTime
+		if IsSafeValue(duration) and IsSafeValue(expiration) and duration and duration > 0 then
+			local remaining = expiration - GetTime()
+			if remaining > 0 then
+				button.expiration = remaining
+			else
+				button.expiration = nil
+			end
+		else
+			button.expiration = nil
+			if button.Duration then
+				button.Duration:SetText('')
+			end
 		end
 
-		-- Visual effects - CANNOT safely access isStealable or sourceUnit in Retail
-		-- These are secret values and will crash if tested
-		-- Only use isPlayerAura (safe, created by oUF) or isHarmfulAura (safe)
+		-- Visual effects for accessible aura properties
 		if button.SetBackdrop then
-			button:SetBackdropColor(0, 0, 0)
+			if IsSafeValue(auraData.isStealable) and IsSafeValue(auraData.sourceUnit) then
+				if unit == 'target' and auraData.isStealable then
+					button:SetBackdropColor(0, 1 / 2, 1 / 2)
+				elseif auraData.sourceUnit ~= 'player' then
+					button:SetBackdropColor(0, 0, 0)
+				end
+			else
+				button:SetBackdropColor(0, 0, 0)
+			end
 		end
 	else
 		-- CLASSIC/WRATH/CATA: Full access to aura properties - duration text works!

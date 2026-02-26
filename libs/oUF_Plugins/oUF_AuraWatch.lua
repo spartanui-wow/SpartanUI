@@ -9,6 +9,7 @@ local HIDDEN = 0
 local min, wipe, pairs, tinsert = min, wipe, pairs, tinsert
 local CreateFrame = CreateFrame
 local UnitIsUnit = UnitIsUnit
+local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
 local function createAuraIcon(element, index)
 	local button = CreateFrame('Button', element:GetName() .. 'Button' .. index, element)
@@ -80,7 +81,15 @@ end
 
 local function handleElements(element, unit, button, setting, icon, count, duration, expiration, isDebuff, debuffType, isStealable, modRate)
 	if button.cd then
-		if duration and duration > 0 then
+		if isRetail and button.auraInstanceID then
+			local success, durationObj = pcall(C_UnitAuras.GetAuraDuration, unit, button.auraInstanceID)
+			if success and durationObj and button.cd.SetCooldownFromDurationObject then
+				button.cd:SetCooldownFromDurationObject(durationObj)
+				button.cd:Show()
+			else
+				button.cd:Hide()
+			end
+		elseif duration and duration > 0 then
 			button.cd:SetCooldown(expiration - duration, duration, modRate)
 			button.cd:Show()
 		else
@@ -203,12 +212,17 @@ local function updateIcon(element, unit, index, offset, filter, isDebuff, visibl
 		return HIDDEN
 	end
 
-	button.caster = AuraData.sourceUnit
+	local BlizzAPI_ref = SUI and SUI.BlizzAPI
+	local canAccessSource = not BlizzAPI_ref or not BlizzAPI_ref.issecretvalue or not BlizzAPI_ref.issecretvalue(AuraData.sourceUnit)
+	local canAccessCaster = not BlizzAPI_ref or not BlizzAPI_ref.issecretvalue or not BlizzAPI_ref.issecretvalue(AuraData.isFromPlayerOrPlayerPet)
+
+	button.caster = canAccessSource and AuraData.sourceUnit or nil
 	button.filter = filter
 	button.spellID = AuraData.spellId
+	button.auraInstanceID = AuraData.auraInstanceID
 	button.isDebuff = isDebuff
-	button.castByPlayer = AuraData.isFromPlayerOrPlayerPet
-	button.isPlayer = AuraData.sourceUnit == 'player'
+	button.castByPlayer = canAccessCaster and AuraData.isFromPlayerOrPlayerPet or nil
+	button.isPlayer = canAccessSource and (AuraData.sourceUnit == 'player') or nil
 
 	button:SetID(index)
 

@@ -226,9 +226,7 @@ local function CheckCorner_Retail_Legacy(unit, cornerCfg)
 			end
 		end
 	elseif trackType == 'spellID' or trackType == 'buff' then
-		-- spellID and buff name checks are less reliable in 12.0
-		-- but still work for some aura properties
-		-- Use table lookup instead of == comparison (secret values can be table keys but not compared)
+		-- Secret values CANNOT be used as table keys - check accessibility first
 		local match = { [trackValue] = true }
 		for _, filter in ipairs({ 'HELPFUL', 'HARMFUL' }) do
 			for i = 1, 40 do
@@ -236,9 +234,9 @@ local function CheckCorner_Retail_Legacy(unit, cornerCfg)
 				if not aura then
 					break
 				end
-				if trackType == 'spellID' and aura.spellId and match[aura.spellId] then
+				if trackType == 'spellID' and aura.spellId and SUI and SUI.BlizzAPI and SUI.BlizzAPI.canaccessvalue(aura.spellId) and match[aura.spellId] then
 					return true
-				elseif trackType == 'buff' and aura.name and match[aura.name] then
+				elseif trackType == 'buff' and aura.name and SUI and SUI.BlizzAPI and SUI.BlizzAPI.canaccessvalue(aura.name) and match[aura.name] then
 					return true
 				end
 			end
