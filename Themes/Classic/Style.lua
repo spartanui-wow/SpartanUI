@@ -1232,7 +1232,7 @@ function module:OnInitialize()
 			},
 			minimap = SUI.IsRetail and {
 				size = { 155, 155 },
-				position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,1,6',
+				position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,-29,38',
 				elements = {
 					background = {
 						enabled = false,
@@ -1320,6 +1320,7 @@ function module:OnEnable()
 			BT4BarMicroMenu:SetFrameStrata('LOW')
 		end
 		module:ApplyPopupSettings()
+		module:RegisterEvent('PLAYER_ENTERING_WORLD', 'ApplyPopupSettings')
 
 		local art = SUI.ThemeRegistry:GetSetting('Classic', 'Color.Art')
 		if art then

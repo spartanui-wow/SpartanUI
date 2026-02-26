@@ -66,7 +66,7 @@ function module:OnInitialize()
 				},
 				minimap = SUI.IsRetail and {
 					size = { 180, 180 },
-					position = 'CENTER,SUI_Art_Digital,CENTER,0,54',
+					position = 'CENTER,SUI_Art_Digital,CENTER,-30,86',
 					elements = {
 						background = {
 							texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Digital\\Images\\Minimap',

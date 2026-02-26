@@ -145,7 +145,7 @@ function module:OnInitialize()
 				minimap = SUI.IsRetail and {
 					shape = 'square',
 					size = { 140, 140 },
-					position = 'CENTER,SUI_Art_Transparent,CENTER,-8,-5',
+					position = 'CENTER,SUI_Art_Transparent,CENTER,-38,27',
 					ZoneText = {
 						size = { 170, 12 },
 						position = 'BOTTOM,Minimap,TOP,0,2',

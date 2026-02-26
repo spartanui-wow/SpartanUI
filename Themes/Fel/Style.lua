@@ -8,22 +8,56 @@ module.Settings = {}
 ----------------------------------------------------------------------------------------------------
 
 local function Options()
+	-- Replace the plain execute buttons in General > Art Style with variant pickers.
+	-- OverallStyle set switches to Fel first (variant doesn't change the style name).
+	SUI.opt.args.General.args.style.args.OverallStyle.args.Fel = {
+		name = 'Fel',
+		type = 'select',
+		dialogControl = 'ThemeVariantCard',
+		values = { engulfed = 'Engulfed', calmed = 'Calmed' },
+		sorting = { 'engulfed', 'calmed' },
+		get = function()
+			return SUI.ThemeRegistry:GetActiveVariant('Fel')
+		end,
+		set = function(_, val)
+			SUI:SetActiveStyle('Fel')
+			if SUI.UF then
+				SUI.UF:SetActiveStyle('Fel')
+			end
+			SUI.ThemeRegistry:ApplyVariant('Fel', val)
+		end,
+	}
+	SUI.opt.args.General.args.style.args.Artwork.args.Fel = {
+		name = 'Fel',
+		type = 'select',
+		dialogControl = 'ThemeVariantCard',
+		values = { engulfed = 'Engulfed', calmed = 'Calmed' },
+		sorting = { 'engulfed', 'calmed' },
+		get = function()
+			return SUI.ThemeRegistry:GetActiveVariant('Fel')
+		end,
+		set = function(_, val)
+			SUI.ThemeRegistry:ApplyVariant('Fel', val)
+		end,
+	}
+
 	SUI.opt.args.Artwork.args.Fel = {
 		name = L['Fel style'],
 		type = 'group',
 		order = 10,
 		args = {
-			MinimapEngulfed = {
-				name = L['Douse the flames'],
-				type = 'toggle',
+			Variant = {
+				name = 'Fel',
+				type = 'select',
+				dialogControl = 'ThemeVariantCard',
 				order = 0.1,
-				desc = L['Is it getting hot in here?'],
-				get = function(info)
-					return not module.DB.minimap.engulfed
+				values = { engulfed = 'Engulfed', calmed = 'Calmed' },
+				sorting = { 'engulfed', 'calmed' },
+				get = function()
+					return SUI.ThemeRegistry:GetActiveVariant('Fel')
 				end,
-				set = function(info, val)
-					module.DB.minimap.engulfed = not val or false
-					module:MiniMap()
+				set = function(_, val)
+					SUI.ThemeRegistry:ApplyVariant('Fel', val)
 				end,
 			},
 		},
@@ -42,6 +76,17 @@ function module:OnInitialize()
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Fel',
 			},
 			applicableTo = { player = true, target = true },
+			variants = {
+				{ id = 'engulfed', label = 'Engulfed' },
+				{ id = 'calmed', label = 'Calmed' },
+			},
+			variantCallback = function(variantId)
+				local felModule = SUI:GetModule('Style.Fel', true)
+				if felModule then
+					felModule.DB.minimap.engulfed = (variantId == 'engulfed')
+					felModule:MiniMap()
+				end
+			end,
 		},
 		-- Data callback (lazy-loaded on first access)
 		function()
@@ -157,7 +202,7 @@ function module:OnInitialize()
 					variants = {
 						Fel = SUI.IsRetail and {
 							size = { 180, 180 },
-							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,22',
 							engulfed = true,
 							elements = {
 								background = {
@@ -178,7 +223,7 @@ function module:OnInitialize()
 						},
 						FelCalmed = SUI.IsRetail and {
 							size = { 180, 180 },
-							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,0,-10',
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,22',
 							engulfed = false,
 							elements = {
 								background = {
@@ -285,6 +330,10 @@ function module:EnableArtwork()
 	if SUI:IsModuleEnabled('Minimap') then
 		module:MiniMap()
 	end
+
+	-- Sync stored variant with current DB state so the dropdown stays accurate
+	local currentVariant = module.DB.minimap.engulfed and 'engulfed' or 'calmed'
+	SUI.ThemeRegistry:SetSetting('Fel', 'variant', currentVariant)
 end
 
 -- Minimap

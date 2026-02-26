@@ -2263,7 +2263,7 @@ function module:UpdatePosition()
 	-- MinimapContainer only exists in Retail, not Classic
 	if MinimapCluster.MinimapContainer then
 		MinimapCluster.MinimapContainer:ClearAllPoints()
-		MinimapCluster.MinimapContainer:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', -30, 32)
+		MinimapCluster.MinimapContainer:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', 0, 0)
 	end
 	SUIMinimap.Registry = Registry
 end
