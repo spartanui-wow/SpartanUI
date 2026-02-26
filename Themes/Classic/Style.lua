@@ -312,7 +312,6 @@ local function Options()
 		type = 'group',
 		desc = L['ActionBarConfDesc'],
 		args = {
-			header1 = { name = '', type = 'header', order = 1.1 },
 			Allenable = {
 				name = L['AllBarEnable'],
 				type = 'toggle',
@@ -562,7 +561,6 @@ local function Options()
 				name = L['Animate left popup'],
 				type = 'toggle',
 				order = 1,
-				width = 'full',
 				get = function(info)
 					return module.CurrentSettings.popup1.anim
 				end,
@@ -591,7 +589,7 @@ local function Options()
 				end,
 			},
 			popup1enable = {
-				name = L['Enable left popup'],
+				name = L['Show left popup'],
 				type = 'toggle',
 				order = 3,
 				get = function(info)
@@ -603,11 +601,11 @@ local function Options()
 					end)
 				end,
 			},
+			header1 = { name = '', type = 'header', order = 3.5 },
 			popup2anim = {
 				name = L['Animate right popup'],
 				type = 'toggle',
 				order = 4,
-				width = 'full',
 				get = function(info)
 					return module.CurrentSettings.popup2.anim
 				end,
@@ -636,7 +634,7 @@ local function Options()
 				end,
 			},
 			popup2enable = {
-				name = L['Enable right popup'],
+				name = L['Show right popup'],
 				type = 'toggle',
 				order = 6,
 				get = function(info)
