@@ -13,7 +13,7 @@
 	<Script file="CombatLog.lua" />
 	<Script file="ImprovedCharacterScreen.lua" />
 	<!-- <Script file="ImprovedLFG.lua" /> -->
-	<Script file="Chatbox.lua" />
+	<Include file="Chatbox\Load.xml" />
 	<Script file="AFKEffects.lua" />
 	<Include file="UICleanup\Load.xml" />
 	<Include file="UIEnhancements\Load.xml" />
