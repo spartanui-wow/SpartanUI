@@ -284,6 +284,30 @@ local function Options(unitName, OptionSet)
 						UF.Unit[unitName]:ElementUpdate('Debuffs')
 					end,
 				},
+				disableInPvP = {
+					name = L['Hide in PvP'],
+					desc = L['Hides raid debuffs in battlegrounds and arenas where the RAID filter flags too many debuffs'],
+					type = 'toggle',
+					order = 2,
+					hidden = function()
+						local retail = ElementSettings.retail
+						return not retail or retail.filterMode ~= 'raid_debuffs'
+					end,
+					get = function()
+						local retail = ElementSettings.retail
+						return not retail or retail.disableInPvP ~= false
+					end,
+					set = function(_, val)
+						ElementSettings.retail = ElementSettings.retail or {}
+						ElementSettings.retail.disableInPvP = val
+
+						local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.Debuffs
+						userSettings.retail = userSettings.retail or {}
+						userSettings.retail.disableInPvP = val
+
+						UF.Unit[unitName]:ElementUpdate('Debuffs')
+					end,
+				},
 				customFilterHeader = {
 					name = L['Advanced: Custom Filter String'],
 					type = 'header',

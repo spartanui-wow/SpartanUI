@@ -213,6 +213,7 @@ local Settings = {
 			},
 			retail = {
 				filterMode = 'raid_debuffs', -- Show all raid-relevant debuffs
+				disableInPvP = true,
 			},
 		},
 		Castbar = {

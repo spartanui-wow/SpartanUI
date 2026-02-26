@@ -79,6 +79,17 @@ local function Build(frame, DB)
 	local y = DB.position and DB.position.y or 0
 	element:SetPoint(anchor, frame, anchor, x, y)
 
+	-- Hide in PvP whenever something tries to show this element
+	element:HookScript('OnShow', function(self)
+		local retail = DB.retail
+		if retail and retail.disableInPvP ~= false then
+			local _, instanceType = IsInInstance()
+			if instanceType == 'pvp' or instanceType == 'arena' then
+				self:Hide()
+			end
+		end
+	end)
+
 	frame.RaidDebuffs = element
 end
 
@@ -88,7 +99,15 @@ local function Update(frame, settings)
 	local element = frame.RaidDebuffs
 	local DB = settings or element.DB
 
-	if DB.enabled then
+	-- Hide in PvP if the retail filter config says so
+	local disableInPvP = DB.retail and DB.retail.disableInPvP ~= false
+	local inPvP = false
+	if disableInPvP then
+		local _, instanceType = IsInInstance()
+		inPvP = instanceType == 'pvp' or instanceType == 'arena'
+	end
+
+	if DB.enabled and not inPvP then
 		element:Show()
 	else
 		element:Hide()
@@ -189,6 +208,7 @@ local Settings = {
 	-- Retail filter config (uses HARMFUL|RAID)
 	retail = {
 		filterMode = 'raid_debuffs',
+		disableInPvP = true,
 	},
 	-- Classic filter config (same logic, different APIs)
 	classic = {

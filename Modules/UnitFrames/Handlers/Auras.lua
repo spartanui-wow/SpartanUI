@@ -172,6 +172,16 @@ function Auras:FilterRetail(element, unit, data, config)
 		return false
 	end
 
+	-- Hide raid debuffs in PvP instances (battlegrounds, arenas)
+	-- The HARMFUL|RAID filter flags too many debuffs in PvP, so skip by default
+	-- Users can turn this off via the "Hide in PvP" toggle (disableInPvP = false)
+	if filterMode == 'raid_debuffs' and config.disableInPvP ~= false then
+		local _, instanceType = IsInInstance()
+		if instanceType == 'pvp' or instanceType == 'arena' then
+			return false
+		end
+	end
+
 	-- Custom filter string takes priority over preset
 	if customFilter and customFilter ~= '' then
 		return not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, customFilter)
