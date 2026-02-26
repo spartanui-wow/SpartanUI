@@ -1242,7 +1242,10 @@
     "UIFrameFadeOut",
     "ChallengesFrame",
     "SecondsToTime",
-    "GameFontNormalSmall"
+    "GameFontNormalSmall",
+    "ChatEdit_UpdateHeader",
+    "ChatEdit_SendText",
+    "ChatFrame_OnHyperlinkShow"
   ],
   "Lua.workspace.ignoreDir": [".vscode", "libs/*"],
   "Lua.diagnostics.enable": true,

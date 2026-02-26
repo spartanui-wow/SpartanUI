@@ -76,8 +76,9 @@ function Handler:Create(parent, id, settings)
 		visible = true,
 	}
 
-	-- Create background frame
+	-- Create background frame on BACKGROUND strata so it renders behind health/power bars
 	instance.background = CreateFrame('Frame', id .. '_Background', parent)
+	instance.background:SetFrameStrata('BACKGROUND')
 	instance.background:SetAllPoints(parent)
 
 	-- Safely calculate frame level (clamp to valid range 0-65535)
@@ -95,6 +96,7 @@ function Handler:Create(parent, id, settings)
 	-- Create border frames for each side
 	for _, side in ipairs({ 'top', 'bottom', 'left', 'right' }) do
 		local border = CreateFrame('Frame', id .. '_Border_' .. side, parent)
+		border:SetFrameStrata('BACKGROUND')
 		border:SetFrameLevel(borderLevel)
 		border.texture = border:CreateTexture(nil, 'BORDER')
 		border.texture:SetAllPoints(border)
@@ -177,8 +179,12 @@ function Handler:UpdateBackground(id)
 			-- Use solid color background
 			texture:SetTexture('Interface\\Buttons\\WHITE8X8')
 			if bg.classColor then
-				local classColor = SUI:ColorTableToObj(SUI.UnitColor('player'))
-				texture:SetVertexColor(classColor.r, classColor.g, classColor.b, bg.alpha)
+				local color = (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[select(2, UnitClass('player'))]) or _G.RAID_CLASS_COLORS[select(2, UnitClass('player'))]
+				if color then
+					texture:SetVertexColor(color.r, color.g, color.b, bg.alpha)
+				else
+					texture:SetVertexColor(1, 1, 1, bg.alpha)
+				end
 			else
 				texture:SetVertexColor(unpack(bg.color))
 			end
@@ -234,8 +240,12 @@ function Handler:UpdateBorders(id)
 
 			-- Set border color
 			if border.classColors[side] then
-				local classColor = SUI:ColorTableToObj(SUI.UnitColor('player'))
-				borderFrame.texture:SetVertexColor(classColor.r, classColor.g, classColor.b, classColor.a or 1)
+				local color = (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[select(2, UnitClass('player'))]) or _G.RAID_CLASS_COLORS[select(2, UnitClass('player'))]
+				if color then
+					borderFrame.texture:SetVertexColor(color.r, color.g, color.b, 1)
+				else
+					borderFrame.texture:SetVertexColor(1, 1, 1, 1)
+				end
 			else
 				local color = border.colors[side]
 				borderFrame.texture:SetVertexColor(unpack(color))
