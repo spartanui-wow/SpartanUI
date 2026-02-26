@@ -116,6 +116,9 @@ function ThemeRegistry:Register(metadata, dataCallback)
 		setup = metadata.setup,
 		applicableTo = metadata.applicableTo,
 		dataCallback = dataCallback,
+		variants = metadata.variants,
+		variantGroup = metadata.variantGroup,
+		variantCallback = metadata.variantCallback,
 	}
 	registry[metadata.name] = entry
 
@@ -153,6 +156,73 @@ function ThemeRegistry:GetSortedNames()
 	end
 	table.sort(sortedNamesCache)
 	return sortedNamesCache
+end
+
+-- ============================================================
+-- Variant API
+-- ============================================================
+
+---Returns the variant list for a theme, or nil if none declared.
+---@param themeName string
+---@return { id: string, label: string }[]|nil
+function ThemeRegistry:GetVariants(themeName)
+	local entry = registry[themeName]
+	return entry and entry.variants
+end
+
+---Returns true if this theme is a sub-theme (variantGroup is set).
+---Sub-themes are excluded from the top-level setup wizard card list.
+---@param themeName string
+---@return boolean
+function ThemeRegistry:IsSubTheme(themeName)
+	local entry = registry[themeName]
+	return entry ~= nil and entry.variantGroup ~= nil
+end
+
+---Returns the stored active variant id, falling back to the first declared variant.
+---@param themeName string
+---@return string|nil
+function ThemeRegistry:GetActiveVariant(themeName)
+	local entry = registry[themeName]
+	if not entry or not entry.variants then
+		return nil
+	end
+	local stored = ThemeRegistry:GetSetting(themeName, 'variant')
+	return stored or entry.variants[1].id
+end
+
+---Stores the variant selection, applies standard applyStyle/applyUF fields, then invokes the theme's variantCallback.
+---@param themeName string
+---@param variantId string
+function ThemeRegistry:ApplyVariant(themeName, variantId)
+	ThemeRegistry:SetSetting(themeName, 'variant', variantId)
+	local entry = registry[themeName]
+
+	local variantData
+	if entry and entry.variants then
+		for _, v in ipairs(entry.variants) do
+			if v.id == variantId then
+				variantData = v
+				break
+			end
+		end
+	end
+
+	if variantData then
+		if variantData.applyStyle then
+			local artModule = SUI:GetModule('Artwork', true)
+			if artModule then
+				artModule:SetActiveStyle(variantData.applyStyle)
+			end
+		end
+		if variantData.applyUF and SUI.UF then
+			SUI.UF:SetActiveStyle(variantData.applyUF)
+		end
+	end
+
+	if entry and entry.variantCallback then
+		entry.variantCallback(variantId, variantData)
+	end
 end
 
 -- ============================================================
