@@ -618,6 +618,8 @@ function MoverMode:StopDrag(mover)
 		MagnetismManager:EndDragSession()
 	end
 
+	local positionAlreadySaved = false
+
 	-- If frame-to-frame snap occurred, anchor to snap target (not parent)
 	local snapTarget = mover.frameSnapTarget
 	if snapTarget then
@@ -636,51 +638,47 @@ function MoverMode:StopDrag(mover)
 			MoveIt.logger.debug(('Frame snap: %s anchored to %s'):format(name or 'unknown', targetName))
 		end
 	else
-		-- Normalize to CENTER,UIParent for consistency
+		-- Normalize position using closest anchor (resolution-independent)
 		local centerX, centerY = mover:GetCenter()
 		if centerX and centerY then
-			local uiCenterX, uiCenterY = UIParent:GetCenter()
-
 			if MoveIt.logger then
 				local moverScale = mover:GetScale() or 1.0
 				local moverEffectiveScale = mover:GetEffectiveScale() or 1.0
-				MoveIt.logger.debug(('StopDrag normalize: mover center=(%.1f,%.1f) UI center=(%.1f,%.1f)'):format(centerX, centerY, uiCenterX, uiCenterY))
+				MoveIt.logger.debug(('StopDrag normalize: mover center=(%.1f,%.1f)'):format(centerX, centerY))
 				MoveIt.logger.debug(('Mover scale=%.2f effectiveScale=%.2f'):format(moverScale, moverEffectiveScale))
 			end
 
-			-- Account for scale differences between mover and UIParent
-			-- GetCenter() returns coordinates in parent space, affected by frame's scale
-			local moverScale = mover:GetEffectiveScale()
-			local uiScale = UIParent:GetEffectiveScale()
-
-			-- Convert to screen coordinates
-			local screenCenterX = centerX * moverScale
-			local screenCenterY = centerY * moverScale
-			local screenUICenterX = uiCenterX * uiScale
-			local screenUICenterY = uiCenterY * uiScale
-
-			-- Calculate offset in screen coordinates
-			local screenOffsetX = screenCenterX - screenUICenterX
-			local screenOffsetY = screenCenterY - screenUICenterY
-
-			-- Convert back to mover's coordinate space for SetPoint
-			local offsetX = screenOffsetX / moverScale
-			local offsetY = screenOffsetY / moverScale
+			-- Calculate closest anchor point based on frame position
+			local closestAnchor = MoveIt.PositionCalculator:GetClosestAnchor(mover)
+			local offsetX, offsetY = MoveIt.PositionCalculator:CalculateAnchorOffset(mover, closestAnchor)
 
 			if MoveIt.logger then
-				MoveIt.logger.debug(('Screen coords: mover=(%.1f,%.1f) UI=(%.1f,%.1f)'):format(screenCenterX, screenCenterY, screenUICenterX, screenUICenterY))
-				MoveIt.logger.debug(('Screen offset: (%.1f,%.1f) -> Mover offset: (%.1f,%.1f)'):format(screenOffsetX, screenOffsetY, offsetX, offsetY))
+				MoveIt.logger.debug(('Calculated anchor: %s with offset: (%.1f,%.1f)'):format(closestAnchor, offsetX, offsetY))
 			end
 
 			mover:ClearAllPoints()
-			mover:SetPoint('CENTER', UIParent, 'CENTER', offsetX, offsetY)
+			mover:SetPoint(closestAnchor, UIParent, closestAnchor, offsetX, offsetY)
+
+			-- Save position to DB
+			if MoveIt.PositionCalculator and name then
+				local position = {
+					point = closestAnchor,
+					anchorFrameName = 'UIParent',
+					anchorPoint = closestAnchor,
+					x = offsetX,
+					y = offsetY,
+				}
+				MoveIt.PositionCalculator:SavePosition(name, position)
+				positionAlreadySaved = true
+			end
 		end
 	end
 
 	mover.frameSnapTarget = nil
 
 	-- Save position and show (moved) indicator
-	if MoveIt.SaveMoverPosition and name then
+	-- Skip if position was already saved (non-snap case with closest anchor)
+	if MoveIt.SaveMoverPosition and name and not positionAlreadySaved then
 		MoveIt:SaveMoverPosition(name)
 	end
 	if mover.MovedText then

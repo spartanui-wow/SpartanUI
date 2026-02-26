@@ -90,9 +90,43 @@ function Migration:CleanupEditModePositioning()
 	end
 end
 
+---Adjust saved minimap mover position to compensate for MinimapContainer offset removal in 6.19.0.
+---The container offset changed from (-30, 32) to (0, 0). Saved mover positions must shift by
+---(-30, +32) in WoW coordinates so the visual minimap appears in the same screen location.
+function Migration:FixMinimapContainerOffset()
+	if not SUI.IsRetail then
+		return
+	end
+
+	local migrationVersion = '6.19.0'
+	if MoveIt.DBG.MinimapOffsetMigrationVersion == migrationVersion then
+		return
+	end
+
+	if MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers['Minimap'] then
+		local movedPoints = MoveIt.DB.movers['Minimap'].MovedPoints
+		if movedPoints then
+			local point, anchor, secondaryPoint, x, y = strsplit(',', movedPoints)
+			x = tonumber(x)
+			y = tonumber(y)
+			if x and y then
+				x = x - 30
+				y = y + 32
+				MoveIt.DB.movers['Minimap'].MovedPoints = format('%s,%s,%s,%d,%d', point, anchor, secondaryPoint, x, y)
+				if MoveIt.logger then
+					MoveIt.logger.info('6.19.0: Adjusted minimap mover position for container offset fix')
+				end
+			end
+		end
+	end
+
+	MoveIt.DBG.MinimapOffsetMigrationVersion = migrationVersion
+end
+
 ---Initialize migration system
 ---Called during MoveIt:OnEnable()
 function Migration:Initialize()
 	-- Run cleanup migration if needed
 	self:CleanupEditModePositioning()
+	self:FixMinimapContainerOffset()
 end

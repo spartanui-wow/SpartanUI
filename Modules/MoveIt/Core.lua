@@ -296,6 +296,11 @@ function MoveIt:OnInitialize()
 		profile = {
 			AltKey = false,
 			tips = true,
+			-- Position anchor mode: how frame positions are saved
+			-- 'center' = Always use CENTER anchor (legacy behavior)
+			-- 'cardinal' = Use closest edge or center (5 anchors: CENTER, TOP, BOTTOM, LEFT, RIGHT)
+			-- 'corners' = Use closest edge or corner (9 anchors: all 5 cardinal + 4 corners)
+			anchorMode = 'corners',
 			movers = {
 				['**'] = {
 					defaultPoint = false,
@@ -319,6 +324,8 @@ function MoveIt:OnInitialize()
 			CurrentProfiles = {},
 			-- Migration flag to track EditMode positioning removal
 			EditModePositioningRemoved = false,
+			-- Version-based migration tracker for minimap container offset fix (6.19.0)
+			MinimapOffsetMigrationVersion = false,
 		},
 	}
 	---@type MoveItDB
@@ -405,6 +412,16 @@ function MoveIt:OnEnable()
 				end
 
 				print('Tips turned ' .. mode)
+			elseif arg == 'test' then
+				-- Test command: show closest anchor for frame under cursor
+				local frame = GetMouseFocus()
+				if frame and frame.anchoredFrame then
+					local anchor = MoveIt.PositionCalculator:GetClosestAnchor(frame)
+					local x, y = MoveIt.PositionCalculator:CalculateAnchorOffset(frame, anchor)
+					print(('Closest anchor: %s (offset: %.1f, %.1f)'):format(anchor, x, y))
+				else
+					print('No mover frame under cursor. Hover over a mover frame and try again.')
+				end
 			else
 				print('Invalid move command!')
 				return
@@ -414,6 +431,7 @@ function MoveIt:OnEnable()
 	SUI:AddChatCommand('move', ChatCommand, "|cffffffffSpartan|cffe21f1fUI|r's movement system", {
 		reset = 'Reset all moved objects',
 		tips = 'Disable tips from being displayed in chat when movement system is activated',
+		test = 'Show closest anchor for frame under cursor (debug)',
 	}, true)
 
 	-- Register custom EditMode slash command

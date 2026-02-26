@@ -249,6 +249,173 @@ function PositionCalculator:ApplyCenterAnchor(frame)
 	return true
 end
 
+---Calculate the closest anchor point to a frame's current position
+---Supports three modes: center (always CENTER), cardinal (5 anchors), corners (9 anchors)
+---@param frame Frame The frame to calculate anchor for
+---@return string anchor The closest anchor point (e.g., "TOPLEFT", "CENTER", "BOTTOMRIGHT")
+function PositionCalculator:GetClosestAnchor(frame)
+	if not frame then
+		return 'CENTER'
+	end
+
+	-- Get anchor mode from database (default to corners)
+	local anchorMode = (MoveIt.DB and MoveIt.DB.anchorMode) or 'corners'
+
+	-- Legacy mode: always use CENTER
+	if anchorMode == 'center' then
+		return 'CENTER'
+	end
+
+	-- Get frame center position
+	local frameX, frameY = frame:GetCenter()
+	if not frameX or not frameY then
+		return 'CENTER'
+	end
+
+	local screenWidth = UIParent:GetWidth()
+	local screenHeight = UIParent:GetHeight()
+
+	-- Define anchor positions
+	local anchors = {
+		CENTER = { x = screenWidth / 2, y = screenHeight / 2 },
+		TOP = { x = screenWidth / 2, y = screenHeight },
+		BOTTOM = { x = screenWidth / 2, y = 0 },
+		LEFT = { x = 0, y = screenHeight / 2 },
+		RIGHT = { x = screenWidth, y = screenHeight / 2 },
+	}
+
+	-- Add corner anchors for 'corners' mode
+	if anchorMode == 'corners' then
+		anchors.TOPLEFT = { x = 0, y = screenHeight }
+		anchors.TOPRIGHT = { x = screenWidth, y = screenHeight }
+		anchors.BOTTOMLEFT = { x = 0, y = 0 }
+		anchors.BOTTOMRIGHT = { x = screenWidth, y = 0 }
+	end
+
+	-- Find closest anchor using Euclidean distance
+	local closestAnchor = 'CENTER'
+	local minDistance = math.huge
+
+	for anchor, pos in pairs(anchors) do
+		local dx = frameX - pos.x
+		local dy = frameY - pos.y
+		local distance = math.sqrt(dx * dx + dy * dy)
+
+		if distance < minDistance then
+			minDistance = distance
+			closestAnchor = anchor
+		end
+	end
+
+	if MoveIt.logger then
+		MoveIt.logger.debug(('GetClosestAnchor: frame at (%.1f,%.1f), closest=%s (distance=%.1f)'):format(frameX, frameY, closestAnchor, minDistance))
+	end
+
+	return closestAnchor
+end
+
+---Calculate the offset from a specific anchor point to a frame's position
+---Accounts for frame scale differences between frame and UIParent
+---@param frame Frame The frame to calculate offset for
+---@param anchorPoint string The anchor point (e.g., "TOPLEFT", "CENTER", "BOTTOMRIGHT")
+---@return number offsetX X offset from anchor point
+---@return number offsetY Y offset from anchor point
+function PositionCalculator:CalculateAnchorOffset(frame, anchorPoint)
+	if not frame or not anchorPoint then
+		return 0, 0
+	end
+
+	-- Get frame center position and size
+	local frameX, frameY = frame:GetCenter()
+	if not frameX or not frameY then
+		return 0, 0
+	end
+
+	local frameWidth = frame:GetWidth() or 0
+	local frameHeight = frame:GetHeight() or 0
+
+	-- Calculate the position of the frame's anchor point (not center!)
+	-- This is what SetPoint will actually position
+	local frameAnchorX = frameX
+	local frameAnchorY = frameY
+
+	-- Adjust for horizontal anchor position on the frame
+	if anchorPoint:find('LEFT') then
+		frameAnchorX = frameX - (frameWidth / 2)
+	elseif anchorPoint:find('RIGHT') then
+		frameAnchorX = frameX + (frameWidth / 2)
+	end
+	-- else CENTER: no adjustment needed
+
+	-- Adjust for vertical anchor position on the frame
+	if anchorPoint:find('TOP') then
+		frameAnchorY = frameY + (frameHeight / 2)
+	elseif anchorPoint:find('BOTTOM') then
+		frameAnchorY = frameY - (frameHeight / 2)
+	end
+	-- else CENTER: no adjustment needed
+
+	-- Account for scale differences between frame and UIParent
+	local frameScale = frame:GetEffectiveScale()
+	local uiScale = UIParent:GetEffectiveScale()
+
+	-- Convert frame anchor position to screen coordinates
+	local screenFrameAnchorX = frameAnchorX * frameScale
+	local screenFrameAnchorY = frameAnchorY * frameScale
+
+	-- Get UIParent anchor point position in screen coordinates
+	local screenWidth = UIParent:GetWidth() * uiScale
+	local screenHeight = UIParent:GetHeight() * uiScale
+
+	local uiAnchorX, uiAnchorY
+
+	-- Calculate X coordinate of UIParent anchor point
+	if anchorPoint:find('LEFT') then
+		uiAnchorX = 0
+	elseif anchorPoint:find('RIGHT') then
+		uiAnchorX = screenWidth
+	else
+		uiAnchorX = screenWidth / 2
+	end
+
+	-- Calculate Y coordinate of UIParent anchor point
+	if anchorPoint:find('TOP') then
+		uiAnchorY = screenHeight
+	elseif anchorPoint:find('BOTTOM') then
+		uiAnchorY = 0
+	else
+		uiAnchorY = screenHeight / 2
+	end
+
+	-- Calculate offset in screen coordinates
+	local screenOffsetX = screenFrameAnchorX - uiAnchorX
+	local screenOffsetY = screenFrameAnchorY - uiAnchorY
+
+	-- Convert to frame's coordinate space (for SetPoint)
+	-- When calling frame:SetPoint(anchor, UIParent, anchor, x, y),
+	-- the x,y values are interpreted in the FRAME's coordinate space
+	local offsetX = math.floor(screenOffsetX / frameScale + 0.5)
+	local offsetY = math.floor(screenOffsetY / frameScale + 0.5)
+
+	if MoveIt.logger then
+		MoveIt.logger.debug(
+			('CalculateAnchorOffset: anchor=%s, frameCenter=(%.1f,%.1f) size=(%.1fx%.1f), frameAnchor=(%.1f,%.1f), offset=(%.1f,%.1f)'):format(
+				anchorPoint,
+				frameX,
+				frameY,
+				frameWidth,
+				frameHeight,
+				frameAnchorX,
+				frameAnchorY,
+				offsetX,
+				offsetY
+			)
+		)
+	end
+
+	return offsetX, offsetY
+end
+
 ---Save a mover's position to the database
 ---@param name string The mover name
 ---@param position table The position {point, anchorFrameName, anchorPoint, x, y}

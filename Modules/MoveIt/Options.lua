@@ -49,14 +49,14 @@ local function CreateGroup(groupName)
 	}
 end
 
----Add a mover to the options UI
+---Build and return a position+scale options table for the given mover.
+---Used by AddToOptions (Movers page) and by UnitFrames to embed position controls per-frame.
 ---@param MoverName string
 ---@param DisplayName string
----@param groupName string
 ---@param MoverFrame Frame
-function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
-	CreateGroup(groupName)
-	SUI.opt.args.Movers.args[groupName].args[MoverName] = {
+---@return AceConfig.OptionsTable
+function MoveIt:GetPositionOptionsTable(MoverName, DisplayName, MoverFrame)
+	return {
 		name = DisplayName,
 		type = 'group',
 		inline = true,
@@ -73,11 +73,17 @@ function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
 						type = 'input',
 						dialogControl = 'NumberEditBox',
 						get = function()
+							-- Read from DB instead of current frame position
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint
+							if savedPos then
+								return tostring(select(4, strsplit(',', savedPos)))
+							end
 							return tostring(select(4, strsplit(',', GetPoints(MoverFrame))))
 						end,
 						set = function(info, val)
-							--Fetch current position
-							local point, anchor, secondaryPoint, _, y = strsplit(',', GetPoints(MoverFrame))
+							--Fetch current position from DB
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint or GetPoints(MoverFrame)
+							local point, anchor, secondaryPoint, _, y = strsplit(',', savedPos)
 							-- Move the frame and update the DB
 							MoverFrame.parent:position(point, anchor, secondaryPoint, tonumber(val), y, true)
 							MoveIt.DB.movers[MoverName].MovedPoints = format('%s,%s,%s,%s,%s', point, anchor, secondaryPoint, val, y)
@@ -89,11 +95,17 @@ function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
 						type = 'input',
 						dialogControl = 'NumberEditBox',
 						get = function()
+							-- Read from DB instead of current frame position
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint
+							if savedPos then
+								return tostring(select(5, strsplit(',', savedPos)))
+							end
 							return tostring(select(5, strsplit(',', GetPoints(MoverFrame))))
 						end,
 						set = function(info, val)
-							--Fetch current position
-							local point, anchor, secondaryPoint, x, _ = strsplit(',', GetPoints(MoverFrame))
+							--Fetch current position from DB
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint or GetPoints(MoverFrame)
+							local point, anchor, secondaryPoint, x, _ = strsplit(',', savedPos)
 							-- Move the frame and update the DB
 							MoverFrame.parent:position(point, anchor, secondaryPoint, x, tonumber(val), true)
 							MoveIt.DB.movers[MoverName].MovedPoints = format('%s,%s,%s,%s,%s', point, anchor, secondaryPoint, x, val)
@@ -105,11 +117,17 @@ function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
 						type = 'select',
 						values = anchorPoints,
 						get = function()
+							-- Read from DB instead of current frame position
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint
+							if savedPos then
+								return tostring(select(1, strsplit(',', savedPos)))
+							end
 							return tostring(select(1, strsplit(',', GetPoints(MoverFrame))))
 						end,
 						set = function(info, val)
-							--Fetch current position
-							local _, anchor, secondaryPoint, x, y = strsplit(',', GetPoints(MoverFrame))
+							--Fetch current position from DB
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint or GetPoints(MoverFrame)
+							local _, anchor, secondaryPoint, x, y = strsplit(',', savedPos)
 							-- Move the frame and update the DB
 							MoverFrame.parent:position(val, anchor, val, x, y, true)
 							MoveIt.DB.movers[MoverName].MovedPoints = format('%s,%s,%s,%s,%s', val, anchor, secondaryPoint, x, y)
@@ -121,6 +139,15 @@ function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
 						type = 'select',
 						values = dynamicAnchorPoints,
 						get = function()
+							-- Read from DB instead of current frame position
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint
+							if savedPos then
+								local anchor = tostring(select(2, strsplit(',', savedPos)))
+								if not dynamicAnchorPoints[anchor] then
+									dynamicAnchorPoints[anchor] = anchor
+								end
+								return anchor
+							end
 							local anchor = tostring(select(2, strsplit(',', GetPoints(MoverFrame))))
 							if not dynamicAnchorPoints[anchor] then
 								dynamicAnchorPoints[anchor] = anchor
@@ -128,8 +155,9 @@ function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
 							return anchor
 						end,
 						set = function(info, val)
-							--Fetch current position
-							local point, _, secondaryPoint, x, y = strsplit(',', GetPoints(MoverFrame))
+							--Fetch current position from DB
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint or GetPoints(MoverFrame)
+							local point, _, secondaryPoint, x, y = strsplit(',', savedPos)
 							-- Move the frame and update the DB
 							MoverFrame.parent:position(point, (_G[val] or UIParent), secondaryPoint, x, y, true)
 							MoveIt.DB.movers[MoverName].MovedPoints = format('%s,%s,%s,%s,%s', point, (_G[val] or UIParent):GetName(), secondaryPoint, x, y)
@@ -141,11 +169,17 @@ function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
 						type = 'select',
 						values = anchorPoints,
 						get = function()
+							-- Read from DB instead of current frame position
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint
+							if savedPos then
+								return tostring(select(3, strsplit(',', savedPos)))
+							end
 							return tostring(select(3, strsplit(',', GetPoints(MoverFrame))))
 						end,
 						set = function(info, val)
-							--Fetch current position
-							local point, anchor, _, x, y = strsplit(',', GetPoints(MoverFrame))
+							--Fetch current position from DB
+							local savedPos = MoveIt.DB.movers[MoverName].MovedPoints or MoveIt.DB.movers[MoverName].defaultPoint or GetPoints(MoverFrame)
+							local point, anchor, _, x, y = strsplit(',', savedPos)
 							-- Move the frame and update the DB
 							MoverFrame.parent:position(point, anchor, val, x, y, true)
 							MoveIt.DB.movers[MoverName].MovedPoints = format('%s,%s,%s,%s,%s', point, anchor, val, x, y)
@@ -196,6 +230,16 @@ function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
 			},
 		},
 	}
+end
+
+---Add a mover to the options UI
+---@param MoverName string
+---@param DisplayName string
+---@param groupName string
+---@param MoverFrame Frame
+function MoveIt:AddToOptions(MoverName, DisplayName, groupName, MoverFrame)
+	CreateGroup(groupName)
+	SUI.opt.args.Movers.args[groupName].args[MoverName] = MoveIt:GetPositionOptionsTable(MoverName, DisplayName, MoverFrame)
 end
 
 function MoveIt:Options()
@@ -311,6 +355,27 @@ function MoveIt:Options()
 				name = 'Mover Settings',
 				type = 'header',
 				order = 100,
+			},
+			anchorMode = {
+				name = 'Position Anchor Mode',
+				desc = 'How frame positions are saved. This affects how frames behave when you change your screen resolution.\n\n'
+					.. '|cFFFFFF00Always CENTER (legacy)|r: All frames anchor to screen center (old behavior).\n\n'
+					.. '|cFFFFFF00Closest edge or center|r: Frames anchor to the nearest edge or center (5 anchors).\n\n'
+					.. '|cFFFFFF00Closest edge or corner|r: Frames anchor to the nearest edge or corner (9 anchors, best for resolution changes).',
+				type = 'select',
+				width = 'double',
+				order = 100.5,
+				values = {
+					center = 'Always CENTER (legacy)',
+					cardinal = 'Closest edge or center (5 anchors)',
+					corners = 'Closest edge or corner (9 anchors)',
+				},
+				get = function()
+					return MoveIt.DB.anchorMode or 'corners'
+				end,
+				set = function(_, val)
+					MoveIt.DB.anchorMode = val
+				end,
 			},
 			GridSnapEnabled = {
 				name = 'Show Grid',
