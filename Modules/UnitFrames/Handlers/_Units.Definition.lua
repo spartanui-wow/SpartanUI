@@ -41,10 +41,14 @@ local visibility = {
 ---|"target"
 ---|"targettarget"
 ---|"boss"
+---|"bosstarget"
 ---|"raid"
 ---|"party"
+---|"partypet"
+---|"partytarget"
 ---|"arena"
 ---|"pet"
+---|"pettarget"
 
 ---@class SUI.UF.Unit.Frame : frame, SUI.UF.Elements.Details
 ---@field unitOnCreate UnitFrameName

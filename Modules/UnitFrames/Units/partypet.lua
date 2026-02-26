@@ -39,6 +39,10 @@ local function Options() end
 local Settings = {
 	enabled = false,
 	width = 80,
+	positionX = 0,
+	positionY = 1,
+	positionPoint = 'BOTTOMRIGHT',
+	positionRelativePoint = 'BOTTOMLEFT',
 	elements = {
 		Health = {
 			height = 25,

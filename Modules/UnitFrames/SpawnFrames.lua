@@ -87,6 +87,16 @@ local function CreateUnitFrame(self, unit)
 		self.DB = UF.CurrentSettings[self.unitOnCreate]
 		UpdateSize()
 
+		-- Apply custom position for partypet child frames
+		if self.childType == 'pet' and not InCombatLockdown() then
+			local posX = self.DB.positionX or 0
+			local posY = self.DB.positionY or 1
+			local posPoint = self.DB.positionPoint or 'BOTTOMRIGHT'
+			local posRelPoint = self.DB.positionRelativePoint or 'BOTTOMLEFT'
+			self:ClearAllPoints()
+			self:SetPoint(posPoint, self:GetParent(), posRelPoint, posX, posY)
+		end
+
 		if not self.DB or not self.DB.enabled then
 			self:Disable()
 			-- Hide frame background if frame is disabled

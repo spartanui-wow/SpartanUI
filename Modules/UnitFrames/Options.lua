@@ -431,6 +431,111 @@ function Options:AddFrameBackground(frameName, OptionSet)
 	OptionSet.args.General.args.FrameBackground = backgroundBorderOptions
 end
 
+---Add position controls to the General tab of a per-frame options page.
+---For child frames (partypet): X/Y offset + anchor point inputs stored in UF DB.
+---For all other frames: embeds the MoveIt position+scale table (same controls as Movers page).
+---@param frameName UnitFrameName
+---@param FrameOptSet AceConfig.OptionsTable
+function Options:AddPosition(frameName, FrameOptSet)
+	local config = UF.Unit:GetBuiltFrameList()[frameName]
+
+	if config and config.isChild then
+		-- partypet: no MoveIt mover - expose position stored in UF DB
+
+		-- Re-applies the stored position to all live pet child frames immediately
+		local function applyPosition()
+			local cs = UF.CurrentSettings[frameName]
+			local posX = cs.positionX or 0
+			local posY = cs.positionY or 1
+			local posPoint = cs.positionPoint or 'BOTTOMRIGHT'
+			local posRelPoint = cs.positionRelativePoint or 'BOTTOMLEFT'
+			local holder = UF.Unit:Get(frameName)
+			if holder and holder.frames and not InCombatLockdown() then
+				for _, f in ipairs(holder.frames) do
+					if f.childType == 'pet' then
+						f:ClearAllPoints()
+						f:SetPoint(posPoint, f:GetParent(), posRelPoint, posX, posY)
+					end
+				end
+			end
+		end
+
+		local function saveField(key, val)
+			UF.CurrentSettings[frameName][key] = val
+			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName][key] = val
+		end
+
+		FrameOptSet.args.General.args.Position = {
+			name = L['Position'],
+			type = 'group',
+			order = 5,
+			args = {
+				MyAnchorPoint = {
+					name = L['Point'],
+					type = 'select',
+					order = 1,
+					values = anchorPoints,
+					get = function()
+						return UF.CurrentSettings[frameName].positionPoint or 'BOTTOMRIGHT'
+					end,
+					set = function(_, val)
+						saveField('positionPoint', val)
+						applyPosition()
+					end,
+				},
+				ItsAnchorPoint = {
+					name = L['Secondary point'],
+					type = 'select',
+					order = 2,
+					values = anchorPoints,
+					get = function()
+						return UF.CurrentSettings[frameName].positionRelativePoint or 'BOTTOMLEFT'
+					end,
+					set = function(_, val)
+						saveField('positionRelativePoint', val)
+						applyPosition()
+					end,
+				},
+				x = {
+					name = L['X Offset'],
+					type = 'input',
+					dialogControl = 'NumberEditBox',
+					order = 3,
+					get = function()
+						return tostring(UF.CurrentSettings[frameName].positionX or 0)
+					end,
+					set = function(_, val)
+						saveField('positionX', tonumber(val) or 0)
+						applyPosition()
+					end,
+				},
+				y = {
+					name = L['Y Offset'],
+					type = 'input',
+					dialogControl = 'NumberEditBox',
+					order = 4,
+					get = function()
+						return tostring(UF.CurrentSettings[frameName].positionY or 1)
+					end,
+					set = function(_, val)
+						saveField('positionY', tonumber(val) or 1)
+						applyPosition()
+					end,
+				},
+			},
+		}
+	else
+		-- All other frames: embed MoveIt's position+scale controls
+		local mover = SUI.MoveIt:GetMover(frameName)
+		if mover then
+			local optTable = SUI.MoveIt:GetPositionOptionsTable(frameName, L['Position'], mover)
+			optTable.order = 5
+			optTable.inline = false
+			FrameOptSet.args.General.args.Position = optTable
+		end
+	end
+end
+
 ---@param frameName UnitFrameName
 ---@param OptionSet AceConfig.OptionsTable
 function Options:AddAuraLayout(frameName, OptionSet)
@@ -1561,6 +1666,7 @@ function Options:Initialize()
 		end)
 		Options:AddGeneral(FrameOptSet)
 		Options:AddFrameBackground(frameName, FrameOptSet)
+		Options:AddPosition(frameName, FrameOptSet)
 		Options:AddAuraPresets(frameName, FrameOptSet)
 
 		-- Add Element Options
@@ -1634,6 +1740,7 @@ function Options:Initialize()
 				if elementConfig.type == 'General' then
 				elseif elementConfig.type == 'StatusBar' then
 					Options:StatusBarDefaults(frameName, ElementOptSet, elementName)
+					Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
 				elseif elementConfig.type == 'Indicator' then
 					if not elementConfig.NoGenericOptions then
 						Options:IndicatorAddDisplay(ElementOptSet)

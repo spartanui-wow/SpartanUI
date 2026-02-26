@@ -73,6 +73,7 @@ local function Options(unitName, OptionSet)
 		OptionSet.args[position] = {
 			name = DisplayName,
 			type = 'group',
+			childGroups = 'tab',
 			disabled = true,
 			get = function(info)
 				return UF.CurrentSettings[unitName].elements.SpartanArt[position][info[#info]]

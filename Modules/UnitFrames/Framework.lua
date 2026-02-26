@@ -290,9 +290,6 @@ function UF:OnEnable()
 		end
 	end
 
-	-- Build options
-	UF.Options:Initialize()
-
 	-- Put frames into their inital position
 	UF:PositionFrame()
 
@@ -350,6 +347,9 @@ function UF:OnEnable()
 			end
 		end
 	end
+
+	-- Build options (must happen after movers are created so AddPosition can reference them)
+	UF.Options:Initialize()
 
 	-- Register frame relationships for magnetism after movers are created
 	if MoveIt.MagnetismManager then
