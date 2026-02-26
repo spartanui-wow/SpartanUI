@@ -97,6 +97,9 @@ end
 ---@param ... string Options: displayDead, hideDead, hideZero, short, dynamic, percentage, missing, max
 ---@return string|nil Formatted value or nil to hide
 local function SUIHealth(unit, _, ...)
+	if not UnitExists(unit) then
+		return ''
+	end
 	local isDead = UnitIsDeadOrGhost(unit)
 
 	-- Handle dead state first
@@ -183,8 +186,8 @@ end
 ---@param ... string Options: displayDead, hideDead, hideZero, short, dynamic, percentage, missing, max
 ---@return string|nil Formatted value or nil to hide
 local function SUIPower(unit, _, ...)
-	-- Return empty if no options provided
-	if not ... then
+	-- Return empty if no options provided or unit doesn't exist (compound tokens in PvP)
+	if not ... or not UnitExists(unit) then
 		return ''
 	end
 

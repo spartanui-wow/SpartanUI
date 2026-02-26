@@ -36,9 +36,9 @@ local function Builder(frame)
 		'RestingIndicator',
 		'ClassPower',
 		'AdditionalPower',
-		'AlternativePower', -- Encounter-specific power (Torghast, Mythic+, etc.)
-		'EclipseBar', -- MOP Classic Balance Druid eclipse power bar (#565)
-		'PrivateAuras',
+		'AlternativePower',
+		SUI.IsMOP and 'EclipseBar',
+		SUI.IsRetail and 'PrivateAuras',
 		-- 'AuraBars' -- DECOMMISSIONED: Not maintaining if unavailable in retail
 	}
 

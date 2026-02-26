@@ -62,11 +62,15 @@ AuraWatchSpells.HealerHoTs = {
 	[33763] = { name = 'Lifebloom', class = 'DRUID' },
 	[48438] = { name = 'Wild Growth', class = 'DRUID' },
 	[102351] = { name = 'Cenarion Ward', class = 'DRUID' },
-	-- Priest
+	[155777] = { name = 'Germination', class = 'DRUID' },
+	-- Priest (Holy)
 	[139] = { name = 'Renew', class = 'PRIEST' },
+	[41635] = { name = 'Prayer of Mending', class = 'PRIEST' },
+	[77489] = { name = 'Echo of Light', class = 'PRIEST' },
+	-- Priest (Discipline)
 	[17] = { name = 'Power Word: Shield', class = 'PRIEST' },
 	[194384] = { name = 'Atonement', class = 'PRIEST' },
-	[41635] = { name = 'Prayer of Mending', class = 'PRIEST' },
+	[1253593] = { name = 'Void Shield', class = 'PRIEST' },
 	-- Shaman
 	[61295] = { name = 'Riptide', class = 'SHAMAN' },
 	-- Paladin
@@ -74,14 +78,34 @@ AuraWatchSpells.HealerHoTs = {
 	[156910] = { name = 'Beacon of Faith', class = 'PALADIN' },
 	[200025] = { name = 'Beacon of Virtue', class = 'PALADIN' },
 	[223306] = { name = 'Bestow Faith', class = 'PALADIN' },
+	[156322] = { name = 'Eternal Flame', class = 'PALADIN' },
+	[1244893] = { name = 'Beacon of the Savior', class = 'PALADIN' },
 	-- Monk
+	[115175] = { name = 'Soothing Mist', class = 'MONK' },
+	[119611] = { name = 'Renewing Mist', class = 'MONK' },
 	[124682] = { name = 'Enveloping Mist', class = 'MONK' },
 	[191840] = { name = 'Essence Font', class = 'MONK' },
 	[325209] = { name = 'Enveloping Breath', class = 'MONK' },
-	-- Evoker
+	[450769] = { name = 'Aspect of Harmony', class = 'MONK' },
+	-- Evoker (Preservation)
 	[355941] = { name = 'Dream Breath', class = 'EVOKER' },
+	[363502] = { name = 'Dream Flight', class = 'EVOKER' },
 	[364343] = { name = 'Echo', class = 'EVOKER' },
+	[366155] = { name = 'Reversion', class = 'EVOKER' },
 	[367230] = { name = 'Reversion', class = 'EVOKER' },
+	[367364] = { name = 'Echo Reversion', class = 'EVOKER' },
+	[373267] = { name = 'Lifebind', class = 'EVOKER' },
+	[376788] = { name = 'Echo Dream Breath', class = 'EVOKER' },
+}
+
+-- Augmentation Evoker support buffs that healers/raiders want to track
+AuraWatchSpells.AugmentationBuffs = {
+	[360827] = { name = 'Blistering Scales', class = 'EVOKER' },
+	[395152] = { name = 'Ebon Might', class = 'EVOKER' },
+	[410089] = { name = 'Prescience', class = 'EVOKER' },
+	[410263] = { name = "Inferno's Blessing", class = 'EVOKER' },
+	[410686] = { name = 'Symbiotic Bloom', class = 'EVOKER' },
+	[413984] = { name = 'Shifting Sands', class = 'EVOKER' },
 }
 
 -- Get spells relevant to the player's class
@@ -122,6 +146,13 @@ function AuraWatchSpells:GetClassSpells(playerClass)
 				spells[spellID] = { onlyIfCastable = true, anyUnit = true, onlyShowMissing = false }
 			end
 		end
+
+		-- Add Augmentation Evoker buffs for Evokers
+		if playerClass == 'EVOKER' then
+			for spellID, _ in pairs(self.AugmentationBuffs) do
+				spells[spellID] = { onlyIfCastable = true, anyUnit = true, onlyShowMissing = false }
+			end
+		end
 	end
 
 	return spells
@@ -141,6 +172,10 @@ function AuraWatchSpells:GetAllSpells()
 	end
 
 	for spellID, data in pairs(self.HealerHoTs) do
+		spells[spellID] = data
+	end
+
+	for spellID, data in pairs(self.AugmentationBuffs) do
 		spells[spellID] = data
 	end
 
