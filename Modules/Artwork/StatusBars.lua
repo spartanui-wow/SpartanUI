@@ -1,6 +1,7 @@
 local SUI, L = SUI, SUI.L
 ---@class SUI.Module.Artwork.StatusBars : SUI.Module
 local module = SUI:NewModule('Artwork.StatusBars')
+SUI.Artwork.StatusBars = module
 module.bars = {}
 local DB ---@type SUI.StatusBars.DB
 
@@ -748,7 +749,65 @@ function module:SetupBarContainerVisuals(barContainer, barStyle)
 		barContainer.overlay:Hide()
 	end
 
+	-- Apply atlas border if configured
+	self:ApplyAtlasBorder(barContainer, barStyle)
+
 	barContainer.settings = barStyle
+end
+
+---Apply a 3-part atlas border (left cap, tiling center, right cap) to a bar container.
+---@param barContainer Frame
+---@param barStyle table Style settings with optional atlasBorder field
+function module:ApplyAtlasBorder(barContainer, barStyle)
+	local ab = barStyle.atlasBorder
+	if not ab then
+		-- Hide existing atlas border textures if switching away from a theme that had them
+		if barContainer.atlasBorderLeft then
+			barContainer.atlasBorderLeft:Hide()
+		end
+		if barContainer.atlasBorderCenter then
+			barContainer.atlasBorderCenter:Hide()
+		end
+		if barContainer.atlasBorderRight then
+			barContainer.atlasBorderRight:Hide()
+		end
+		return
+	end
+
+	-- Left cap
+	if not barContainer.atlasBorderLeft then
+		barContainer.atlasBorderLeft = barContainer:CreateTexture(nil, 'OVERLAY', nil, 2)
+	end
+	local left = barContainer.atlasBorderLeft
+	left:SetAtlas(ab.left)
+	left:ClearAllPoints()
+	left:SetPoint('LEFT', barContainer, 'LEFT', ab.leftOffset or 0, 0)
+	left:SetSize(ab.capWidth or 16, ab.height or barStyle.size[2])
+	left:Show()
+
+	-- Right cap
+	if not barContainer.atlasBorderRight then
+		barContainer.atlasBorderRight = barContainer:CreateTexture(nil, 'OVERLAY', nil, 2)
+	end
+	local right = barContainer.atlasBorderRight
+	right:SetAtlas(ab.right)
+	right:ClearAllPoints()
+	right:SetPoint('RIGHT', barContainer, 'RIGHT', ab.rightOffset or 0, 0)
+	right:SetSize(ab.capWidth or 16, ab.height or barStyle.size[2])
+	right:Show()
+
+	-- Tiling center
+	if not barContainer.atlasBorderCenter then
+		barContainer.atlasBorderCenter = barContainer:CreateTexture(nil, 'OVERLAY', nil, 1)
+	end
+	local center = barContainer.atlasBorderCenter
+	center:SetAtlas(ab.center, true)
+	center:SetHorizTile(true)
+	center:ClearAllPoints()
+	center:SetPoint('LEFT', left, 'RIGHT', 0, 0)
+	center:SetPoint('RIGHT', right, 'LEFT', 0, 0)
+	center:SetHeight(ab.height or barStyle.size[2])
+	center:Show()
 end
 
 function module:SetupBarContainerPosition(barContainer, barStyle, index)
@@ -936,6 +995,9 @@ function module:SetActiveStyle(style)
 					self:SetupBarText(bar, newStyle, key == 'Left' and 1 or 2)
 				end
 			end
+
+			-- Update atlas border
+			self:ApplyAtlasBorder(barContainer, newStyle)
 
 			-- Store the new style settings
 			barContainer.settings = newStyle

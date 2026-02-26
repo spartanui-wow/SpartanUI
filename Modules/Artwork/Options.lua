@@ -1,5 +1,6 @@
 local SUI, L = SUI, SUI.L
-local module = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
+---@class SUI.Module.Artwork
+local module = SUI:GetModule('Artwork')
 
 function module:SetupOptions()
 	if module.CurrentSettings.Style == '' then
@@ -320,6 +321,15 @@ function module:SetupOptions()
 	}
 	local function CreatOption(key)
 		local function updateOpt(opt, val)
+			if not module.DB.barBG then
+				module.DB.barBG = {}
+			end
+			if not module.DB.barBG[key] then
+				module.DB.barBG[key] = {}
+			end
+			module.DB.barBG[key][opt] = val
+			SUI.DBM:RefreshSettings(module)
+
 			module.ActiveStyle.Artwork.barBG[key][opt] = val
 			module:UpdateBarBG()
 		end

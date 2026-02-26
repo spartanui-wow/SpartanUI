@@ -1,5 +1,6 @@
 local _G, SUI = _G, SUI
-local module = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
+---@class SUI.Module.Artwork
+local module = SUI:GetModule('Artwork')
 local MoveIt = SUI.MoveIt
 
 local function GetBlizzMoverPosition(name)

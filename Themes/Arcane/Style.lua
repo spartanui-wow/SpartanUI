@@ -7,11 +7,54 @@ local Artwork_Core = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
 local artFrame = CreateFrame('Frame', 'SUI_Art_Arcane', SpartanUI)
 ----------------------------------------------------------------------------------------------------
 local function Options()
+	-- Replace the plain execute buttons in General > Art Style with variant pickers.
+	-- ApplyVariant handles both applyStyle and applyUF declared in the variant metadata.
+	SUI.opt.args.General.args.style.args.OverallStyle.args.Arcane = {
+		name = 'Arcane',
+		type = 'select',
+		dialogControl = 'ThemeVariantCard',
+		values = { Arcane = 'Blue', ArcaneRed = 'Red' },
+		sorting = { 'Arcane', 'ArcaneRed' },
+		get = function()
+			return SUI.ThemeRegistry:GetActiveVariant('Arcane')
+		end,
+		set = function(_, val)
+			SUI.ThemeRegistry:ApplyVariant('Arcane', val)
+		end,
+	}
+	SUI.opt.args.General.args.style.args.Artwork.args.Arcane = {
+		name = 'Arcane',
+		type = 'select',
+		dialogControl = 'ThemeVariantCard',
+		values = { Arcane = 'Blue', ArcaneRed = 'Red' },
+		sorting = { 'Arcane', 'ArcaneRed' },
+		get = function()
+			return SUI.ThemeRegistry:GetActiveVariant('Arcane')
+		end,
+		set = function(_, val)
+			SUI.ThemeRegistry:ApplyVariant('Arcane', val)
+		end,
+	}
+
 	SUI.opt.args['Artwork'].args['Artwork'] = {
 		name = L['Artwork Options'],
 		type = 'group',
 		order = 10,
 		args = {
+			Variant = {
+				name = 'Arcane',
+				type = 'select',
+				dialogControl = 'ThemeVariantCard',
+				order = 0.05,
+				values = { Arcane = 'Blue', ArcaneRed = 'Red' },
+				sorting = { 'Arcane', 'ArcaneRed' },
+				get = function()
+					return SUI.ThemeRegistry:GetActiveVariant('Arcane')
+				end,
+				set = function(_, val)
+					SUI.ThemeRegistry:ApplyVariant('Arcane', val)
+				end,
+			},
 			Color = {
 				name = L['Artwork Color'],
 				type = 'color',
@@ -68,6 +111,10 @@ function module:OnInitialize()
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Arcane',
 			},
 			applicableTo = { player = true, target = true },
+			variants = {
+				{ id = 'Arcane', label = 'Blue', applyStyle = 'Arcane', applyUF = 'Arcane' },
+				{ id = 'ArcaneRed', label = 'Red', applyStyle = 'ArcaneRed', applyUF = 'ArcaneRed' },
+			},
 		},
 		-- Data callback (lazy-loaded on first access)
 		function()
@@ -160,7 +207,7 @@ function module:OnInitialize()
 				},
 				minimap = SUI.IsRetail and {
 					size = { 180, 180 },
-					position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,0,20',
+					position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,-30,52',
 					elements = {
 						background = {
 							texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\minimap',
@@ -213,6 +260,7 @@ function module:OnInitialize()
 			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_ArcaneRed',
 		},
 		applicableTo = { player = true, target = true },
+		variantGroup = 'Arcane',
 	}, function()
 		return {
 			frames = {
@@ -305,7 +353,10 @@ function module:OnInitialize()
 end
 
 function module:OnEnable()
-	if SUI:GetActiveStyle() ~= 'Arcane' then
+	local activeStyle = SUI:GetActiveStyle()
+	local activeEntry = SUI.ThemeRegistry:Get(activeStyle)
+	local activeGroup = (activeEntry and activeEntry.variantGroup) or activeStyle
+	if activeGroup ~= 'Arcane' then
 		module:Disable()
 	else
 		hooksecurefunc('UIParent_ManageFramePositions', function()

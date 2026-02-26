@@ -1,4 +1,5 @@
-local SUI, L = SUI, SUI.L
+---@class SUI
+local SUI = SUI
 ---@class SUI.Module.Artwork : SUI.Module
 local module = SUI:NewModule('Artwork')
 module.ActiveStyle = {}
@@ -118,53 +119,99 @@ local function SetupPage()
 			SUI_Win.Artwork:SetParent(SUI_Win)
 			SUI_Win.Artwork:SetAllPoints(SUI_Win)
 
-			local RadioButtons = function(self)
-				self.radio:Click()
-			end
-			local SetStyle = function(self)
-				local NewStyle = UI.GetRadioGroupValue('SUIArtwork')
-				if module.CurrentSettings.Style == NewStyle then
-					return
-				end
+			local AceGUI = LibStub('AceGUI-3.0')
 
-				SUI:SetActiveStyle(NewStyle)
+			-- Determine which card should appear selected
+			local activeStyle = module.CurrentSettings.Style
+			local activeEntry = SUI.ThemeRegistry:Get(activeStyle)
+			if activeEntry and activeEntry.variantGroup then
+				SUI.ThemeRegistry:SetSetting(activeEntry.variantGroup, 'variant', activeStyle)
+			end
+			local activeDisplayName = (activeEntry and activeEntry.variantGroup) or activeStyle
+
+			-- Selected card highlight border
+			local selectedBorder = CreateFrame('Frame', nil, SUI_Win.Artwork, BackdropTemplateMixin and 'BackdropTemplate')
+			selectedBorder:SetBackdrop({
+				edgeFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
+				edgeSize = 2,
+			})
+			selectedBorder:SetBackdropBorderColor(0, 0.7, 1, 1)
+			selectedBorder:SetFrameLevel(10)
+			selectedBorder:Hide()
+
+			local function SelectCard(frame)
+				selectedBorder:ClearAllPoints()
+				selectedBorder:SetPoint('TOPLEFT', frame, 'TOPLEFT', -3, 3)
+				selectedBorder:SetPoint('BOTTOMRIGHT', frame, 'BOTTOMRIGHT', 3, -3)
+				selectedBorder:Show()
 			end
 
 			local count = 0
-			local row = 1
 			local Themes = {}
 			local width = 120
-			for i, v in pairs({ 'Classic', 'War', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }) do
-				-- Create preview button
-				local control = CreateFrame('Button', 'SETUPART_' .. v, SUI_Win.Artwork)
-				control:SetSize(width, 60)
-				control:SetNormalTexture('interface\\addons\\SpartanUI\\images\\setup\\Style_' .. v)
-				control:SetHighlightAtlas('UI-CharacterCreate-LargeButton-Blue-Highlight', 'ADD')
-				control:SetScript('OnClick', RadioButtons)
+			local cardHeight = 107
+			local currentRow = 1
+			local rowStartY = -80
 
-				-- Create radio button below preview
-				control.radio = UI.CreateRadio(SUI_Win.Artwork, v, 'SUIArtwork', 120, 20)
-				control.radio:SetValue(v)
-				control.radio:HookScript('OnClick', SetStyle)
-				control.radio:SetPoint('TOP', control, 'BOTTOM', 0, 0)
-				if v == module.CurrentSettings.Style then
-					control.radio:SetChecked(true)
+			for i, v in ipairs({ 'Classic', 'War', 'Midnight', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }) do
+				local variants = SUI.ThemeRegistry:GetVariants(v)
+				local widget = AceGUI:Create('ThemeVariantCard')
+
+				widget:SetLabel(v)
+
+				if variants then
+					local list = {}
+					local order = {}
+					for _, vd in ipairs(variants) do
+						list[vd.id] = vd.label
+						table.insert(order, vd.id)
+					end
+					widget:SetList(list, order)
+					local activeVariant = SUI.ThemeRegistry:GetActiveVariant(v)
+					if activeVariant then
+						widget:SetValue(activeVariant)
+					end
+				else
+					widget:SetList({ [v] = v })
+					widget:SetValue(v)
 				end
 
-				Themes[i] = control
+				widget:SetCallback('OnValueChanged', function(w, event, value)
+					if variants then
+						SUI.ThemeRegistry:ApplyVariant(v, value)
+					else
+						SUI:SetActiveStyle(v)
+					end
+					SelectCard(w.frame)
+				end)
 
+				local frame = widget.frame
+				frame:SetParent(SUI_Win.Artwork)
+				frame:SetSize(width, cardHeight)
+				frame:SetFrameLevel(SUI_Win.Artwork:GetFrameLevel() + 1)
+				frame:Show()
+
+				-- Give the frame a global name so the Popular border can anchor to it
+				_G['SETUPART_' .. v] = frame
+
+				if v == activeDisplayName then
+					SelectCard(frame)
+				end
+
+				Themes[i] = frame
+
+				-- Grid positioning: 3 columns
 				count = count + 1
 				if i == 1 then
-					-- Position the 1st row
-					control:SetPoint('TOP', SUI_Win, 'TOP', width * -1, -80)
+					frame:SetPoint('TOP', SUI_Win.Artwork, 'TOP', width * -1, rowStartY)
 				elseif count == 1 then
-					control:SetPoint('TOP', Themes[i - 3], 'BOTTOM', 0, -30)
+					rowStartY = rowStartY - (cardHeight + 10)
+					frame:SetPoint('TOP', SUI_Win.Artwork, 'TOP', width * -1, rowStartY)
 				elseif count == 2 then
-					control:SetPoint('LEFT', Themes[i - 1], 'RIGHT', 20, 0)
+					frame:SetPoint('LEFT', Themes[i - 1], 'RIGHT', 20, 0)
 				elseif count == 3 then
-					control:SetPoint('LEFT', Themes[i - 1], 'RIGHT', 20, 0)
-
-					row = row + 1
+					frame:SetPoint('LEFT', Themes[i - 1], 'RIGHT', 20, 0)
+					currentRow = currentRow + 1
 					count = 0
 				end
 			end
@@ -252,11 +299,16 @@ local function StyleUpdate()
 	module:UpdateBarBG()
 end
 
+local function GetStyleModule(styleName)
+	local entry = SUI.ThemeRegistry:Get(styleName)
+	local modName = 'Style.' .. (entry and entry.variantGroup or styleName)
+	return SUI:GetModule(modName, true), modName
+end
+
 function module:SetActiveStyle(style)
 	if style and style ~= module.CurrentSettings.Style then
-		-- Cache the styles to swap
-		local OldStyle = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
-		local NewStyle = SUI:GetModule('Style.' .. style)
+		local OldStyle, oldModName = GetStyleModule(module.CurrentSettings.Style)
+		local NewStyle, newModName = GetStyleModule(style)
 
 		-- Update the DB
 		module.DB.Style = style
@@ -265,9 +317,16 @@ function module:SetActiveStyle(style)
 		-- Ensure new theme data is loaded before updating subsystems
 		SUI.ThemeRegistry:GetData(style)
 
-		-- Disable the current style and enable the one we want
-		OldStyle:Disable()
-		NewStyle:Enable()
+		-- Only cycle Disable/Enable if the Ace3 module actually changes.
+		-- Sub-themes like ArcaneRed share their parent's module (Style.Arcane).
+		if oldModName ~= newModName then
+			if OldStyle then
+				OldStyle:Disable()
+			end
+			if NewStyle then
+				NewStyle:Enable()
+			end
+		end
 
 		--Update bars
 		SUI.Handlers.BarSystem.Refresh()
@@ -317,9 +376,9 @@ function module:UpdateScale()
 	SpartanUI:SetScale(SUI.DB.scale)
 
 	-- Call style scale update if defined.
-	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
-	if style.UpdateScale then
-		style:UpdateScale()
+	local styleModule = (GetStyleModule(module.CurrentSettings.Style))
+	if styleModule and styleModule.UpdateScale then
+		styleModule:UpdateScale()
 	end
 	if SUI:IsModuleEnabled('UnitFrames') then
 		SUI.UF:ScaleFrames(SUI.DB.scale)
@@ -340,9 +399,9 @@ function module:UpdateAlpha()
 		styleArt:SetAlpha(SUI.DB.alpha)
 	end
 	-- Call module scale update if defined.
-	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
-	if style.UpdateAlpha then
-		style:UpdateAlpha()
+	local styleModule = (GetStyleModule(module.CurrentSettings.Style))
+	if styleModule and styleModule.UpdateAlpha then
+		styleModule:UpdateAlpha()
 	end
 end
 
@@ -434,9 +493,9 @@ function module:updateOffset()
 	end
 
 	-- Call module update if defined.
-	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
-	if style.updateOffset then
-		style:updateOffset(module.CurrentSettings.Offset.Top, module.CurrentSettings.Offset.Bottom)
+	local styleModule = (GetStyleModule(module.CurrentSettings.Style))
+	if styleModule and styleModule.updateOffset then
+		styleModule:updateOffset(module.CurrentSettings.Offset.Top, module.CurrentSettings.Offset.Bottom)
 	end
 
 	SpartanUI:ClearAllPoints()
@@ -460,9 +519,9 @@ function module:updateHorizontalOffset()
 	SUI_TopAnchor:SetPoint('TOP', SpartanUI, 'TOP', module.CurrentSettings.Offset.Horizontal.Top, 0)
 
 	-- Call module scale update if defined.
-	local style = SUI:GetModule('Style.' .. module.CurrentSettings.Style)
-	if style.updateXOffset then
-		style:updateXOffset()
+	local styleModule = (GetStyleModule(module.CurrentSettings.Style))
+	if styleModule and styleModule.updateXOffset then
+		styleModule:updateXOffset()
 	end
 end
 
@@ -903,3 +962,5 @@ function module:RegisterThemeTextures()
 	-- 	end
 	-- end
 end
+
+SUI.Artwork = module
