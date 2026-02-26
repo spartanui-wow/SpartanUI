@@ -15,8 +15,15 @@ local function Build(frame, DB)
 	bg:SetVertexColor(unpack(DB.bg.color))
 	power.bg = bg
 
-	power:SetPoint('TOPLEFT', frame.Health or frame, 'TOPLEFT', 0, DB.offset or -1)
-	power:SetPoint('TOPRIGHT', frame.Health or frame, 'TOPRIGHT', 0, DB.offset or -1)
+	local pos = DB.position or {}
+	local relFrame = frame[pos.relativeTo] or frame.Health or frame
+	local relPoint = pos.relativePoint or 'BOTTOM'
+	local posY = pos.y
+	if posY == nil then
+		posY = -1
+	end
+	power:SetPoint('TOPLEFT', relFrame, relPoint .. 'LEFT', 0, posY)
+	power:SetPoint('TOPRIGHT', relFrame, relPoint .. 'RIGHT', 0, posY)
 
 	power.TextElements = {}
 	for i, key in pairs(DB.text) do
@@ -106,8 +113,15 @@ local function Update(frame, settings)
 
 	element:ClearAllPoints()
 	element:SetSize(DB.width or frame:GetWidth(), DB.height or 20)
-	element:SetPoint('TOPLEFT', frame, 'TOPLEFT', 0, DB.offset or 0)
-	element:SetPoint('TOPRIGHT', frame, 'TOPRIGHT', 0, DB.offset or 0)
+	local pos = DB.position or {}
+	local relFrame = frame[pos.relativeTo] or frame.Health or frame
+	local relPoint = pos.relativePoint or 'BOTTOM'
+	local posY = pos.y
+	if posY == nil then
+		posY = -1
+	end
+	element:SetPoint('TOPLEFT', relFrame, relPoint .. 'LEFT', 0, posY)
+	element:SetPoint('TOPRIGHT', relFrame, relPoint .. 'RIGHT', 0, posY)
 end
 
 ---@param frameName string
@@ -195,6 +209,7 @@ local Settings = {
 		anchor = 'TOP',
 		relativeTo = 'Health',
 		relativePoint = 'BOTTOM',
+		x = 0,
 		y = -1,
 	},
 	config = {
