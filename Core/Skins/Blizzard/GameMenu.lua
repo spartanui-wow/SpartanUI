@@ -3,6 +3,7 @@ local SUIGameMenu = SUI:NewModule('Handler.GameMenu', 'AceEvent-3.0')
 local GameMenuFrame = GameMenuFrame
 ---@class SUIMenuSkin : Frame
 local MenuSkin = _G['SUIMenuSkin'] or CreateFrame('Frame', 'SUIMenuSkin', UIParent)
+local ActiveSkin = SUI.IsRetail and 'Midnight' or 'Base' -- Base, Midnight
 
 -- Logger integration - create a hierarchical logger under SpartanUI.Skins.GameMenu
 local logger = {
@@ -116,7 +117,7 @@ function SUIGameMenu:OnEnable()
 
 	-- Use direct texture file from Interface\AddOns\SpartanUI\images\Menu\UIGearUpdate.png
 	-- This ensures consistency across all WoW versions (Retail, TBC, Mists, Classic)
-	local texturePath = 'Interface\\AddOns\\SpartanUI\\images\\Menu\\UIGearUpdate.png'
+	local texturePath = 'Interface\\AddOns\\SpartanUI\\images\\Menu\\' .. ActiveSkin .. '.png'
 
 	-- Background: gearUpdate-BG coordinates
 	MenuSkin.Background:SetTexture(texturePath)
@@ -168,7 +169,13 @@ local function CreateMenuSkin()
 
 	-- Top Line
 	MenuSkin.TopLine = MenuSkin:CreateTexture(nil, 'ARTWORK')
-	MenuSkin.TopLine:SetSize(600, 100)
+	if ActiveSkin == 'Midnight' then
+		MenuSkin.TopLine:SetSize(600, 230)
+		MenuSkin.TopLine:SetScale(0.6)
+	else
+		MenuSkin.TopLine:SetSize(600, 100)
+	end
+
 	MenuSkin.TopLine:SetPoint('TOP', 0, 100)
 
 	-- Logo Button
@@ -228,8 +235,13 @@ local function CreateMenuSkin()
 
 	-- Bottom Line
 	MenuSkin.BottomLine = MenuSkin:CreateTexture(nil, 'ARTWORK')
-	MenuSkin.BottomLine:SetSize(600, 100)
-	MenuSkin.BottomLine:SetPoint('BOTTOM', 0, 0)
+	if ActiveSkin == 'Midnight' then
+		MenuSkin.BottomLine:SetSize(600, 230)
+		MenuSkin.BottomLine:SetScale(0.6)
+	else
+		MenuSkin.BottomLine:SetSize(600, 100)
+	end
+	MenuSkin.BottomLine:SetPoint('BOTTOM', 0, -90)
 
 	-- Line Mask
 	MenuSkin.LineMask = MenuSkin:CreateMaskTexture()
@@ -273,7 +285,11 @@ function MenuSkin:ResetAnimation()
 	self.TopLine:ClearAllPoints()
 	self.TopLine:SetPoint('TOP', 0, 100)
 	self.BottomLine:ClearAllPoints()
-	self.BottomLine:SetPoint('BOTTOM', 0, -140)
+	if ActiveSkin == 'Midnight' then
+		self.BottomLine:SetPoint('BOTTOM', 0, -300)
+	else
+		self.BottomLine:SetPoint('BOTTOM', 0, -140)
+	end
 end
 
 function MenuSkin:OnFrameShown(showMenu)
@@ -445,7 +461,7 @@ function MenuSkin:InterpolatePoints(center)
 	local secondGradientPoint = { self.Gradient:GetPoint(2) }
 	local topLinePosition = { self.TopLine:GetPoint() }
 	local bottomLinePosition = { self.BottomLine:GetPoint() }
-	local duration, elapsed = 1.5, 0.0
+	local duration, elapsed = 1.0, 0.0
 
 	local targetX, targetY = self:GetTargetOffsets(center)
 
@@ -459,7 +475,6 @@ function MenuSkin:InterpolatePoints(center)
 		secondGradientPoint[y] = Lerp(secondGradientPoint[y], -135, t)
 
 		topLinePosition[y] = Lerp(topLinePosition[y], 0 + (heightOffset / 1.3), t)
-		bottomLinePosition[y] = Lerp(bottomLinePosition[y], -50 + (heightOffset / 5), t)
 
 		MainFramePosition[x] = Lerp(MainFramePosition[x], targetX, t)
 		MainFramePosition[y] = Lerp(MainFramePosition[y], targetY, t)
@@ -468,7 +483,14 @@ function MenuSkin:InterpolatePoints(center)
 		self.Gradient:SetPoint(unpack(gradientEndPoint))
 		self.Gradient:SetPoint(unpack(secondGradientPoint))
 		self.TopLine:SetPoint(unpack(topLinePosition))
-		self.BottomLine:SetPoint(unpack(bottomLinePosition))
+
+		if ActiveSkin == 'Midnight' then
+			bottomLinePosition[y] = Lerp(bottomLinePosition[y], -90, t)
+			self.BottomLine:SetPoint(unpack(bottomLinePosition))
+		else
+			bottomLinePosition[y] = Lerp(bottomLinePosition[y], -50 + (heightOffset / 5), t)
+			self.BottomLine:SetPoint(unpack(bottomLinePosition))
+		end
 		if t >= 1.0 then
 			self:SetScript('OnUpdate', nil)
 		end
