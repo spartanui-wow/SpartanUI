@@ -1,11 +1,12 @@
 local _G, SUI, L = _G, SUI, SUI.L
-local module = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
+---@class SUI.Module.Artwork
+local module = SUI:GetModule('Artwork')
 module.Trays = {}
 local trayWatcher = CreateFrame('Frame')
 local settings = {}
 local skinTrayFrames = {} -- Skin-provided frame lists (not saved to DB)
 
----@class SUI.Module.MenuTrays.DB
+---@class SUI.Module.SlidingTrays.DB
 local DbDefaults = {
 	Trays = {},
 }
@@ -197,8 +198,8 @@ local DefaultTraySettings = {
 function module:SlidingTrays(StyleSettings)
 	-- Initialize DB if this is the first call
 	if not module.TrayDB then
-		module.TrayDB = SUI.SpartanUIDB:RegisterNamespace('MenuTrays', { profile = DbDefaults })
-		module.TrayData = module.TrayDB.profile ---@type SUI.Module.MenuTrays.DB
+		module.TrayDB = SUI.SpartanUIDB:RegisterNamespace('SlidingTrays', { profile = DbDefaults })
+		module.TrayData = module.TrayDB.profile ---@type SUI.Module.SlidingTrays.DB
 
 		-- Register profile change callbacks
 		module.TrayDB.RegisterCallback(module, 'OnProfileChanged', function()

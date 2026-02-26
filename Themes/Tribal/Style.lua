@@ -1,7 +1,6 @@
 local SUI, L = SUI, SUI.L
 ---@class SUI.Theme.Tribal : SUI.Theme.StyleBase
 local module = SUI:NewModule('Style.Tribal')
-local Artwork_Core = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
 local artFrame = CreateFrame('Frame', 'SUI_Art_Tribal', SpartanUI)
 module.Settings = {}
 ----------------------------------------------------------------------------------------------------
@@ -124,7 +123,7 @@ function module:OnInitialize()
 			},
 			minimap = SUI.IsRetail and {
 				size = { 180, 180 },
-				position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
+				position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-32,28',
 				elements = {
 					background = {
 						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\minimap',
@@ -234,7 +233,7 @@ function module:CreateArtwork()
 	plate:SetAllPoints(SUI_BottomAnchor)
 
 	for i = 1, 4 do
-		plate['BG' .. i] = Artwork_Core:CreateBarBG(BarBGSettings, i, Tribal_ActionBarPlate)
+		plate['BG' .. i] = SUI.Artwork:CreateBarBG(BarBGSettings, i, Tribal_ActionBarPlate)
 	end
 	plate.BG1:SetPoint('BOTTOMRIGHT', plate, 'BOTTOM', -110, 70)
 	plate.BG2:SetPoint('BOTTOMRIGHT', plate, 'BOTTOM', -110, 25)
@@ -263,10 +262,10 @@ end
 -- Artwork Stuff
 function module:SlidingTrays()
 	-- Uses all default options from DefaultTraySettings
-	Artwork_Core:SlidingTrays()
+	SUI.Artwork:SlidingTrays()
 
 	-- Register frames that this skin places in trays
-	Artwork_Core:RegisterSkinTrayFrames('Tribal', {
+	SUI.Artwork:RegisterSkinTrayFrames('Tribal', {
 		left = 'BT4BarPetBar,BT4BarStanceBar,MultiCastActionBarFrame',
 		right = 'BT4BarMicroMenu,BT4BarBagBar',
 	})

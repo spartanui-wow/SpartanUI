@@ -31,7 +31,7 @@
 	<!-- Load Artwork -->
 	<Script file="Artwork\Framework.lua" />
 	<Script file="Artwork\BlizzMovers.lua" />
-	<Script file="Artwork\MenuTrays.lua" />
+	<Script file="Artwork\SlidingTrays.lua" />
 	<Script file="Artwork\StatusBars.lua" />
 	<Script file="Artwork\Options.lua" />
 

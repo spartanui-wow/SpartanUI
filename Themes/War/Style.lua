@@ -1,7 +1,6 @@
 local SUI, L = SUI, SUI.L
 ---@class SUI.Theme.Tribal : SUI.Theme.StyleBase
 local module = SUI:NewModule('Style.War')
-local Artwork_Core = SUI:GetModule('Artwork', true) ---@type SUI.Module.Artwork
 local artFrame = CreateFrame('Frame', 'SUI_Art_War', SpartanUI)
 module.Settings = {}
 ----------------------------------------------------------------------------------------------------
@@ -175,7 +174,7 @@ function module:OnInitialize()
 			barPositions = barPositions,
 			minimap = SUI.IsRetail and {
 				size = { 180, 180 },
-				position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,11,-10',
+				position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,-19,22',
 				elements = {
 					background = {
 						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\minimap',
@@ -247,7 +246,7 @@ function module:OnInitialize()
 		}
 	end)
 
-	if Artwork_Core then
+	if SUI.Artwork then
 		module:CreateArtwork()
 	end
 end
@@ -257,7 +256,7 @@ function module:OnEnable()
 		module:Disable()
 	else
 		--Setup Sliding Trays
-		if Artwork_Core then
+		if SUI.Artwork then
 			module:SlidingTrays()
 		end
 
@@ -334,7 +333,7 @@ function module:CreateArtwork()
 	plate:SetAllPoints(SUI_BottomAnchor)
 
 	for i = 1, 4 do
-		plate['BG' .. i] = Artwork_Core:CreateBarBG(BarBGSettings, i, War_ActionBarPlate)
+		plate['BG' .. i] = SUI.Artwork:CreateBarBG(BarBGSettings, i, War_ActionBarPlate)
 	end
 	plate.BG1:SetPoint('BOTTOMRIGHT', plate, 'BOTTOM', -110, 70)
 	plate.BG2:SetPoint('BOTTOMRIGHT', plate, 'BOTTOM', -110, 25)
@@ -373,10 +372,10 @@ function module:SlidingTrays()
 		defaultTrayColor = factionColor,
 	}
 
-	Artwork_Core:SlidingTrays(Settings)
+	SUI.Artwork:SlidingTrays(Settings)
 
 	-- Register frames that this skin places in trays
-	Artwork_Core:RegisterSkinTrayFrames('War', {
+	SUI.Artwork:RegisterSkinTrayFrames('War', {
 		left = 'BT4BarPetBar,BT4BarStanceBar,MultiCastActionBarFrame',
 		right = 'BT4BarMicroMenu,BT4BarBagBar',
 	})
