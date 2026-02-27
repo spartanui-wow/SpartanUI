@@ -133,6 +133,15 @@ local function CreateArtwork()
 	plate.mask2:SetFrameLevel(50)
 	plate.mask2:SetPoint('BOTTOMLEFT', plate.POP2, 'BOTTOMLEFT', -1.5, 0)
 
+	-- Unregister popup frames from BarBG so UpdateBarBG doesn't override
+	-- their visibility. ApplyPopupSettings manages these exclusively.
+	if Artwork_Core.BarBG['Classic'] then
+		Artwork_Core.BarBG['Classic']['9'] = nil
+		Artwork_Core.BarBG['Classic']['10'] = nil
+		Artwork_Core.BarBG['Classic']['Stance'] = nil
+		Artwork_Core.BarBG['Classic']['MenuBar'] = nil
+	end
+
 	-- Position Actionbar BG's
 	plate.BG1:SetPoint('BOTTOMRIGHT', plate, 'BOTTOM', -100, 70)
 	plate.BG2:SetPoint('BOTTOMRIGHT', plate, 'BOTTOM', -100, 31)
