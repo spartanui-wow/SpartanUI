@@ -70,20 +70,19 @@ echo "Version: $VERSION"
 # ---------------------------------------------------------------------------
 
 # The generate-changelog.sh produces sections like:
-#   ## This Release (AI summary)
+#   ## 🎯 This Release (AI summary)
 #   ## Version X.Y.Z (Date)
-#   ## Last Month Summary
+#   ## 📅 Last Month Summary
 #   ## Version A.B.C (Date)  (older versions)
 #
-# We want:
-#   1. The "This Release" section (AI summary paragraph)
-#   2. The "Version X.Y.Z" section matching our tag (categorized commits)
-# We stop at the next "## " heading that isn't part of our content.
+# We want ONLY the Version X.Y.Z section's CONTENT (categorized commits).
+# We skip:
+#   - "This Release" section entirely (redundant AI summary)
+#   - The "## Version X.Y.Z (date)" heading line itself (version/date shown by website)
 
 extract_changelog() {
     local file="$1"
     local version="$2"
-    local in_this_release=0
     local in_version_section=0
     local found_content=0
     local output=""
@@ -91,32 +90,27 @@ extract_changelog() {
     while IFS= read -r line; do
         # Detect section headers
         if [[ "$line" =~ ^##\  ]]; then
-            # "This Release" section - include it
+            # Skip "This Release" section entirely
             if [[ "$line" =~ "This Release" ]]; then
-                in_this_release=1
                 in_version_section=0
-                found_content=1
-                output+="$line"$'\n'
                 continue
             fi
 
-            # Our version's section - include it
+            # Our version's section - collect its content but NOT the heading
             if [[ "$line" =~ "Version ${version}" ]] || [[ "$line" =~ "Version v${version}" ]]; then
-                in_this_release=0
                 in_version_section=1
                 found_content=1
-                output+="$line"$'\n'
+                # Intentionally do NOT add the heading line to output
                 continue
             fi
 
             # Any other ## heading - stop collecting
-            in_this_release=0
             in_version_section=0
             continue
         fi
 
-        # Collect lines within our target sections
-        if [ $in_this_release -eq 1 ] || [ $in_version_section -eq 1 ]; then
+        # Collect lines within our version section
+        if [ $in_version_section -eq 1 ]; then
             output+="$line"$'\n'
         fi
     done < "$file"
@@ -131,6 +125,10 @@ extract_changelog() {
             fi
             if [[ "$line" =~ "Last Month" ]] || [[ "$line" =~ ^"---"$ ]]; then
                 break
+            fi
+            # Also skip "This Release" and "Version" headings in fallback
+            if [[ "$line" =~ ^"## " ]] && ([[ "$line" =~ "This Release" ]] || [[ "$line" =~ ^"## Version " ]]); then
+                continue
             fi
             if [ $in_content -eq 1 ]; then
                 output+="$line"$'\n'
