@@ -727,25 +727,43 @@ end
 
 function module:SetupBarContainerVisuals(barContainer, barStyle)
 	barContainer.BarFrameTexture:Hide()
-	-- Create background
-	barContainer.bg = barContainer:CreateTexture(nil, 'BACKGROUND')
-	barContainer.bg:SetTexture(barStyle.bgTexture or '')
-	barContainer.bg:SetAllPoints(barContainer)
-	barContainer.bg:SetTexCoord(unpack(barStyle.texCords))
-	if barStyle.bgTexture then
+
+	-- Create a low-level background frame so the bg draws behind the status bars
+	if not barContainer.bgFrame then
+		barContainer.bgFrame = CreateFrame('Frame', nil, barContainer)
+		barContainer.bgFrame:SetAllPoints(barContainer)
+		barContainer.bgFrame:SetFrameLevel(barContainer:GetFrameLevel() - 10)
+	end
+
+	-- Create background texture on the low-level frame
+	barContainer.bg = barContainer.bgFrame:CreateTexture(nil, 'BACKGROUND')
+	if barStyle.bgColor then
+		barContainer.bg:SetColorTexture(unpack(barStyle.bgColor))
+		barContainer.bg:SetPoint('TOPLEFT', barContainer.bgFrame, 'TOPLEFT', 12, -2.5)
+		barContainer.bg:SetPoint('BOTTOMRIGHT', barContainer.bgFrame, 'BOTTOMRIGHT', -12, 2)
+		barContainer.bg:Show()
+	elseif barStyle.bgTexture then
+		barContainer.bg:SetTexture(barStyle.bgTexture)
+		barContainer.bg:SetAllPoints(barContainer.bgFrame)
+		barContainer.bg:SetTexCoord(unpack(barStyle.texCords))
 		barContainer.bg:Show()
 	else
+		barContainer.bg:SetTexture('')
+		barContainer.bg:SetAllPoints(barContainer.bgFrame)
+		barContainer.bg:SetTexCoord(unpack(barStyle.texCords))
 		barContainer.bg:Hide()
 	end
 
-	-- Create overlay
+	-- Create overlay (not needed when using solid bgColor)
 	barContainer.overlay = barContainer:CreateTexture(nil, 'OVERLAY')
-	barContainer.overlay:SetTexture(barStyle.bgTexture or '')
-	barContainer.overlay:SetAllPoints(barContainer.bg)
-	barContainer.overlay:SetTexCoord(unpack(barStyle.texCords))
-	if barStyle.bgTexture then
+	if not barStyle.bgColor and barStyle.bgTexture then
+		barContainer.overlay:SetTexture(barStyle.bgTexture)
+		barContainer.overlay:SetAllPoints(barContainer.bg)
+		barContainer.overlay:SetTexCoord(unpack(barStyle.texCords))
 		barContainer.overlay:Show()
 	else
+		barContainer.overlay:SetTexture('')
+		barContainer.overlay:SetAllPoints(barContainer.bg)
 		barContainer.overlay:Hide()
 	end
 
@@ -917,7 +935,8 @@ function module:SetupBar(bar, barContainer, width, height, index)
 	bar:SetSize(width - 30, height - 5)
 	bar.StatusBar:SetSize(width - 30, height - 5)
 	bar:ClearAllPoints()
-	bar:SetPoint('BOTTOM', barContainer, 'BOTTOM', 0, 0)
+	local barOffsetX = barContainer.settings and barContainer.settings.barOffsetX or 0
+	bar:SetPoint('BOTTOM', barContainer, 'BOTTOM', barOffsetX, 0)
 	bar:SetUsingParentLevel(false)
 	bar:SetFrameLevel(barContainer:GetFrameLevel() - 5)
 
@@ -953,21 +972,24 @@ function module:SetActiveStyle(style)
 			barContainer:SetSize(unpack(newStyle.size))
 
 			-- Update background
-			if newStyle.bgTexture then
+			if newStyle.bgColor then
+				barContainer.bg:ClearAllPoints()
+				barContainer.bg:SetColorTexture(unpack(newStyle.bgColor))
+				barContainer.bg:SetPoint('TOPLEFT', barContainer.bgFrame, 'TOPLEFT', 5, -2)
+				barContainer.bg:SetPoint('BOTTOMRIGHT', barContainer.bgFrame, 'BOTTOMRIGHT', -5, 2)
+				barContainer.bg:Show()
+				barContainer.overlay:SetTexture('')
+				barContainer.overlay:Hide()
+			elseif newStyle.bgTexture then
+				barContainer.bg:ClearAllPoints()
 				barContainer.bg:SetTexture(newStyle.bgTexture)
+				barContainer.bg:SetAllPoints(barContainer.bgFrame)
 				barContainer.bg:Show()
 				if newStyle.texCords then
 					barContainer.bg:SetTexCoord(unpack(newStyle.texCords))
 				else
 					barContainer.bg:SetTexCoord(0, 1, 0, 1)
 				end
-			else
-				barContainer.bg:SetTexture('')
-				barContainer.bg:Hide()
-			end
-
-			-- Update overlay
-			if newStyle.bgTexture then
 				barContainer.overlay:SetTexture(newStyle.bgTexture)
 				barContainer.overlay:Show()
 				if newStyle.texCords then
@@ -976,6 +998,8 @@ function module:SetActiveStyle(style)
 					barContainer.overlay:SetTexCoord(0, 1, 0, 1)
 				end
 			else
+				barContainer.bg:SetTexture('')
+				barContainer.bg:Hide()
 				barContainer.overlay:SetTexture('')
 				barContainer.overlay:Hide()
 			end

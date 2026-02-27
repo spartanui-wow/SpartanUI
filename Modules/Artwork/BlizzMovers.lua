@@ -326,14 +326,37 @@ local function VehicleLeaveButton()
 			return
 		end
 
+		-- Reclaim the button from Bartender4's Vehicle module.
+		-- BT4 nils out ClearAllPoints/SetPoint/SetScale and reparents the button
+		-- to its own bar. We need to restore those methods and take ownership.
+		local mt = getmetatable(frame)
+		local baseObj = mt and mt.__index
+		if baseObj then
+			if not frame.ClearAllPoints then
+				frame.ClearAllPoints = baseObj.ClearAllPoints
+			end
+			if not frame.SetPoint then
+				frame.SetPoint = baseObj.SetPoint
+			end
+			if not frame.SetScale then
+				frame.SetScale = baseObj.SetScale
+			end
+		end
+
+		-- Reparent away from BT4's bar so it renders on screen
+		frame:SetParent(UIParent)
+
 		-- Cache original position before moving
 		CacheOriginalPosition(moverName, frame)
 
 		local point, _, secondaryPoint, x, y = strsplit(',', GetBlizzMoverPosition('VehicleLeaveButton') or 'BOTTOM,SpartanUI,BOTTOM,0,250')
-		local VehicleBtnHolder = CreateFrame('Frame', 'VehicleBtnHolder', UIParent)
+
+		-- Recover existing holder after /rl, or create new one
+		local VehicleBtnHolder = _G['VehicleBtnHolder'] or CreateFrame('Frame', 'VehicleBtnHolder', UIParent)
 		VehicleBtnHolder:EnableMouse(false)
 		VehicleBtnHolder.isBlizzMoverHolder = true
 		VehicleBtnHolder:SetSize(frame:GetSize())
+		VehicleBtnHolder:ClearAllPoints()
 		VehicleBtnHolder:SetPoint(point, UIParent, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 		MoveIt:CreateMover(VehicleBtnHolder, moverName, 'Vehicle leave button', nil, 'Blizzard UI')
 
@@ -342,17 +365,18 @@ local function VehicleLeaveButton()
 		frame:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
 		frame.SUIHolder = VehicleBtnHolder
 
-		hooksecurefunc(frame, 'SetPoint', function(self, _, anchor)
-			if anchor ~= VehicleBtnHolder then
-				self:ClearAllPoints()
-				self:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
-			end
-		end)
+		-- Only hook once (check flag to avoid stacking on /rl)
+		if not frame.SUIHooked then
+			frame.SUIHooked = true
+			hooksecurefunc(frame, 'SetPoint', ResetPosition)
 
-		frame:HookScript('OnShow', function()
-			frame:ClearAllPoints()
-			frame:SetPoint('CENTER', VehicleBtnHolder, 'CENTER')
-		end)
+			frame:HookScript('OnShow', function()
+				if not InCombatLockdown() then
+					frame:ClearAllPoints()
+					frame:SetPoint('CENTER', frame.SUIHolder, 'CENTER')
+				end
+			end)
+		end
 
 		-- Store holder reference
 		if module.BlizzMoverCache[moverName] then

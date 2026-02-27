@@ -35,6 +35,15 @@ jobs:
       - name: Package and release
         uses: BigWigsMods/packager@master
 
+      - name: Upload Changelog to Website
+        if: success() && startsWith(github.ref, 'refs/tags/')
+        env:
+          CHANGELOG_API_KEY: ${{ secrets.CHANGELOG_API_KEY }}
+          GITHUB_REF: ${{ github.ref }}
+        run: |
+          chmod +x .github/scripts/upload-changelog.sh
+          .github/scripts/upload-changelog.sh CHANGELOG.md
+
       - name: Send Discord Release Notification
         if: success() && startsWith(github.ref, 'refs/tags/')
         env:
