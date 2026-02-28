@@ -20,7 +20,18 @@ local THREAT_ICON = 'Interface\\TargetingFrame\\UI-TargetingFrame-Skull'
 local function Build(frame, DB)
 	local style = DB.style or 'glow'
 
-	if style == 'glow' then
+	if style == 'aggro' then
+		-- Aggro style: Blizzard raid frame aggro border
+		local ThreatIndicator = frame:CreateTexture(nil, 'OVERLAY')
+		ThreatIndicator:SetAtlas('RaidFrame-AgroFrame')
+		ThreatIndicator.feedbackUnit = 'PLAYER'
+		ThreatIndicator:Hide()
+
+		ThreatIndicator:SetPoint('TOPLEFT', frame, 'TOPLEFT', -3, 3)
+		ThreatIndicator:SetPoint('BOTTOMRIGHT', frame, 'BOTTOMRIGHT', 3, -3)
+
+		frame.ThreatIndicator = ThreatIndicator
+	elseif style == 'glow' then
 		-- Glow style: texture around frame border
 		local ThreatIndicator = frame:CreateTexture(nil, 'BACKGROUND')
 		ThreatIndicator:SetTexture('Interface\\AddOns\\SpartanUI\\images\\HighlightBar')
@@ -75,7 +86,7 @@ local function Update(frame, settings)
 	local currentStyle = DB.style or 'glow'
 	local needsRebuild = false
 
-	if currentStyle == 'glow' and not element:GetObjectType() == 'Texture' then
+	if (currentStyle == 'glow' or currentStyle == 'aggro') and element:GetObjectType() ~= 'Texture' then
 		needsRebuild = true
 	elseif currentStyle:match('^icon_') and element:GetObjectType() ~= 'Frame' then
 		needsRebuild = true
@@ -106,6 +117,7 @@ local function Options(frameName, OptionSet)
 				type = 'select',
 				order = 1,
 				values = {
+					['aggro'] = L['Aggro border'],
 					['glow'] = L['Glow (frame border)'],
 					['icon_TL'] = L['Icon - Top Left'],
 					['icon_TR'] = L['Icon - Top Right'],
@@ -123,7 +135,7 @@ local function Options(frameName, OptionSet)
 				order = 2,
 				disabled = function()
 					local style = UF.CurrentSettings[frameName].elements.ThreatIndicator.style
-					return not style or style == 'glow'
+					return not style or style == 'glow' or style == 'aggro'
 				end,
 			},
 		},
