@@ -104,6 +104,78 @@ detect_version() {
     fi
 }
 
+# === NOTIFICATION FILTERING ===
+
+# Check if this release should send a Discord notification.
+# SpartanUI always notifies. Other addons are filtered to reduce noise.
+# Returns 0 (true) = notify, 1 (false) = skip.
+should_notify() {
+    # SpartanUI always notifies
+    if [ "$ADDON_NAME" = "SpartanUI" ]; then
+        log_info "SpartanUI - sending notification (no filters)"
+        return 0
+    fi
+
+    # Strip leading 'v' if present
+    local ver="${VERSION#v}"
+
+    # Parse semver components
+    local major minor patch
+    if [[ "$ver" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+        major="${BASH_REMATCH[1]}"
+        minor="${BASH_REMATCH[2]}"
+        patch="${BASH_REMATCH[3]}"
+    else
+        log_info "Version '$VERSION' not semver - sending notification"
+        return 0
+    fi
+
+    # Rule: Pre-1.0 addons - skip all
+    if [ "$major" -eq 0 ]; then
+        log_info "SKIP: Pre-1.0 addon (v${major}.${minor}.${patch})"
+        return 1
+    fi
+
+    # Rule: Bugfix releases (patch > 0) - skip
+    if [ "$patch" -gt 0 ]; then
+        log_info "SKIP: Bugfix release (v${major}.${minor}.${patch})"
+        return 1
+    fi
+
+    # Rule: Low-commit minor releases - skip if < 3 commits
+    if [ "$minor" -gt 0 ]; then
+        local commit_count
+        commit_count=$(count_commits_since_previous_tag)
+        if [ "$commit_count" -lt 3 ]; then
+            log_info "SKIP: Minor release v${major}.${minor}.${patch} - only ${commit_count} commit(s) (< 3)"
+            return 1
+        fi
+        log_info "Minor release v${major}.${minor}.${patch} - ${commit_count} commits (>= 3)"
+    fi
+
+    log_info "Release v${major}.${minor}.${patch} passed filters - sending notification"
+    return 0
+}
+
+# Count commits between previous tag and current tag.
+count_commits_since_previous_tag() {
+    local previous_tag
+    previous_tag=$(git tag --sort=-v:refname | grep -A1 "^${VERSION}$" | tail -1)
+
+    if [ -z "$previous_tag" ] || [ "$previous_tag" = "$VERSION" ]; then
+        local total
+        total=$(git rev-list --count HEAD 2>/dev/null || echo "0")
+        log_info "No previous tag - counting all ${total} commits"
+        echo "$total"
+        return
+    fi
+
+    local count
+    count=$(git rev-list --count "${previous_tag}..HEAD" 2>/dev/null || echo "0")
+    log_info "Commits since ${previous_tag}: ${count}"
+    echo "$count"
+}
+
 # === BUILD JSON PAYLOAD ===
 build_payload() {
     local description=$(build_description)
@@ -337,6 +409,12 @@ main() {
 
     # Detect version from GitHub ref
     detect_version
+
+    # Check notification filters
+    if ! should_notify; then
+        log_info "Discord notification skipped by filter rules. Done!"
+        exit 0
+    fi
 
     # Verify changelog exists
     if [ ! -f "$CHANGELOG_FILE" ]; then
