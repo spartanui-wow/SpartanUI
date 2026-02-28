@@ -393,44 +393,6 @@ function Options:AddGeneral(OptionSet)
 	}
 end
 
----Add frame background options using BackgroundBorder system
----@param frameName UnitFrameName
----@param OptionSet AceConfig.OptionsTable
-function Options:AddFrameBackground(frameName, OptionSet)
-	local BackgroundBorder = SUI.Handlers.BackgroundBorder
-	if not BackgroundBorder then
-		return
-	end
-
-	local function getSettings()
-		return UF.CurrentSettings[frameName].frameBackground or BackgroundBorder.DefaultSettings
-	end
-
-	local function setSettings(newSettings)
-		-- Update memory
-		UF.CurrentSettings[frameName].frameBackground = newSettings
-		-- Update the DB
-		UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].frameBackground = newSettings
-	end
-
-	local function updateDisplay()
-		-- Instance IDs use the WoW frame name (e.g. 'UnitFrame_SUI_UF_player',
-		-- 'UnitFrame_SUI_UF_raid_Header1UnitButton1'), not the bare unit name.
-		-- Use prefix search to find all instances for this frame type.
-		local settings = getSettings()
-		local instances = BackgroundBorder:GetInstancesByPrefix('UnitFrame_SUI_UF_' .. frameName)
-		for _, instanceID in ipairs(instances) do
-			BackgroundBorder:Update(instanceID, settings)
-		end
-	end
-
-	-- Generate the complete options table
-	local backgroundBorderOptions = BackgroundBorder:GenerateCompleteOptions('UnitFrame_' .. frameName, getSettings, setSettings, updateDisplay)
-	backgroundBorderOptions.order = 50 -- Place it after the General group
-
-	OptionSet.args.General.args.FrameBackground = backgroundBorderOptions
-end
-
 ---Add position controls to the General tab of a per-frame options page.
 ---For child frames (partypet): X/Y offset + anchor point inputs stored in UF DB.
 ---For all other frames: embeds the MoveIt position+scale table (same controls as Movers page).
@@ -1665,7 +1627,6 @@ function Options:Initialize()
 			UF.Unit[frameName]:UpdateAll()
 		end)
 		Options:AddGeneral(FrameOptSet)
-		Options:AddFrameBackground(frameName, FrameOptSet)
 		Options:AddPosition(frameName, FrameOptSet)
 		Options:AddAuraPresets(frameName, FrameOptSet)
 

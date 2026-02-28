@@ -15,6 +15,7 @@
 	<Script file="DefensiveIndicator.lua"/>
 	<Script file="Dispel.lua"/>
 	<Script file="EclipseBar.lua"/>
+	<Script file="FrameBackground.lua"/>
 	<Script file="GroupRoleIndicator.lua"/>
 	<Script file="Health.lua"/>
 	<Script file="LeaderIndicator.lua"/>

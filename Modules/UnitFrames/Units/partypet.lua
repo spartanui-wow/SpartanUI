@@ -1,5 +1,6 @@
 local UF = SUI.UF
 local elementList = {
+	'FrameBackground',
 	'Name',
 	'Health',
 	'SpartanArt',

@@ -1,6 +1,7 @@
 local UF = SUI.UF
 local elementList = {
 	---Basic
+	'FrameBackground',
 	'Name',
 	'Health',
 	'Castbar',
@@ -242,35 +243,35 @@ local Settings = {
 	maxColumns = 4,
 	unitsPerColumn = 10,
 	columnSpacing = 2,
-	frameBackground = {
-		enabled = false,
-		displayLevel = -5,
-		background = {
-			enabled = false,
-			type = 'color',
-			color = { 0.1, 0.1, 0.1, 0.8 },
-			alpha = 0.8,
-			classColor = false,
-		},
-		border = {
-			enabled = false,
-			sides = { top = true, bottom = true, left = true, right = true },
-			size = 1,
-			colors = {
-				top = { 1, 1, 1, 1 },
-				bottom = { 1, 1, 1, 1 },
-				left = { 1, 1, 1, 1 },
-				right = { 1, 1, 1, 1 },
-			},
-			classColors = { top = false, bottom = false, left = false, right = false },
-		},
-	},
 	visibility = {
 		showAlways = false,
 		showInRaid = true,
 		showInParty = false,
 	},
 	elements = {
+		FrameBackground = {
+			enabled = false,
+			displayLevel = -5,
+			background = {
+				enabled = false,
+				type = 'color',
+				color = { 0.1, 0.1, 0.1, 0.8 },
+				alpha = 0.8,
+				classColor = false,
+			},
+			border = {
+				enabled = false,
+				sides = { top = true, bottom = true, left = true, right = true },
+				size = 1,
+				colors = {
+					top = { 1, 1, 1, 1 },
+					bottom = { 1, 1, 1, 1 },
+					left = { 1, 1, 1, 1 },
+					right = { 1, 1, 1, 1 },
+				},
+				classColors = { top = false, bottom = false, left = false, right = false },
+			},
+		},
 		AuraWatch = {
 			enabled = true,
 			size = 16,

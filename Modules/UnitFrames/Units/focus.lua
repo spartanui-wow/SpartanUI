@@ -1,6 +1,7 @@
 local UF = SUI.UF
 local elementList = {
 	---Basic
+	'FrameBackground',
 	'Name',
 	'Health',
 	'Castbar',

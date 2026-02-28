@@ -4,6 +4,7 @@ local function Builder(frame)
 	local elementDB = frame.elementDB
 	local ElementsToBuild = {
 		---Basic
+		'FrameBackground',
 		'Name',
 		'Health',
 		'Castbar',
@@ -73,30 +74,30 @@ local Settings = {
 		xOfs = -60,
 		yOfs = 250,
 	},
-	frameBackground = {
-		enabled = false,
-		displayLevel = -1,
-		background = {
-			enabled = false,
-			type = 'color',
-			color = { 0.1, 0.1, 0.1, 0.8 },
-			alpha = 0.8,
-			classColor = false,
-		},
-		border = {
-			enabled = false,
-			sides = { top = true, bottom = true, left = true, right = true },
-			size = 1,
-			colors = {
-				top = { 1, 1, 1, 1 },
-				bottom = { 1, 1, 1, 1 },
-				left = { 1, 1, 1, 1 },
-				right = { 1, 1, 1, 1 },
-			},
-			classColors = { top = false, bottom = false, left = false, right = false },
-		},
-	},
 	elements = {
+		FrameBackground = {
+			enabled = false,
+			displayLevel = -1,
+			background = {
+				enabled = false,
+				type = 'color',
+				color = { 0.1, 0.1, 0.1, 0.8 },
+				alpha = 0.8,
+				classColor = false,
+			},
+			border = {
+				enabled = false,
+				sides = { top = true, bottom = true, left = true, right = true },
+				size = 1,
+				colors = {
+					top = { 1, 1, 1, 1 },
+					bottom = { 1, 1, 1, 1 },
+					left = { 1, 1, 1, 1 },
+					right = { 1, 1, 1, 1 },
+				},
+				classColors = { top = false, bottom = false, left = false, right = false },
+			},
+		},
 		-- AuraBars = { -- DECOMMISSIONED: Not maintaining if unavailable in retail
 		-- 	enabled = true
 		-- },

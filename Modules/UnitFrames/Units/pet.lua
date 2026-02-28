@@ -3,6 +3,7 @@ local UF = SUI.UF
 local function Builder(frame)
 	local elementDB = frame.elementDB
 
+	UF.Elements:Build(frame, 'FrameBackground', elementDB['FrameBackground'])
 	UF.Elements:Build(frame, 'Name', elementDB['Name'])
 	UF.Elements:Build(frame, 'Health', elementDB['Health'])
 	UF.Elements:Build(frame, 'Castbar', elementDB['Castbar'])

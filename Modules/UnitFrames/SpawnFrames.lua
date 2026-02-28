@@ -99,30 +99,7 @@ local function CreateUnitFrame(self, unit)
 
 		if not self.DB or not self.DB.enabled then
 			self:Disable()
-			-- Hide frame background if frame is disabled
-			if SUI.Handlers.BackgroundBorder then
-				local frameName = self:GetName() or (self.unitOnCreate .. tostring(self))
-				local instanceID = 'UnitFrame_' .. frameName
-				SUI.Handlers.BackgroundBorder:SetVisible(instanceID, false)
-			end
 			return
-		end
-
-		-- Update frame background
-		if SUI.Handlers.BackgroundBorder and self.DB.frameBackground then
-			-- For group frames, use the actual frame name to create individual backgrounds
-			local frameName = self:GetName() or (self.unitOnCreate .. tostring(self))
-			local instanceID = 'UnitFrame_' .. frameName
-
-			-- Deep copy settings so we don't mutate CurrentSettings
-			local settings = SUI:CopyData({}, self.DB.frameBackground)
-
-			if not SUI.Handlers.BackgroundBorder.instances[instanceID] then
-				SUI.Handlers.BackgroundBorder:Create(self, instanceID, settings)
-			else
-				SUI.Handlers.BackgroundBorder:Update(instanceID, settings)
-			end
-			SUI.Handlers.BackgroundBorder:SetVisible(instanceID, true)
 		end
 
 		UF.Unit:Update(self)
