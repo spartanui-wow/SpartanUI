@@ -44,26 +44,30 @@ local function SetOption(info, value)
 	local element = info[#info - 1]
 	local option = info[#info]
 
-	-- Handle both Retail (nested) and Classic (flat) structures
+	-- Update live settings
+	local elementSettings = module.Settings.elements and module.Settings.elements[element] or module.Settings[element]
+	if elementSettings then
+		elementSettings[option] = value
+	end
+
+	-- Persist to custom settings DB (ensure path exists)
+	local style = SUI:GetActiveStyle()
+	if not module.DB.customSettings[style] then
+		module.DB.customSettings[style] = {}
+	end
 	if module.Settings.elements then
-		-- Retail structure
-		module.Settings.elements[element][option] = value
-		if not module.DB.customSettings[SUI:GetActiveStyle()].elements then
-			module.DB.customSettings[SUI:GetActiveStyle()].elements = {}
+		if not module.DB.customSettings[style].elements then
+			module.DB.customSettings[style].elements = {}
 		end
-		if not module.DB.customSettings[SUI:GetActiveStyle()].elements[element] then
-			module.DB.customSettings[SUI:GetActiveStyle()].elements[element] = {}
+		if not module.DB.customSettings[style].elements[element] then
+			module.DB.customSettings[style].elements[element] = {}
 		end
-		module.DB.customSettings[SUI:GetActiveStyle()].elements[element][option] = value
+		module.DB.customSettings[style].elements[element][option] = value
 	else
-		-- Classic flat structure
-		if module.Settings[element] then
-			module.Settings[element][option] = value
+		if not module.DB.customSettings[style][element] then
+			module.DB.customSettings[style][element] = {}
 		end
-		if not module.DB.customSettings[SUI:GetActiveStyle()][element] then
-			module.DB.customSettings[SUI:GetActiveStyle()][element] = {}
-		end
-		module.DB.customSettings[SUI:GetActiveStyle()][element][option] = value
+		module.DB.customSettings[style][element][option] = value
 	end
 
 	module:Update(true)
@@ -633,6 +637,175 @@ function module:BuildOptions()
 							elSettings.color = { r, g, b, a }
 						end
 						customPath.color = { r, g, b, a }
+						module:Update(true)
+					end,
+				}
+			end
+
+			-- Background-specific options: size, blend mode, texture preset, position offsets
+			if elementName == 'background' then
+				local defaultBgPosition = 'CENTER,Minimap,CENTER,0,0'
+
+				local function getBgPositionPart(part)
+					local elSettings = getElementSettings(elementName)
+					local posStr = elSettings and elSettings.position or defaultBgPosition
+					if type(posStr) ~= 'string' then
+						posStr = defaultBgPosition
+					end
+					local point, relativeTo, relativePoint, x, y = strsplit(',', posStr)
+					if part == 'point' then
+						return point
+					elseif part == 'relativeTo' then
+						return relativeTo
+					elseif part == 'relativePoint' then
+						return relativePoint
+					elseif part == 'x' then
+						return tonumber(x) or 0
+					elseif part == 'y' then
+						return tonumber(y) or 0
+					end
+				end
+
+				local function setBgPositionPart(part, value)
+					local elSettings = getElementSettings(elementName)
+					local posStr = elSettings and elSettings.position or defaultBgPosition
+					if type(posStr) ~= 'string' then
+						posStr = defaultBgPosition
+					end
+					local point, relativeTo, relativePoint, x, y = strsplit(',', posStr)
+					if part == 'x' then
+						x = value
+					elseif part == 'y' then
+						y = value
+					end
+					local newPos = string.format('%s,%s,%s,%s,%s', point, relativeTo, relativePoint, x, y)
+					local customPath = ensureCustomElementPath(elementName)
+					if elSettings then
+						elSettings.position = newPos
+					end
+					customPath.position = newPos
+					module:Update(true)
+				end
+
+				options.args.elements.args[elementName].args.size = {
+					name = L['Size'],
+					desc = L['Size of the background texture (square)'],
+					type = 'range',
+					order = 4,
+					min = 100,
+					max = 500,
+					step = 1,
+					get = function()
+						local elSettings = getElementSettings(elementName)
+						return elSettings and elSettings.size and elSettings.size[1] or 200
+					end,
+					set = function(_, val)
+						local customPath = ensureCustomElementPath(elementName)
+						local elSettings = getElementSettings(elementName)
+						if elSettings then
+							elSettings.size = { val, val }
+						end
+						customPath.size = { val, val }
+						module:Update(true)
+					end,
+				}
+
+				options.args.elements.args[elementName].args.bgPosition = {
+					name = L['Position'],
+					type = 'group',
+					order = 4.5,
+					inline = true,
+					args = {
+						x = {
+							name = L['X Offset'],
+							type = 'range',
+							order = 1,
+							min = -100,
+							max = 100,
+							step = 1,
+							get = function()
+								return getBgPositionPart('x')
+							end,
+							set = function(_, val)
+								setBgPositionPart('x', val)
+							end,
+						},
+						y = {
+							name = L['Y Offset'],
+							type = 'range',
+							order = 2,
+							min = -100,
+							max = 100,
+							step = 1,
+							get = function()
+								return getBgPositionPart('y')
+							end,
+							set = function(_, val)
+								setBgPositionPart('y', val)
+							end,
+						},
+					},
+				}
+
+				options.args.elements.args[elementName].args.blendMode = {
+					name = L['Blend Mode'],
+					desc = L['How the background texture blends with the scene'],
+					type = 'select',
+					order = 5,
+					values = {
+						['BLEND'] = 'Blend',
+						['ADD'] = 'Add (Glow)',
+						['ALPHAKEY'] = 'Alpha Key',
+						['MOD'] = 'Mod',
+						['DISABLE'] = 'Disable',
+					},
+					get = function()
+						local elSettings = getElementSettings(elementName)
+						return elSettings and elSettings.BlendMode or 'BLEND'
+					end,
+					set = function(_, val)
+						local customPath = ensureCustomElementPath(elementName)
+						local elSettings = getElementSettings(elementName)
+						if elSettings then
+							elSettings.BlendMode = val
+						end
+						customPath.BlendMode = val
+						module:Update(true)
+					end,
+				}
+
+				options.args.elements.args[elementName].args.texturePreset = {
+					name = L['Texture'],
+					desc = L['Choose a background texture from available themes'],
+					type = 'select',
+					order = 6,
+					values = function()
+						local textures = {}
+						local suiMinimap = _G['SUI_Minimap']
+						if suiMinimap and suiMinimap.Registry then
+							for themeName, data in pairs(suiMinimap.Registry) do
+								local bgData = data.settings and data.settings.elements and data.settings.elements.background
+								if not bgData then
+									bgData = data.settings and data.settings.background
+								end
+								if bgData and bgData.texture then
+									textures[bgData.texture] = themeName
+								end
+							end
+						end
+						return textures
+					end,
+					get = function()
+						local elSettings = getElementSettings(elementName)
+						return elSettings and elSettings.texture or ''
+					end,
+					set = function(_, val)
+						local customPath = ensureCustomElementPath(elementName)
+						local elSettings = getElementSettings(elementName)
+						if elSettings then
+							elSettings.texture = val
+						end
+						customPath.texture = val
 						module:Update(true)
 					end,
 				}

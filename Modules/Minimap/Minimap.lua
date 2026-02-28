@@ -58,6 +58,7 @@ local BaseSettings = {
 			position = 'TOP,Minimap,BOTTOM,0,-5',
 			alpha = 0.8,
 			scale = 1,
+			color = { 0, 0, 0, 0.2 },
 		},
 		-- Zone Text
 		ZoneText = {
@@ -653,13 +654,16 @@ function module:SetupBackground()
 
 		SUIMinimap.BG:SetTexture(bgSettings.texture)
 
-		if bgSettings.size then
-			SUIMinimap.BG:SetSize(unpack(bgSettings.size))
-		end
+		SUIMinimap.BG:ClearAllPoints()
 		if bgSettings.position then
+			if bgSettings.size then
+				SUIMinimap.BG:SetSize(unpack(bgSettings.size))
+			end
 			module:PositionItem(SUIMinimap.BG, bgSettings.position)
+		elseif bgSettings.size then
+			SUIMinimap.BG:SetSize(unpack(bgSettings.size))
+			SUIMinimap.BG:SetPoint('CENTER', Minimap, 'CENTER', 0, 0)
 		else
-			SUIMinimap.BG:ClearAllPoints()
 			SUIMinimap.BG:SetPoint('TOPLEFT', Minimap, 'TOPLEFT', -30, 30)
 			SUIMinimap.BG:SetPoint('BOTTOMRIGHT', Minimap, 'BOTTOMRIGHT', 30, -30)
 		end
@@ -708,6 +712,105 @@ function module:SetupBorderTop()
 	-- Set scale
 	local scale = borderSettings.scale or 1
 	MinimapCluster.BorderTop:SetScale(scale)
+
+	-- Strip Blizzard's NineSlice textures
+	for i = 1, MinimapCluster.BorderTop:GetNumRegions() do
+		local region = select(i, MinimapCluster.BorderTop:GetRegions())
+		if region and region:GetObjectType() == 'Texture' and not region.isSUI then
+			region:SetTexture(nil)
+			region:Hide()
+		end
+	end
+
+	-- Create our own rounded rectangle NineSlice from RoundedRectangle.png (128x64)
+	-- Corner size: 20px -> left/right = 20/128 = 0.15625, top/bottom = 20/64 = 0.3125
+	local texPath = 'Interface\\AddOns\\SpartanUI\\images\\RoundedRectangle.png'
+	local L_EDGE = 20 / 128
+	local R_EDGE = 1 - L_EDGE
+	local T_EDGE = 20 / 64
+	local B_EDGE = 1 - T_EDGE
+	local CORNER = 10
+
+	local r, g, b, a = 0, 0, 0, 0.2
+	if borderSettings.color then
+		r, g, b, a = unpack(borderSettings.color)
+	end
+
+	local bt = MinimapCluster.BorderTop
+	if not bt.SUI_NineSlice then
+		local ns = {}
+
+		local function MakePiece()
+			local tex = bt:CreateTexture(nil, 'ARTWORK')
+			tex:SetTexture(texPath)
+			tex.isSUI = true
+			return tex
+		end
+
+		ns.TL = MakePiece()
+		ns.TR = MakePiece()
+		ns.BL = MakePiece()
+		ns.BR = MakePiece()
+		ns.Top = MakePiece()
+		ns.Bottom = MakePiece()
+		ns.Left = MakePiece()
+		ns.Right = MakePiece()
+		ns.Center = MakePiece()
+
+		-- All corners anchor directly to the parent frame, extended 3px outward
+		local PAD = 5
+
+		ns.TL:SetSize(CORNER, CORNER)
+		ns.TL:SetPoint('TOPLEFT', -PAD, PAD)
+		ns.TL:SetTexCoord(0, L_EDGE, 0, T_EDGE)
+
+		ns.TR:SetSize(CORNER, CORNER)
+		ns.TR:SetPoint('TOPRIGHT', PAD, PAD)
+		ns.TR:SetTexCoord(R_EDGE, 1, 0, T_EDGE)
+
+		ns.BL:SetSize(CORNER, CORNER)
+		ns.BL:SetPoint('BOTTOMLEFT', -PAD, -PAD)
+		ns.BL:SetTexCoord(0, L_EDGE, B_EDGE, 1)
+
+		ns.BR:SetSize(CORNER, CORNER)
+		ns.BR:SetPoint('BOTTOMRIGHT', PAD, -PAD)
+		ns.BR:SetTexCoord(R_EDGE, 1, B_EDGE, 1)
+
+		-- Edges anchor between corners using two-point stretch
+		ns.Top:SetPoint('TOPLEFT', CORNER - PAD, PAD)
+		ns.Top:SetPoint('TOPRIGHT', -(CORNER - PAD), PAD)
+		ns.Top:SetHeight(CORNER)
+		ns.Top:SetTexCoord(L_EDGE, R_EDGE, 0, T_EDGE)
+
+		ns.Bottom:SetPoint('BOTTOMLEFT', CORNER - PAD, -PAD)
+		ns.Bottom:SetPoint('BOTTOMRIGHT', -(CORNER - PAD), -PAD)
+		ns.Bottom:SetHeight(CORNER)
+		ns.Bottom:SetTexCoord(L_EDGE, R_EDGE, B_EDGE, 1)
+
+		ns.Left:SetPoint('TOPLEFT', -PAD, -(CORNER - PAD))
+		ns.Left:SetPoint('BOTTOMLEFT', -PAD, CORNER - PAD)
+		ns.Left:SetWidth(CORNER)
+		ns.Left:SetTexCoord(0, L_EDGE, T_EDGE, B_EDGE)
+
+		ns.Right:SetPoint('TOPRIGHT', PAD, -(CORNER - PAD))
+		ns.Right:SetPoint('BOTTOMRIGHT', PAD, CORNER - PAD)
+		ns.Right:SetWidth(CORNER)
+		ns.Right:SetTexCoord(R_EDGE, 1, T_EDGE, B_EDGE)
+
+		-- Center fills the remaining space
+		ns.Center:SetPoint('TOPLEFT', CORNER - PAD, -(CORNER - PAD))
+		ns.Center:SetPoint('BOTTOMRIGHT', -(CORNER - PAD), CORNER - PAD)
+		ns.Center:SetTexCoord(L_EDGE, R_EDGE, T_EDGE, B_EDGE)
+
+		bt.SUI_NineSlice = ns
+	end
+
+	-- Apply color to all pieces
+	for _, tex in pairs(bt.SUI_NineSlice) do
+		tex:SetVertexColor(r, g, b)
+		tex:SetAlpha(a)
+		tex:Show()
+	end
 
 	MinimapCluster.BorderTop:Show()
 
