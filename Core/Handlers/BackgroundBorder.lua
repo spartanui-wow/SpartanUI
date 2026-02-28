@@ -151,6 +151,21 @@ function Handler:Update(id, settings)
 	end
 end
 
+---Get the class color for an instance's parent unit (or fall back to player)
+---@param instance SUI.BackgroundBorder.Instance
+---@return table|nil color RAID_CLASS_COLORS entry
+local function GetInstanceClassColor(instance)
+	local unit = instance.parent and instance.parent.unit or 'player'
+	if not UnitExists(unit) then
+		unit = 'player'
+	end
+	local _, classToken = UnitClass(unit)
+	if not classToken then
+		return nil
+	end
+	return (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[classToken]) or _G.RAID_CLASS_COLORS[classToken]
+end
+
 ---Update background appearance
 ---@param id string Instance identifier
 function Handler:UpdateBackground(id)
@@ -179,7 +194,7 @@ function Handler:UpdateBackground(id)
 			-- Use solid color background
 			texture:SetTexture('Interface\\Buttons\\WHITE8X8')
 			if bg.classColor then
-				local color = (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[select(2, UnitClass('player'))]) or _G.RAID_CLASS_COLORS[select(2, UnitClass('player'))]
+				local color = GetInstanceClassColor(instance)
 				if color then
 					texture:SetVertexColor(color.r, color.g, color.b, bg.alpha)
 				else
@@ -240,7 +255,7 @@ function Handler:UpdateBorders(id)
 
 			-- Set border color
 			if border.classColors[side] then
-				local color = (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[select(2, UnitClass('player'))]) or _G.RAID_CLASS_COLORS[select(2, UnitClass('player'))]
+				local color = GetInstanceClassColor(instance)
 				if color then
 					borderFrame.texture:SetVertexColor(color.r, color.g, color.b, 1)
 				else
@@ -253,6 +268,33 @@ function Handler:UpdateBorders(id)
 		else
 			borderFrame:Hide()
 		end
+	end
+end
+
+---Refresh class colors for an instance (call when the unit changes, e.g. target switch)
+---@param id string Instance identifier
+function Handler:RefreshClassColors(id)
+	local instance = self.instances[id]
+	if not instance or not instance.settings.enabled then
+		return
+	end
+
+	local needsRefresh = false
+	if instance.settings.background.classColor then
+		needsRefresh = true
+	end
+	if instance.settings.border.enabled then
+		for _, side in ipairs({ 'top', 'bottom', 'left', 'right' }) do
+			if instance.settings.border.classColors[side] then
+				needsRefresh = true
+				break
+			end
+		end
+	end
+
+	if needsRefresh then
+		self:UpdateBackground(id)
+		self:UpdateBorders(id)
 	end
 end
 
