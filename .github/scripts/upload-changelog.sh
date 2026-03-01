@@ -15,7 +15,7 @@ set -eE
 trap 'echo "ERROR at line ${LINENO}: ${BASH_COMMAND}" >&2' ERR
 
 CHANGELOG_FILE="${1:-CHANGELOG.md}"
-API_URL="https://profilehub.spartanui.net/api/changelogs"
+API_URL="https://dev.spartanui.net/api/changelogs"
 
 # ---------------------------------------------------------------------------
 # Validate
