@@ -7,7 +7,7 @@ local function Build(frame, DB)
 	local unitName = frame.PName or frame.unit or frame:GetName()
 
 	local function Flash(self)
-		local canAccess = canaccessvalue(self.Castbar.notInterruptible)
+		local canAccess = SUI.BlizzAPI.canaccessvalue(self.Castbar.notInterruptible)
 		local isInterruptible = canAccess and not self.Castbar.notInterruptible
 		if isInterruptible and (self.Castbar.casting or self.Castbar.channeling) and self:IsVisible() then
 			local _, g, b = self.Castbar:GetStatusBarColor()
@@ -95,7 +95,7 @@ local function Build(frame, DB)
 		UpdateOverlay(self)
 
 		-- Interruptible flash on main bar color (only when we can confirm interruptible)
-		local canAccess = canaccessvalue(self.notInterruptible)
+		local canAccess = SUI.BlizzAPI.canaccessvalue(self.notInterruptible)
 		local isInterruptible = canAccess and not self.notInterruptible
 		if isInterruptible and isEnemyFrame and DB.FlashOnInterruptible then
 			self:SetStatusBarColor(0, 0, 0)
