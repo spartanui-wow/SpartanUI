@@ -34,6 +34,14 @@ function GridOverlay:Initialize()
 		return
 	end
 
+	-- Recover existing named frame after /rl to prevent orphaned visible grids
+	local existing = _G['SUI_MoveIt_GridOverlay']
+	if existing then
+		self.container = existing
+		self.container:Hide()
+		return
+	end
+
 	self.container = CreateFrame('Frame', 'SUI_MoveIt_GridOverlay', UIParent)
 	self.container:SetAllPoints()
 	self.container:SetFrameStrata('BACKGROUND')

@@ -275,6 +275,17 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 
 		self:SetUserPlaced(false)
 
+		-- Stop OnUpdate for snap preview lines
+		if self.dragUpdateFrame then
+			self.dragUpdateFrame:SetScript('OnUpdate', nil)
+		end
+
+		-- End grid snap session and hide preview lines
+		local MagnetismManager = MoveIt.MagnetismManager
+		if MagnetismManager then
+			MagnetismManager:EndDragSession()
+		end
+
 		-- Update settings panel position display after drag
 		local SettingsPanel = MoveIt.SettingsPanel
 		if SettingsPanel and SettingsPanel.nudgeWidget and SettingsPanel.nudgeWidget.UpdatePositionDisplay then

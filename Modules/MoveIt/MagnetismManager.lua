@@ -129,11 +129,17 @@ function MagnetismManager:InitializePreviewLines()
 
 	self.previewLinesAvailable = true
 
-	-- Create container frame at high strata
-	self.previewLineContainer = CreateFrame('Frame', 'SUI_MoveIt_PreviewLines', UIParent)
-	self.previewLineContainer:SetAllPoints()
-	self.previewLineContainer:SetFrameStrata('TOOLTIP')
-	self.previewLineContainer:Hide()
+	-- Recover existing named frame after /rl to prevent orphaned visible lines
+	local existing = _G['SUI_MoveIt_PreviewLines']
+	if existing then
+		self.previewLineContainer = existing
+		self.previewLineContainer:Hide()
+	else
+		self.previewLineContainer = CreateFrame('Frame', 'SUI_MoveIt_PreviewLines', UIParent)
+		self.previewLineContainer:SetAllPoints()
+		self.previewLineContainer:SetFrameStrata('TOOLTIP')
+		self.previewLineContainer:Hide()
+	end
 
 	-- Create line pool
 	if CreateObjectPool then
