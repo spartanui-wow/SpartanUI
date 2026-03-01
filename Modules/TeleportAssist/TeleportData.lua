@@ -124,6 +124,28 @@ module.TELEPORT_DATA = {
 	{ id = 312372, type = 'spell', name = 'Make Camp', expansion = 'Class', race = 'Vulpera', minExpansion = 7 },
 
 	-- ==================== MIDNIGHT (12.x) ====================
+	-- Mage Teleports
+	{
+		id = 1259190,
+		type = 'spell',
+		name = 'Teleport: Silvermoon City',
+		expansion = 'MID',
+		class = 'MAGE',
+		faction = 'Horde',
+		icon = 'inv_12_mage_teleport',
+		minExpansion = 11,
+	},
+	{
+		id = 1259194,
+		type = 'spell',
+		name = 'Portal: Silvermoon City',
+		expansion = 'MID',
+		class = 'MAGE',
+		faction = 'Horde',
+		isPortal = true,
+		icon = 'inv_12_mage_portal',
+		minExpansion = 11,
+	},
 	-- Dungeons
 	{ id = 1254572, type = 'spell', name = "Magisters' Terrace", expansion = 'MID', minExpansion = 11 },
 	{ id = 1254559, type = 'spell', name = 'Maisara Caverns', expansion = 'MID', minExpansion = 11 },

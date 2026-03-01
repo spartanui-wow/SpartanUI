@@ -5,7 +5,6 @@ local module = SUI:GetModule('TeleportAssist')
 
 function module:BuildOptions()
 	local DB = module.DB
-	local settings = module.CurrentSettings
 
 	---@type AceConfig.OptionsTable
 	local OptionTable = {
