@@ -6,22 +6,16 @@ local timers = {}
 local function Build(frame, DB)
 	local unitName = frame.PName or frame.unit or frame:GetName()
 
+	local flashColorOn = false
 	local function Flash(self)
 		local canAccess = SUI.BlizzAPI.canaccessvalue(self.Castbar.notInterruptible)
 		local isInterruptible = canAccess and not self.Castbar.notInterruptible
 		if isInterruptible and (self.Castbar.casting or self.Castbar.channeling) and self:IsVisible() then
-			local _, g, b = self.Castbar:GetStatusBarColor()
-			if b ~= 0 and g ~= 0 then
+			flashColorOn = not flashColorOn
+			if flashColorOn then
 				self.Castbar:SetStatusBarColor(1, 0, 0)
-			elseif b == 0 and g == 0 then
-				self.Castbar:SetStatusBarColor(1, 1, 0)
 			else
-				-- Reset to custom color if enabled, otherwise use default
-				if DB.customColors and DB.customColors.useCustom then
-					self.Castbar:SetStatusBarColor(unpack(DB.customColors.barColor))
-				else
-					self.Castbar:SetStatusBarColor(1, 1, 1)
-				end
+				self.Castbar:SetStatusBarColor(1, 1, 0)
 			end
 			timers[unitName] = UF:ScheduleTimer(Flash, 0.1, self)
 		end
