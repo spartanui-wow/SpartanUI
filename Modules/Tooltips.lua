@@ -151,7 +151,7 @@ function module:OnInitialize()
 		SuppressNoMatch = true,
 		SpellID = {
 			enabled = false,
-			modifierKey = 'NONE',
+			modifierKey = 'ALL',
 		},
 		UpgradeQualityIcons = {
 			enabled = true,

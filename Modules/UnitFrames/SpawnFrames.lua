@@ -356,6 +356,14 @@ function UF:SpawnFrames()
 									f:UpdateAll()
 								end
 							end
+						elseif config.useUnitWatch then
+							-- Boss/arena: visibility managed by oUF RegisterUnitWatch.
+							-- Do NOT touch attribute drivers or call Show/Hide.
+							for _, f in pairs(groupFrame.frames) do
+								if f.UpdateAll and f.unit and UnitExists(f.unit) then
+									f:UpdateAll()
+								end
+							end
 						else
 							UnregisterAttributeDriver(firstElement, 'state-visibility')
 							if VisibilityCheck(frameName) and UF.CurrentSettings[frameName].enabled then

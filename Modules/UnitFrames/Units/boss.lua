@@ -80,6 +80,7 @@ local Settings = {
 	},
 	config = {
 		IsGroup = true,
+		useUnitWatch = true,
 	},
 }
 

@@ -19,6 +19,7 @@ local UFrameSettings = {
 
 ---@class SUI.UF.Unit.Config
 ---@field displayName? string
+---@field useUnitWatch? boolean Visibility managed by oUF RegisterUnitWatch instead of VisibilityCheck
 local config = {
 	IsGroup = false,
 	isChild = false,
