@@ -207,7 +207,7 @@ function module:OnInitialize()
 							elements = {
 								background = {
 									texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Engulfed',
-									size = { 260, 260 },
+									size = { 240, 240 },
 									position = 'CENTER,Minimap,CENTER,5,25',
 								},
 							},
@@ -217,7 +217,7 @@ function module:OnInitialize()
 							engulfed = true,
 							background = {
 								texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\Minimap-Engulfed',
-								size = { 220, 220 },
+								size = { 200, 200 },
 								position = 'CENTER,Minimap,CENTER,5,25',
 							},
 						},

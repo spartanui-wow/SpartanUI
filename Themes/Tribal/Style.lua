@@ -127,8 +127,8 @@ function module:OnInitialize()
 				elements = {
 					background = {
 						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\minimap',
-						size = { 220, 220 },
-						position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
+						size = { 180, 180 },
+						position = 'CENTER,Minimap,CENTER,0,0',
 					},
 				},
 			} or {
@@ -137,7 +137,7 @@ function module:OnInitialize()
 				background = {
 					texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\minimap',
 					size = { 180, 180 },
-					position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-2,-4',
+					position = 'CENTER,Minimap,CENTER,0,0',
 				},
 			},
 			statusBars = {

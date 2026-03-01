@@ -178,7 +178,7 @@ function module:OnInitialize()
 				elements = {
 					background = {
 						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\minimap',
-						size = { 220, 220 },
+						size = { 180, 180 },
 					},
 				},
 			} or {
