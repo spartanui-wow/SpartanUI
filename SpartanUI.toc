@@ -96,7 +96,6 @@ libs\oUF_Plugins\oUF_AuraWatch.lua
 libs\oUF_Plugins\oUF_ClassicAuraDurations.lua [AllowLoadGameType vanilla, tbc, wrath, cata, mists]
 libs\oUF_Plugins\oUF_Fader.lua
 libs\oUF_Plugins\oUF_PvPRoleIndicator.lua
-libs\oUF_Plugins\oUF_QuestMob.lua
 libs\oUF_Plugins\oUF_PVPSpecIcons.lua
 libs\oUF_Plugins\oUF_WidgetXPBar.lua
 
