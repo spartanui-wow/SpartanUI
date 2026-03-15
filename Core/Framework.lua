@@ -965,9 +965,9 @@ function SUI:GoldFormattedValue(rawValue)
 	return format(GOLD_AMOUNT_TEXTURE .. ' ' .. SILVER_AMOUNT_TEXTURE .. ' ' .. COPPER_AMOUNT_TEXTURE, gold, 0, 0, silver, 0, 0, copper, 0, 0)
 end
 
----Initialize a new/empty profile with required data structures
+---Ensure a profile has required data structures
 ---@param profile table The profile to initialize
-function SUI:InitializeProfile(profile)
+function SUI:EnsureProfileStructure(profile)
 	-- Artwork structure required by SetActiveStyle
 	if not profile.Artwork then
 		profile.Artwork = {
@@ -1003,7 +1003,7 @@ function SUI:UpdateModuleConfigs()
 	SUI.DBG = SUI.SpartanUIDB.global
 
 	-- Initialize profile with required structures
-	SUI:InitializeProfile(SUI.DB)
+	SUI:EnsureProfileStructure(SUI.DB)
 
 	-- Execute all module profile refresh callbacks SEQUENTIALLY
 	-- This ensures all modules update their DB references before theme application
