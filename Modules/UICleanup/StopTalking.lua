@@ -59,6 +59,20 @@ function module:InitializeStopTalking()
 	module.StopTalkingDB = StopTalkingDB
 	module.StopTalkingDBGlobal = StopTalkingDBGlobal
 
+	-- Ensure history/whitelist tables exist (AceDB doesn't auto-create empty table defaults)
+	if not StopTalkingDB.history then
+		StopTalkingDB.history = {}
+	end
+	if not StopTalkingDBGlobal.history then
+		StopTalkingDBGlobal.history = {}
+	end
+	if not StopTalkingDB.whitelist then
+		StopTalkingDB.whitelist = {}
+	end
+	if not StopTalkingDBGlobal.whitelist then
+		StopTalkingDBGlobal.whitelist = {}
+	end
+
 	-- Import globals if active
 	if StopTalkingDBGlobal.global then
 		for k, v in pairs(StopTalkingDB.history) do
