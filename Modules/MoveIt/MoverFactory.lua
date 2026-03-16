@@ -20,7 +20,7 @@ local function GetPoints(obj)
 		anchor = UIParent
 	end
 
-	return format('%s,%s,%s,%d,%d', point, anchor:GetName(), secondaryPoint, Round(x), Round(y))
+	return format('%s,%s,%s,%d,%d', point, anchor:GetName(), secondaryPoint, Round(x or 0), Round(y or 0))
 end
 
 local isDragging = false
