@@ -16,11 +16,14 @@ local colors = {
 
 local function GetPoints(obj)
 	local point, anchor, secondaryPoint, x, y = obj:GetPoint()
+	if not point then
+		return format('%s,%s,%s,%d,%d', 'CENTER', 'UIParent', 'CENTER', 0, 0)
+	end
 	if not anchor then
 		anchor = UIParent
 	end
 
-	return format('%s,%s,%s,%d,%d', point, anchor:GetName(), secondaryPoint, Round(x or 0), Round(y or 0))
+	return format('%s,%s,%s,%d,%d', point, anchor:GetName() or 'UIParent', secondaryPoint or point, Round(x or 0), Round(y or 0))
 end
 
 local isDragging = false

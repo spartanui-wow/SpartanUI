@@ -104,18 +104,10 @@ local function CreateUnitFrame(self, unit)
 
 		UF.Unit:Update(self)
 		local elementsDB = self.DB.elements
-		-- Check that its a frame
-		-- Loop all elements and update their status
-		for elementName, _ in pairs(self.elementList) do
-			if not elementsDB[elementName] then
-				SUI:Error('MISSING: ' .. elementName .. ' Type:' .. type(elementName))
-			else
-				self:ElementUpdate(elementName)
-			end
-		end
-
 		for element, _ in pairs(self.elementList) do
-			if self[element] and element ~= nil then
+			if not elementsDB[element] then
+				SUI:Error('MISSING: ' .. element .. ' Type:' .. type(element))
+			elseif self[element] and element ~= nil then
 				-- oUF Update (event/updater state)
 				if elementsDB[element].enabled then
 					self:EnableElement(element)
