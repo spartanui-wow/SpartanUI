@@ -131,7 +131,10 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 
 	-- Validate anchor frame. Reject missing frames and frames that aren't rooted at UIParent
 	-- (e.g. textures or frames inside SpartanUI's scaled tree), as those cause position drift.
-	local anchorObj = type(anchor) == 'string' and _G[anchor] or anchor
+	local anchorObj = anchor
+	if type(anchor) == 'string' then
+		anchorObj = _G[anchor]
+	end
 	local anchorInvalid = not anchorObj
 	if anchorObj and type(anchor) == 'string' and anchor ~= 'UIParent' then
 		-- Walk up the parent chain looking for UIParent. If we hit SpartanUI (which is scaled),
