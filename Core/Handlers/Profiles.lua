@@ -78,7 +78,7 @@ function module:OnEnable()
 
 	-- Register export blacklist patterns
 	-- Paths are relative to namespace root: Namespace.profiles.ProfileName.key
-	if LibAT and LibAT.ProfileManager then
+	if LibAT and LibAT.ProfileManager and LibAT.ProfileManager.RegisterExportBlacklist then
 		LibAT.ProfileManager:RegisterExportBlacklist({
 			'StopTalking.$global.history',
 			'PreyTracker.$global',
