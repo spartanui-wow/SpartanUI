@@ -1309,6 +1309,7 @@ function module:SetupClock()
 		if GameTimeFrame then
 			GameTimeFrame:SetScale(clockSettings.scale or 0.7)
 			GameTimeFrame:Show()
+			GameTimeFrame:GetRegions():Show()
 		end
 	end
 end
