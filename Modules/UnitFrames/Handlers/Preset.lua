@@ -47,28 +47,39 @@ function Preset:Register(presetName, definition)
 	registry[presetName] = definition
 end
 
----Get the active preset name for a frame group
+---Get the active preset name for a frame group.
+---Uses rawget so AceDB wildcard defaults don't shadow the _default fallback,
+---letting per-group entries stay sparse (only stored when they differ from _default).
 ---@param frameGroupLeader PresetFrameGroupName
 ---@return string presetName
 function Preset:GetActive(frameGroupLeader)
-	return UF.DB.Presets[frameGroupLeader] or UF.DB.Presets['_default'] or 'War'
+	local explicit = rawget(UF.DB.Presets, frameGroupLeader)
+	if explicit then
+		return explicit
+	end
+	return rawget(UF.DB.Presets, '_default') or 'War'
 end
 
----Set the preset for a specific frame group
+---Set the preset for a specific frame group. Clears the entry when it matches
+---_default so the DB stays sparse.
 ---@param groupLeader PresetFrameGroupName
 ---@param presetName string
 function Preset:SetForFrame(groupLeader, presetName)
-	UF.DB.Presets[groupLeader] = presetName
+	local default = rawget(UF.DB.Presets, '_default')
+	if presetName == default then
+		UF.DB.Presets[groupLeader] = nil
+	else
+		UF.DB.Presets[groupLeader] = presetName
+	end
 end
 
----Apply a theme's default presets to all frame groups (1-click theme application)
----Sets each frame group to the given preset name if that preset has configs for the group.
----Frame groups without configs in the preset are left at the preset name anyway
----(they'll just use base defaults, which is the expected 1-click behavior).
+---Apply a theme's default presets to all frame groups (1-click theme application).
+---Stores only _default and clears any per-group entries that would shadow it.
 ---@param themeName string
 function Preset:ApplyThemeDefaults(themeName)
+	UF.DB.Presets['_default'] = themeName
 	for groupLeader, _ in pairs(self.FrameGroups) do
-		UF.DB.Presets[groupLeader] = themeName
+		UF.DB.Presets[groupLeader] = nil
 	end
 end
 

@@ -297,6 +297,38 @@ function UF:OnInitialize()
 			end
 		end
 	end
+	-- Collapse per-group preset entries into _default when they all match.
+	-- Older profiles stored the same preset name under every frame group
+	-- (player, target, raid, ...). Reduce to a single _default entry so the
+	-- saved variables stay sparse.
+	if UF.DB.Presets then
+		local sample, allMatch = nil, true
+		local groupCount = 0
+		for groupLeader, _ in pairs(UF.Preset.FrameGroups) do
+			local stored = rawget(UF.DB.Presets, groupLeader)
+			if stored then
+				groupCount = groupCount + 1
+				if sample == nil then
+					sample = stored
+				elseif stored ~= sample then
+					allMatch = false
+					break
+				end
+			else
+				-- Missing entry would already fall through to _default; skip
+			end
+		end
+		if allMatch and sample and groupCount >= 2 then
+			local existingDefault = rawget(UF.DB.Presets, '_default')
+			if not existingDefault or existingDefault == sample then
+				UF.DB.Presets['_default'] = sample
+				for groupLeader, _ in pairs(UF.Preset.FrameGroups) do
+					UF.DB.Presets[groupLeader] = nil
+				end
+			end
+		end
+	end
+
 	-- Repair: previous migration incorrectly deleted Presets.raid (the group leader key).
 	-- Restore it from the tier-specific keys that were created.
 	if UF.DB.Presets and not UF.DB.Presets.raid then

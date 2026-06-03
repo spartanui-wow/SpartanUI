@@ -120,6 +120,7 @@ function module:OnEnable()
 	LibAT.ProfileManager:RegisterExportBlacklist({
 		'StopTalking.$global.history',
 		'PreyTracker.$global',
+		'BarHandler.BT4Initalized',
 	})
 
 	-- Register chat commands
