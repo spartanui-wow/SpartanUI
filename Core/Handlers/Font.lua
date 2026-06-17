@@ -11,7 +11,7 @@ local DBDefaults = {
 		['**'] = {
 			Size = 0,
 			Face = 'Roboto Bold',
-			Type = 'outline',
+			Type = 'normal',
 			Order = 200,
 		},
 		Global = {
@@ -136,20 +136,20 @@ function Font:Format(element, size, Module, UpdateOnly)
 		Font.DB.Modules[Module] = {
 			Size = 0,
 			Face = 'Roboto Bold',
-			Type = 'outline',
+			Type = 'normal',
 			Order = 200,
 		}
 	end
 
 	--Set Font Outline
 	local flags, sizeFinal = '', (size or 1)
-	if Font.DB.Modules[Module].Type == 'monochrome' then
-		flags = flags .. 'monochrome '
-	elseif Font.DB.Modules[Module].Type == 'thickoutline' then
-		flags = flags .. 'thickoutline '
-	elseif Font.DB.Modules[Module].Type == 'outline' then
-		element:SetShadowColor(0, 0, 0, 0.9)
-		element:SetShadowOffset(1, -1)
+	local fontType = Font.DB.Modules[Module].Type
+	if fontType == 'monochrome' then
+		flags = 'MONOCHROME'
+	elseif fontType == 'thickoutline' then
+		flags = 'THICKOUTLINE'
+	elseif fontType == 'outline' then
+		flags = 'OUTLINE'
 	end
 
 	--Set Size
@@ -158,13 +158,69 @@ function Font:Format(element, size, Module, UpdateOnly)
 		sizeFinal = 1
 	end
 
-	--Create Font
-	element:SetFont(SUI.Font:GetFont(Module), sizeFinal, flags)
+	--Apply the font via a shared FontObject so the drop shadow survives.
+	--WoW 12.0: SetShadowColor/SetShadowOffset called directly on a FontString are
+	--AllowedWhenUntainted - on unit frame text (which carries secret health/power
+	--values) those calls from our tainted code are dropped, so the shadow vanishes.
+	--A FontObject carries the shadow as part of its definition, so the string inherits
+	--it without a per-string tainted mutation.
+	--SetFontObject also overwrites justification with the object's, so preserve the
+	--element's own alignment (e.g. left-aligned chat frames) across the swap.
+	local justifyH = element.GetJustifyH and element:GetJustifyH()
+	local justifyV = element.GetJustifyV and element:GetJustifyV()
+	element:SetFontObject(Font:GetFontObject(Module, sizeFinal, flags))
+	if justifyH then
+		element:SetJustifyH(justifyH)
+	end
+	if justifyV then
+		element:SetJustifyV(justifyV)
+	end
 
 	--Store item for latter updating
 	if not UpdateOnly then
 		Font:StoreItem(element, size, Module)
 	end
+end
+
+Font.FontObjectCache = {}
+
+--[[
+	Return a cached FontObject for the given face/size/flags with SpartanUI's drop
+	shadow baked in. FontObjects are created untainted and reused, so the shadow they
+	carry is not subject to the WoW 12.0 tainted-FontString shadow restriction that
+	strips shadows from unit frame text.
+]]
+---@param Module? string
+---@param size number
+---@param flags string
+---@return Font
+function Font:GetFontObject(Module, size, flags)
+	local face = SUI.Font:GetFont(Module)
+	local key = tostring(face) .. ':' .. tostring(size) .. ':' .. tostring(flags)
+	local fontObject = Font.FontObjectCache[key]
+	if not fontObject then
+		fontObject = CreateFont('SUIFont_' .. key:gsub('[^%w]', '_'))
+		Font.FontObjectCache[key] = fontObject
+	end
+	fontObject:SetFont(face, size, flags)
+	fontObject:SetShadowColor(0, 0, 0, 1)
+	fontObject:SetShadowOffset(1, -1)
+	return fontObject
+end
+
+--[[
+	Apply SpartanUI's standard drop shadow to a FontString that is sized outside
+	Font:Format (e.g. oUF aura/cast text set with a direct :SetFont()). On secret-
+	carrying strings the direct shadow call may be dropped; prefer routing through
+	Font:Format / SetFontObject where possible.
+]]
+---@param element FontString
+function Font:ApplyShadow(element)
+	if not element or not element.SetShadowColor then
+		return
+	end
+	element:SetShadowColor(0, 0, 0, 1)
+	element:SetShadowOffset(1, -1)
 end
 
 --[[
