@@ -130,4 +130,130 @@ function BlizzAPI.canaccesstable(tbl)
 	return canaccesstable(tbl)
 end
 
+-- ============================================
+-- DURATION TEXT BINDING (Retail 12.0.7+)
+-- ============================================
+
+---@class LuaDurationObject
+---@field SetTimeSpan fun(self: LuaDurationObject, startTime: number, endTime: number)
+---@field SetTimeFromEnd fun(self: LuaDurationObject, endTime: number, duration: number, modRate?: number)
+---@field SetTimeFromStart fun(self: LuaDurationObject, startTime: number, duration: number, modRate?: number)
+
+---@class NumericFormatter
+---@field SetDefaultAbbreviation fun(self: NumericFormatter, abbreviation: number)
+---@field SetStripIntervalWhitespace fun(self: NumericFormatter, strip: number)
+---@field SetMillisecondsThreshold fun(self: NumericFormatter, threshold: number)
+
+---@class DurationTextBindingObject
+---@field SetFontString fun(self: DurationTextBindingObject, fontString: FontString)
+---@field SetFormatter fun(self: DurationTextBindingObject, formatter: NumericFormatter)
+---@field SetDuration fun(self: DurationTextBindingObject, duration: LuaDurationObject)
+---@field SetExpiredText fun(self: DurationTextBindingObject, text: string)
+---@field SetZeroDurationText fun(self: DurationTextBindingObject, text: string)
+---@field SetEnabled fun(self: DurationTextBindingObject, enabled: boolean)
+---@field UpdateFontString fun(self: DurationTextBindingObject)
+
+--[[
+	Secret-safe live countdown text.
+
+	WoW 12.0 makes aura expirationTime/duration secret values, so addons can no
+	longer do arithmetic on them to draw "12s" countdown text on aura icons. Retail
+	12.0.7 adds C_DurationUtil.CreateDurationTextBinding: we hand the engine a font
+	string plus a (possibly secret) start/end time span, and the engine formats and
+	updates the text itself. Our code never reads the secret value.
+
+	Returns nil when the API is unavailable (older Retail / Classic), so callers can
+	fall back to their existing OnUpdate path.
+]]
+local durationBindingAvailable = (C_DurationUtil and C_DurationUtil.CreateDurationTextBinding and C_StringUtil and C_StringUtil.CreateSecondsFormatter) and true or false
+
+---Whether secret-safe duration text binding is supported on this client.
+---@return boolean
+function BlizzAPI.HasDurationTextBinding()
+	return durationBindingAvailable
+end
+
+---Build a SecondsFormatter that renders short countdowns (e.g. "1h", "5m", "12", "3.4").
+---Enum/method availability is feature-detected: the formatter still works if a
+---given knob is missing on the current build, it just uses the engine default.
+---@return NumericFormatter|nil
+local function CreateCountdownFormatter()
+	local formatter = C_StringUtil.CreateSecondsFormatter()
+	if not formatter then
+		return nil
+	end
+	if formatter.SetDefaultAbbreviation and Enum.SecondsFormatterAbbreviation then
+		formatter:SetDefaultAbbreviation(Enum.SecondsFormatterAbbreviation.OneLetter)
+	end
+	if formatter.SetStripIntervalWhitespace and Enum.SecondsFormatterIntervalWhitespace then
+		formatter:SetStripIntervalWhitespace(Enum.SecondsFormatterIntervalWhitespace.Strip)
+	end
+	if formatter.SetMillisecondsThreshold then
+		formatter:SetMillisecondsThreshold(5)
+	end
+	return formatter
+end
+
+---Create a reusable duration text binding bound to a FontString.
+---The binding persists on the FontString; call BindDuration to (re)point it at a span.
+---@param fontString FontString The text region to drive
+---@return DurationTextBindingObject|nil binding nil if unsupported
+function BlizzAPI.CreateDurationText(fontString)
+	if not durationBindingAvailable or not fontString then
+		return nil
+	end
+	local binding = C_DurationUtil.CreateDurationTextBinding()
+	binding:SetFontString(fontString)
+	local formatter = CreateCountdownFormatter()
+	if formatter then
+		binding:SetFormatter(formatter)
+	end
+	binding:SetExpiredText('')
+	binding:SetZeroDurationText('')
+	binding:SetEnabled(true)
+	return binding
+end
+
+---Point an existing binding at a start/end time span and start updating.
+---startTime/endTime may be secret values (e.g. aura.expirationTime) - the engine
+---consumes them natively without exposing the value to addon code.
+---@param binding DurationTextBindingObject The binding from CreateDurationText
+---@param startTime number Span start (GetTime-relative, may be secret)
+---@param endTime number Span end (GetTime-relative, may be secret)
+function BlizzAPI.BindDuration(binding, startTime, endTime)
+	if not binding then
+		return
+	end
+	local duration = C_DurationUtil.CreateDuration()
+	duration:SetTimeSpan(startTime, endTime)
+	binding:SetDuration(duration)
+	binding:SetEnabled(true)
+end
+
+---Point a binding at an end time plus a length (the shape aura data comes in).
+---expirationTime/length may be secret values (aura.expirationTime / aura.duration);
+---the engine consumes them natively, so addon code never reads the secret.
+---@param binding DurationTextBindingObject The binding from CreateDurationText
+---@param expirationTime number When the span ends (GetTime-relative, may be secret)
+---@param length number Total length of the span in seconds (may be secret)
+function BlizzAPI.BindDurationFromEnd(binding, expirationTime, length)
+	if not binding then
+		return
+	end
+	local duration = C_DurationUtil.CreateDuration()
+	duration:SetTimeFromEnd(expirationTime, length)
+	binding:SetDuration(duration)
+	binding:SetEnabled(true)
+end
+
+---Stop a binding from updating and clear its text.
+---@param binding DurationTextBindingObject|nil
+function BlizzAPI.ClearDuration(binding)
+	if not binding then
+		return
+	end
+	binding:SetEnabled(false)
+	binding:UpdateFontString()
+end
+
 SUI.BlizzAPI = BlizzAPI

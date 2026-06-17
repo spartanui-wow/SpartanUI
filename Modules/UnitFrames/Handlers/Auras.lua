@@ -696,7 +696,7 @@ function Auras:ApplyTextSettings(button, DB)
 		local dt = DB.durationText or {}
 		local size = dt.size or 10
 		local outline = dt.outline or 'OUTLINE'
-		button.Duration:SetFont(SUI.Font:GetFont('UnitFrames'), size, outline)
+		button.Duration:SetFontObject(SUI.Font:GetFontObject('UnitFrames', size, outline))
 		button.Duration:ClearAllPoints()
 		button.Duration:SetPoint(dt.anchor or 'CENTER', button, dt.anchor or 'CENTER', dt.x or 0, dt.y or 0)
 	end
@@ -706,7 +706,7 @@ function Auras:ApplyTextSettings(button, DB)
 		local st = DB.stackText or {}
 		local size = st.size or 10
 		local outline = st.outline or 'OUTLINE'
-		button.Count:SetFont(SUI.Font:GetFont('UnitFrames'), size, outline)
+		button.Count:SetFontObject(SUI.Font:GetFontObject('UnitFrames', size, outline))
 		button.Count:ClearAllPoints()
 		button.Count:SetPoint(st.anchor or 'BOTTOMRIGHT', button, st.anchor or 'BOTTOMRIGHT', st.x or 2, st.y or -2)
 	end
@@ -733,16 +733,24 @@ function Auras:PostCreateButton(elementName, button)
 		button.Count:SetParent(StringParent)
 		button.Count:ClearAllPoints()
 		button.Count:SetPoint('BOTTOMRIGHT', button, 2, -2)
-		button.Count:SetFont(SUI.Font:GetFont('UnitFrames'), 10, 'OUTLINE')
+		button.Count:SetFontObject(SUI.Font:GetFontObject('UnitFrames', 10, 'OUTLINE'))
 	end
 
 	-- Create duration text
 	local Duration = StringParent:CreateFontString(nil, 'OVERLAY')
-	Duration:SetFont(SUI.Font:GetFont('UnitFrames'), 10, 'OUTLINE')
+	Duration:SetFontObject(SUI.Font:GetFontObject('UnitFrames', 10, 'OUTLINE'))
 	Duration:SetPoint('CENTER', button, 'CENTER', 0, 0)
 	Duration:SetJustifyH('CENTER')
 	button.Duration = Duration
 	button.showDuration = true -- Default to showing duration
+
+	-- Retail 12.0.7+: bind the duration text to the engine's secret-safe countdown.
+	-- The binding updates the text itself from a (possibly secret) time span, so our
+	-- OnUpdate never has to read aura.expirationTime. Falls back to the OnUpdate path
+	-- (Classic, or older Retail) when the API is unavailable.
+	if SUI.BlizzAPI.HasDurationTextBinding() then
+		button.DurationBinding = SUI.BlizzAPI.CreateDurationText(Duration)
+	end
 
 	-- Apply text customization from element DB
 	local element = button:GetParent()
@@ -1050,17 +1058,30 @@ function Auras.PostUpdateAura(element, unit, button, index)
 	if not auraData then
 		-- Clear duration when aura data unavailable
 		button.expiration = nil
-		if button.Duration then
+		if button.DurationBinding then
+			SUI.BlizzAPI.ClearDuration(button.DurationBinding)
+		elseif button.Duration then
 			button.Duration:SetText('')
 		end
 		return
 	end
 
 	if SUI.IsRetail then
-		-- RETAIL: duration/expirationTime may be secret or accessible depending on spell exemptions
+		-- RETAIL: duration/expirationTime are typically secret, so we can't do arithmetic
+		-- on them. When the secret-safe binding is available, hand the (possibly secret)
+		-- expiration + length straight to the engine, which formats the countdown itself.
 		local duration = auraData.duration
 		local expiration = auraData.expirationTime
-		if IsSafeValue(duration) and IsSafeValue(expiration) and duration and duration > 0 then
+		if button.DurationBinding then
+			if button.showDuration and duration and expiration then
+				SUI.BlizzAPI.BindDurationFromEnd(button.DurationBinding, expiration, duration)
+			else
+				-- Permanent aura or no duration: clear the binding text
+				SUI.BlizzAPI.ClearDuration(button.DurationBinding)
+			end
+			button.expiration = nil
+		elseif IsSafeValue(duration) and IsSafeValue(expiration) and duration and duration > 0 then
+			-- No binding API, but values happen to be accessible (exempt spells)
 			local remaining = expiration - GetTime()
 			if remaining > 0 then
 				button.expiration = remaining
