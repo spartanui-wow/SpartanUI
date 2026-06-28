@@ -60,6 +60,13 @@ local function CreateUnitFrame(self, unit)
 		unit = 'arena'
 	end
 
+	-- Pinned resolution: the pinned header sets showRaid/showParty/showPlayer all true,
+	-- so oUF guesses unit='raid' (or 'party'/'player') for its children. There is no 'raid'
+	-- settings key (only raid10/raid25/raid40), so use the pinned config for these children.
+	if string.match(frameName, '^SUI_UF_pinned_') then
+		unit = 'pinned'
+	end
+
 	-- Raid tier resolution: oUF passes unit='raid' for all SecureGroupHeaders with showRaid.
 	-- Extract the actual tier (raid10/raid25/raid40) from the header frame name.
 	-- Supports both single-header (SUI_UF_raid40_Header) and multi-header (SUI_UF_raid40_G3_Header) names.
@@ -70,6 +77,13 @@ local function CreateUnitFrame(self, unit)
 		end
 	end
 	self.DB = UF.CurrentSettings[unit]
+
+	-- Guard against an unresolved unit key. Without settings we cannot size or style the
+	-- frame, so bail out instead of erroring on every secure header child.
+	if not self.DB then
+		UF:debug('CreateUnitFrame: no settings for unit "' .. tostring(unit) .. '" (frame ' .. frameName .. '), skipping')
+		return
+	end
 
 	if self.isChild then
 		self.childType = 'pet'
