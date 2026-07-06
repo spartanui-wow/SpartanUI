@@ -1028,7 +1028,6 @@ local baseElements = {
 	},
 	SUI_RaidGroup = {
 		textSize = 9,
-		text = '[group]',
 		SetJustifyH = 'CENTER',
 		SetJustifyV = 'MIDDLE',
 		position = {

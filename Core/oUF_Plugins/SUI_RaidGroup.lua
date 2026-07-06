@@ -3,15 +3,24 @@ local _, ns = ...
 local oUF = ns.oUF or oUF
 
 -- SUI_RaidGroup as an oUF element
--- Displays raid group number
+-- Displays the raid subgroup number for the unit
 do
 	local Update = function(self, event, unit)
-		if IsInRaid() then
-			self.SUI_RaidGroup:Show()
-			self.SUI_RaidGroup.Text:Show()
+		local element = self.SUI_RaidGroup
+		if not element then
+			return
+		end
+
+		local raidIndex = IsInRaid() and UnitInRaid(self.unit)
+		if raidIndex then
+			local _, _, subgroup = GetRaidRosterInfo(raidIndex)
+			element.Text:SetText(subgroup)
+			element:Show()
+			element.Text:Show()
 		else
-			self.SUI_RaidGroup:Hide()
-			self.SUI_RaidGroup.Text:Hide()
+			element.Text:SetText('')
+			element:Hide()
+			element.Text:Hide()
 		end
 	end
 
