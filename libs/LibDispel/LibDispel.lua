@@ -73,6 +73,25 @@ local BlockList = GetList('BlockList') -- Spells blocked from AuraHighlight
 local DispelList = GetList('DispelList') -- List of types the player can dispel
 local DebuffColors = GetList('DebuffTypeColor', _G.DebuffTypeColor)
 
+-- Classic clients no longer populate _G.DebuffTypeColor, so seed the standard
+-- dispel types from Blizzard's color globals with hardcoded fallbacks. Without
+-- this, colors.debuff.None is nil and aura overlays crash on units with no
+-- dispel type.
+local function SeedColor(key, color)
+	if not DebuffColors[key] then
+		DebuffColors[key] = color
+	end
+end
+
+SeedColor('None', _G.DEBUFF_TYPE_NONE_COLOR or { r = 0.8, g = 0, b = 0 })
+SeedColor('Magic', _G.DEBUFF_TYPE_MAGIC_COLOR or { r = 0.2, g = 0.6, b = 1 })
+SeedColor('Curse', _G.DEBUFF_TYPE_CURSE_COLOR or { r = 0.6, g = 0, b = 1 })
+SeedColor('Disease', _G.DEBUFF_TYPE_DISEASE_COLOR or { r = 0.6, g = 0.4, b = 0 })
+SeedColor('Poison', _G.DEBUFF_TYPE_POISON_COLOR or { r = 0, g = 0.6, b = 0 })
+
+-- Lowercase alias so consumers that fall back to DebuffColors.none stay safe.
+DebuffColors.none = DebuffColors.None
+
 -- These dont exist in Blizzards color table
 DebuffColors.Bleed = { r = 1, g = 0.2, b = 0.6 }
 DebuffColors.EnemyNPC = { r = 0.9, g = 0.1, b = 0.1 }
