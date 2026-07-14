@@ -304,7 +304,8 @@ local function Visibility(self, event, unit)
 	local shouldEnable
 
 	if(not UnitHasVehicleUI('player')) then
-		if(UnitPowerMax(unit, ADDITIONAL_POWER_BAR_INDEX) ~= 0) then
+		local maxPower = UnitPowerMax(unit, ADDITIONAL_POWER_BAR_INDEX)
+		if(oUF:NotSecretValue(maxPower) and maxPower ~= 0) then
 			if(element.displayPairs[playerClass]) then
 				local powerType = UnitPowerType(unit)
 				shouldEnable = element.displayPairs[playerClass][powerType]

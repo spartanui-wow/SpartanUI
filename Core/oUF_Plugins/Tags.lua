@@ -33,6 +33,10 @@ if WOW_PROJECT_ID == WOW_PROJECT_MAINLINE then
 		end
 	end
 
+	-- Flat spec globals are deprecated on 12.x; prefer the C_SpecializationInfo namespace
+	local GetSpecialization = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization or GetSpecialization
+	local GetSpecializationInfo = C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo or GetSpecializationInfo
+
 	oUF.Tags.Events['specialization'] = 'PLAYER_TALENT_UPDATE'
 	oUF.Tags.Methods['specialization'] = function(unit)
 		if UnitIsPlayer(unit) then
