@@ -526,7 +526,6 @@ local function Options(unitName, OptionSet)
 						raid_debuffs = L['Raid Debuffs'],
 						dispellable = L['Dispellable Only'],
 						crowd_control = L['Crowd Control'],
-						important_debuffs = L['Important Debuffs'],
 					},
 					get = function()
 						local retail = ElementSettings.retail
@@ -629,7 +628,7 @@ local function Options(unitName, OptionSet)
 					type = 'description',
 					order = 7,
 					fontSize = 'small',
-					name = 'Available Filters:\nHELPFUL, HARMFUL, PLAYER, RAID, RAID_IN_COMBAT, RAID_PLAYER_DISPELLABLE, EXTERNAL_DEFENSIVE, BIG_DEFENSIVE, CROWD_CONTROL, CANCELABLE, NOT_CANCELABLE, INCLUDE_NAME_PLATE_ONLY, MAW, IMPORTANT\n\nCombine with | (pipe) character, e.g., "HARMFUL|RAID|PLAYER"',
+					name = 'Available Filters:\nHELPFUL, HARMFUL, PLAYER, RAID, RAID_IN_COMBAT, RAID_PLAYER_DISPELLABLE, EXTERNAL_DEFENSIVE, BIG_DEFENSIVE, CROWD_CONTROL, CANCELABLE, NOT_CANCELABLE, INCLUDE_NAME_PLATE_ONLY, MAW\n\nCombine with | (pipe) character, e.g., "HARMFUL|RAID|PLAYER"',
 				},
 			},
 		}

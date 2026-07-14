@@ -178,7 +178,7 @@ AuraPresets.Presets = {
 			number = 4,
 			size = 18,
 			rows = 1,
-			retail = { filterMode = 'important_buffs' },
+			retail = { filterMode = 'raid_buffs' },
 			classic = {
 				rules = {
 					isFromPlayerOrPlayerPet = true,
@@ -195,7 +195,7 @@ AuraPresets.Presets = {
 			number = 4,
 			size = 20,
 			rows = 1,
-			retail = { filterMode = 'important_debuffs' },
+			retail = { filterMode = 'raid_debuffs' },
 			classic = {
 				rules = {
 					isHarmful = true,

@@ -1,8 +1,8 @@
-# WoW 12.0.5 Aura System
+# WoW 12.0.x Aura System
 
-> SpartanUI's aura system supports all 14 Blizzard aura filters with full visual customization.
+> SpartanUI's aura system supports all 13 Blizzard aura filters with full visual customization.
 
-## All 14 WoW Aura Filters
+## All 13 WoW Aura Filters
 
 **Basic Filters:**
 - `HELPFUL` - All beneficial auras
@@ -26,7 +26,8 @@
 **Special Filters:**
 - `INCLUDE_NAME_PLATE_ONLY` - Nameplate-specific auras
 - `MAW` - Shadowlands Maw powers
-- `IMPORTANT` - Blizzard-flagged important auras
+
+**Removed by Blizzard (2026-07-14):** the `IMPORTANT` filter token was deleted from the game in a mid-2026 12.0.x build. The old `important_buffs`/`important_debuffs` filter modes are remapped to `raid_buffs`/`raid_debuffs` at runtime (`LEGACY_FILTER_REMAP` in `Modules/UnitFrames/Handlers/Auras.lua`) so saved user settings keep working.
 
 ## Filter Presets (Buffs)
 
@@ -38,7 +39,6 @@
 | `healing_mode` | `HELPFUL\|RAID_IN_COMBAT` | HoTs and active buffs (target/raid default) |
 | `external_defensives` | `HELPFUL\|EXTERNAL_DEFENSIVE` | Track external saves |
 | `big_defensives` | `HELPFUL\|BIG_DEFENSIVE` | Track major defensives |
-| `important_buffs` | `HELPFUL\|IMPORTANT` | Blizzard-flagged important |
 
 ## Filter Presets (Debuffs)
 
@@ -49,7 +49,6 @@
 | `raid_debuffs` | `HARMFUL\|RAID` | Raid mechanics (raid/party default) |
 | `dispellable` | `HARMFUL\|RAID_PLAYER_DISPELLABLE` | Only what you can cleanse |
 | `crowd_control` | `HARMFUL\|CROWD_CONTROL` | Stuns, roots, etc. (PvP) |
-| `important_debuffs` | `HARMFUL\|IMPORTANT` | Blizzard-flagged important |
 
 ## Custom Filter Strings
 

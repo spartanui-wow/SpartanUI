@@ -544,7 +544,6 @@ local function Options(unitName, OptionSet)
 						healing_mode = L['Healing Mode (HoTs)'],
 						external_defensives = L['External Defensives'],
 						big_defensives = L['Major Defensives'],
-						important_buffs = L['Important Buffs'],
 					},
 					get = function()
 						local retail = ElementSettings.retail
@@ -643,7 +642,7 @@ local function Options(unitName, OptionSet)
 					type = 'description',
 					order = 7,
 					fontSize = 'small',
-					name = 'Available Filters:\nHELPFUL, HARMFUL, PLAYER, RAID, RAID_IN_COMBAT, RAID_PLAYER_DISPELLABLE, EXTERNAL_DEFENSIVE, BIG_DEFENSIVE, CROWD_CONTROL, CANCELABLE, NOT_CANCELABLE, INCLUDE_NAME_PLATE_ONLY, MAW, IMPORTANT\n\nCombine with | (pipe) character, e.g., "HELPFUL||RAID||PLAYER"',
+					name = 'Available Filters:\nHELPFUL, HARMFUL, PLAYER, RAID, RAID_IN_COMBAT, RAID_PLAYER_DISPELLABLE, EXTERNAL_DEFENSIVE, BIG_DEFENSIVE, CROWD_CONTROL, CANCELABLE, NOT_CANCELABLE, INCLUDE_NAME_PLATE_ONLY, MAW\n\nCombine with | (pipe) character, e.g., "HELPFUL||RAID||PLAYER"',
 				},
 			},
 		}

@@ -28,7 +28,6 @@ Auras.FILTER_TYPES = {
 	-- Special filters
 	INCLUDE_NAME_PLATE_ONLY = 'INCLUDE_NAME_PLATE_ONLY',
 	MAW = 'MAW', -- Shadowlands Maw powers
-	IMPORTANT = 'IMPORTANT', -- Blizzard-flagged important auras
 }
 
 -- Preset filter combinations (common patterns)
@@ -40,7 +39,6 @@ Auras.FILTER_PRESETS = {
 	healing_mode = 'HELPFUL|PLAYER|RAID_IN_COMBAT',
 	external_defensives = 'HELPFUL|EXTERNAL_DEFENSIVE',
 	big_defensives = 'HELPFUL|BIG_DEFENSIVE',
-	important_buffs = 'HELPFUL|IMPORTANT',
 
 	-- Debuff presets
 	all_debuffs = 'HARMFUL',
@@ -48,10 +46,16 @@ Auras.FILTER_PRESETS = {
 	raid_debuffs = 'HARMFUL|RAID',
 	dispellable = 'RAID_PLAYER_DISPELLABLE',
 	crowd_control = 'HARMFUL|CROWD_CONTROL',
-	important_debuffs = 'HARMFUL|IMPORTANT',
 
 	-- Nameplate-specific
 	nameplate_only = 'INCLUDE_NAME_PLATE_ONLY',
+}
+
+-- Filter modes that no longer exist in the game, remapped to the closest working preset.
+-- The IMPORTANT filter token was removed from the game in a mid-2026 12.0.x build.
+local LEGACY_FILTER_REMAP = {
+	important_buffs = 'raid_buffs',
+	important_debuffs = 'raid_debuffs',
 }
 
 -- Track which auras we've already logged to avoid spam
@@ -165,6 +169,7 @@ Auras.LogAuraSecretStatus = LogAuraSecretStatus
 ---@return boolean
 function Auras:FilterRetail(element, unit, data, config)
 	local filterMode = config and config.filterMode or 'blizzard_default'
+	filterMode = LEGACY_FILTER_REMAP[filterMode] or filterMode
 	local customFilter = config and config.customFilter
 	local auraInstanceID = data.auraInstanceID
 

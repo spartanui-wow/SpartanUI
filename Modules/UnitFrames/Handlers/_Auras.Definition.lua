@@ -39,8 +39,8 @@ local UnitAuraInfo = {}
 ---| 'external_defensives' # External defensive cooldowns (HELPFUL|EXTERNAL_DEFENSIVE)
 ---| 'big_defensives' # Major personal defensives (HELPFUL|BIG_DEFENSIVE)
 ---| 'crowd_control' # CC effects - stuns, roots, silences (HARMFUL|CROWD_CONTROL)
----| 'important_buffs' # Blizzard-flagged important buffs (HELPFUL|IMPORTANT)
----| 'important_debuffs' # Blizzard-flagged important debuffs (HARMFUL|IMPORTANT)
+---| 'important_buffs' # Legacy - IMPORTANT filter removed from the game, remapped to raid_buffs
+---| 'important_debuffs' # Legacy - IMPORTANT filter removed from the game, remapped to raid_debuffs
 ---| 'all' # No additional filtering beyond base HELPFUL/HARMFUL from oUF
 ---| 'all_buffs' # All buffs (HELPFUL)
 ---| 'all_debuffs' # All debuffs (HARMFUL)
