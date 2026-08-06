@@ -19,6 +19,32 @@ local Auras = UF.Auras
 -- Number of aura groups offered per frame.
 Auras.MAX_GROUPS = 5
 
+-- Number of individually tracked spells offered per frame. Slots cannot be
+-- added after the container is built, so this is the hard ceiling.
+Auras.MAX_TRACKER_SLOTS = 12
+
+-- Defaults for one tracked spell.
+Auras.TRACKER_DEFAULTS = {
+	enabled = false,
+	name = '',
+	spellId = '',
+	filter = 'HELPFUL',
+	onlyMine = true,
+	size = 26,
+	showStacks = true,
+	showDuration = true,
+	showSwipe = true,
+	fontSize = 12,
+	anchor = 'CENTER',
+	x = 0,
+	y = 0,
+	expiring = {
+		enabled = false,
+		threshold = 5,
+		color = { 1, 0.1, 0.1, 1 },
+	},
+}
+
 -- Per-group defaults, resolved in code rather than through an AceDB ['**']
 -- wildcard. The UserSettings wildcard chain is only six levels deep and is
 -- fully consumed by preset/unit/elements/AuraGroups/groups/index, and
@@ -636,6 +662,330 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 					end,
 					set = function(_, val)
 						SetGroup(index, 'customFilter', val)
+					end,
+				},
+			},
+		}
+	end
+end
+
+----------------------------------------------------------------------------------------------------
+-- Tracker slots
+----------------------------------------------------------------------------------------------------
+
+---Read a tracked spell's settings with defaults applied.
+---@param DB table
+---@param index number|string
+---@return table
+function Auras:ResolveEntry(DB, index)
+	local resolved = {}
+
+	for key, value in pairs(self.TRACKER_DEFAULTS) do
+		if type(value) == 'table' then
+			local copy = {}
+			for k, v in pairs(value) do
+				copy[k] = v
+			end
+			resolved[key] = copy
+		else
+			resolved[key] = value
+		end
+	end
+
+	local stored = DB.entries and DB.entries[tostring(index)]
+	if stored then
+		for key, value in pairs(stored) do
+			if type(value) == 'table' and type(resolved[key]) == 'table' then
+				for k, v in pairs(value) do
+					resolved[key][k] = v
+				end
+			else
+				resolved[key] = value
+			end
+		end
+	end
+
+	return resolved
+end
+
+---The filter string for a tracked spell.
+---A slot with no spell ID gets a filter that matches nothing, so an unused
+---slot stays empty instead of showing an arbitrary aura.
+---@param entry table
+---@return string
+function Auras:GetEntryFilter(entry)
+	if not entry.enabled or not entry.spellId or entry.spellId == '' then
+		return 'HELPFUL|HARMFUL'
+	end
+
+	local filter = entry.filter or 'HELPFUL'
+	if entry.onlyMine then
+		filter = filter .. '|PLAYER'
+	end
+
+	return filter
+end
+
+---Create every tracker slot up front.
+---Slots share the additive-only limitation of groups, so they are all built
+---now and repointed later rather than being created on demand.
+---@param element table
+---@param DB table
+---@param buildSettings fun(element: table, entry: table): table
+function Auras:AttachSlots(element, DB, buildSettings)
+	element.slotKeys = element.slotKeys or {}
+
+	for index = 1, self.MAX_TRACKER_SLOTS do
+		local entry = self:ResolveEntry(DB, index)
+		element.slotKeys[index] = element:AddSlot(self:GetEntryFilter(entry), buildSettings(element, entry))
+	end
+end
+
+---Repoint existing slots at the current settings and reposition them.
+---@param element table
+---@param DB table
+function Auras:RefreshSlots(element, DB)
+	local frame = element.trackerOwner
+	if not frame then
+		return
+	end
+
+	for index = 1, self.MAX_TRACKER_SLOTS do
+		local key = element.slotKeys and element.slotKeys[index]
+		if key then
+			local entry = self:ResolveEntry(DB, index)
+
+			if element.SetAuraGroupFilterString then
+				element:SetAuraGroupFilterString(key, self:GetEntryFilter(entry))
+			end
+
+			-- Slots auto-position relative to each other by default; anchoring
+			-- them explicitly is what makes per-spell placement possible.
+			local slot = element.GetAuraGroupFrame and element:GetAuraGroupFrame(key)
+			if slot and slot.ClearAllPoints then
+				slot:ClearAllPoints()
+				slot:SetPoint(entry.anchor or 'CENTER', frame, entry.anchor or 'CENTER', entry.x or 0, entry.y or 0)
+			end
+		end
+	end
+end
+
+---Style a tracker button. Runs inside initializeFrame, the only window where
+---native script methods are allowed on an aura button.
+---@param button table
+---@param entry table
+---@param element table
+function Auras:StyleTrackerButton(button, entry, element)
+	local font = SUI.Font:GetFontObject(nil, entry.fontSize or 12, 'OUTLINE')
+
+	if button.Count and font then
+		button.Count:SetFontObject(font)
+	end
+	if button.Time and font then
+		button.Time:SetFontObject(font)
+	end
+end
+
+----------------------------------------------------------------------------------------------------
+-- Groups
+----------------------------------------------------------------------------------------------------
+
+---Build the per-spell tracker options tree.
+---@param unitName string
+---@param OptionSet AceConfig.OptionsTable
+---@param maxSlots number
+function Auras:BuildTrackerOptions(unitName, OptionSet, maxSlots)
+	local anchors = {
+		CENTER = L['Center'],
+		TOP = L['Top'],
+		BOTTOM = L['Bottom'],
+		LEFT = L['Left'],
+		RIGHT = L['Right'],
+		TOPLEFT = L['Top left'],
+		TOPRIGHT = L['Top right'],
+		BOTTOMLEFT = L['Bottom left'],
+		BOTTOMRIGHT = L['Bottom right'],
+	}
+
+	local function EntryDB(index)
+		return Auras:ResolveEntry(UF.CurrentSettings[unitName].elements.AuraTracker, index)
+	end
+
+	local function SetEntry(index, key, val)
+		local preset = UF:GetPresetForFrame(unitName)
+		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraTracker
+		stored.entries = stored.entries or {}
+		stored.entries[tostring(index)] = stored.entries[tostring(index)] or {}
+		stored.entries[tostring(index)][key] = val
+
+		local current = UF.CurrentSettings[unitName].elements.AuraTracker
+		current.entries = current.entries or {}
+		current.entries[tostring(index)] = current.entries[tostring(index)] or {}
+		current.entries[tostring(index)][key] = val
+
+		UF.Unit[unitName]:ElementUpdate('AuraTracker')
+	end
+
+	for index = 1, maxSlots do
+		OptionSet.args['entry' .. index] = {
+			name = function()
+				local db = EntryDB(index)
+				local label = (db.name ~= '' and db.name) or (db.spellId ~= '' and db.spellId) or (L['Spell'] .. ' ' .. index)
+				if not db.enabled then
+					label = label .. ' (' .. L['Off'] .. ')'
+				end
+				return label
+			end,
+			type = 'group',
+			order = 10 + index,
+			args = {
+				enabled = {
+					name = L['Track this spell'],
+					type = 'toggle',
+					order = 1,
+					get = function()
+						return EntryDB(index).enabled
+					end,
+					set = function(_, val)
+						SetEntry(index, 'enabled', val)
+					end,
+				},
+				spellId = {
+					name = L['Spell ID'],
+					desc = L['The spell to watch for. You can find IDs on your spellbook tooltips.'],
+					type = 'input',
+					order = 2,
+					get = function()
+						return EntryDB(index).spellId
+					end,
+					set = function(_, val)
+						SetEntry(index, 'spellId', val)
+					end,
+				},
+				name = {
+					name = L['Name'],
+					desc = L['A label for you, it is not shown on your frames'],
+					type = 'input',
+					order = 3,
+					get = function()
+						return EntryDB(index).name
+					end,
+					set = function(_, val)
+						SetEntry(index, 'name', val)
+					end,
+				},
+				filter = {
+					name = L['Type'],
+					type = 'select',
+					order = 4,
+					values = {
+						HELPFUL = L['Buff'],
+						HARMFUL = L['Debuff'],
+					},
+					get = function()
+						return EntryDB(index).filter
+					end,
+					set = function(_, val)
+						SetEntry(index, 'filter', val)
+					end,
+				},
+				onlyMine = {
+					name = L['Only mine'],
+					desc = L['Only show it when you are the one who cast it'],
+					type = 'toggle',
+					order = 5,
+					get = function()
+						return EntryDB(index).onlyMine
+					end,
+					set = function(_, val)
+						SetEntry(index, 'onlyMine', val)
+					end,
+				},
+				size = {
+					name = L['Icon size'],
+					type = 'range',
+					order = 6,
+					min = 8,
+					max = 64,
+					step = 1,
+					get = function()
+						return EntryDB(index).size
+					end,
+					set = function(_, val)
+						SetEntry(index, 'size', val)
+					end,
+				},
+				anchor = {
+					name = L['Position'],
+					type = 'select',
+					order = 10,
+					values = anchors,
+					get = function()
+						return EntryDB(index).anchor
+					end,
+					set = function(_, val)
+						SetEntry(index, 'anchor', val)
+					end,
+				},
+				x = {
+					name = L['X offset'],
+					type = 'range',
+					order = 11,
+					min = -100,
+					max = 100,
+					step = 1,
+					get = function()
+						return EntryDB(index).x
+					end,
+					set = function(_, val)
+						SetEntry(index, 'x', val)
+					end,
+				},
+				y = {
+					name = L['Y offset'],
+					type = 'range',
+					order = 12,
+					min = -100,
+					max = 100,
+					step = 1,
+					get = function()
+						return EntryDB(index).y
+					end,
+					set = function(_, val)
+						SetEntry(index, 'y', val)
+					end,
+				},
+				showStacks = {
+					name = L['Show stack count'],
+					type = 'toggle',
+					order = 20,
+					get = function()
+						return EntryDB(index).showStacks
+					end,
+					set = function(_, val)
+						SetEntry(index, 'showStacks', val)
+					end,
+				},
+				showDuration = {
+					name = L['Show time left'],
+					type = 'toggle',
+					order = 21,
+					get = function()
+						return EntryDB(index).showDuration
+					end,
+					set = function(_, val)
+						SetEntry(index, 'showDuration', val)
+					end,
+				},
+				showSwipe = {
+					name = L['Show cooldown sweep'],
+					type = 'toggle',
+					order = 22,
+					get = function()
+						return EntryDB(index).showSwipe
+					end,
+					set = function(_, val)
+						SetEntry(index, 'showSwipe', val)
 					end,
 				},
 			},

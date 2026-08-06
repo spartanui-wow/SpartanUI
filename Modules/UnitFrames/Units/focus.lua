@@ -8,15 +8,17 @@ local elementList = {
 	'Power',
 	'Portrait',
 	'SpartanArt',
-	'Buffs',
-	'Debuffs',
+	not SUI.IsRetail and 'Buffs',
+	not SUI.IsRetail and 'Debuffs',
+	SUI.IsRetail and 'AuraGroups',
 	'RaidTargetIndicator',
 	'Range',
 	'Fader',
 	'ThreatIndicator',
 	'RaidRoleIndicator',
 	'CustomText',
-	'AuraDesigner',
+	not SUI.IsRetail and 'AuraDesigner',
+	SUI.IsRetail and 'AuraTracker',
 }
 
 local function Builder(frame)

@@ -12,8 +12,12 @@ local function Builder(frame)
 	UF.Elements:Build(frame, 'Portrait', elementDB['Portrait'])
 	UF.Elements:Build(frame, 'Dispel', elementDB['Dispel'])
 	UF.Elements:Build(frame, 'SpartanArt', elementDB['SpartanArt'])
-	UF.Elements:Build(frame, 'Buffs', elementDB['Buffs'])
-	UF.Elements:Build(frame, 'Debuffs', elementDB['Debuffs'])
+	if SUI.IsRetail then
+		UF.Elements:Build(frame, 'AuraGroups', elementDB['AuraGroups'])
+	else
+		UF.Elements:Build(frame, 'Buffs', elementDB['Buffs'])
+		UF.Elements:Build(frame, 'Debuffs', elementDB['Debuffs'])
+	end
 	UF.Elements:Build(frame, 'ClassIcon', elementDB['ClassIcon'])
 	UF.Elements:Build(frame, 'RaidTargetIndicator', elementDB['RaidTargetIndicator'])
 	UF.Elements:Build(frame, 'ThreatIndicator', elementDB['ThreatIndicator'])
@@ -39,7 +43,11 @@ local function Builder(frame)
 
 	UF.Elements:Build(frame, 'AuraWatch', elementDB['AuraWatch'])
 	UF.Elements:Build(frame, 'CustomText', elementDB['CustomText'])
-	UF.Elements:Build(frame, 'AuraDesigner', elementDB['AuraDesigner'])
+	if SUI.IsRetail then
+		UF.Elements:Build(frame, 'AuraTracker', elementDB['AuraTracker'])
+	else
+		UF.Elements:Build(frame, 'AuraDesigner', elementDB['AuraDesigner'])
+	end
 
 	if ComboFrame then
 		ComboFrame:Hide()
@@ -62,6 +70,37 @@ local Settings = {
 	elements = {
 		AuraBars = {
 			enabled = true,
+		},
+		AuraGroups = {
+			enabled = true,
+			position = {
+				anchor = 'TOPRIGHT',
+				relativeTo = 'Frame',
+				x = 0,
+				y = -2,
+			},
+			growthx = 'LEFT',
+			growthy = 'DOWN',
+			groups = {
+				['1'] = {
+					enabled = true,
+					name = 'Buffs',
+					filterMode = 'healing_mode',
+					number = 16,
+					size = 22,
+					spacing = 1,
+				},
+				['2'] = {
+					enabled = true,
+					name = 'Debuffs',
+					filterMode = 'player_debuffs',
+					number = 16,
+					size = 26,
+					spacing = 1,
+					showDebuffBorder = true,
+					forceNewLine = true,
+				},
+			},
 		},
 		Buffs = {
 			enabled = true,

@@ -5,6 +5,7 @@
 	<Script file="AssistantIndicator.lua"/>
 	<Script file="AuraBars.lua"/>
 	<Script file="Auras.lua"/>
+	<Script file="AuraTracker.lua"/>
 	<Script file="AuraWatch.lua"/>
 	<Script file="Buffs.lua"/>
 	<Script file="Castbar.lua"/>

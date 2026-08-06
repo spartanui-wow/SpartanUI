@@ -12,8 +12,9 @@ local function Builder(frame)
 		'Portrait',
 		'Dispel',
 		'SpartanArt',
-		'Buffs',
-		'Debuffs',
+		not SUI.IsRetail and 'Buffs',
+		not SUI.IsRetail and 'Debuffs',
+		SUI.IsRetail and 'AuraGroups',
 		'ClassIcon',
 		'RaidTargetIndicator',
 		'ThreatIndicator',
@@ -43,7 +44,8 @@ local function Builder(frame)
 		SUI.IsRetail and 'PrivateAuras',
 		'AuraBars',
 		'CustomText',
-		'AuraDesigner',
+		not SUI.IsRetail and 'AuraDesigner',
+		SUI.IsRetail and 'AuraTracker',
 	}
 
 	for _, elementName in pairs(ElementsToBuild) do
@@ -103,6 +105,37 @@ local Settings = {
 		},
 		AuraBars = {
 			enabled = true,
+		},
+		AuraGroups = {
+			enabled = true,
+			position = {
+				anchor = 'TOPLEFT',
+				relativeTo = 'Frame',
+				x = 0,
+				y = -2,
+			},
+			growthx = 'RIGHT',
+			growthy = 'DOWN',
+			groups = {
+				['1'] = {
+					enabled = true,
+					name = 'Buffs',
+					filterMode = 'all_buffs',
+					number = 32,
+					size = 24,
+					spacing = 2,
+				},
+				['2'] = {
+					enabled = true,
+					name = 'Debuffs',
+					filterMode = 'all_debuffs',
+					number = 16,
+					size = 28,
+					spacing = 2,
+					showDebuffBorder = true,
+					forceNewLine = true,
+				},
+			},
 		},
 		Buffs = {
 			enabled = true,

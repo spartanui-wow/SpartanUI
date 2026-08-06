@@ -11,8 +11,9 @@ local elementList = {
 	'Portrait',
 	'Dispel',
 	'SpartanArt',
-	'Buffs',
-	'Debuffs',
+	not SUI.IsRetail and 'Buffs',
+	not SUI.IsRetail and 'Debuffs',
+	SUI.IsRetail and 'AuraGroups',
 	'ClassIcon',
 	'RaidTargetIndicator',
 	'TargetIndicator',
@@ -37,7 +38,8 @@ local elementList = {
 	'CornerIndicators',
 	'PrivateAuras',
 	'CustomText',
-	'AuraDesigner',
+	not SUI.IsRetail and 'AuraDesigner',
+	SUI.IsRetail and 'AuraTracker',
 }
 
 -- Tier definitions: 3 independent raid frame types
@@ -1105,6 +1107,38 @@ local tierOverrides = {
 		unitsPerColumn = 5,
 		columnSpacing = 2,
 		elements = {
+			AuraGroups = {
+				enabled = true,
+				position = {
+					anchor = 'BOTTOMRIGHT',
+					relativeTo = 'Frame',
+					x = 0,
+					y = 2,
+				},
+				growthx = 'RIGHT',
+				growthy = 'UP',
+				groups = {
+					['1'] = {
+						enabled = true,
+						name = 'HoTs',
+						filterMode = 'healing_mode',
+						onlyMine = true,
+						number = 5,
+						size = 18,
+						spacing = 1,
+					},
+					['2'] = {
+						enabled = true,
+						name = 'Raid debuffs',
+						filterMode = 'raid_debuffs',
+						number = 5,
+						size = 18,
+						spacing = 1,
+						showDebuffBorder = true,
+						forceNewLine = true,
+					},
+				},
+			},
 			Buffs = {
 				enabled = true,
 				onlyShowPlayer = true,
@@ -1171,6 +1205,38 @@ local tierOverrides = {
 		unitsPerColumn = 5,
 		columnSpacing = 2,
 		elements = {
+			AuraGroups = {
+				enabled = true,
+				position = {
+					anchor = 'BOTTOMRIGHT',
+					relativeTo = 'Frame',
+					x = 0,
+					y = 2,
+				},
+				growthx = 'RIGHT',
+				growthy = 'UP',
+				groups = {
+					['1'] = {
+						enabled = true,
+						name = 'HoTs',
+						filterMode = 'healing_mode',
+						onlyMine = true,
+						number = 5,
+						size = 18,
+						spacing = 1,
+					},
+					['2'] = {
+						enabled = true,
+						name = 'Raid debuffs',
+						filterMode = 'raid_debuffs',
+						number = 5,
+						size = 18,
+						spacing = 1,
+						showDebuffBorder = true,
+						forceNewLine = true,
+					},
+				},
+			},
 			Buffs = {
 				enabled = true,
 				onlyShowPlayer = true,
@@ -1237,6 +1303,38 @@ local tierOverrides = {
 		unitsPerColumn = 10,
 		columnSpacing = 2,
 		elements = {
+			AuraGroups = {
+				enabled = true,
+				position = {
+					anchor = 'BOTTOMRIGHT',
+					relativeTo = 'Frame',
+					x = 0,
+					y = 2,
+				},
+				growthx = 'RIGHT',
+				growthy = 'UP',
+				groups = {
+					['1'] = {
+						enabled = true,
+						name = 'HoTs',
+						filterMode = 'healing_mode',
+						onlyMine = true,
+						number = 5,
+						size = 18,
+						spacing = 1,
+					},
+					['2'] = {
+						enabled = true,
+						name = 'Raid debuffs',
+						filterMode = 'raid_debuffs',
+						number = 5,
+						size = 18,
+						spacing = 1,
+						showDebuffBorder = true,
+						forceNewLine = true,
+					},
+				},
+			},
 			Buffs = {
 				enabled = true,
 				onlyShowPlayer = true,

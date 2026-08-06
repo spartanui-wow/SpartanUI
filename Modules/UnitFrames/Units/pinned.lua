@@ -7,8 +7,9 @@ local elementList = {
 	'Power',
 	'Dispel',
 	'SpartanArt',
-	'Buffs',
-	'Debuffs',
+	not SUI.IsRetail and 'Buffs',
+	not SUI.IsRetail and 'Debuffs',
+	SUI.IsRetail and 'AuraGroups',
 	'RaidTargetIndicator',
 	'ThreatIndicator',
 	'Range',
@@ -18,7 +19,8 @@ local elementList = {
 	'DefensiveIndicator',
 	'CornerIndicators',
 	'CustomText',
-	'AuraDesigner',
+	not SUI.IsRetail and 'AuraDesigner',
+	SUI.IsRetail and 'AuraTracker',
 }
 
 -- Build the nameList string from settings
