@@ -67,10 +67,6 @@ order to avoid possible name collisions.
                    This will override the events for the tag(s), if any. If the value is a number, it is taken as a time
                    interval in seconds. If the value is a boolean, the time interval is set to 0.5 seconds (number or boolean)
 
-## Attributes
-
-.parent - the unit frame on which the tag has been registered
-
 ## Examples
 
 ### Example tag usage
@@ -113,9 +109,12 @@ local _, ns = ...
 local oUF = ns.oUF
 local Private = oUF.Private
 
+local STATE = {}
+
 local nierror = Private.nierror
 local unitExists = Private.unitExists
 local validateEvent = Private.validateEvent
+local insertObjectElementUpdateFunc = Private.insertObjectElementUpdateFunc
 
 local _PATTERN = '%[..-%]+'
 
@@ -217,9 +216,8 @@ local tagStrings = {
 	['group'] = [[function(unit)
 		if(IsInRaid()) then
 			for index = 1, GetNumGroupMembers() do
-				-- TODO: use C_Secrets.CanCompareUnitTokens instead of pcall
-				local isOk, isUnit = pcall(UnitIsUnit, unit, 'raid' .. index)
-				if(isOk and isUnit) then
+				local raidUnit = 'raid' .. index
+				if(C_Secrets.CanCompareUnitTokens(unit, raidUnit) and UnitIsUnit(unit, raidUnit)) then
 					local _, _, group = GetRaidRosterInfo(index)
 					return group
 				end
@@ -237,13 +235,15 @@ local tagStrings = {
 	end]],
 
 	['leader'] = [[function(u)
-		if(UnitIsGroupLeader(u)) then
+		local isLeader = UnitIsGroupLeader(unit)
+		if(not issecretvalue(isLeader) and isLeader) then
 			return 'L'
 		end
 	end]],
 
 	['leaderlong']  = [[function(u)
-		if(UnitIsGroupLeader(u)) then
+		local isLeader = UnitIsGroupLeader(unit)
+		if(not issecretvalue(isLeader) and isLeader) then
 			return 'Leader'
 		end
 	end]],
@@ -284,13 +284,11 @@ local tagStrings = {
 	end]],
 
 	['perhp'] = [[function(u)
-		local ok, val = pcall(UnitHealthPercent, u, true, CurveConstants.ScaleTo100)
-		if(ok and val) then return string.format('%d', val) end
+		return string.format('%d', UnitHealthPercent(u, true, CurveConstants.ScaleTo100))
 	end]],
 
 	['perpp'] = [[function(u)
-		local ok, val = pcall(UnitPowerPercent, u, nil, true, CurveConstants.ScaleTo100)
-		if(ok and val) then return string.format('%d', val) end
+		return string.format('%d', UnitPowerPercent(u, nil, true, CurveConstants.ScaleTo100))
 	end]],
 
 	['plus'] = [[function(u)
@@ -327,8 +325,14 @@ local tagStrings = {
 
 	['raidcolor'] = [[function(u)
 		local _, class = UnitClass(u)
-		if(class) then
-			return _COLORS.class[class]:GenerateHexColorMarkup()
+		if(class ~= nil) then
+			if(issecretvalue(class)) then
+				-- BUG: we can't use custom colors if the class is secret
+				-- https://github.com/oUF-wow/oUF/issues/873
+				return C_ClassColor.GetClassColor(class):GenerateHexColorMarkup()
+			else
+				return _COLORS.class[class]:GenerateHexColorMarkup()
+			end
 		else
 			local id = u:match('arena(%d)$')
 			if(id) then
@@ -368,11 +372,13 @@ local tagStrings = {
 	end]],
 
 	['sex'] = [[function(u)
-		local s = UnitSex(u)
-		if(s == 2) then
-			return 'Male'
-		elseif(s == 3) then
-			return 'Female'
+		local sex = UnitSex(u)
+		if(not issecretvalue(sex)) then
+			if(sex == 2) then
+				return 'Male'
+			elseif(sex == 3) then
+				return 'Female'
+			end
 		end
 	end]],
 
@@ -445,9 +451,7 @@ local tagStrings = {
 	end]],
 
 	['threatcolor'] = [[function(u)
-		local s = UnitThreatSituation(u) or 0
-		if(canaccessvalue and not canaccessvalue(s)) then s = 0 end
-		return _COLORS.threat[s]:GenerateHexColorMarkup()
+		return _COLORS.threat[UnitThreatSituation(u) or 0]:GenerateHexColorMarkup()
 	end]],
 }
 
@@ -573,7 +577,7 @@ eventFrame:SetScript('OnEvent', function(self, event, unit)
 	local strings = eventFontStrings[event]
 	if(strings) then
 		for fs in next, strings do
-			if(not stringsToUpdate[fs] and fs:IsVisible() and (unitlessEvents[event] or fs.parent.unit == unit or (fs.extraUnits and fs.extraUnits[unit]))) then
+			if(not stringsToUpdate[fs] and fs:IsVisible() and (unitlessEvents[event] or fs.__owner.__unit == unit or (fs.extraUnits and fs.extraUnits[unit]))) then
 				stringsToUpdate[fs] = true
 			end
 		end
@@ -611,7 +615,7 @@ local function enableTimer(timer)
 		frame:SetScript('OnUpdate', function(self, elapsed)
 			if(total >= timer) then
 				for fs in next, strings do
-					if(fs.parent:IsShown() and unitExists(fs.parent.unit)) then
+					if(fs.__owner:IsShown() and unitExists(fs.__owner.__unit)) then
 						fs:UpdateTag()
 					end
 				end
@@ -641,8 +645,8 @@ Used to update all tags on a frame.
 * self - the unit frame from which to update the tags
 --]]
 local function Update(self)
-	if(self.__tags) then
-		for fs in next, self.__tags do
+	if(STATE[self]) then
+		for fs in next, STATE[self] do
 			fs:UpdateTag()
 		end
 	end
@@ -756,11 +760,11 @@ local function getTagFunc(tagstr)
 		end
 
 		func = function(self)
-			local parent = self.parent
-			local unit = parent.unit
+			local parent = self.__owner
+			local unit = parent.__unit
 			local realUnit
 			if(self.overrideUnit) then
-				realUnit = parent.realUnit
+				realUnit = parent.__realUnit
 			end
 
 			_ENV._COLORS = parent.colors
@@ -833,8 +837,6 @@ local function unregisterTimer(fs)
 	end
 end
 
-local taggedFontStrings = {}
-
 --[[ Tags: frame:Tag(fs, ts, ...)
 Used to register a tag on a unit frame.
 
@@ -846,40 +848,41 @@ Used to register a tag on a unit frame.
 local function Tag(self, fs, ts, ...)
 	if(not fs or not ts) then return end
 
-	if(not self.__tags) then
-		self.__tags = {}
-		table.insert(self.__elements, Update)
-	elseif(self.__tags[fs]) then
-		-- We don't need to remove it from the __tags table as Untag handles that for us.
+	if(not STATE[self]) then
+		STATE[self] = {}
+		insertObjectElementUpdateFunc(self, Update)
+	elseif(STATE[self][fs]) then
 		self:Untag(fs)
 	end
 
-	fs.parent = self
+	fs.__owner = self
 	fs.UpdateTag = getTagFunc(ts)
 
-	if(self.__eventless or fs.frequentUpdates) then
-		local timer = 0.5
-		if(type(fs.frequentUpdates) == 'number') then
-			timer = fs.frequentUpdates
-		end
-
-		registerTimer(fs, timer)
-	else
-		registerEvents(fs, ts)
-
-		if(...) then
-			if(not fs.extraUnits) then
-				fs.extraUnits = {}
+	if(not self:IsEventless()) then
+		-- tags on eventless units gets updated through the frame's timer
+		if(fs.frequentUpdates) then
+			local timer = 0.5
+			if(type(fs.frequentUpdates) == 'number') then
+				timer = fs.frequentUpdates
 			end
 
-			for index = 1, select('#', ...) do
-				fs.extraUnits[select(index, ...)] = true
+			registerTimer(fs, timer)
+		else
+			registerEvents(fs, ts)
+
+			if(...) then
+				if(not fs.extraUnits) then
+					fs.extraUnits = {}
+				end
+
+				for index = 1, select('#', ...) do
+					fs.extraUnits[select(index, ...)] = true
+				end
 			end
 		end
 	end
 
-	taggedFontStrings[fs] = ts
-	self.__tags[fs] = true
+	STATE[self][fs] = ts
 end
 
 --[[ Tags: frame:Untag(fs)
@@ -889,15 +892,14 @@ Used to unregister a tag from a unit frame.
 * fs   - the font string holding the tag (FontString)
 --]]
 local function Untag(self, fs)
-	if(not fs or not self.__tags) then return end
+	if(not fs or not STATE[self]) then return end
 
 	unregisterEvents(fs)
 	unregisterTimer(fs)
 
 	fs.UpdateTag = nil
 
-	taggedFontStrings[fs] = nil
-	self.__tags[fs] = nil
+	STATE[self][fs] = nil
 end
 
 local function strip(tag)
@@ -927,7 +929,7 @@ oUF.Tags = {
 			if(strip(tagstr):match(tag)) then
 				tagStringFuncs[tagstr] = nil
 
-				for fs in next, taggedFontStrings do
+				for fs in next, STATE[self] do
 					if(fs.UpdateTag == func) then
 						fs.UpdateTag = getTagFunc(tagstr)
 
@@ -948,7 +950,7 @@ oUF.Tags = {
 
 		for tagstr in next, tagStringFuncs do
 			if(strip(tagstr):match(tag)) then
-				for fs, ts in next, taggedFontStrings do
+				for fs, ts in next, STATE[self] do
 					if(ts == tagstr) then
 						unregisterEvents(fs)
 						registerEvents(fs, tagstr)

@@ -31,15 +31,7 @@ function Private.unitExists(unit)
 end
 
 function Private.unitIsUnit(unit1, unit2)
-	-- TODO: use C_Secrets.CanCompareUnitTokens instead of pcall
-	local isOk, isUnit = pcall(UnitIsUnit, unit1, unit2)
-	if(not isOk) then return false end
-	-- UnitIsUnit can return a secret boolean when called on combat-restricted
-	-- units. Any downstream `not isUnit` / `if isUnit then` check would error
-	-- ("boolean test on a secret boolean value"). Treat an inaccessible result
-	-- as false so callers can use it in plain boolean tests.
-	if(canaccessvalue and not canaccessvalue(isUnit)) then return false end
-	return not not isUnit
+	return C_Secrets.CanCompareUnitTokens(unit1, unit2) and UnitIsUnit(unit1, unit2)
 end
 
 local validator = CreateFrame('Frame')

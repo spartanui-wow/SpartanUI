@@ -30,7 +30,7 @@ local oUF = ns.oUF
 
 local function Update(self, event)
 	local element = self.Range
-	local unit = self.unit
+	local unit = self.__unit
 
 	--[[ Callback: Range:PreUpdate()
 	Called before the element has been updated.
@@ -42,12 +42,7 @@ local function Update(self, event)
 	end
 
 	local inRange
-	local connected = UnitIsConnected(unit)
-	local inParty = UnitInParty(unit)
-	local isEligible = false
-	if(canaccessvalue(connected) and canaccessvalue(inParty)) then
-		isEligible = connected and inParty
-	end
+	local isEligible = UnitIsConnected(unit) and UnitInParty(unit)
 	if(isEligible) then
 		inRange = UnitInRange(unit)
 		self:SetAlphaFromBoolean(inRange, element.insideAlpha, element.outsideAlpha)

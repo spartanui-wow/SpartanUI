@@ -82,8 +82,13 @@ local frame_metatable = {
 }
 Private.frame_metatable = frame_metatable
 
+local objectElementUpdateFuncs = {}
+function Private.insertObjectElementUpdateFunc(object, func)
+	table.insert(objectElementUpdateFuncs[object], func)
+end
+
 for k, v in next, {
-	--[[ frame:EnableElement(name, unit)
+	--[[ frame:EnableElement(name[, unit])
 	Used to activate an element for the given unit frame.
 
 	* self - unit frame for which the element should be enabled
@@ -97,32 +102,34 @@ for k, v in next, {
 		local element = elements[name]
 		if(not element or self:IsElementEnabled(name)) then return end
 
-		if(element.enable(self, unit or self.unit)) then
+		if(element.enable(self, unit or self.__unit)) then
 			activeElements[self][name] = true
 
 			if(element.update) then
-				table.insert(self.__elements, element.update)
+				table.insert(objectElementUpdateFuncs[self], element.update)
 			end
 		end
 	end,
 
-	--[[ frame:DisableElement(name)
+	--[[ frame:DisableElement(name[, unit])
 	Used to deactivate an element for the given unit frame.
 
 	* self - unit frame for which the element should be disabled
 	* name - name of the element to be disabled (string)
+	* unit - unit to be passed to the element's Disable function. Defaults to the frame's unit (string?)
 	--]]
-	DisableElement = function(self, name)
+	DisableElement = function(self, name, unit)
 		argcheck(name, 2, 'string')
+		argcheck(unit, 3, 'string', 'nil')
 
 		local enabled = self:IsElementEnabled(name)
 		if(not enabled) then return end
 
 		local update = elements[name].update
 		if(update) then
-			for k, func in next, self.__elements do
+			for index, func in next, objectElementUpdateFuncs[self] do
 				if(func == update) then
-					table.remove(self.__elements, k)
+					table.remove(objectElementUpdateFuncs[self], index)
 					break
 				end
 			end
@@ -130,7 +137,7 @@ for k, v in next, {
 
 		activeElements[self][name] = nil
 
-		return elements[name].disable(self)
+		return elements[name].disable(self, unit or self.__unit)
 	end,
 
 	--[[ frame:IsElementEnabled(name)
@@ -181,7 +188,7 @@ for k, v in next, {
 	* event - event name to pass to the elements' update functions (string)
 	--]]
 	UpdateAllElements = function(self, event)
-		local unit = self.unit
+		local unit = self.__unit
 		if(not unitExists(unit)) then return end
 
 		assert(type(event) == 'string', "Invalid argument 'event' in UpdateAllElements.")
@@ -196,7 +203,7 @@ for k, v in next, {
 			self:PreUpdate(event)
 		end
 
-		for _, func in next, self.__elements do
+		for _, func in next, objectElementUpdateFuncs[self] do
 			func(self, event, unit)
 		end
 
@@ -229,13 +236,13 @@ local function updatePet(self, event, unit)
 		petUnit = unit:gsub('^(%a+)(%d+)', '%1pet%2')
 	end
 
-	if(self.unit ~= petUnit) then return end
+	if(self.__unit ~= petUnit) then return end
 
 	evalUnitAndUpdate(self, event)
 end
 
 local function updateRaid(self, event)
-	local unitGUID = UnitGUID(self.unit)
+	local unitGUID = UnitGUID(self.__unit)
 	if(unitGUID ~= nil and not issecretvalue(unitGUID) and unitGUID ~= self.unitGUID) then
 		self.unitGUID = unitGUID
 
@@ -256,7 +263,7 @@ local function initObject(unit, style, styleFunc, header, ...)
 			objectUnit = objectUnit .. suffix
 		end
 
-		object.__elements = {}
+		objectElementUpdateFuncs[object] = {}
 		object.style = style
 		object = setmetatable(object, frame_metatable)
 
@@ -272,7 +279,7 @@ local function initObject(unit, style, styleFunc, header, ...)
 		-- frame will be stuck with the 'vehicle' unit.
 		object:RegisterEvent('PLAYER_ENTERING_WORLD', evalUnitAndUpdate, true)
 
-		if(not objectUnit:match('%w+target')) then
+		if(not objectUnit:match('%w+target') and not object.isNamePlate) then
 			object:RegisterEvent('UNIT_ENTERED_VEHICLE', evalUnitAndUpdate)
 			object:RegisterEvent('UNIT_EXITED_VEHICLE', evalUnitAndUpdate)
 
@@ -778,6 +785,7 @@ do
 		argcheck(callback, 2, 'function', 'nil')
 		self.targetCallback = callback
 	end
+
 	--[[ nameplates:SetAddedCallback(callback)
 	Sets a callback function to be triggered whenever a nameplate has been added.  
 	The payload for the callback is `(nameplate, event, unit)`.
@@ -786,6 +794,7 @@ do
 		argcheck(callback, 2, 'function', 'nil')
 		self.addedCallback = callback
 	end
+
 	--[[ nameplates:SetRemovedCallback(callback)
 	Sets a callback function to be triggered whenever a nameplate has been removed.  
 	The payload for the callback is `(nameplate, event, unit)`.
@@ -851,12 +860,14 @@ do
 		updateDriver(self)
 	end
 
+	local previouslyActiveElements = {}
 	local function driverEventHandler(self, event, unit)
 		if(event == 'PLAYER_LOGIN') then
 			updateDriver(self)
 		elseif(event == 'PLAYER_TARGET_CHANGED') then
 			local nameplate = C_NamePlate.GetNamePlateForUnit('target')
 			if(not nameplate or not nameplate.unitFrame) then return end
+			if(UnitNameplateShowsWidgetsOnly('target') or UnitIsGameObject('target')) then return end
 
 			if(self.targetCallback) then
 				self.targetCallback(nameplate.unitFrame, event, 'target')
@@ -869,46 +880,70 @@ do
 			local nameplate = C_NamePlate.GetNamePlateForUnit(unit)
 			if(not nameplate) then return end
 
-			oUF:DisableBlizzardNamePlate(nameplate)
+			-- we need to disable blizzard's handling on every spawn because they keep
+			-- initializing stuff on nameplates
+			oUF:DisableBlizzard(unit)
 
 			if(not nameplate.unitFrame) then
 				nameplate.style = self.style
 
 				nameplate.unitFrame = CreateFrame('Button', self.prefix .. nameplate:GetName(), nameplate, 'PingableUnitFrameTemplate')
 				nameplate.unitFrame:EnableMouse(false)
-				nameplate.unitFrame.isNamePlate = true
 				nameplate.unitFrame:SetAllPoints()
+				nameplate.unitFrame.isNamePlate = true
 
 				Private.UpdateUnits(nameplate.unitFrame, unit)
 
 				walkObject(nameplate.unitFrame, unit)
+
+				-- re-parent other elements directly to the nameplate frame, as there doesn't seem
+				-- to be any downsides to be parented there than to the unit frame within,
+				-- and this is the easier solution (no need to actively reparent and show/hide
+				-- the stock unit frame object)
+				nameplate.UnitFrame.WidgetContainer:SetParent(nameplate)
+				nameplate.UnitFrame.WidgetContainer:SetPoint('TOP', nameplate, 'BOTTOM')
+				nameplate.UnitFrame.SoftTargetFrame:SetParent(nameplate)
+			end
+
+			if(UnitNameplateShowsWidgetsOnly(unit) or UnitIsGameObject(unit)) then
+				previouslyActiveElements[nameplate.unitFrame] = {}
+
+				for element in next, activeElements[nameplate.unitFrame] do
+					nameplate.unitFrame:DisableElement(element, unit)
+					previouslyActiveElements[nameplate.unitFrame][element] = true
+				end
+
+				-- no point showing our unit frame when there's only widgets,
+				-- it'll only get in the way
+				nameplate.unitFrame:Hide()
 			else
+				-- we need to keep updating the attributes in order to keep correct info,
+				-- as this can change during nameplate re-use
+				nameplate.unitFrame:SetAttribute('unit', unit)
 				Private.UpdateUnits(nameplate.unitFrame, unit)
-			end
 
-			nameplate.unitFrame:SetAttribute('unit', unit)
+				-- enable elements if they were previously disabled
+				if(previouslyActiveElements[nameplate.unitFrame]) then
+					for element in next, previouslyActiveElements[nameplate.unitFrame] do
+						nameplate.unitFrame:EnableElement(element, unit)
+					end
 
-			if(nameplate.UnitFrame) then
-				if(nameplate.UnitFrame.WidgetContainer) then
-					nameplate.UnitFrame.WidgetContainer:SetParent(nameplate.unitFrame)
-					nameplate.UnitFrame.WidgetContainer:SetIgnoreParentAlpha(true)
-					nameplate.unitFrame.WidgetContainer = nameplate.UnitFrame.WidgetContainer
+					table.wipe(previouslyActiveElements[nameplate.unitFrame])
+
+					nameplate.unitFrame:Show()
 				end
-				if(nameplate.UnitFrame.SoftTargetFrame) then
-					-- we keep this to render soft target interaction icons above the "target"
-					nameplate.UnitFrame.SoftTargetFrame:SetParent(nameplate.unitFrame)
-					nameplate.UnitFrame.SoftTargetFrame:SetIgnoreParentAlpha(true)
-					nameplate.unitFrame.SoftTargetFrame = nameplate.UnitFrame.SoftTargetFrame
+
+				nameplate:ClearAllHitTestPoints() -- to prevent lingering hit test points
+				nameplate:SetAllHitTestPoints(nameplate.unitFrame)
+
+				if(self.addedCallback) then
+					self.addedCallback(nameplate.unitFrame, event, unit)
 				end
-			end
 
-			if(self.addedCallback) then
-				self.addedCallback(nameplate.unitFrame, event, unit)
+				-- UAE is called after the callback to reduce the number of
+				-- ForceUpdate calls layouts have to do after changing things
+				nameplate.unitFrame:UpdateAllElements(event)
 			end
-
-			-- UAE is called after the callback to reduce the number of
-			-- ForceUpdate calls layouts have to do after changing things
-			nameplate.unitFrame:UpdateAllElements(event)
 		elseif(event == 'NAME_PLATE_UNIT_REMOVED') then
 			local nameplate = C_NamePlate.GetNamePlateForUnit(unit)
 			if(not nameplate or not nameplate.unitFrame) then return end
@@ -945,6 +980,11 @@ do
 		nameplateDriver:RegisterEvent('NAME_PLATE_UNIT_REMOVED')
 		nameplateDriver:RegisterEvent('PLAYER_TARGET_CHANGED')
 
+		-- we'd prefer to straight up disable blizzard's nameplate driver, but nameplates contain
+		-- widgets and soft target icons we can't recreate due to protections, and it handles the
+		-- forbidden nameplates, so we can't disable any events without friendly nameplates in
+		-- dungeons breaking
+
 		if(IsLoggedIn()) then
 			updateDriver(nameplateDriver)
 		else
@@ -976,6 +1016,32 @@ function oUF:AddElement(name, update, enable, disable)
 		enable = enable,
 		disable = disable,
 	}
+end
+
+--[[ oUF:AddMetaElement(name, create, update, enable, disable)
+Used to register a meta element with oUF.
+
+* self    - the global oUF object
+* name    - unique name of the element (string)
+* create  - used to create the element. Will be registered as a meta function (function)
+* update  - used to update the element (function)
+* enable  - used to enable the element for a given unit frame and unit (function)
+* disable - used to disable the element for a given unit frame (function)
+--]]
+function oUF:AddMetaElement(name, create, update, enable, disable)
+	argcheck(name, 2, 'string')
+	argcheck(create, 3, 'function')
+	argcheck(update, 4, 'function', 'nil')
+	argcheck(enable, 5, 'function')
+	argcheck(disable, 6, 'function')
+
+	if(elements[name]) then return nierror(string.format('Element [%s] is already registered.', name)) end
+	elements[name] = {
+		update = update,
+		enable = enable,
+		disable = disable,
+	}
+	self:RegisterMetaFunction('Create' .. name, create)
 end
 
 oUF.version = _VERSION
