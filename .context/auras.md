@@ -28,7 +28,7 @@ Two elements, matching the two shapes the API offers:
 
 ### Constraints that shaped the design
 
-Groups and slots are additive-only, containers self-anchor, buttons only accept native script calls inside `initializeFrame`, and the element must not be named `Auras`. Full detail in `.context/common-pitfalls.md` (2026-08-05 entries).
+Groups and slots are additive-only and their options are frozen at creation; containers must be anchored and sized by the element (the flow layout is internal only) and only receive their unit through oUF's `Auras` meta element; buttons accept native script calls only inside `initializeFrame`; and the element must not be named `Auras`. Full detail in `.context/common-pitfalls.md` (2026-08-05 entries).
 
 ### Verification status
 
