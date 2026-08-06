@@ -1,5 +1,8 @@
 local UF = SUI.UF
 
+-- Forward declaration: Build and Update call this before its definition below.
+local GetDefaultWatched
+
 -- Helper for spell info (uses unified C_Spell API available in all current versions)
 local function GetSpellInfoCompat(spellInput)
 	return C_Spell.GetSpellInfo(spellInput)
@@ -281,7 +284,7 @@ end
 ---@field hideWhenOutOfRange boolean
 
 -- Get default watched spells (class-aware if AuraWatchSpells is loaded)
-local function GetDefaultWatched()
+function GetDefaultWatched()
 	-- Use class-specific spells if the data file is loaded
 	if UF.AuraWatchSpells and UF.AuraWatchSpells.GetDefaults then
 		return UF.AuraWatchSpells:GetDefaults()
