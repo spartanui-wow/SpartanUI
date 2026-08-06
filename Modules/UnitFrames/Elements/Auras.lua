@@ -113,8 +113,17 @@ local function Build(frame, DB)
 	element.groupKeys = {}
 	frame.AuraGroups = element
 
+	-- CreateAuras only sets the flow layout origin, which controls how buttons
+	-- flow inside the container. The container itself still has to be anchored.
+	UF.Auras:PositionContainer(element, frame, DB)
+
 	-- Groups are attached at build time; they cannot be detached afterwards.
 	UF.Auras:AttachGroups(element, DB, BuildContainerGroupSettings)
+
+	-- oUF's own 'Auras' meta element is what pushes the unit into every
+	-- container on this frame; without it they never receive a unit and stay
+	-- empty. It drives all containers at once, so enable it only once.
+	UF.Auras:EnableContainerDriver(frame)
 end
 
 ---@param frame table
@@ -133,10 +142,10 @@ local function Update(frame, settings)
 		return
 	end
 
-	-- A changed set of groups means the container has to be replaced, since
-	-- AddGroup is one-way. Anything else is just a refresh.
+	-- Changed settings mean the live groups no longer match; repoint them.
+	-- AddGroup is one-way, so groups are never recreated, only re-aimed.
 	if UF.Auras:GroupsNeedRebuild(element, DB) then
-		UF.Auras:RebuildContainer(frame, element, DB)
+		UF.Auras:RepointGroups(frame, element, DB)
 		return
 	end
 

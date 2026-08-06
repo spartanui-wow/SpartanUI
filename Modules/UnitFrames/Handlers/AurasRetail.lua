@@ -365,22 +365,43 @@ end
 ----------------------------------------------------------------------------------------------------
 
 ---Produce a signature describing the current group definitions.
----Groups cannot be removed from a container once added, so any change to the
----set of groups requires a fresh container.
+---Describe everything about the groups that is baked in at AddGroup time.
+---
+---A group's options are captured when it is created, so any of these changing
+---means the live groups no longer match the settings and have to be repointed.
+---Position and growth are included because the container is anchored in the
+---same pass.
 ---@param DB table
 ---@return string
-local function GroupSignature(DB)
+function Auras:GetGroupSignature(DB)
 	local parts = {}
-	for index = 1, Auras.MAX_GROUPS or 5 do
-		local group = Auras:ResolveGroup(DB, index)
-		if group then
-			parts[#parts + 1] = table.concat({
-				index,
-				tostring(group.enabled),
-				group.filterMode or '',
-				group.customFilter or '',
-			}, ':')
-		end
+
+	local position = DB.position or {}
+	parts[#parts + 1] = table.concat({
+		position.anchor or '',
+		tostring(position.x or 0),
+		tostring(position.y or 0),
+		DB.growthx or '',
+		DB.growthy or '',
+	}, ':')
+
+	for index = 1, self.MAX_GROUPS do
+		local group = self:ResolveGroup(DB, index)
+		parts[#parts + 1] = table.concat({
+			index,
+			tostring(group.enabled),
+			group.filterMode or '',
+			group.customFilter or '',
+			tostring(group.number or ''),
+			tostring(group.size or ''),
+			tostring(group.spacing or ''),
+			tostring(group.onlyMine),
+			tostring(group.onlyStealable),
+			tostring(group.maxDuration or ''),
+			group.includeSpellIDs or '',
+			group.excludeSpellIDs or '',
+			tostring(group.clickThrough),
+		}, ':')
 	end
 
 	return table.concat(parts, '|')
@@ -390,7 +411,46 @@ end
 ---@param DB table
 ---@return boolean
 function Auras:GroupsNeedRebuild(element, DB)
-	return element.groupSignature ~= GroupSignature(DB)
+	return element.groupSignature ~= self:GetGroupSignature(DB)
+end
+
+---Describe only the settings that are frozen when a group is created.
+---These cannot be changed on a live group, so a difference here means the
+---user has to reload before the change shows up.
+---@param DB table
+---@return string
+function Auras:GetGroupBuildSignature(DB)
+	local parts = {}
+	for index = 1, self.MAX_GROUPS do
+		local group = self:ResolveGroup(DB, index)
+		parts[#parts + 1] = table.concat({
+			index,
+			tostring(group.number or ''),
+			tostring(group.size or ''),
+			tostring(group.spacing or ''),
+			tostring(group.onlyMine),
+			tostring(group.onlyStealable),
+			tostring(group.maxDuration or ''),
+			group.includeSpellIDs or '',
+			group.excludeSpellIDs or '',
+			tostring(group.clickThrough),
+		}, ':')
+	end
+
+	return table.concat(parts, '|')
+end
+
+---Whether any create-time-only group setting changed since the last build.
+---@param element table
+---@param DB table
+---@return boolean
+function Auras:GroupBuildOptionsChanged(element, DB)
+	-- Nothing to compare against before the first build finishes.
+	if not element.groupBuildSignature then
+		return false
+	end
+
+	return element.groupBuildSignature ~= self:GetGroupBuildSignature(DB)
 end
 
 -- Frames waiting for combat to end before their container is rebuilt.
@@ -411,12 +471,12 @@ end
 ---
 ---Containers cannot drop groups and oUF never releases a container it created,
 ---so creating a replacement would leak one container per settings change.
----Instead every group slot is created once at build time and this repoints the
----live ones, disabling the rest by giving them a filter that matches nothing.
+---Instead every group is created once at build time and this repoints the
+---live ones, hiding the rest with a filter that matches nothing.
 ---@param frame table
 ---@param element table
 ---@param DB table
-function Auras:RebuildContainer(frame, element, DB)
+function Auras:RepointGroups(frame, element, DB)
 	if InCombatLockdown() then
 		pendingRebuilds[frame] = true
 
@@ -430,21 +490,36 @@ function Auras:RebuildContainer(frame, element, DB)
 
 	pendingRebuilds[frame] = nil
 
-	if not element.SetAuraGroupFilterString then
-		-- Older build without post-creation filter changes. Leave the groups as
-		-- they were built; the user has to reload for a filter change to apply.
+	-- Re-anchor first: position and growth can change independently of filters.
+	self:PositionContainer(element, frame, DB)
+
+	if element.SetAuraGroupFilterString then
+		for index = 1, self.MAX_GROUPS do
+			local key = element.groupKeys and element.groupKeys[index]
+			if key then
+				local group = self:ResolveGroup(DB, index)
+				element:SetAuraGroupFilterString(key, self:GetGroupFilter(group))
+			end
+		end
+	else
+		-- Older build without runtime filter changes. Record the state anyway so
+		-- the element still enables; the change lands on the next reload.
 		UF:debug('Aura group filters cannot be changed at runtime on this client')
-		element.groupSignature = nil
-		return
 	end
 
-	for index = 1, self.MAX_GROUPS or 5 do
-		local key = element.groupKeys and element.groupKeys[index]
-		if key then
-			local group = self:ResolveGroup(DB, index)
-			element:SetAuraGroupFilterString(key, self:GetGroupFilter(group))
-		end
+	-- Icon size, icon count and the spell ID lists are baked into each group
+	-- when it is created and there is no API to change them afterwards, so
+	-- those only take effect on reload. Say so rather than appearing to ignore
+	-- the setting.
+	if self:GroupBuildOptionsChanged(element, DB) then
+		SUI:Print(L['Icon size and count changes apply after you reload (/rl)'])
 	end
+	element.groupBuildSignature = self:GetGroupBuildSignature(DB)
+
+	-- Record what is now live, whether or not the filters could be repointed.
+	-- Leaving this stale would make every later update take the rebuild path
+	-- and never enable the element.
+	element.groupSignature = self:GetGroupSignature(DB)
 
 	element:SetEnabled(true)
 	element:ForceUpdate()
@@ -503,7 +578,10 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 		current.groups[tostring(index)] = current.groups[tostring(index)] or {}
 		current.groups[tostring(index)][key] = val
 
-		UF.Unit[unitName]:ElementUpdate('AuraGroups')
+		-- The frame may not be spawned (disabled frame, arena out of arena).
+		if UF.Unit[unitName] then
+			UF.Unit[unitName]:ElementUpdate('AuraGroups')
+		end
 	end
 
 	for index = 1, maxGroups do
@@ -670,6 +748,48 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 end
 
 ----------------------------------------------------------------------------------------------------
+-- Container placement and driving
+----------------------------------------------------------------------------------------------------
+
+---Anchor an aura container to its unit frame.
+---
+---`CreateAuras` only configures the flow layout, which decides how buttons
+---flow inside the container. The container is an ordinary child frame and
+---still needs a real anchor, and elements that own their layout opt out of
+---SpartanUI's generic positioning pass.
+---@param element table
+---@param frame table
+---@param DB table
+function Auras:PositionContainer(element, frame, DB)
+	local position = DB.position or {}
+	local anchor = position.anchor or 'TOPLEFT'
+
+	local relativeTo = frame
+	if position.relativeTo and position.relativeTo ~= 'Frame' and frame[position.relativeTo] then
+		relativeTo = frame[position.relativeTo]
+	end
+
+	element:ClearAllPoints()
+	element:SetPoint(anchor, relativeTo, position.relativePoint or anchor, position.x or 0, position.y or 0)
+
+	-- Containers grow to fit their buttons, but need a non-zero starting size.
+	element:SetSize(DB.width or frame:GetWidth() or 100, DB.height or 1)
+end
+
+---Enable oUF's aura meta element so containers receive their unit.
+---
+---oUF registers an element named 'Auras' whose Update calls SetUnit on every
+---container belonging to the frame. SpartanUI's own elements only create
+---containers, so without this they are never given a unit and stay empty.
+---Safe to call repeatedly: EnableElement is a no-op once active.
+---@param frame table
+function Auras:EnableContainerDriver(frame)
+	if frame.EnableElement then
+		frame:EnableElement('Auras')
+	end
+end
+
+----------------------------------------------------------------------------------------------------
 -- Tracker slots
 ----------------------------------------------------------------------------------------------------
 
@@ -823,7 +943,10 @@ function Auras:BuildTrackerOptions(unitName, OptionSet, maxSlots)
 		current.entries[tostring(index)] = current.entries[tostring(index)] or {}
 		current.entries[tostring(index)][key] = val
 
-		UF.Unit[unitName]:ElementUpdate('AuraTracker')
+		-- The frame may not be spawned (disabled frame, arena out of arena).
+		if UF.Unit[unitName] then
+			UF.Unit[unitName]:ElementUpdate('AuraTracker')
+		end
 	end
 
 	for index = 1, maxSlots do
@@ -1003,10 +1126,11 @@ function Auras:AttachGroups(element, DB, buildOptions)
 	-- Every slot is created now, including the ones currently switched off.
 	-- Groups cannot be added or removed later, so the only way to make a group
 	-- appear without leaking a container is to have built it up front.
-	for index = 1, self.MAX_GROUPS or 5 do
+	for index = 1, self.MAX_GROUPS do
 		local group = self:ResolveGroup(DB, index)
 		element.groupKeys[index] = element:AddGroup(self:GetGroupFilter(group), buildOptions(element, group))
 	end
 
-	element.groupSignature = GroupSignature(DB)
+	element.groupSignature = self:GetGroupSignature(DB)
+	element.groupBuildSignature = self:GetGroupBuildSignature(DB)
 end

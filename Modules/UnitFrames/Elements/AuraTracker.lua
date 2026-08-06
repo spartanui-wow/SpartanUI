@@ -57,7 +57,16 @@ local function Build(frame, DB)
 	element.trackerOwner = frame
 	frame.AuraTracker = element
 
+	-- The container is just the host for the slots; each slot is anchored
+	-- individually in RefreshSlots. Anchor the host over the frame so slots
+	-- placed at CENTER land on the frame rather than at an arbitrary origin.
+	element:ClearAllPoints()
+	element:SetAllPoints(frame)
+
 	UF.Auras:AttachSlots(element, DB, BuildSlotSettings)
+
+	-- Containers only receive their unit through oUF's 'Auras' meta element.
+	UF.Auras:EnableContainerDriver(frame)
 end
 
 ---@param frame table

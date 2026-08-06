@@ -1003,3 +1003,4 @@ L['Track this spell'] = true
 L['Which auras belong in this group'] = true
 L['X offset'] = true
 L['Y offset'] = true
+L['Icon size and count changes apply after you reload (/rl)'] = true
