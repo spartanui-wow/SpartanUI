@@ -23,6 +23,7 @@ local elementList = {
 	'PVPSpecIcon',
 	'GroupRoleIndicator',
 	'RaidRoleIndicator',
+	SUI.IsRetail and 'AuraTracker',
 }
 
 local function GroupBuilder(holder)
