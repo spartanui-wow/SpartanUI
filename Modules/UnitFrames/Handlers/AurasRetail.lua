@@ -782,10 +782,29 @@ end
 ---container belonging to the frame. SpartanUI's own elements only create
 ---containers, so without this they are never given a unit and stay empty.
 ---Safe to call repeatedly: EnableElement is a no-op once active.
+---
+---Note that oUF's Enable switches on *every* container for the frame, so each
+---element re-asserts its own enabled state afterwards.
 ---@param frame table
 function Auras:EnableContainerDriver(frame)
 	if frame.EnableElement then
 		frame:EnableElement('Auras')
+	end
+
+	self:ApplyContainerEnabledStates(frame)
+end
+
+---Re-apply each aura element's own enabled setting.
+---oUF's meta element enables all containers on the frame at once, which would
+---otherwise switch on a container the user turned off.
+---@param frame table
+function Auras:ApplyContainerEnabledStates(frame)
+	for _, name in ipairs({ 'AuraGroups', 'AuraTracker' }) do
+		local element = frame[name]
+		if element and element.SetEnabled then
+			local db = element.DB
+			element:SetEnabled(db ~= nil and db.enabled == true)
+		end
 	end
 end
 
