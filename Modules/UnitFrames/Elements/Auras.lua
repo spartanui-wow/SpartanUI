@@ -12,19 +12,7 @@ local L = SUI.L
 -- group is a filter plus display settings, so a single frame can show (for
 -- example) defensives on one row and everything else on another.
 
-local MAX_GROUPS = 5
-
----Resolve the aura filter string for a group's settings.
----@param groupDB table
----@return string
-local function ResolveFilter(groupDB)
-	local custom = groupDB.customFilter
-	if custom and custom ~= '' then
-		return custom
-	end
-
-	return UF.Auras:GetFilterString(groupDB.filterMode) or 'HELPFUL'
-end
+local MAX_GROUPS = UF.Auras.MAX_GROUPS
 
 ---Build the candidateFilters table Blizzard uses to narrow a group.
 ---Only includes keys the user actually set, since nil means "ignore" and
@@ -123,7 +111,7 @@ local function Build(frame, DB)
 
 	element.DB = DB
 	element.groupKeys = {}
-	frame.Auras = element
+	frame.AuraGroups = element
 
 	-- Groups are attached at build time; they cannot be detached afterwards.
 	UF.Auras:AttachGroups(element, DB, BuildContainerGroupSettings)
@@ -132,7 +120,7 @@ end
 ---@param frame table
 ---@param settings? table
 local function Update(frame, settings)
-	local element = frame.Auras
+	local element = frame.AuraGroups
 	if not element then
 		return
 	end
@@ -168,6 +156,10 @@ local Settings = {
 	config = {
 		type = 'Auras',
 		DisplayName = L['Auras'],
+		-- The container anchors and sizes itself through the flow layout API.
+		-- Letting the generic element pipeline call ClearAllPoints/SetPoint/SetSize
+		-- on it fights that and breaks the layout.
+		NoBulkUpdate = true,
 	},
 	position = {
 		anchor = 'TOPLEFT',
@@ -177,45 +169,13 @@ local Settings = {
 	},
 	growthx = 'RIGHT',
 	growthy = 'UP',
+	-- Only the groups that differ from GROUP_DEFAULTS are stored. Everything
+	-- else is filled in by UF.Auras:ResolveGroup at read time.
 	groups = {
-		['**'] = {
-			enabled = false,
-			name = '',
-			filterMode = 'all_buffs',
-			customFilter = '',
-			number = 10,
-			size = 24,
-			spacing = 2,
-			lineSpacing = 2,
-			groupSpacing = 4,
-			forceNewLine = false,
-			sortMethod = 'expiration',
-			sortDirection = 'normal',
-			showCount = true,
-			showDuration = true,
-			showCooldown = true,
-			showDebuffBorder = true,
-			showBuffBorder = false,
-			showBuffIndicator = false,
-			showDebuffIndicator = false,
-			showStealableBorder = false,
-			clickThrough = false,
-			onlyMine = false,
-			onlyStealable = false,
-			maxDuration = 0,
-			includeSpellIDs = '',
-			excludeSpellIDs = '',
-			expiring = {
-				enabled = false,
-				threshold = 5,
-				color = { 1, 0.1, 0.1, 1 },
-			},
-		},
 		['1'] = {
 			enabled = true,
 			name = 'Buffs',
 			filterMode = 'all_buffs',
-			growthy = 'UP',
 		},
 		['2'] = {
 			enabled = true,
@@ -226,4 +186,4 @@ local Settings = {
 	},
 }
 
-UF.Elements:Register('Auras', Build, Update, Options, Settings)
+UF.Elements:Register('AuraGroups', Build, Update, Options, Settings)

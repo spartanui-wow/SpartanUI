@@ -16,10 +16,93 @@ local Auras = UF.Auras
 -- drops anything the running client rejects rather than silently filtering
 -- nothing. Re-check against a 12.1 PTR build before release.
 
+-- Number of aura groups offered per frame.
+Auras.MAX_GROUPS = 5
+
+-- Per-group defaults, resolved in code rather than through an AceDB ['**']
+-- wildcard. The UserSettings wildcard chain is only six levels deep and is
+-- fully consumed by preset/unit/elements/AuraGroups/groups/index, and
+-- SUI:MergeData (which builds CurrentSettings) does not expand wildcards at all.
+Auras.GROUP_DEFAULTS = {
+	enabled = false,
+	name = '',
+	filterMode = 'all_buffs',
+	customFilter = '',
+	number = 10,
+	size = 24,
+	spacing = 2,
+	lineSpacing = 2,
+	groupSpacing = 4,
+	forceNewLine = false,
+	sortMethod = 'expiration',
+	sortDirection = 'normal',
+	fontSize = 12,
+	showCount = true,
+	showDuration = true,
+	showCooldown = true,
+	showDebuffBorder = true,
+	showBuffBorder = false,
+	showBuffIndicator = false,
+	showDebuffIndicator = false,
+	showStealableBorder = false,
+	clickThrough = false,
+	onlyMine = false,
+	onlyStealable = false,
+	maxDuration = 0,
+	includeSpellIDs = '',
+	excludeSpellIDs = '',
+	expiring = {
+		enabled = false,
+		threshold = 5,
+		color = { 1, 0.1, 0.1, 1 },
+	},
+}
+
 ---Whether the client provides the native aura container objects.
 ---@return boolean
 function Auras:HasNativeContainers()
 	return SUI.IsRetail and C_UnitAuras ~= nil and AuraContainerSortMethod ~= nil
+end
+
+---Read a group's settings with defaults applied.
+---Returns nil only when the group index is out of range.
+---@param DB table
+---@param index number|string
+---@return table?
+function Auras:ResolveGroup(DB, index)
+	local defaults = self.GROUP_DEFAULTS
+	if not defaults then
+		return DB.groups and DB.groups[tostring(index)]
+	end
+
+	local stored = DB.groups and DB.groups[tostring(index)]
+	local resolved = {}
+
+	for key, value in pairs(defaults) do
+		if type(value) == 'table' then
+			local copy = {}
+			for k, v in pairs(value) do
+				copy[k] = v
+			end
+			resolved[key] = copy
+		else
+			resolved[key] = value
+		end
+	end
+
+	if stored then
+		for key, value in pairs(stored) do
+			if type(value) == 'table' and type(resolved[key]) == 'table' then
+				for k, v in pairs(value) do
+					resolved[key][k] = v
+				end
+			else
+				resolved[key] = value
+			end
+		end
+	end
+
+	return resolved
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -262,19 +345,14 @@ end
 ---@return string
 local function GroupSignature(DB)
 	local parts = {}
-	for index = 1, 10 do
-		local group = DB.groups and DB.groups[tostring(index)]
-		if group and group.enabled then
+	for index = 1, Auras.MAX_GROUPS or 5 do
+		local group = Auras:ResolveGroup(DB, index)
+		if group then
 			parts[#parts + 1] = table.concat({
 				index,
+				tostring(group.enabled),
 				group.filterMode or '',
 				group.customFilter or '',
-				tostring(group.number or ''),
-				tostring(group.onlyMine),
-				tostring(group.onlyStealable),
-				tostring(group.maxDuration or ''),
-				group.includeSpellIDs or '',
-				group.excludeSpellIDs or '',
 			}, ':')
 		end
 	end
@@ -289,37 +367,77 @@ function Auras:GroupsNeedRebuild(element, DB)
 	return element.groupSignature ~= GroupSignature(DB)
 end
 
----Rebuild a frame's aura container from scratch.
----Groups cannot be detached from a container, so changing which groups exist
----means replacing the container. Deferred out of combat because container
----creation is restricted while the player is locked down.
+-- Frames waiting for combat to end before their container is rebuilt.
+-- A single watcher drains this; registering PLAYER_REGEN_ENABLED on the UF
+-- module itself would replace SpawnFrames' GroupWatcher handler, since
+-- AceEvent keys its registry by the calling object.
+local pendingRebuilds = {}
+local rebuildWatcher
+
+local function DrainPendingRebuilds()
+	for frame in pairs(pendingRebuilds) do
+		pendingRebuilds[frame] = nil
+		UF.Elements:Update(frame, 'AuraGroups')
+	end
+end
+
+---Re-point the existing groups at the current settings.
+---
+---Containers cannot drop groups and oUF never releases a container it created,
+---so creating a replacement would leak one container per settings change.
+---Instead every group slot is created once at build time and this repoints the
+---live ones, disabling the rest by giving them a filter that matches nothing.
 ---@param frame table
 ---@param element table
 ---@param DB table
 function Auras:RebuildContainer(frame, element, DB)
 	if InCombatLockdown() then
-		if not frame.auraRebuildPending then
-			frame.auraRebuildPending = true
-			UF:RegisterEvent('PLAYER_REGEN_ENABLED', function()
-				if frame.auraRebuildPending then
-					frame.auraRebuildPending = false
-					UF.Elements:Update(frame, 'Auras')
-				end
-			end)
+		pendingRebuilds[frame] = true
+
+		if not rebuildWatcher then
+			rebuildWatcher = CreateFrame('Frame')
+			rebuildWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
+			rebuildWatcher:SetScript('OnEvent', DrainPendingRebuilds)
 		end
 		return
 	end
 
-	frame.auraRebuildPending = false
+	pendingRebuilds[frame] = nil
 
-	if element.SetEnabled then
-		element:SetEnabled(false)
+	if not element.SetAuraGroupFilterString then
+		-- Older build without post-creation filter changes. Leave the groups as
+		-- they were built; the user has to reload for a filter change to apply.
+		UF:debug('Aura group filters cannot be changed at runtime on this client')
+		element.groupSignature = nil
+		return
 	end
-	element:Hide()
-	frame.Auras = nil
 
-	UF.Elements:Build(frame, 'Auras', DB)
-	UF.Elements:Update(frame, 'Auras', DB)
+	for index = 1, self.MAX_GROUPS or 5 do
+		local key = element.groupKeys and element.groupKeys[index]
+		if key then
+			local group = self:ResolveGroup(DB, index)
+			element:SetAuraGroupFilterString(key, self:GetGroupFilter(group))
+		end
+	end
+
+	element:SetEnabled(true)
+	element:ForceUpdate()
+end
+
+---The filter string for a group, or a never-matching one when it is disabled.
+---@param group? table
+---@return string
+function Auras:GetGroupFilter(group)
+	if not group or not group.enabled then
+		-- No aura is both helpful and harmful, so this shows nothing.
+		return 'HELPFUL|HARMFUL'
+	end
+
+	if group.customFilter and group.customFilter ~= '' then
+		return group.customFilter
+	end
+
+	return self:GetFilterString(group.filterMode) or 'HELPFUL'
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -341,19 +459,25 @@ end
 ---@param OptionSet AceConfig.OptionsTable
 ---@param maxGroups number
 function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
+	-- Always returns a full table, so an unconfigured group reads as defaults
+	-- instead of erroring.
 	local function GroupDB(index)
-		return UF.CurrentSettings[unitName].elements.Auras.groups[tostring(index)]
+		return Auras:ResolveGroup(UF.CurrentSettings[unitName].elements.AuraGroups, index)
 	end
 
 	local function SetGroup(index, key, val)
 		local preset = UF:GetPresetForFrame(unitName)
-		local stored = UF.DB.UserSettings[preset][unitName].elements.Auras
+		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
 		stored.groups = stored.groups or {}
 		stored.groups[tostring(index)] = stored.groups[tostring(index)] or {}
 		stored.groups[tostring(index)][key] = val
 
-		UF.CurrentSettings[unitName].elements.Auras.groups[tostring(index)][key] = val
-		UF.Unit[unitName]:ElementUpdate('Auras')
+		local current = UF.CurrentSettings[unitName].elements.AuraGroups
+		current.groups = current.groups or {}
+		current.groups[tostring(index)] = current.groups[tostring(index)] or {}
+		current.groups[tostring(index)][key] = val
+
+		UF.Unit[unitName]:ElementUpdate('AuraGroups')
 	end
 
 	for index = 1, maxGroups do
@@ -526,16 +650,12 @@ end
 function Auras:AttachGroups(element, DB, buildOptions)
 	element.groupKeys = element.groupKeys or {}
 
-	for index = 1, 10 do
-		local group = DB.groups and DB.groups[tostring(index)]
-		if group and group.enabled then
-			local filter = group.customFilter
-			if not filter or filter == '' then
-				filter = self:GetFilterString(group.filterMode) or 'HELPFUL'
-			end
-
-			element.groupKeys[index] = element:AddGroup(filter, buildOptions(element, group))
-		end
+	-- Every slot is created now, including the ones currently switched off.
+	-- Groups cannot be added or removed later, so the only way to make a group
+	-- appear without leaking a container is to have built it up front.
+	for index = 1, self.MAX_GROUPS or 5 do
+		local group = self:ResolveGroup(DB, index)
+		element.groupKeys[index] = element:AddGroup(self:GetGroupFilter(group), buildOptions(element, group))
 	end
 
 	element.groupSignature = GroupSignature(DB)
