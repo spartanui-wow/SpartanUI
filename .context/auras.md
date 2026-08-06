@@ -1,4 +1,47 @@
-# WoW 12.0.x Aura System
+# WoW 12.1 Aura System
+
+> **Retail (12.1+) uses a completely different system from Classic.** See "Retail: Groups and Slots" below.
+> The Classic sections that follow describe the legacy `Buffs`/`Debuffs` path, which is now Classic-only.
+
+## Retail: Groups and Slots (12.1+)
+
+Blizzard owns aura creation, filtering, sorting and anchoring through `AuraContainer` / `AuraGroup` / `AuraSlot`. SpartanUI describes what it wants and never inspects an aura, so nothing on this path can trip secret-value restrictions.
+
+Two elements, matching the two shapes the API offers:
+
+| Element | Built on | Answers | Replaces |
+|---|---|---|---|
+| `AuraGroups` | `AddGroup` | "what is on this unit" | Buffs, Debuffs, RaidDebuffs |
+| `AuraTracker` | `AddSlot` | "is this specific spell up" | AuraDesigner, AuraWatch, HotsListing |
+
+**AuraGroups** gives each frame up to 5 groups (`UF.Auras.MAX_GROUPS`), each with its own filter, icon cap, size, spacing and spell-ID include/exclude lists. Groups flow inside one self-sizing container.
+
+**AuraTracker** gives each frame up to 12 slots (`UF.Auras.MAX_TRACKER_SLOTS`), each pinned to one spell ID and anchored wherever the user puts it.
+
+### Key files (Retail)
+
+| File | Purpose |
+|------|---------|
+| `Modules/UnitFrames/Elements/Auras.lua` | AuraGroups element |
+| `Modules/UnitFrames/Elements/AuraTracker.lua` | AuraTracker element |
+| `Modules/UnitFrames/Handlers/AurasRetail.lua` | Filters, sorting, defaults, lifecycle, options |
+
+### Constraints that shaped the design
+
+Groups and slots are additive-only, containers self-anchor, buttons only accept native script calls inside `initializeFrame`, and the element must not be named `Auras`. Full detail in `.context/common-pitfalls.md` (2026-08-05 entries).
+
+### Verification status
+
+Filter tokens and option names come from oUF's 12.1 rewrite, which exercises them directly. The `candidateFilters` keys other than `includeSpellIDs` come from Blizzard's PTR notes and are **not yet confirmed against a live client** - `UF.Auras:ValidateCandidateKeys` drops unrecognised keys rather than failing open. Re-verify on a 12.1 PTR build.
+
+### Migration
+
+`MigrateAurasToGroups` in `Modules/UnitFrames/Framework.lua` moves counts, sizes, spacing, growth, filter mode and click-through from Buffs/Debuffs onto groups 1 and 2, once per profile behind `UF.DB._auraGroupsMigrated`. Classic rule tables, whitelist/blacklist and rows/maxCols are intentionally not migrated - they have no equivalent.
+
+---
+
+# Classic Aura System (legacy path)
+
 
 > SpartanUI's aura system supports all 13 Blizzard aura filters with full visual customization.
 
