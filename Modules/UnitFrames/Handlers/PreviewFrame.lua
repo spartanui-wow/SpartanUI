@@ -94,33 +94,33 @@ end
 -- Mock Data Application
 ----------------------------------------------------------------------------------------------------
 
----Hide all HealthPrediction sub-bars that oUF normally manages
+---Hide all health prediction sub-bars that oUF normally manages
 ---@param preview table
 local function HideHealthPredictionBars(preview)
-	if not preview.HealthPrediction then
+	local hp = preview.Health
+	if not hp then
 		return
 	end
-	local hp = preview.HealthPrediction
-	if hp.healingAll then
-		hp.healingAll:Hide()
+	if hp.HealingAll then
+		hp.HealingAll:Hide()
 	end
-	if hp.healingPlayer then
-		hp.healingPlayer:Hide()
+	if hp.HealingPlayer then
+		hp.HealingPlayer:Hide()
 	end
-	if hp.healingOther then
-		hp.healingOther:Hide()
+	if hp.HealingOther then
+		hp.HealingOther:Hide()
 	end
-	if hp.damageAbsorb then
-		hp.damageAbsorb:Hide()
+	if hp.DamageAbsorb then
+		hp.DamageAbsorb:Hide()
 	end
-	if hp.healAbsorb then
-		hp.healAbsorb:Hide()
+	if hp.HealAbsorb then
+		hp.HealAbsorb:Hide()
 	end
-	if hp.overDamageAbsorbIndicator then
-		hp.overDamageAbsorbIndicator:Hide()
+	if hp.OverDamageAbsorbIndicator then
+		hp.OverDamageAbsorbIndicator:Hide()
 	end
-	if hp.overHealAbsorbIndicator then
-		hp.overHealAbsorbIndicator:Hide()
+	if hp.OverHealAbsorbIndicator then
+		hp.OverHealAbsorbIndicator:Hide()
 	end
 end
 
@@ -324,7 +324,6 @@ local function CleanPreviewFrame(preview)
 
 	-- Clear element references
 	preview.Health = nil
-	preview.HealthPrediction = nil
 	preview.Power = nil
 	preview.Castbar = nil
 	preview.Name = nil

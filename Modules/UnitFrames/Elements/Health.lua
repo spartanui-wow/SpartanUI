@@ -287,18 +287,16 @@ local function Build(frame, DB)
 	-- Overflow control
 	local overflowAmount = DB.healPredictionOverflow or 1.05
 
-	-- Build HealthPrediction table using Retail 12.0+ property names
-	-- oUF handles healingAll vs healingPlayer/healingOther automatically
-	frame.HealthPrediction = {
-		healingAll = (healSource == 'ALL') and healingAll or nil,
-		healingPlayer = (healSource ~= 'ALL') and healingPlayer or nil,
-		healingOther = (healSource == 'SPLIT') and healingOther or nil,
-		damageAbsorb = damageAbsorb,
-		healAbsorb = healAbsorb,
-		overDamageAbsorbIndicator = overDamageAbsorbIndicator,
-		overHealAbsorbIndicator = overHealAbsorbIndicator,
-		incomingHealOverflow = overflowAmount,
-	}
+	-- Prediction sub-bars live directly on the Health element as of oUF 12.1.
+	-- Only the bars used by the selected heal source are attached, so oUF skips the rest.
+	frame.Health.HealingAll = (healSource == 'ALL') and healingAll or nil
+	frame.Health.HealingPlayer = (healSource ~= 'ALL') and healingPlayer or nil
+	frame.Health.HealingOther = (healSource == 'SPLIT') and healingOther or nil
+	frame.Health.DamageAbsorb = damageAbsorb
+	frame.Health.HealAbsorb = healAbsorb
+	frame.Health.OverDamageAbsorbIndicator = overDamageAbsorbIndicator
+	frame.Health.OverHealAbsorbIndicator = overHealAbsorbIndicator
+	frame.Health.incomingHealOverflow = overflowAmount
 end
 
 ---@param frame table
@@ -358,43 +356,42 @@ local function Update(frame, settings)
 		element.bg:SetVertexColor(unpack(DB.bg.color or { 1, 1, 1, 0.2 }))
 	end
 
-	-- Update HealthPrediction bar textures, colors, and source mode
-	if frame.HealthPrediction then
-		local hp = frame.HealthPrediction
+	-- Update prediction bar textures and colors
+	do
 		local healPredTexture = UF:FindStatusBarTexture(DB.healPredictionTexture or 'Blizzard')
 		local healColor = (DB.customColors and DB.customColors.useCustom and DB.customColors.healPredictionColor) or { 0.0, 0.659, 0.608, 0.7 }
 		local othersHealColor = (DB.customColors and DB.customColors.useCustom and DB.customColors.othersHealColor) or { 0.0, 0.431, 0.369, 0.5 }
 
-		if hp.healingAll then
-			hp.healingAll:SetStatusBarTexture(healPredTexture)
-			hp.healingAll:SetStatusBarColor(unpack(healColor))
+		if element.HealingAll then
+			element.HealingAll:SetStatusBarTexture(healPredTexture)
+			element.HealingAll:SetStatusBarColor(unpack(healColor))
 		end
-		if hp.healingPlayer then
-			hp.healingPlayer:SetStatusBarTexture(healPredTexture)
-			hp.healingPlayer:SetStatusBarColor(unpack(healColor))
+		if element.HealingPlayer then
+			element.HealingPlayer:SetStatusBarTexture(healPredTexture)
+			element.HealingPlayer:SetStatusBarColor(unpack(healColor))
 		end
-		if hp.healingOther then
-			hp.healingOther:SetStatusBarTexture(healPredTexture)
-			hp.healingOther:SetStatusBarColor(unpack(othersHealColor))
+		if element.HealingOther then
+			element.HealingOther:SetStatusBarTexture(healPredTexture)
+			element.HealingOther:SetStatusBarColor(unpack(othersHealColor))
 		end
-		if hp.damageAbsorb then
-			hp.damageAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.absorbTexture or 'Blizzard Shield'))
+		if element.DamageAbsorb then
+			element.DamageAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.absorbTexture or 'Blizzard Shield'))
 			if DB.customColors and DB.customColors.useCustom and DB.customColors.absorbColor then
-				hp.damageAbsorb:SetStatusBarColor(unpack(DB.customColors.absorbColor))
+				element.DamageAbsorb:SetStatusBarColor(unpack(DB.customColors.absorbColor))
 			else
-				hp.damageAbsorb:SetStatusBarColor(1, 1, 1, 0.8)
+				element.DamageAbsorb:SetStatusBarColor(1, 1, 1, 0.8)
 			end
 		end
-		if hp.healAbsorb then
-			hp.healAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.healAbsorbTexture or 'Blizzard Absorb'))
+		if element.HealAbsorb then
+			element.HealAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.healAbsorbTexture or 'Blizzard Absorb'))
 			if DB.customColors and DB.customColors.useCustom and DB.customColors.healAbsorbColor then
-				hp.healAbsorb:SetStatusBarColor(unpack(DB.customColors.healAbsorbColor))
+				element.HealAbsorb:SetStatusBarColor(unpack(DB.customColors.healAbsorbColor))
 			else
-				hp.healAbsorb:SetStatusBarColor(0.7, 0.0, 0.3, 0.8)
+				element.HealAbsorb:SetStatusBarColor(0.7, 0.0, 0.3, 0.8)
 			end
 		end
 
-		hp.incomingHealOverflow = DB.healPredictionOverflow or 1.05
+		element.incomingHealOverflow = DB.healPredictionOverflow or 1.05
 	end
 
 	for i, key in pairs(DB.text) do
