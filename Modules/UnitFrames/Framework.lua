@@ -972,22 +972,37 @@ function UF:RegisterSetupWizardPages()
 			},
 		}
 
-		-- Only add aura preset selector if system is loaded and frame has auras
-		if UF.AuraPresets and getElemCS('Buffs') then
+		-- Only add aura preset selector if system is loaded and frame has auras.
+		-- Retail drives the AuraGroups element; Classic still uses Buffs/Debuffs.
+		local auraHost = SUI.IsRetail and 'AuraGroups' or 'Buffs'
+		if UF.AuraPresets and getElemCS(auraHost) then
 			defs.buffFilter = {
 				type = 'dropdown',
 				name = 'Buff/Debuff Filter',
 				order = 6,
 				values = UF.AuraPresets:GetPresetList(),
 				get = function()
-					local branch = SUI.IsRetail and 'retail' or 'classic'
-					local buffsCS = getElemCS('Buffs')
-					local debuffsCS = getElemCS('Debuffs')
-					if not buffsCS or not debuffsCS then
-						return 'custom'
+					local buffsMode, debuffsMode
+
+					if SUI.IsRetail then
+						local groupsCS = getElemCS('AuraGroups')
+						local groups = groupsCS and groupsCS.groups
+						if not groups then
+							return 'custom'
+						end
+						buffsMode = UF.Auras:ResolveGroup(groupsCS, 1).filterMode
+						debuffsMode = UF.Auras:ResolveGroup(groupsCS, 2).filterMode
+					else
+						local buffsCS = getElemCS('Buffs')
+						local debuffsCS = getElemCS('Debuffs')
+						if not buffsCS or not debuffsCS then
+							return 'custom'
+						end
+						buffsMode = buffsCS.classic and buffsCS.classic.filterMode
+						debuffsMode = debuffsCS.classic and debuffsCS.classic.filterMode
 					end
-					local buffsMode = buffsCS[branch] and buffsCS[branch].filterMode
-					local debuffsMode = debuffsCS[branch] and debuffsCS[branch].filterMode
+
+					local branch = SUI.IsRetail and 'retail' or 'classic'
 					for key, preset in pairs(UF.AuraPresets.Presets) do
 						local pb = preset.Buffs and preset.Buffs[branch] and preset.Buffs[branch].filterMode
 						local pd = preset.Debuffs and preset.Debuffs[branch] and preset.Debuffs[branch].filterMode

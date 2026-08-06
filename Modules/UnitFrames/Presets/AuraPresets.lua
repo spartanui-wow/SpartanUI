@@ -287,6 +287,52 @@ function AuraPresets:GetPresetList()
 end
 
 -- Apply a preset to a specific unit
+---Map a preset's Buffs/Debuffs entries onto AuraGroups groups 1 and 2.
+---@param unitName string
+---@param preset table
+function AuraPresets:ApplyPresetToGroupElement(unitName, preset)
+	local settings = UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements.AuraGroups
+	if not settings then
+		return
+	end
+
+	local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraGroups
+	userSettings.groups = userSettings.groups or {}
+	settings.groups = settings.groups or {}
+
+	-- Group 1 carries the preset's buffs, group 2 its debuffs.
+	local mapping = { { index = '1', source = 'Buffs' }, { index = '2', source = 'Debuffs' } }
+
+	for _, entry in ipairs(mapping) do
+		local presetElement = preset[entry.source]
+		if presetElement then
+			settings.groups[entry.index] = settings.groups[entry.index] or {}
+			userSettings.groups[entry.index] = userSettings.groups[entry.index] or {}
+
+			local function write(key, value)
+				settings.groups[entry.index][key] = value
+				userSettings.groups[entry.index][key] = value
+			end
+
+			-- Shared visual settings that still mean the same thing.
+			for _, key in ipairs({ 'number', 'size', 'spacing' }) do
+				if presetElement[key] ~= nil then
+					write(key, presetElement[key])
+				end
+			end
+
+			local filterConfig = presetElement.retail
+			if filterConfig and filterConfig.filterMode then
+				write('filterMode', filterConfig.filterMode)
+			end
+		end
+	end
+
+	if UF.Unit[unitName] then
+		UF.Unit[unitName]:ElementUpdate('AuraGroups')
+	end
+end
+
 ---@param unitName string
 ---@param presetKey string
 function AuraPresets:ApplyPreset(unitName, presetKey)
@@ -296,6 +342,14 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 	end
 
 	local branch = SUI.IsRetail and 'retail' or 'classic'
+
+	-- Retail renders auras through AuraGroups, where the preset's Buffs and
+	-- Debuffs entries map onto groups 1 and 2.
+	if SUI.IsRetail then
+		self:ApplyPresetToGroupElement(unitName, preset)
+		SUI:Print(string.format('Applied "%s" aura preset to %s', preset.name, unitName))
+		return
+	end
 
 	for _, elementName in ipairs({ 'Buffs', 'Debuffs' }) do
 		local presetElement = preset[elementName]

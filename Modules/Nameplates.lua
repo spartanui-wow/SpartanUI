@@ -344,21 +344,45 @@ local NamePlateFactory = function(frame, unit)
 		end
 
 		-- Hots/Dots
-		local Auras = CreateFrame('Frame', unit .. 'Auras', frame)
-		Auras:SetPoint('TOPLEFT', frame, 'BOTTOMLEFT', 0, 2)
-		Auras:SetSize(frame:GetWidth(), 16)
-		if UnitReaction(unit, 'player') <= 2 then
-			if module.DB.onlyShowPlayer and module.DB.showStealableBuffs then
-				Auras.showStealableBuffs = module.DB.showStealableBuffs
+		-- On 12.1 the aura element is a Blizzard AuraContainer built through
+		-- CreateAuras; a plain Frame assigned to frame.Auras is never populated.
+		if frame.CreateAuras then
+			local Auras = frame:CreateAuras({
+				initialAnchor = 'TOPLEFT',
+				growthX = 'RIGHT',
+				growthY = 'DOWN',
+			})
+			Auras:SetPoint('TOPLEFT', frame, 'BOTTOMLEFT', 0, 2)
+
+			local filter = 'HELPFUL'
+			if module.DB.onlyShowPlayer then
+				filter = filter .. '|PLAYER'
+			end
+
+			Auras:AddGroup(filter, {
+				maxFrameCount = module.DB.numAuras or 8,
+				size = module.DB.auraSize or 16,
+				showCount = true,
+				showDuration = true,
+				showStealableBorder = module.DB.showStealableBuffs,
+			})
+		else
+			local Auras = CreateFrame('Frame', unit .. 'Auras', frame)
+			Auras:SetPoint('TOPLEFT', frame, 'BOTTOMLEFT', 0, 2)
+			Auras:SetSize(frame:GetWidth(), 16)
+			if UnitReaction(unit, 'player') <= 2 then
+				if module.DB.onlyShowPlayer and module.DB.showStealableBuffs then
+					Auras.showStealableBuffs = module.DB.showStealableBuffs
+				else
+					Auras.onlyShowPlayer = module.DB.onlyShowPlayer
+					Auras.showStealableBuffs = module.DB.showStealableBuffs
+				end
 			else
 				Auras.onlyShowPlayer = module.DB.onlyShowPlayer
-				Auras.showStealableBuffs = module.DB.showStealableBuffs
 			end
-		else
-			Auras.onlyShowPlayer = module.DB.onlyShowPlayer
-		end
 
-		frame.Auras = Auras
+			frame.Auras = Auras
+		end
 
 		-- Rare Elite indicator
 		local RareElite = frame:CreateTexture(nil, 'BACKGROUND', nil, -2)

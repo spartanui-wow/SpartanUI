@@ -114,6 +114,11 @@ end
 ---@param unitName string
 ---@param OptionSet AceConfig.OptionsTable
 local function Options(unitName, OptionSet)
+	-- Retail covers raid debuffs with an AuraGroups group instead.
+	if SUI.IsRetail then
+		return
+	end
+
 	local ElementSettings = UF.CurrentSettings[unitName].elements.RaidDebuffs
 
 	local function OptUpdate(option, val)

@@ -94,7 +94,14 @@ function Auras:FilterRetail(element, unit, data, config)
 		if UnitIsUnit(unit, 'player') then
 			showByFilter = true
 		else
-			local baseFilter = element.__owner.Buffs and 'HELPFUL' or 'HARMFUL'
+			-- Work out whether we are filtering buffs or debuffs. Callers may pass
+			-- a synthetic element with no __owner, so this cannot assume one.
+			local baseFilter = 'HARMFUL'
+			if config and config.isHelpful then
+				baseFilter = 'HELPFUL'
+			elseif element and element.__owner and element.__owner.Buffs then
+				baseFilter = 'HELPFUL'
+			end
 			showByFilter = not C_UnitAuras.IsAuraFilteredOutByInstanceID(unit, auraInstanceID, baseFilter .. '|RAID')
 		end
 	else
