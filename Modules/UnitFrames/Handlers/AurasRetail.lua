@@ -91,20 +91,16 @@ function Auras:HasNativeContainers()
 end
 
 ---Read a group's settings with defaults applied.
----Returns nil only when the group index is out of range.
+---Always returns a table, so callers can read any group index without a nil
+---check. An unconfigured index simply reads as the defaults.
 ---@param DB table
 ---@param index number|string
----@return table?
+---@return table
 function Auras:ResolveGroup(DB, index)
-	local defaults = self.GROUP_DEFAULTS
-	if not defaults then
-		return DB.groups and DB.groups[tostring(index)]
-	end
-
-	local stored = DB.groups and DB.groups[tostring(index)]
+	local stored = type(DB) == 'table' and DB.groups and DB.groups[tostring(index)]
 	local resolved = {}
 
-	for key, value in pairs(defaults) do
+	for key, value in pairs(self.GROUP_DEFAULTS) do
 		if type(value) == 'table' then
 			local copy = {}
 			for k, v in pairs(value) do
@@ -773,7 +769,18 @@ function Auras:PositionContainer(element, frame, DB)
 	element:SetPoint(anchor, relativeTo, position.relativePoint or anchor, position.x or 0, position.y or 0)
 
 	-- Containers grow to fit their buttons, but need a non-zero starting size.
-	element:SetSize(DB.width or frame:GetWidth() or 100, DB.height or 1)
+	-- GetWidth returns 0 rather than nil on a realized frame, and can be a
+	-- secret value if the frame carries secret anchors, so it is only compared
+	-- once it is known to be readable.
+	local width = DB.width
+	if not width then
+		local frameWidth = frame:GetWidth()
+		if frameWidth and SUI.BlizzAPI.canaccessvalue(frameWidth) and frameWidth > 0 then
+			width = frameWidth
+		end
+	end
+
+	element:SetSize(width or 100, DB.height or 1)
 end
 
 ---Enable oUF's aura meta element so containers receive their unit.
@@ -831,7 +838,7 @@ function Auras:ResolveEntry(DB, index)
 		end
 	end
 
-	local stored = DB.entries and DB.entries[tostring(index)]
+	local stored = type(DB) == 'table' and DB.entries and DB.entries[tostring(index)]
 	if stored then
 		for key, value in pairs(stored) do
 			if type(value) == 'table' and type(resolved[key]) == 'table' then
