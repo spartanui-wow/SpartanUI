@@ -179,6 +179,95 @@ local function MigrateFromLegacy()
 	end
 end
 
+---Carry Retail Buffs/Debuffs customisations over to the AuraGroups element.
+---
+---Settings that still mean the same thing (counts, sizes, spacing, growth,
+---filter mode, click-through) move across. Settings with no equivalent are
+---left behind rather than guessed at: the Classic rule tables and
+---whitelist/blacklist have no counterpart now that Blizzard does the
+---filtering, and the old rows/maxCols numbers are meaningless against a
+---self-sizing container.
+local function MigrateAurasToGroups()
+	if not SUI.IsRetail or UF.DB._auraGroupsMigrated then
+		return
+	end
+
+	local migrated = 0
+
+	for presetName, frames in pairs(UF.DB.UserSettings) do
+		if presetName ~= '**' and type(frames) == 'table' then
+			for frameName, frameSettings in pairs(frames) do
+				local elements = frameName ~= '**' and type(frameSettings) == 'table' and frameSettings.elements
+				local buffs = type(elements) == 'table' and elements.Buffs
+				local debuffs = type(elements) == 'table' and elements.Debuffs
+
+				if type(buffs) == 'table' or type(debuffs) == 'table' then
+					elements.AuraGroups = elements.AuraGroups or {}
+					local target = elements.AuraGroups
+					target.groups = target.groups or {}
+
+					-- Buffs become group 1, debuffs group 2.
+					local mapping = { { source = buffs, index = '1' }, { source = debuffs, index = '2' } }
+
+					for _, entry in ipairs(mapping) do
+						local source = entry.source
+						if type(source) == 'table' then
+							local group = target.groups[entry.index] or {}
+
+							for _, key in ipairs({ 'number', 'size', 'spacing' }) do
+								if source[key] ~= nil then
+									group[key] = source[key]
+								end
+							end
+
+							if source.clickThrough ~= nil then
+								group.clickThrough = source.clickThrough
+							end
+							if source.enabled ~= nil then
+								group.enabled = source.enabled
+							end
+							if source.retail and source.retail.filterMode then
+								group.filterMode = source.retail.filterMode
+							end
+							if source.retail and source.retail.customFilter then
+								group.customFilter = source.retail.customFilter
+							end
+							if source.onlyShowPlayer then
+								group.onlyMine = true
+							end
+
+							target.groups[entry.index] = group
+							migrated = migrated + 1
+						end
+					end
+
+					-- Growth direction lived per element; the container owns it now,
+					-- so take it from whichever one defined it.
+					local growthSource = buffs or debuffs
+					if type(growthSource) == 'table' then
+						if growthSource.growthx then
+							target.growthx = growthSource.growthx
+						end
+						if growthSource.growthy then
+							target.growthy = growthSource.growthy
+						end
+						if type(growthSource.position) == 'table' and growthSource.position.anchor then
+							target.position = target.position or {}
+							target.position.anchor = growthSource.position.anchor
+						end
+					end
+				end
+			end
+		end
+	end
+
+	UF.DB._auraGroupsMigrated = true
+
+	if UF.Log and migrated > 0 then
+		UF.Log.info('Migrated ' .. migrated .. ' buff/debuff configs to aura groups')
+	end
+end
+
 ---Load and merge settings per-frame based on each frame's active preset
 local function LoadDB()
 	-- Step 1: Start with hardcoded defaults for all frames
@@ -271,6 +360,9 @@ function UF:OnInitialize()
 
 	-- Migrate from legacy single-style to per-frame presets
 	MigrateFromLegacy()
+
+	-- Carry Buffs/Debuffs customisations over to the new aura group element
+	MigrateAurasToGroups()
 
 	-- Migrate from single 'raid' to per-tier raid types (raid10/raid25/raid40)
 	if UF.DB.UserSettings then
