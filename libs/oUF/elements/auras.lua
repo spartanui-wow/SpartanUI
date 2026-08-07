@@ -412,6 +412,11 @@ local function Create(self, options)
 end
 
 local function Update(self)
+	-- SUI: AuraContainer:SetUnit asserts on a non-string, and oUF runs a full
+	-- element pass through evalUnitAndUpdate before a header has assigned the
+	-- frame a unit. Nothing to update until there is one.
+	if(not self.unit) then return end
+
 	if(STATE[self] and STATE[self].elements) then
 		for _, element in next, STATE[self].elements do
 			if element:GetUnit() ~= self.unit then

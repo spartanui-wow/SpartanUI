@@ -120,7 +120,9 @@ UF.Elements:Register('ClassIcon', Build, Update, Options, Settings)
 do -- ClassIcon as an SUIUF module
 	local function Update(self, event, unit)
 		local icon = self.ClassIcon
-		if icon then
+		-- Element handlers can run before the frame has a unit; the Unit API
+		-- errors on nil rather than returning nothing.
+		if icon and self.unit then
 			local _, class = UnitClass(self.unit)
 			if not class then
 				return
