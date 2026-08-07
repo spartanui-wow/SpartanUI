@@ -63,6 +63,14 @@ function Private.UpdateUnits(frame, unit, realUnit)
 		frame.__realUnit = realUnit
 		frame.__unitIndex = unit:match('^.-(%d+)')
 
+		-- SUI: 12.1 made the unit state internal (__unit). SpartanUI reads
+		-- frame.unit throughout its elements, tags and handlers, as does every
+		-- oUF layout written before this change, so the public fields are kept
+		-- populated alongside the internal ones.
+		frame.unit = unit
+		frame.realUnit = realUnit
+		frame.id = frame.__unitIndex
+
 		return true
 	end
 end
