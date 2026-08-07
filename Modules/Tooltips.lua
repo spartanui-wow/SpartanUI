@@ -488,10 +488,28 @@ end
 ---@param data? table Tooltip data from TooltipDataProcessor
 ---@return string? unit
 function module:GetTooltipUnit(tt, data)
-	local function usable(unit)
-		if unit and SUI.BlizzAPI.canaccessvalue(unit) and UnitExists(unit) then
-			return unit
+	-- Toggle with /sui tooltipdebug when a tooltip is not picking up its unit.
+	local function log(msg)
+		if module.debugUnitResolution then
+			SUI:Print('|cff00FF98GetTooltipUnit:|r ' .. msg)
 		end
+	end
+
+	local function usable(unit, source)
+		if not unit then
+			log(source .. ' -> nil')
+			return
+		end
+		if not SUI.BlizzAPI.canaccessvalue(unit) then
+			log(source .. ' -> secret value')
+			return
+		end
+		if not UnitExists(unit) then
+			log(source .. ' -> "' .. tostring(unit) .. '" but UnitExists is false')
+			return
+		end
+		log(source .. ' -> "' .. tostring(unit) .. '" OK')
+		return unit
 	end
 
 	-- Preferred: the GUID this tooltip was built from.
@@ -500,23 +518,25 @@ function module:GetTooltipUnit(tt, data)
 		local primary = tt:GetPrimaryTooltipData()
 		guid = primary and primary.guid
 	end
+	log('guid = ' .. tostring(guid))
 
 	if guid and UnitTokenFromGUID then
-		local unit = usable(UnitTokenFromGUID(guid))
+		local unit = usable(UnitTokenFromGUID(guid), 'UnitTokenFromGUID')
 		if unit then
 			return unit
 		end
 	end
 
-	-- Classic flavours without the data API still answer GetUnit.
-	if not tt.GetPrimaryTooltipData then
-		local ok, _, legacyUnit = pcall(tt.GetUnit, tt)
-		if ok then
-			local unit = usable(legacyUnit)
-			if unit then
-				return unit
-			end
+	-- GetUnit is tried on every flavour: it still answers on some clients even
+	-- where the data API exists, and costs nothing when it does not.
+	local ok, _, legacyUnit = pcall(tt.GetUnit, tt)
+	if ok then
+		local unit = usable(legacyUnit, 'GetUnit')
+		if unit then
+			return unit
 		end
+	else
+		log('GetUnit -> errored')
 	end
 
 	-- The frame under the cursor usually knows its own unit.
@@ -527,15 +547,16 @@ function module:GetTooltipUnit(tt, data)
 	elseif GetMouseFocus then
 		focus = GetMouseFocus()
 	end
+	log('focus = ' .. tostring(focus and focus.GetName and focus:GetName() or focus))
 
 	if focus and focus.GetAttribute then
-		local unit = usable(focus:GetAttribute('unit'))
+		local unit = usable(focus:GetAttribute('unit'), 'focus attribute')
 		if unit then
 			return unit
 		end
 	end
 
-	return usable('mouseover')
+	return usable('mouseover', 'mouseover')
 end
 
 local TooltipSetUnit = function(self, data)
@@ -844,6 +865,11 @@ function module:OnEnable()
 	end
 	module:RegisterEvent('INSPECT_READY')
 	module:RegisterEvent('ZONE_CHANGED')
+
+	SUI:AddChatCommand('tooltipdebug', function()
+		module.debugUnitResolution = not module.debugUnitResolution
+		SUI:Print('Tooltip unit resolution logging ' .. (module.debugUnitResolution and 'ON' or 'OFF'))
+	end, 'Log how tooltips work out which unit they are describing')
 
 	--Do Setup
 	ApplyTooltipSkins()
