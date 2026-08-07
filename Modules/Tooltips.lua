@@ -482,8 +482,29 @@ local TooltipSetUnit = function(self, data)
 		return
 	end
 
-	local ok, _, unit = pcall(self.GetUnit, self)
-	if not ok or not unit or not (SUI.BlizzAPI.canaccessvalue(unit)) then
+	-- GameTooltip:GetUnit() calls UnitName internally, so under 12.x addon
+	-- restrictions it hands back nothing and the tooltip loses all of its
+	-- styling. Resolve the unit from the tooltip's own data instead, falling
+	-- back to GetUnit on clients without it.
+	local unit
+	local guid = data and data.guid
+	if not guid and self.GetPrimaryTooltipData then
+		local primary = self:GetPrimaryTooltipData()
+		guid = primary and primary.guid
+	end
+
+	if guid and UnitTokenFromGUID then
+		unit = UnitTokenFromGUID(guid)
+	end
+
+	if not unit then
+		local ok, _, fallbackUnit = pcall(self.GetUnit, self)
+		if ok then
+			unit = fallbackUnit
+		end
+	end
+
+	if not unit or not SUI.BlizzAPI.canaccessvalue(unit) then
 		return
 	end
 
