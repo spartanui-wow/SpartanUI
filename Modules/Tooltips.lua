@@ -477,34 +477,74 @@ local TooltipSetItem = function(tooltip, tooltipData)
 	end
 end
 
+---Work out which unit a tooltip is describing.
+---
+---GameTooltip:GetUnit() calls UnitName internally, so under the 12.x addon
+---restrictions it returns nothing and every bit of tooltip styling is lost.
+---The GUID from the tooltip's own data is the reliable source, but it only
+---resolves to a token for units the client can currently address, so the
+---mouseover unit and the hovered frame's unit attribute back it up.
+---@param tt table The tooltip
+---@param data? table Tooltip data from TooltipDataProcessor
+---@return string? unit
+function module:GetTooltipUnit(tt, data)
+	local function usable(unit)
+		if unit and SUI.BlizzAPI.canaccessvalue(unit) and UnitExists(unit) then
+			return unit
+		end
+	end
+
+	-- Preferred: the GUID this tooltip was built from.
+	local guid = data and data.guid
+	if not guid and tt.GetPrimaryTooltipData then
+		local primary = tt:GetPrimaryTooltipData()
+		guid = primary and primary.guid
+	end
+
+	if guid and UnitTokenFromGUID then
+		local unit = usable(UnitTokenFromGUID(guid))
+		if unit then
+			return unit
+		end
+	end
+
+	-- Classic flavours without the data API still answer GetUnit.
+	if not tt.GetPrimaryTooltipData then
+		local ok, _, legacyUnit = pcall(tt.GetUnit, tt)
+		if ok then
+			local unit = usable(legacyUnit)
+			if unit then
+				return unit
+			end
+		end
+	end
+
+	-- The frame under the cursor usually knows its own unit.
+	local focus
+	if GetMouseFoci then
+		local foci = GetMouseFoci()
+		focus = foci and foci[1]
+	elseif GetMouseFocus then
+		focus = GetMouseFocus()
+	end
+
+	if focus and focus.GetAttribute then
+		local unit = usable(focus:GetAttribute('unit'))
+		if unit then
+			return unit
+		end
+	end
+
+	return usable('mouseover')
+end
+
 local TooltipSetUnit = function(self, data)
 	if self ~= GameTooltip or self:IsForbidden() then
 		return
 	end
 
-	-- GameTooltip:GetUnit() calls UnitName internally, so under 12.x addon
-	-- restrictions it hands back nothing and the tooltip loses all of its
-	-- styling. Resolve the unit from the tooltip's own data instead, falling
-	-- back to GetUnit on clients without it.
-	local unit
-	local guid = data and data.guid
-	if not guid and self.GetPrimaryTooltipData then
-		local primary = self:GetPrimaryTooltipData()
-		guid = primary and primary.guid
-	end
-
-	if guid and UnitTokenFromGUID then
-		unit = UnitTokenFromGUID(guid)
-	end
-
+	local unit = module:GetTooltipUnit(self, data)
 	if not unit then
-		local ok, _, fallbackUnit = pcall(self.GetUnit, self)
-		if ok then
-			unit = fallbackUnit
-		end
-	end
-
-	if not unit or not SUI.BlizzAPI.canaccessvalue(unit) then
 		return
 	end
 
