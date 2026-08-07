@@ -210,6 +210,8 @@ local onShow = function(self)
 end
 
 local onHide = function(self)
+	self.SUIUnitStyled = nil
+
 	if not self.SUITip then
 		return
 	end
@@ -222,6 +224,7 @@ local TipCleared = function(self)
 	self.SUITip:ClearColors()
 	self.SUITip.border:Hide()
 	self.itemCleared = nil
+	self.SUIUnitStyled = nil
 end
 
 local setPoint = function(self, parent)
@@ -560,19 +563,17 @@ function module:GetTooltipUnit(tt, data)
 end
 
 local TooltipSetUnit = function(self, data)
-	if module.debugUnitResolution then
-		SUI:Print(
-			('|cff00FF98TooltipSetUnit fired|r self=%s isGameTooltip=%s forbidden=%s'):format(
-				tostring(self and self.GetName and self:GetName() or self),
-				tostring(self == GameTooltip),
-				tostring(self and self.IsForbidden and self:IsForbidden())
-			)
-		)
-	end
-
 	if self ~= GameTooltip or self:IsForbidden() then
 		return
 	end
+
+	-- The handler is registered on both the data processor and the legacy
+	-- script, so guard against styling the same tooltip contents twice on a
+	-- client that runs both. Cleared in TipCleared.
+	if self.SUIUnitStyled then
+		return
+	end
+	self.SUIUnitStyled = true
 
 	local unit = module:GetTooltipUnit(self, data)
 	if not unit then
@@ -998,20 +999,26 @@ function module:OnEnable()
 	end
 
 	-- TooltipDataProcessor is Retail-only (10.0.2+), use old-style hooks for Classic
-	module.hooksRegistered = TooltipDataProcessor and 'dataprocessor' or 'hookscript'
-
+	-- Both paths are registered because having TooltipDataProcessor does not
+	-- mean every tooltip type goes through it. Mists ships only
+	-- Blizzard_GameTooltip_Classic, whose XML still wires OnTooltipSetUnit
+	-- directly, so units never reach the data processor there even though the
+	-- processor exists for other types.
+	--
+	-- Whichever path the client actually uses fires; the other stays silent.
+	-- A guard stops the same tooltip being processed twice on clients that
+	-- somehow run both.
 	if TooltipDataProcessor then
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, TooltipSetItem)
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, TooltipSetUnit)
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Spell, TooltipSetSpell)
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Mount, TooltipSetGeneric)
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Quest, TooltipSetGeneric)
-	else
-		-- Classic compatibility: use old-style tooltip hooks
-		GameTooltip:HookScript('OnTooltipSetItem', TooltipSetItem)
-		GameTooltip:HookScript('OnTooltipSetUnit', TooltipSetUnit)
-		GameTooltip:HookScript('OnTooltipSetSpell', TooltipSetSpell)
 	end
+
+	GameTooltip:HookScript('OnTooltipSetItem', TooltipSetItem)
+	GameTooltip:HookScript('OnTooltipSetUnit', TooltipSetUnit)
+	GameTooltip:HookScript('OnTooltipSetSpell', TooltipSetSpell)
 end
 
 function module:RegisterSetupWizardPage()
