@@ -126,7 +126,7 @@ local function Build(frame, DB)
 	-- oUF's own 'Auras' meta element is what pushes the unit into every
 	-- container on this frame; without it they never receive a unit and stay
 	-- empty. It drives all containers at once, so enable it only once.
-	UF.Auras:EnableContainerDriver(frame)
+	UF.Auras:ScheduleContainerStateSync(frame)
 end
 
 ---@param frame table

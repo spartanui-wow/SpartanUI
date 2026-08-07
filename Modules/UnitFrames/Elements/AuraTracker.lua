@@ -67,7 +67,7 @@ local function Build(frame, DB)
 	UF.Auras:AttachSlots(element, DB, BuildSlotSettings)
 
 	-- Containers only receive their unit through oUF's 'Auras' meta element.
-	UF.Auras:EnableContainerDriver(frame)
+	UF.Auras:ScheduleContainerStateSync(frame)
 end
 
 ---@param frame table

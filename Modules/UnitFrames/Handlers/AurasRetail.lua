@@ -787,22 +787,29 @@ function Auras:PositionContainer(element, frame, DB)
 	element:SetSize(width or 100, DB.height or 1)
 end
 
----Enable oUF's aura meta element so containers receive their unit.
+---Settle each aura element's enabled state once oUF has finished building.
 ---
----oUF registers an element named 'Auras' whose Update calls SetUnit on every
----container belonging to the frame. SpartanUI's own elements only create
----containers, so without this they are never given a unit and stay empty.
----Safe to call repeatedly: EnableElement is a no-op once active.
+---oUF's own 'Auras' meta element is what pushes the unit into every container
+---on a frame, and oUF enables it automatically for every frame it builds
+---(walkObject enables every registered element right after the style function
+---runs). So there is nothing to enable here.
 ---
----Note that oUF's Enable switches on *every* container for the frame, so each
----element re-asserts its own enabled state afterwards.
+---What does need handling: that automatic pass calls SetEnabled(true) on
+---*every* container, which would switch on a display the user turned off. The
+---elements build during the style function, before oUF's enable pass, so the
+---correction is deferred to the end of the frame's build.
 ---@param frame table
-function Auras:EnableContainerDriver(frame)
-	if frame.EnableElement then
-		frame:EnableElement('Auras')
+function Auras:ScheduleContainerStateSync(frame)
+	if frame.auraStatePending then
+		return
 	end
+	frame.auraStatePending = true
 
-	self:ApplyContainerEnabledStates(frame)
+	-- Next frame: after walkObject has enabled every element.
+	C_Timer.After(0, function()
+		frame.auraStatePending = nil
+		self:ApplyContainerEnabledStates(frame)
+	end)
 end
 
 ---Re-apply each aura element's own enabled setting.
