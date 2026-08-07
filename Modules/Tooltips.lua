@@ -880,8 +880,6 @@ function module:OnEnable()
 	SUI:AddChatCommand('tooltipdebug', function()
 		module.debugUnitResolution = not module.debugUnitResolution
 		SUI:Print('Tooltip unit resolution logging ' .. (module.debugUnitResolution and 'ON' or 'OFF'))
-		SUI:Print('Tooltip hooks registered via: ' .. tostring(module.hooksRegistered))
-		SUI:Print('TooltipDataProcessor: ' .. tostring(TooltipDataProcessor ~= nil) .. ', Enum.TooltipDataType.Unit: ' .. tostring(Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit))
 	end, 'Log how tooltips work out which unit they are describing')
 
 	--Do Setup
