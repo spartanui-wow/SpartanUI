@@ -342,6 +342,10 @@ end
 ---@param groupDB table
 ---@param element table
 function Auras:StyleButton(button, groupDB, element)
+	if not button then
+		return
+	end
+
 	local font = SUI.Font:GetFontObject(nil, groupDB.fontSize or 12, 'OUTLINE')
 
 	if button.Count and font then
@@ -922,6 +926,10 @@ end
 ---@param entry table
 ---@param element table
 function Auras:StyleTrackerButton(button, entry, element)
+	if not button then
+		return
+	end
+
 	local font = SUI.Font:GetFontObject(nil, entry.fontSize or 12, 'OUTLINE')
 
 	if button.Count and font then

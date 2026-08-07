@@ -89,7 +89,10 @@ local function BuildContainerGroupSettings(element, groupDB)
 			forceNewLine = groupDB.forceNewLine,
 		},
 
-		initializeFrame = function(_, button)
+		-- Blizzard calls this with just the button. oUF's own default gets
+		-- (element, options, button) only because oUF wraps it in a closure;
+		-- an initializeFrame supplied directly is called raw.
+		initializeFrame = function(button)
 			UF.Auras:StyleButton(button, groupDB, element)
 		end,
 	}

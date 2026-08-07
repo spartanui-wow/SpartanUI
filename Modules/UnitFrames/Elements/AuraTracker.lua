@@ -35,7 +35,8 @@ local function BuildSlotSettings(element, entry)
 
 		durationColors = UF.Auras:GetDurationColorCurve(entry.expiring),
 
-		initializeFrame = function(_, button)
+		-- Called with just the button; see the note in Elements/Auras.lua.
+		initializeFrame = function(button)
 			UF.Auras:StyleTrackerButton(button, entry, element)
 		end,
 	}
