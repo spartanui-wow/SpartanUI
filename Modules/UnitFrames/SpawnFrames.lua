@@ -39,36 +39,43 @@ end
 ---which errors when the frame has no unit yet - group frames are built before
 ---the secure header assigns one. The unit can also be a secret value, which
 ---SetUnit will not take either.
+---Plain functions, not methods: these are used directly as OnEnter/OnLeave
+---script handlers, so WoW calls them with the frame as the only argument.
 ---@param frame table
-function UF:UnitFrame_OnEnter(frame)
-	frame = frame or self
+local function UnitFrameOnEnter(frame)
+	if type(frame) ~= 'table' or not frame.GetName then
+		return
+	end
 
 	if GameTooltip:IsForbidden() then
 		frame.UpdateTooltip = nil
 		return
 	end
 
-	GameTooltip_SetDefaultAnchor(GameTooltip, frame)
-
 	local unit = frame.unit
-	if unit and SUI.BlizzAPI.canaccessvalue(unit) and UnitExists(unit) then
-		GameTooltip:SetUnit(unit)
-		frame.UpdateTooltip = UF.UnitFrame_OnEnter
-	else
+	if not (unit and SUI.BlizzAPI.canaccessvalue(unit) and UnitExists(unit)) then
 		frame.UpdateTooltip = nil
-		GameTooltip:Hide()
+		return
 	end
+
+	GameTooltip_SetDefaultAnchor(GameTooltip, frame)
+	GameTooltip:SetUnit(unit)
+	frame.UpdateTooltip = UnitFrameOnEnter
 end
 
 ---@param frame table
-function UF:UnitFrame_OnLeave(frame)
-	frame = frame or self
-	frame.UpdateTooltip = nil
+local function UnitFrameOnLeave(frame)
+	if type(frame) == 'table' and frame.GetName then
+		frame.UpdateTooltip = nil
+	end
 
 	if not GameTooltip:IsForbidden() then
 		GameTooltip:Hide()
 	end
 end
+
+UF.UnitFrame_OnEnter = UnitFrameOnEnter
+UF.UnitFrame_OnLeave = UnitFrameOnLeave
 
 local function CreateUnitFrame(self, unit)
 	local frameName = self:GetName() or 'Unknown'

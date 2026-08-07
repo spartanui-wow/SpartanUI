@@ -54,10 +54,10 @@ local function Build(frame, DB)
 
 	-- Tooltip support: show unit tooltip on hover
 	clickOverlay:SetScript('OnEnter', function()
-		UF:UnitFrame_OnEnter(frame)
+		UF.UnitFrame_OnEnter(frame)
 	end)
 	clickOverlay:SetScript('OnLeave', function()
-		UF:UnitFrame_OnLeave(frame)
+		UF.UnitFrame_OnLeave(frame)
 	end)
 
 	frame.PortraitClickOverlay = clickOverlay
