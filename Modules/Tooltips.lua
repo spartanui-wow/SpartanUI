@@ -562,12 +562,20 @@ local TooltipSetUnit = function(self, data)
 
 		if SUI:IsTimerunner() then
 			local cloakData = C_UnitAuras.GetAuraDataBySpellName(unit, "Timerunner's Advantage")
-			if cloakData ~= nil then
+			if cloakData ~= nil and SUI.BlizzAPI.canaccesstable(cloakData) then
 				local total = 0
+				local accessible = true
 				for i = 1, 9 do
-					total = total + cloakData.points[i]
+					local points = cloakData.points and cloakData.points[i]
+					if points and SUI.BlizzAPI.canaccessvalue(points) then
+						total = total + points
+					else
+						accessible = false
+					end
 				end
-				self:AddLine('\n|cff00FF98Threads |cffFFFFFF' .. SUI.Font:comma_value(total))
+				if accessible then
+					self:AddLine('\n|cff00FF98Threads |cffFFFFFF' .. SUI.Font:comma_value(total))
+				end
 			end
 		end
 	end

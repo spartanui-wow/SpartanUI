@@ -1,4 +1,4 @@
-## Interface: 120007, 50504, 38001, 20506, 11508
+## Interface: 120100, 50504, 38002, 20506, 11509
 ## Title: Spartan|cffe21f1fUI
 ## Notes: User Interface combining elegant artwork with well designed features.
 ## Version: @project-version@
