@@ -31,7 +31,7 @@ local oUF = ns.oUF
 
 local function Update(self, event)
 	local element = self.LeaderIndicator
-	local unit = self.__unit
+	local unit = self.unit
 
 	--[[ Callback: LeaderIndicator:PreUpdate()
 	Called before the element has been updated.
@@ -57,10 +57,6 @@ local function Update(self, event)
 		isLeader = UnitIsGroupLeader(unit)
 	else
 		isLeader = UnitLeadsAnyGroup(unit)
-	end
-
-	if(issecretvalue(isLeader)) then
-		isLeader = false
 	end
 
 	if(isLeader) then

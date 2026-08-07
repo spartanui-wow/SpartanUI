@@ -40,12 +40,10 @@ local _, ns = ...
 local oUF = ns.oUF
 local Private = oUF.Private
 
-local STATE = {}
-
 local unitIsUnit = Private.unitIsUnit
 
 local function Update(self, event, unit)
-	if(not unit or not unitIsUnit(self.__unit, unit)) then return end
+	if(not unit or not unitIsUnit(self.unit, unit)) then return end
 
 	local element = self.Portrait
 
@@ -60,14 +58,9 @@ local function Update(self, event, unit)
 	local guid = UnitGUID(unit)
 	local isAvailable = UnitIsConnected(unit) and UnitIsVisible(unit)
 
-	local hasStateChanged
-	if(event ~= 'OnUpdate') then
-		hasStateChanged = true
-	elseif(STATE[element].available ~= isAvailable) then
-		hasStateChanged = true
-	elseif(not issecretvalue(guid) and not issecretvalue(STATE[element].guid)) then
-		hasStateChanged = STATE[element].guid ~= guid
-	end
+	local hasStateChanged = event ~= 'OnUpdate'
+		or (not issecretvalue(guid) and not issecretvalue(element.guid) and element.guid ~= guid)
+		or element.state ~= isAvailable
 
 	if(hasStateChanged) then
 		if(element:IsObjectType('PlayerModel')) then
@@ -90,15 +83,15 @@ local function Update(self, event, unit)
 				_, class = UnitClass(unit)
 			end
 
-			if(class ~= nil) then
+			if(class) then
 				element:SetAtlas('classicon-' .. class)
 			else
 				SetPortraitTexture(element, unit)
 			end
 		end
 
-		STATE[element].guid = guid
-		STATE[element].available = isAvailable
+		element.guid = guid
+		element.state = isAvailable
 	end
 
 	--[[ Callback: Portrait:PostUpdate(unit)
@@ -125,7 +118,7 @@ local function Path(self, ...)
 end
 
 local function ForceUpdate(element)
-	return Path(element.__owner, 'ForceUpdate', element.__owner.__unit)
+	return Path(element.__owner, 'ForceUpdate', element.__owner.unit)
 end
 
 local function Enable(self, unit)
@@ -133,8 +126,6 @@ local function Enable(self, unit)
 	if(element) then
 		element.__owner = self
 		element.ForceUpdate = ForceUpdate
-
-		STATE[element] = {}
 
 		self:RegisterEvent('UNIT_MODEL_CHANGED', Path)
 		self:RegisterEvent('UNIT_PORTRAIT_UPDATE', Path)

@@ -30,7 +30,7 @@ local oUF = ns.oUF
 
 local function Update(self, event)
 	local element = self.Range
-	local unit = self.__unit
+	local unit = self.unit
 
 	--[[ Callback: Range:PreUpdate()
 	Called before the element has been updated.

@@ -82,11 +82,6 @@ local frame_metatable = {
 }
 Private.frame_metatable = frame_metatable
 
-local objectElementUpdateFuncs = {}
-function Private.insertObjectElementUpdateFunc(object, func)
-	table.insert(objectElementUpdateFuncs[object], func)
-end
-
 for k, v in next, {
 	--[[ frame:EnableElement(name[, unit])
 	Used to activate an element for the given unit frame.
@@ -102,11 +97,11 @@ for k, v in next, {
 		local element = elements[name]
 		if(not element or self:IsElementEnabled(name)) then return end
 
-		if(element.enable(self, unit or self.__unit)) then
+		if(element.enable(self, unit or self.unit)) then
 			activeElements[self][name] = true
 
 			if(element.update) then
-				table.insert(objectElementUpdateFuncs[self], element.update)
+				table.insert(self.__elements, element.update)
 			end
 		end
 	end,
@@ -127,9 +122,9 @@ for k, v in next, {
 
 		local update = elements[name].update
 		if(update) then
-			for index, func in next, objectElementUpdateFuncs[self] do
+			for k, func in next, self.__elements do
 				if(func == update) then
-					table.remove(objectElementUpdateFuncs[self], index)
+					table.remove(self.__elements, k)
 					break
 				end
 			end
@@ -137,7 +132,7 @@ for k, v in next, {
 
 		activeElements[self][name] = nil
 
-		return elements[name].disable(self, unit or self.__unit)
+		return elements[name].disable(self, unit or self.unit)
 	end,
 
 	--[[ frame:IsElementEnabled(name)
@@ -188,7 +183,7 @@ for k, v in next, {
 	* event - event name to pass to the elements' update functions (string)
 	--]]
 	UpdateAllElements = function(self, event)
-		local unit = self.__unit
+		local unit = self.unit
 		if(not unitExists(unit)) then return end
 
 		assert(type(event) == 'string', "Invalid argument 'event' in UpdateAllElements.")
@@ -203,7 +198,7 @@ for k, v in next, {
 			self:PreUpdate(event)
 		end
 
-		for _, func in next, objectElementUpdateFuncs[self] do
+		for _, func in next, self.__elements do
 			func(self, event, unit)
 		end
 
@@ -236,13 +231,13 @@ local function updatePet(self, event, unit)
 		petUnit = unit:gsub('^(%a+)(%d+)', '%1pet%2')
 	end
 
-	if(self.__unit ~= petUnit) then return end
+	if(self.unit ~= petUnit) then return end
 
 	evalUnitAndUpdate(self, event)
 end
 
 local function updateRaid(self, event)
-	local unitGUID = UnitGUID(self.__unit)
+	local unitGUID = UnitGUID(self.unit)
 	if(unitGUID ~= nil and not issecretvalue(unitGUID) and unitGUID ~= self.unitGUID) then
 		self.unitGUID = unitGUID
 
@@ -263,7 +258,7 @@ local function initObject(unit, style, styleFunc, header, ...)
 			objectUnit = objectUnit .. suffix
 		end
 
-		objectElementUpdateFuncs[object] = {}
+		object.__elements = {}
 		object.style = style
 		object = setmetatable(object, frame_metatable)
 

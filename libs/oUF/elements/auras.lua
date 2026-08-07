@@ -404,7 +404,7 @@ local function Create(self, options)
 
 		if(options.policy) then
 			-- just expose it easily for layouts in case they want to use it
-			element:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, options.policy  )
+			element:SetAuraProcessingPolicy(CustomAuraContainerAuraProcessingPolicy.ProcessAura, options.policy)
 		end
 	end
 

@@ -41,18 +41,14 @@ local function Update(self, event)
 		element:PreUpdate()
 	end
 
-	local role = UnitGroupRolesAssignedEnum(self.__unit)
-	if(issecretvalue(role)) then
-		role = nil
-	end
-
-	if(role == Enum.LFGRole.Tank) then
+	local role = UnitGroupRolesAssigned(self.unit)
+	if(role == 'TANK') then
 		element:SetAtlas('UI-LFG-RoleIcon-Tank-Micro-Raid', element.useAtlasSize)
 		element:Show()
-	elseif(role == Enum.LFGRole.Healer) then
+	elseif(role == 'HEALER') then
 		element:SetAtlas('UI-LFG-RoleIcon-Healer-Micro-Raid', element.useAtlasSize)
 		element:Show()
-	elseif(role == Enum.LFGRole.Damage) then
+	elseif(role == 'DAMAGER') then
 		element:SetAtlas('UI-LFG-RoleIcon-DPS-Micro-Raid', element.useAtlasSize)
 		element:Show()
 	else
@@ -63,7 +59,7 @@ local function Update(self, event)
 	Called after the element has been updated.
 
 	* self - the GroupRoleIndicator element
-	* role - the role as returned by [UnitGroupRolesAssignedEnum](https://warcraft.wiki.gg/wiki/API_UnitGroupRolesAssignedEnum) (number)
+	* role - the role as returned by [UnitGroupRolesAssigned](https://warcraft.wiki.gg/wiki/API_UnitGroupRolesAssigned)
 	--]]
 	if(element.PostUpdate) then
 		return element:PostUpdate(role)
@@ -85,13 +81,13 @@ local function ForceUpdate(element)
 	return Path(element.__owner, 'ForceUpdate')
 end
 
-local function Enable(self, unit)
+local function Enable(self)
 	local element = self.GroupRoleIndicator
 	if(element) then
 		element.__owner = self
 		element.ForceUpdate = ForceUpdate
 
-		if(unit == 'player') then
+		if(self.unit == 'player') then
 			self:RegisterEvent('PLAYER_ROLES_ASSIGNED', Path, true)
 		else
 			self:RegisterEvent('GROUP_ROSTER_UPDATE', Path, true)

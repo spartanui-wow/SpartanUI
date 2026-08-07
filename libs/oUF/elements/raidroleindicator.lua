@@ -31,7 +31,7 @@ local oUF = ns.oUF
 
 local function Update(self, event)
 	local element = self.RaidRoleIndicator
-	local unit = self.__unit
+	local unit = self.unit
 
 	--[[ Callback: RaidRoleIndicator:PreUpdate()
 	Called before the element has been updated.
@@ -42,20 +42,20 @@ local function Update(self, event)
 		element:PreUpdate()
 	end
 
-	local role, shouldShow
-	if(UnitInRaid(unit) ~= nil and not UnitHasVehicleUI(unit)) then
+	local role, isShown
+	if(UnitInRaid(unit) and not UnitHasVehicleUI(unit)) then
 		if(GetPartyAssignment('MAINTANK', unit)) then
-			role = 'MAINTANK'
-			shouldShow = true
+			isShown = true
 			element:SetAtlas('RaidFrame-Icon-MainTank', element.useAtlasSize)
+			role = 'MAINTANK'
 		elseif(GetPartyAssignment('MAINASSIST', unit)) then
-			role = 'MAINASSIST'
-			shouldShow = true
+			isShown = true
 			element:SetAtlas('RaidFrame-Icon-MainAssist', element.useAtlasSize)
+			role = 'MAINASSIST'
 		end
 	end
 
-	element:SetShown(shouldShow)
+	element:SetShown(isShown)
 
 	--[[ Callback: RaidRoleIndicator:PostUpdate(role)
 	Called after the element has been updated.
