@@ -287,16 +287,37 @@ local function Build(frame, DB)
 	-- Overflow control
 	local overflowAmount = DB.healPredictionOverflow or 1.05
 
-	-- Prediction sub-bars live directly on the Health element as of oUF 12.1.
-	-- Only the bars used by the selected heal source are attached, so oUF skips the rest.
-	frame.Health.HealingAll = (healSource == 'ALL') and healingAll or nil
-	frame.Health.HealingPlayer = (healSource ~= 'ALL') and healingPlayer or nil
-	frame.Health.HealingOther = (healSource == 'SPLIT') and healingOther or nil
+	-- Only the bars used by the selected heal source are attached, so the
+	-- element skips the rest.
+	local activeHealingAll = (healSource == 'ALL') and healingAll or nil
+	local activeHealingPlayer = (healSource ~= 'ALL') and healingPlayer or nil
+	local activeHealingOther = (healSource == 'SPLIT') and healingOther or nil
+
+	-- Retail: oUF 12.1 merged prediction into the Health element, so the
+	-- sub-bars hang off Health itself using capitalised names.
+	frame.Health.HealingAll = activeHealingAll
+	frame.Health.HealingPlayer = activeHealingPlayer
+	frame.Health.HealingOther = activeHealingOther
 	frame.Health.DamageAbsorb = damageAbsorb
 	frame.Health.HealAbsorb = healAbsorb
 	frame.Health.OverDamageAbsorbIndicator = overDamageAbsorbIndicator
 	frame.Health.OverHealAbsorbIndicator = overHealAbsorbIndicator
 	frame.Health.incomingHealOverflow = overflowAmount
+
+	-- Classic: oUF_Classic still ships the standalone HealthPrediction
+	-- element, which reads a table of lowercase names off the frame.
+	if not SUI.IsRetail then
+		frame.HealthPrediction = {
+			healingAll = activeHealingAll,
+			healingPlayer = activeHealingPlayer,
+			healingOther = activeHealingOther,
+			damageAbsorb = damageAbsorb,
+			healAbsorb = healAbsorb,
+			overDamageAbsorbIndicator = overDamageAbsorbIndicator,
+			overHealAbsorbIndicator = overHealAbsorbIndicator,
+			incomingHealOverflow = overflowAmount,
+		}
+	end
 end
 
 ---@param frame table
@@ -356,42 +377,56 @@ local function Update(frame, settings)
 		element.bg:SetVertexColor(unpack(DB.bg.color or { 1, 1, 1, 0.2 }))
 	end
 
-	-- Update prediction bar textures and colors
+	-- Update prediction bar textures and colors.
+	-- Retail hangs these off the Health element; Classic keeps them in a
+	-- frame.HealthPrediction table. Both reference the same bar objects, so
+	-- read from whichever this flavour populated.
 	do
+		local pred = frame.HealthPrediction
+		local healingAll = element.HealingAll or (pred and pred.healingAll)
+		local healingPlayer = element.HealingPlayer or (pred and pred.healingPlayer)
+		local healingOther = element.HealingOther or (pred and pred.healingOther)
+		local damageAbsorb = element.DamageAbsorb or (pred and pred.damageAbsorb)
+		local healAbsorb = element.HealAbsorb or (pred and pred.healAbsorb)
+
 		local healPredTexture = UF:FindStatusBarTexture(DB.healPredictionTexture or 'Blizzard')
 		local healColor = (DB.customColors and DB.customColors.useCustom and DB.customColors.healPredictionColor) or { 0.0, 0.659, 0.608, 0.7 }
 		local othersHealColor = (DB.customColors and DB.customColors.useCustom and DB.customColors.othersHealColor) or { 0.0, 0.431, 0.369, 0.5 }
 
-		if element.HealingAll then
-			element.HealingAll:SetStatusBarTexture(healPredTexture)
-			element.HealingAll:SetStatusBarColor(unpack(healColor))
+		if healingAll then
+			healingAll:SetStatusBarTexture(healPredTexture)
+			healingAll:SetStatusBarColor(unpack(healColor))
 		end
-		if element.HealingPlayer then
-			element.HealingPlayer:SetStatusBarTexture(healPredTexture)
-			element.HealingPlayer:SetStatusBarColor(unpack(healColor))
+		if healingPlayer then
+			healingPlayer:SetStatusBarTexture(healPredTexture)
+			healingPlayer:SetStatusBarColor(unpack(healColor))
 		end
-		if element.HealingOther then
-			element.HealingOther:SetStatusBarTexture(healPredTexture)
-			element.HealingOther:SetStatusBarColor(unpack(othersHealColor))
+		if healingOther then
+			healingOther:SetStatusBarTexture(healPredTexture)
+			healingOther:SetStatusBarColor(unpack(othersHealColor))
 		end
-		if element.DamageAbsorb then
-			element.DamageAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.absorbTexture or 'Blizzard Shield'))
+		if damageAbsorb then
+			damageAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.absorbTexture or 'Blizzard Shield'))
 			if DB.customColors and DB.customColors.useCustom and DB.customColors.absorbColor then
-				element.DamageAbsorb:SetStatusBarColor(unpack(DB.customColors.absorbColor))
+				damageAbsorb:SetStatusBarColor(unpack(DB.customColors.absorbColor))
 			else
-				element.DamageAbsorb:SetStatusBarColor(1, 1, 1, 0.8)
+				damageAbsorb:SetStatusBarColor(1, 1, 1, 0.8)
 			end
 		end
-		if element.HealAbsorb then
-			element.HealAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.healAbsorbTexture or 'Blizzard Absorb'))
+		if healAbsorb then
+			healAbsorb:SetStatusBarTexture(UF:FindStatusBarTexture(DB.healAbsorbTexture or 'Blizzard Absorb'))
 			if DB.customColors and DB.customColors.useCustom and DB.customColors.healAbsorbColor then
-				element.HealAbsorb:SetStatusBarColor(unpack(DB.customColors.healAbsorbColor))
+				healAbsorb:SetStatusBarColor(unpack(DB.customColors.healAbsorbColor))
 			else
-				element.HealAbsorb:SetStatusBarColor(0.7, 0.0, 0.3, 0.8)
+				healAbsorb:SetStatusBarColor(0.7, 0.0, 0.3, 0.8)
 			end
 		end
 
-		element.incomingHealOverflow = DB.healPredictionOverflow or 1.05
+		local overflow = DB.healPredictionOverflow or 1.05
+		element.incomingHealOverflow = overflow
+		if pred then
+			pred.incomingHealOverflow = overflow
+		end
 	end
 
 	for i, key in pairs(DB.text) do

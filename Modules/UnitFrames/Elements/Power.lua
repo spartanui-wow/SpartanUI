@@ -54,6 +54,14 @@ local function Build(frame, DB)
 	costPrediction:Hide()
 	power.CostPrediction = costPrediction
 
+	-- Classic ships the standalone PowerPrediction element, which reads its
+	-- bars from a table on the frame rather than off the Power element.
+	if not SUI.IsRetail then
+		frame.PowerPrediction = {
+			mainBar = costPrediction,
+		}
+	end
+
 	frame.Power = power
 	frame.Power.colorPower = true
 	frame.Power.frequentUpdates = true

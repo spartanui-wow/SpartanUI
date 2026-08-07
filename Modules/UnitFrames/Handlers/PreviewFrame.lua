@@ -97,30 +97,23 @@ end
 ---Hide all health prediction sub-bars that oUF normally manages
 ---@param preview table
 local function HideHealthPredictionBars(preview)
-	local hp = preview.Health
-	if not hp then
-		return
-	end
-	if hp.HealingAll then
-		hp.HealingAll:Hide()
-	end
-	if hp.HealingPlayer then
-		hp.HealingPlayer:Hide()
-	end
-	if hp.HealingOther then
-		hp.HealingOther:Hide()
-	end
-	if hp.DamageAbsorb then
-		hp.DamageAbsorb:Hide()
-	end
-	if hp.HealAbsorb then
-		hp.HealAbsorb:Hide()
-	end
-	if hp.OverDamageAbsorbIndicator then
-		hp.OverDamageAbsorbIndicator:Hide()
-	end
-	if hp.OverHealAbsorbIndicator then
-		hp.OverHealAbsorbIndicator:Hide()
+	-- Retail hangs these off Health, Classic keeps them in a
+	-- HealthPrediction table. Cover both.
+	local health = preview.Health
+	local pred = preview.HealthPrediction
+
+	local bars = {
+		health and health.HealingAll or (pred and pred.healingAll),
+		health and health.HealingPlayer or (pred and pred.healingPlayer),
+		health and health.HealingOther or (pred and pred.healingOther),
+		health and health.DamageAbsorb or (pred and pred.damageAbsorb),
+		health and health.HealAbsorb or (pred and pred.healAbsorb),
+		health and health.OverDamageAbsorbIndicator or (pred and pred.overDamageAbsorbIndicator),
+		health and health.OverHealAbsorbIndicator or (pred and pred.overHealAbsorbIndicator),
+	}
+
+	for _, bar in pairs(bars) do
+		bar:Hide()
 	end
 end
 
@@ -324,6 +317,7 @@ local function CleanPreviewFrame(preview)
 
 	-- Clear element references
 	preview.Health = nil
+	preview.HealthPrediction = nil
 	preview.Power = nil
 	preview.Castbar = nil
 	preview.Name = nil
