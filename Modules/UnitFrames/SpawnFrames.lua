@@ -52,8 +52,11 @@ local function UnitFrameOnEnter(frame)
 		return
 	end
 
+	-- Only a present, readable unit token is required. Deliberately no
+	-- UnitExists check: it can return a secret value, which reads as false and
+	-- would suppress the tooltip on every frame.
 	local unit = frame.unit
-	if not (unit and SUI.BlizzAPI.canaccessvalue(unit) and UnitExists(unit)) then
+	if not (unit and SUI.BlizzAPI.canaccessvalue(unit)) then
 		frame.UpdateTooltip = nil
 		return
 	end
