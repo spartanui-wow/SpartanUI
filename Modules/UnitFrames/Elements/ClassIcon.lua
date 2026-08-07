@@ -27,6 +27,13 @@ end
 local function Update(frame, settings)
 	local element = frame.ClassIcon
 	local DB = settings or element.DB
+
+	-- Header-spawned frames have no unit until the secure header assigns one,
+	-- and the Unit API errors on a nil unit.
+	if not frame.unit then
+		return
+	end
+
 	local reaction = UnitReaction(frame.unit, 'player')
 	if not reaction then
 		return

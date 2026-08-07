@@ -260,8 +260,9 @@ local function Update(frame, settings)
 	local DB = settings or element.DB
 	element.DB = DB -- Store for future reference
 
-	-- Check if we're the target
-	local isTarget = UnitIsUnit(frame.unit, 'target') and DB.enabled and DB.ShowTarget
+	-- Check if we're the target. Header-spawned frames have no unit until the
+	-- secure header assigns one, and UnitIsUnit errors on a nil unit.
+	local isTarget = frame.unit ~= nil and UnitIsUnit(frame.unit, 'target') and DB.enabled and DB.ShowTarget
 
 	-- Update texture display
 	if DB.mode == 'texture' or DB.mode == 'both' then
