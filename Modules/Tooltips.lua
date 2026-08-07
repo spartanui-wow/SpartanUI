@@ -560,6 +560,16 @@ function module:GetTooltipUnit(tt, data)
 end
 
 local TooltipSetUnit = function(self, data)
+	if module.debugUnitResolution then
+		SUI:Print(
+			('|cff00FF98TooltipSetUnit fired|r self=%s isGameTooltip=%s forbidden=%s'):format(
+				tostring(self and self.GetName and self:GetName() or self),
+				tostring(self == GameTooltip),
+				tostring(self and self.IsForbidden and self:IsForbidden())
+			)
+		)
+	end
+
 	if self ~= GameTooltip or self:IsForbidden() then
 		return
 	end
@@ -869,6 +879,8 @@ function module:OnEnable()
 	SUI:AddChatCommand('tooltipdebug', function()
 		module.debugUnitResolution = not module.debugUnitResolution
 		SUI:Print('Tooltip unit resolution logging ' .. (module.debugUnitResolution and 'ON' or 'OFF'))
+		SUI:Print('Tooltip hooks registered via: ' .. tostring(module.hooksRegistered))
+		SUI:Print('TooltipDataProcessor: ' .. tostring(TooltipDataProcessor ~= nil) .. ', Enum.TooltipDataType.Unit: ' .. tostring(Enum and Enum.TooltipDataType and Enum.TooltipDataType.Unit))
 	end, 'Log how tooltips work out which unit they are describing')
 
 	--Do Setup
@@ -986,6 +998,8 @@ function module:OnEnable()
 	end
 
 	-- TooltipDataProcessor is Retail-only (10.0.2+), use old-style hooks for Classic
+	module.hooksRegistered = TooltipDataProcessor and 'dataprocessor' or 'hookscript'
+
 	if TooltipDataProcessor then
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, TooltipSetItem)
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Unit, TooltipSetUnit)
