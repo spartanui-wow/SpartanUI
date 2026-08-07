@@ -108,17 +108,21 @@ function module:OnEnable()
 	else
 		module:Options()
 
-		hooksecurefunc('UIParent_ManageFramePositions', function()
-			if TutorialFrameAlertButton then
-				TutorialFrameAlertButton:SetParent(Minimap)
-				TutorialFrameAlertButton:ClearAllPoints()
-				TutorialFrameAlertButton:SetPoint('CENTER', Minimap, 'TOP', -2, 30)
-			end
-			if CastingBarFrame then
-				CastingBarFrame:ClearAllPoints()
-				CastingBarFrame:SetPoint('BOTTOM', SUI_Art_Minimal_Base1, 'TOP', 0, 90)
-			end
-		end)
+		-- Classic only: the global, TutorialFrameAlertButton and the legacy
+		-- CastingBarFrame were all removed on Retail.
+		if type(UIParent_ManageFramePositions) == 'function' then
+			hooksecurefunc('UIParent_ManageFramePositions', function()
+				if TutorialFrameAlertButton then
+					TutorialFrameAlertButton:SetParent(Minimap)
+					TutorialFrameAlertButton:ClearAllPoints()
+					TutorialFrameAlertButton:SetPoint('CENTER', Minimap, 'TOP', -2, 30)
+				end
+				if CastingBarFrame then
+					CastingBarFrame:ClearAllPoints()
+					CastingBarFrame:SetPoint('BOTTOM', SUI_Art_Minimal_Base1, 'TOP', 0, 90)
+				end
+			end)
+		end
 
 		--Setup Sliding Trays
 		module:SlidingTrays()

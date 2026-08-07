@@ -8,7 +8,9 @@ local oUF = ns.oUF or oUF
 -- Mode 'dragon': Dragon texture wrapped around portrait (Classic style)
 do
 	local Update = function(self, event, unit)
-		if self.unit ~= unit then
+		-- Both can be nil on a frame that has not been assigned a unit yet,
+		-- which passes the inequality check below, so test for one first.
+		if not unit or self.unit ~= unit then
 			return
 		end
 		if not self.RareElite then

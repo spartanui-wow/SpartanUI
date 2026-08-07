@@ -103,17 +103,21 @@ function module:OnEnable()
 			BT4BarBar5:SetAttribute('state-visibility', 'hide')
 		end
 
-		hooksecurefunc('UIParent_ManageFramePositions', function()
-			if TutorialFrameAlertButton then
-				TutorialFrameAlertButton:SetParent(Minimap)
-				TutorialFrameAlertButton:ClearAllPoints()
-				TutorialFrameAlertButton:SetPoint('CENTER', Minimap, 'TOP', -2, 30)
-			end
-			if CastingBarFrame then
-				CastingBarFrame:ClearAllPoints()
-				CastingBarFrame:SetPoint('BOTTOM', BT4Bar1, 'TOP', 0, 5)
-			end
-		end)
+		-- Classic only: the global, TutorialFrameAlertButton and the legacy
+		-- CastingBarFrame were all removed on Retail.
+		if type(UIParent_ManageFramePositions) == 'function' then
+			hooksecurefunc('UIParent_ManageFramePositions', function()
+				if TutorialFrameAlertButton then
+					TutorialFrameAlertButton:SetParent(Minimap)
+					TutorialFrameAlertButton:ClearAllPoints()
+					TutorialFrameAlertButton:SetPoint('CENTER', Minimap, 'TOP', -2, 30)
+				end
+				if CastingBarFrame then
+					CastingBarFrame:ClearAllPoints()
+					CastingBarFrame:SetPoint('BOTTOM', BT4Bar1, 'TOP', 0, 5)
+				end
+			end)
+		end
 
 		--Setup Sliding Trays
 		module:SlidingTrays()

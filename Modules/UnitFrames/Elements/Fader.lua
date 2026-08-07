@@ -154,6 +154,14 @@ local function Build(frame, DB)
 		frame.Range.Override = function(self, event)
 			local element = self.Range
 			local unit = self.unit
+
+			-- oUF's evalUnitAndUpdate runs a full element pass even when the
+			-- frame has no unit yet, so this cannot assume one exists.
+			if not unit then
+				self._faderOutOfRange = false
+				return
+			end
+
 			local inRange = true
 			local connected = UnitIsConnected(unit)
 			local inParty = UnitInParty(unit)
