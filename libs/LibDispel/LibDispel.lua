@@ -1416,10 +1416,16 @@ do
 	local frame = lib.frame
 	frame:SetScript('OnEvent', UpdateDispels)
 	frame:RegisterEvent('CHARACTER_POINTS_CHANGED')
-	-- LEARNED_SPELL_IN_TAB only exists in vanilla Classic
+
+	-- SUI: Classic Era 1.15.9 renamed LEARNED_SPELL_IN_TAB to
+	-- LEARNED_SPELL_IN_SKILL_LINE. RegisterEvent errors on an unknown event,
+	-- so try the current name first and fall back to the old one.
 	if Classic then
-		frame:RegisterEvent('LEARNED_SPELL_IN_TAB')
+		if not pcall(frame.RegisterEvent, frame, 'LEARNED_SPELL_IN_SKILL_LINE') then
+			pcall(frame.RegisterEvent, frame, 'LEARNED_SPELL_IN_TAB')
+		end
 	end
+
 	frame:RegisterEvent('SPELLS_CHANGED')
 
 	if Retail or Mists then
