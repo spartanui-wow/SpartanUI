@@ -53,15 +53,11 @@ local function Build(frame, DB)
 	_G.ClickCastFrames[clickOverlay] = true
 
 	-- Tooltip support: show unit tooltip on hover
-	clickOverlay:SetScript('OnEnter', function(self)
-		if UnitFrame_OnEnter then
-			UnitFrame_OnEnter(frame)
-		end
+	clickOverlay:SetScript('OnEnter', function()
+		UF:UnitFrame_OnEnter(frame)
 	end)
-	clickOverlay:SetScript('OnLeave', function(self)
-		if UnitFrame_OnLeave then
-			UnitFrame_OnLeave(frame)
-		end
+	clickOverlay:SetScript('OnLeave', function()
+		UF:UnitFrame_OnLeave(frame)
 	end)
 
 	frame.PortraitClickOverlay = clickOverlay

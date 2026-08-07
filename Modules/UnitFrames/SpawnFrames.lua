@@ -33,6 +33,43 @@ function UF:CalculateHeight(frameName)
 	return FrameHeight
 end
 
+---Show the unit tooltip on hover.
+---
+---Blizzard's UnitFrame_OnEnter hands self.unit straight to GameTooltip:SetUnit,
+---which errors when the frame has no unit yet - group frames are built before
+---the secure header assigns one. The unit can also be a secret value, which
+---SetUnit will not take either.
+---@param frame table
+function UF:UnitFrame_OnEnter(frame)
+	frame = frame or self
+
+	if GameTooltip:IsForbidden() then
+		frame.UpdateTooltip = nil
+		return
+	end
+
+	GameTooltip_SetDefaultAnchor(GameTooltip, frame)
+
+	local unit = frame.unit
+	if unit and SUI.BlizzAPI.canaccessvalue(unit) and UnitExists(unit) then
+		GameTooltip:SetUnit(unit)
+		frame.UpdateTooltip = UF.UnitFrame_OnEnter
+	else
+		frame.UpdateTooltip = nil
+		GameTooltip:Hide()
+	end
+end
+
+---@param frame table
+function UF:UnitFrame_OnLeave(frame)
+	frame = frame or self
+	frame.UpdateTooltip = nil
+
+	if not GameTooltip:IsForbidden() then
+		GameTooltip:Hide()
+	end
+end
+
 local function CreateUnitFrame(self, unit)
 	local frameName = self:GetName() or 'Unknown'
 	if UF.BuildDebug then
@@ -285,8 +322,8 @@ local function CreateUnitFrame(self, unit)
 	end
 	self:SetClampedToScreen(true)
 	--Setup unitframes tooltip hook
-	self:SetScript('OnEnter', UnitFrame_OnEnter)
-	self:SetScript('OnLeave', UnitFrame_OnLeave)
+	self:SetScript('OnEnter', UF.UnitFrame_OnEnter)
+	self:SetScript('OnLeave', UF.UnitFrame_OnLeave)
 	self.IsBuilt = true
 
 	if not self.DB.enabled then
