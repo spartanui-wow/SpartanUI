@@ -428,12 +428,28 @@ function Auras:GetGroupBuildSignature(DB)
 			tostring(group.number or ''),
 			tostring(group.size or ''),
 			tostring(group.spacing or ''),
+			tostring(group.lineSpacing or ''),
+			tostring(group.groupSpacing or ''),
+			tostring(group.forceNewLine),
 			tostring(group.onlyMine),
 			tostring(group.onlyStealable),
 			tostring(group.maxDuration or ''),
 			group.includeSpellIDs or '',
 			group.excludeSpellIDs or '',
 			tostring(group.clickThrough),
+			tostring(group.sortMethod or ''),
+			tostring(group.sortDirection or ''),
+			tostring(group.fontSize or ''),
+			tostring(group.showCount),
+			tostring(group.showDuration),
+			tostring(group.showCooldown),
+			tostring(group.showBuffBorder),
+			tostring(group.showDebuffBorder),
+			tostring(group.showBuffIndicator),
+			tostring(group.showDebuffIndicator),
+			tostring(group.showStealableBorder),
+			tostring(group.expiring and group.expiring.enabled),
+			tostring(group.expiring and group.expiring.threshold or ''),
 		}, ':')
 	end
 
@@ -579,6 +595,26 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 		current.groups[tostring(index)][key] = val
 
 		-- The frame may not be spawned (disabled frame, arena out of arena).
+		if UF.Unit[unitName] then
+			UF.Unit[unitName]:ElementUpdate('AuraGroups')
+		end
+	end
+
+	---Write one key inside a nested per-group table, such as `expiring`.
+	local function SetGroupSub(index, key, subKey, val)
+		local preset = UF:GetPresetForFrame(unitName)
+		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
+		stored.groups = stored.groups or {}
+		stored.groups[tostring(index)] = stored.groups[tostring(index)] or {}
+		stored.groups[tostring(index)][key] = stored.groups[tostring(index)][key] or {}
+		stored.groups[tostring(index)][key][subKey] = val
+
+		local current = UF.CurrentSettings[unitName].elements.AuraGroups
+		current.groups = current.groups or {}
+		current.groups[tostring(index)] = current.groups[tostring(index)] or {}
+		current.groups[tostring(index)][key] = current.groups[tostring(index)][key] or {}
+		current.groups[tostring(index)][key][subKey] = val
+
 		if UF.Unit[unitName] then
 			UF.Unit[unitName]:ElementUpdate('AuraGroups')
 		end
@@ -741,6 +777,289 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 					set = function(_, val)
 						SetGroup(index, 'customFilter', val)
 					end,
+				},
+
+				onlyStealable = {
+					name = L['Only stealable'],
+					desc = L['Only show buffs you could steal or purge'],
+					type = 'toggle',
+					order = 9,
+					get = function()
+						return GroupDB(index).onlyStealable
+					end,
+					set = function(_, val)
+						SetGroup(index, 'onlyStealable', val)
+					end,
+				},
+				maxDuration = {
+					name = L['Longest duration to show'],
+					desc = L['In seconds. Zero shows auras of any length.'],
+					type = 'range',
+					order = 22,
+					min = 0,
+					max = 3600,
+					step = 5,
+					get = function()
+						return GroupDB(index).maxDuration
+					end,
+					set = function(_, val)
+						SetGroup(index, 'maxDuration', val)
+					end,
+				},
+
+				layout = {
+					name = L['Layout'],
+					type = 'group',
+					order = 40,
+					inline = true,
+					args = {
+						sortMethod = {
+							name = L['Sort by'],
+							type = 'select',
+							order = 1,
+							values = {
+								expiration = L['Time left'],
+								instanceID = L['Order the game provides'],
+							},
+							get = function()
+								return GroupDB(index).sortMethod
+							end,
+							set = function(_, val)
+								SetGroup(index, 'sortMethod', val)
+							end,
+						},
+						sortDirection = {
+							name = L['Sort direction'],
+							type = 'select',
+							order = 2,
+							values = {
+								normal = L['Normal'],
+								reversed = L['Reversed'],
+							},
+							get = function()
+								return GroupDB(index).sortDirection
+							end,
+							set = function(_, val)
+								SetGroup(index, 'sortDirection', val)
+							end,
+						},
+						lineSpacing = {
+							name = L['Space between rows'],
+							type = 'range',
+							order = 3,
+							min = 0,
+							max = 20,
+							step = 1,
+							get = function()
+								return GroupDB(index).lineSpacing
+							end,
+							set = function(_, val)
+								SetGroup(index, 'lineSpacing', val)
+							end,
+						},
+						groupSpacing = {
+							name = L['Space before this group'],
+							type = 'range',
+							order = 4,
+							min = 0,
+							max = 40,
+							step = 1,
+							get = function()
+								return GroupDB(index).groupSpacing
+							end,
+							set = function(_, val)
+								SetGroup(index, 'groupSpacing', val)
+							end,
+						},
+						forceNewLine = {
+							name = L['Start on a new row'],
+							desc = L['Begin this group on its own row instead of continuing the previous one'],
+							type = 'toggle',
+							order = 5,
+							get = function()
+								return GroupDB(index).forceNewLine
+							end,
+							set = function(_, val)
+								SetGroup(index, 'forceNewLine', val)
+							end,
+						},
+					},
+				},
+
+				display = {
+					name = L['Icon display'],
+					type = 'group',
+					order = 50,
+					inline = true,
+					args = {
+						showCount = {
+							name = L['Show stack count'],
+							type = 'toggle',
+							order = 1,
+							get = function()
+								return GroupDB(index).showCount
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showCount', val)
+							end,
+						},
+						showDuration = {
+							name = L['Show time left'],
+							type = 'toggle',
+							order = 2,
+							get = function()
+								return GroupDB(index).showDuration
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showDuration', val)
+							end,
+						},
+						showCooldown = {
+							name = L['Show cooldown sweep'],
+							type = 'toggle',
+							order = 3,
+							get = function()
+								return GroupDB(index).showCooldown
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showCooldown', val)
+							end,
+						},
+						fontSize = {
+							name = L['Text size'],
+							type = 'range',
+							order = 4,
+							min = 6,
+							max = 24,
+							step = 1,
+							get = function()
+								return GroupDB(index).fontSize
+							end,
+							set = function(_, val)
+								SetGroup(index, 'fontSize', val)
+							end,
+						},
+					},
+				},
+
+				borders = {
+					name = L['Borders'],
+					type = 'group',
+					order = 60,
+					inline = true,
+					args = {
+						showDebuffBorder = {
+							name = L['Color debuff borders'],
+							desc = L['Tint the border by what kind of debuff it is'],
+							type = 'toggle',
+							order = 1,
+							get = function()
+								return GroupDB(index).showDebuffBorder
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showDebuffBorder', val)
+							end,
+						},
+						showBuffBorder = {
+							name = L['Color buff borders'],
+							type = 'toggle',
+							order = 2,
+							get = function()
+								return GroupDB(index).showBuffBorder
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showBuffBorder', val)
+							end,
+						},
+						showDebuffIndicator = {
+							name = L['Debuff type icon'],
+							desc = L['Show a small icon in the corner for the debuff type'],
+							type = 'toggle',
+							order = 3,
+							get = function()
+								return GroupDB(index).showDebuffIndicator
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showDebuffIndicator', val)
+							end,
+						},
+						showBuffIndicator = {
+							name = L['Buff type icon'],
+							type = 'toggle',
+							order = 4,
+							get = function()
+								return GroupDB(index).showBuffIndicator
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showBuffIndicator', val)
+							end,
+						},
+						showStealableBorder = {
+							name = L['Highlight stealable buffs'],
+							type = 'toggle',
+							order = 5,
+							get = function()
+								return GroupDB(index).showStealableBorder
+							end,
+							set = function(_, val)
+								SetGroup(index, 'showStealableBorder', val)
+							end,
+						},
+					},
+				},
+
+				expiring = {
+					name = L['Running out'],
+					type = 'group',
+					order = 70,
+					inline = true,
+					args = {
+						enabled = {
+							name = L['Color the timer as it runs out'],
+							type = 'toggle',
+							order = 1,
+							get = function()
+								return GroupDB(index).expiring.enabled
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'expiring', 'enabled', val)
+							end,
+						},
+						threshold = {
+							name = L['Start coloring at'],
+							desc = L['Seconds remaining when the timer starts changing color'],
+							type = 'range',
+							order = 2,
+							min = 1,
+							max = 30,
+							step = 1,
+							disabled = function()
+								return not GroupDB(index).expiring.enabled
+							end,
+							get = function()
+								return GroupDB(index).expiring.threshold
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'expiring', 'threshold', val)
+							end,
+						},
+						color = {
+							name = L['Color'],
+							type = 'color',
+							order = 3,
+							hasAlpha = false,
+							disabled = function()
+								return not GroupDB(index).expiring.enabled
+							end,
+							get = function()
+								local c = GroupDB(index).expiring.color
+								return c[1], c[2], c[3]
+							end,
+							set = function(_, r, g, b)
+								SetGroupSub(index, 'expiring', 'color', { r, g, b, 1 })
+							end,
+						},
+					},
 				},
 			},
 		}
