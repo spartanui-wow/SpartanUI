@@ -109,7 +109,10 @@ local function Build(frame, DB)
 		initialAnchor = DB.position and DB.position.anchor or 'TOPLEFT',
 		growthX = DB.growthx or 'RIGHT',
 		growthY = DB.growthy or 'UP',
-		layoutLimit = DB.layoutLimit,
+		-- How far a row runs before wrapping. Without this the container falls
+		-- back to the frame width, so icons wrap wherever the frame happens to
+		-- end rather than after the configured number of them.
+		layoutLimit = DB.layoutLimit or UF.Auras:GetLayoutLimit(DB),
 	})
 
 	element.DB = DB

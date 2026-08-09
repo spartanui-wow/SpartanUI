@@ -751,6 +751,30 @@ end
 -- Container placement and driving
 ----------------------------------------------------------------------------------------------------
 
+---Work out how long a row of icons may run before it wraps.
+---
+---Derived from the widest enabled group, so a group set to 8 icons wraps
+---after 8 rather than wherever the unit frame's width happens to end.
+---@param DB table
+---@return number?
+function Auras:GetLayoutLimit(DB)
+	local widest = 0
+
+	for index = 1, self.MAX_GROUPS do
+		local group = self:ResolveGroup(DB, index)
+		if group.enabled then
+			local perRow = (group.number or 10) * ((group.size or 24) + (group.spacing or 2))
+			if perRow > widest then
+				widest = perRow
+			end
+		end
+	end
+
+	if widest > 0 then
+		return widest
+	end
+end
+
 ---Anchor an aura container to its unit frame.
 ---
 ---`CreateAuras` only configures the flow layout, which decides how buttons
