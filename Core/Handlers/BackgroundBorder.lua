@@ -160,7 +160,8 @@ local function GetInstanceClassColor(instance)
 		unit = 'player'
 	end
 	local _, classToken = UnitClass(unit)
-	if not classToken then
+	-- A secret class token cannot be used as a table key.
+	if not classToken or not SUI.BlizzAPI.canaccessvalue(classToken) then
 		return nil
 	end
 	return (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[classToken]) or _G.RAID_CLASS_COLORS[classToken]

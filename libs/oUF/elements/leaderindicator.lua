@@ -59,14 +59,24 @@ local function Update(self, event)
 		isLeader = UnitLeadsAnyGroup(unit)
 	end
 
-	if(isLeader) then
-		if(isInLFGInstance) then
-			element:SetAtlas('UI-HUD-UnitFrame-Player-Group-GuideIcon', element.useAtlasSize)
-		else
-			element:SetAtlas('UI-HUD-UnitFrame-Player-Group-LeaderIcon', element.useAtlasSize)
-		end
+	-- SUI: UnitIsGroupLeader and UnitLeadsAnyGroup return secret booleans on
+	-- 12.1, and any boolean test on a secret errors. Set the atlas either way
+	-- and drive visibility through alpha, which accepts a secret.
+	if(isInLFGInstance) then
+		element:SetAtlas('UI-HUD-UnitFrame-Player-Group-GuideIcon', element.useAtlasSize)
+	else
+		element:SetAtlas('UI-HUD-UnitFrame-Player-Group-LeaderIcon', element.useAtlasSize)
+	end
 
+	if(element.SetAlphaFromBoolean) then
+		element:SetAlphaFromBoolean(isLeader, 1, 0)
 		element:Show()
+	elseif(canaccessvalue(isLeader)) then
+		if(isLeader) then
+			element:Show()
+		else
+			element:Hide()
+		end
 	else
 		element:Hide()
 	end

@@ -366,7 +366,12 @@ local function Update(frame, settings)
 	if DB.bg.useClassColor then
 		local unit = frame.unit or frame.unitOnCreate or 'player'
 		local _, class = UnitClass(unit)
-		local color = (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[class]) or _G.RAID_CLASS_COLORS[class]
+		-- UnitClass returns a secret class token for restricted units, and a
+		-- secret cannot be used as a table key.
+		if not SUI.BlizzAPI.canaccessvalue(class) then
+			class = nil
+		end
+		local color = class and ((_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[class]) or _G.RAID_CLASS_COLORS[class])
 		local alpha = DB.bg.classColorAlpha or 0.2
 		if color then
 			element.bg:SetVertexColor(color.r, color.g, color.b, alpha)

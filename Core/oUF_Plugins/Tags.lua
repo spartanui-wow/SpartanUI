@@ -419,9 +419,13 @@ do
 	oUF.Tags.Methods['SUI_ColorClass'] = function(u)
 		local _, class = UnitClass(u)
 
-		if u == 'pet' then
-			return hex(oUF.colors.class[class])
-		elseif UnitIsPlayer(u) then
+		-- A secret class token cannot be used as a table key; fall back to
+		-- white rather than erroring.
+		if not class or not SUI.BlizzAPI.canaccessvalue(class) then
+			return hex(1, 1, 1)
+		end
+
+		if u == 'pet' or UnitIsPlayer(u) then
 			return hex(oUF.colors.class[class])
 		else
 			return hex(1, 1, 1)

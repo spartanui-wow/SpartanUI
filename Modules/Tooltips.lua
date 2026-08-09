@@ -738,9 +738,16 @@ local TooltipSetUnit = function(self, data)
 	local unitTarget = unit .. 'target'
 	if unit ~= 'player' and UnitExists(unitTarget) then
 		if UnitIsPlayer(unitTarget) and (SUI.IsRetail and not UnitHasVehicleUI(unitTarget)) then
-			totColor = RAID_CLASS_COLORS[select(2, UnitClass(unitTarget))]
+			local targetClass = select(2, UnitClass(unitTarget))
+			-- A secret class token cannot be used as a table key.
+			if targetClass and SUI.BlizzAPI.canaccessvalue(targetClass) then
+				totColor = RAID_CLASS_COLORS[targetClass]
+			end
 		else
 			totColor = FACTION_BAR_COLORS[UnitReaction(unitTarget, 'player')]
+		end
+		if not totColor then
+			totColor = { r = 1, g = 1, b = 1 }
 		end
 		self:AddDoubleLine(TARGET .. ':', format('|cff%02x%02x%02x%s|r', totColor.r * 255, totColor.g * 255, totColor.b * 255, UnitName(unitTarget)))
 	end
@@ -751,7 +758,13 @@ local TooltipSetUnit = function(self, data)
 			local groupedUnit = IsInRaid() and 'raid' .. i or 'party' .. i
 			if UnitIsUnit(groupedUnit .. 'target', unit) then
 				local _, classToken = UnitClass(groupedUnit)
-				_G.tinsert(targetList, format('|c%s%s|r', RAID_CLASS_COLORS[classToken].colorStr, UnitName(groupedUnit)))
+				-- A secret class token cannot be used as a table key.
+				local classColor = classToken and SUI.BlizzAPI.canaccessvalue(classToken) and RAID_CLASS_COLORS[classToken]
+				if classColor then
+					_G.tinsert(targetList, format('|c%s%s|r', classColor.colorStr, UnitName(groupedUnit)))
+				else
+					_G.tinsert(targetList, UnitName(groupedUnit))
+				end
 			end
 		end
 		local maxTargets = #targetList

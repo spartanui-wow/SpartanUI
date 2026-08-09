@@ -124,7 +124,9 @@ do -- ClassIcon as an SUIUF module
 		-- errors on nil rather than returning nothing.
 		if icon and self.unit then
 			local _, class = UnitClass(self.unit)
-			if not class then
+			-- A secret class token cannot be used as a table key or
+			-- concatenated into the icon path.
+			if not class or not SUI.BlizzAPI.canaccessvalue(class) then
 				return
 			end
 
