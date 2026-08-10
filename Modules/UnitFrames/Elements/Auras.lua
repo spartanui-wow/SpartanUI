@@ -23,10 +23,8 @@ local function BuildCandidateFilters(groupDB)
 	local filters = {}
 	local used = false
 
-	if groupDB.onlyMine then
-		filters.isFromPlayerOrPlayerPet = true
-		used = true
-	end
+	-- onlyMine is handled by appending PLAYER to the filter string instead;
+	-- see UF.Auras:GetGroupFilter.
 	if groupDB.onlyStealable then
 		filters.isStealable = true
 		used = true

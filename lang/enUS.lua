@@ -1034,3 +1034,4 @@ L['Start on a new row'] = true
 L['Text size'] = true
 L['Time left'] = true
 L['Tint the border by what kind of debuff it is'] = true
+L['Only show buffs you could steal or purge. Needs game support that is not confirmed yet.'] = true

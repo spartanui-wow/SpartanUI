@@ -9,12 +9,18 @@ local Auras = UF.Auras
 -- No function in this file reads an aura property, so none of it can trip the
 -- secret value restrictions that forced the old per-aura filter callbacks.
 --
--- VERIFICATION STATUS (2026-08-05): the group/slot/option names used here are
--- taken from oUF's 12.1 rewrite, which exercises them directly. The
--- candidateFilters keys other than includeSpellIDs come from Blizzard's PTR
--- notes and are not yet confirmed against a live client, so ValidateCandidateKeys
--- drops anything the running client rejects rather than silently filtering
--- nothing. Re-check against a 12.1 PTR build before release.
+-- VERIFICATION STATUS (2026-08-07): group and slot option names come from
+-- oUF's 12.1 rewrite, which exercises them directly.
+--
+-- candidateFilters keys confirmed in shipping code (ElvUI uses all four
+-- against a live client): includeSpellIDs, excludeSpellIDs, includeDispelTypes,
+-- maxDuration. Only these are trusted when the client exposes no validator,
+-- because an unsupported key fails OPEN - the group matches every aura rather
+-- than erroring.
+--
+-- Still unconfirmed, from the PTR notes only: excludeDispelTypes, isStealable,
+-- isRoleAura, isPriorityAura, isFromPlayerOrPlayerPet. "Only mine" therefore
+-- appends the PLAYER filter token instead of using isFromPlayerOrPlayerPet.
 
 -- Number of aura groups offered per frame.
 Auras.MAX_GROUPS = 5
@@ -211,6 +217,15 @@ function Auras:ValidateCandidateKeys(filters)
 	if not validCandidateKeys then
 		validCandidateKeys = {}
 
+		-- Keys confirmed in use against a live 12.1 client (cross-checked with
+		-- ElvUI, which ships these). Trusted even when no validator exists.
+		local confirmed = {
+			includeSpellIDs = true,
+			excludeSpellIDs = true,
+			includeDispelTypes = true,
+			maxDuration = true,
+		}
+
 		local probe = C_UnitAuras and C_UnitAuras.ValidateCandidateFilters
 		for _, key in ipairs({
 			'includeSpellIDs',
@@ -224,9 +239,10 @@ function Auras:ValidateCandidateKeys(filters)
 			'isPriorityAura',
 		}) do
 			if not probe then
-				-- No validator exposed; trust the key and let the group creation
-				-- call surface any error.
-				validCandidateKeys[key] = true
+				-- Without a validator an unsupported key fails OPEN - the group
+				-- matches every aura instead of erroring - so only the confirmed
+				-- keys are trusted blind.
+				validCandidateKeys[key] = confirmed[key] or nil
 			else
 				local ok = pcall(probe, { [key] = true })
 				validCandidateKeys[key] = ok and true or nil
@@ -554,7 +570,17 @@ function Auras:GetGroupFilter(group)
 		return group.customFilter
 	end
 
-	return self:GetFilterString(group.filterMode) or 'HELPFUL'
+	local filter = self:GetFilterString(group.filterMode) or 'HELPFUL'
+
+	-- "Only mine" rides on the PLAYER filter token rather than the
+	-- isFromPlayerOrPlayerPet candidate filter, which is not confirmed on a
+	-- live client. An unsupported candidate filter fails open, whereas the
+	-- token is part of the filter string and always honoured.
+	if group.onlyMine and not filter:find('PLAYER', 1, true) then
+		filter = filter .. '|PLAYER'
+	end
+
+	return filter
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -781,7 +807,7 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 
 				onlyStealable = {
 					name = L['Only stealable'],
-					desc = L['Only show buffs you could steal or purge'],
+					desc = L['Only show buffs you could steal or purge. Needs game support that is not confirmed yet.'],
 					type = 'toggle',
 					order = 9,
 					get = function()
