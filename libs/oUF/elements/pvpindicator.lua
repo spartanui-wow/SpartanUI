@@ -53,7 +53,10 @@ local function Update(self, event, unit)
 
 	local status
 	local factionGroup = UnitFactionGroup(unit) or 'Neutral'
-	local honorRewardInfo = C_PvP.GetHonorRewardInfo(UnitHonorLevel(unit))
+	-- SUI: UnitHonorLevel is a secret for units whose identity is restricted,
+	-- and GetHonorRewardInfo cannot take one.
+	local honorLevel = UnitHonorLevel(unit)
+	local honorRewardInfo = canaccessvalue(honorLevel) and C_PvP.GetHonorRewardInfo(honorLevel)
 
 	if(UnitIsPVPFreeForAll(unit)) then
 		status = 'FFA'

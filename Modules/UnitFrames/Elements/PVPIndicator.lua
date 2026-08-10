@@ -13,7 +13,11 @@ local function Build(frame, DB)
 		local factionGroup = UnitFactionGroup(unit) or 'Neutral'
 		local honorRewardInfo = false
 		if SUI.IsRetail then
-			honorRewardInfo = C_PvP.GetHonorRewardInfo(UnitHonorLevel(unit))
+			-- UnitHonorLevel is a secret for units whose identity is restricted.
+			local honorLevel = UnitHonorLevel(unit)
+			if SUI.BlizzAPI.canaccessvalue(honorLevel) then
+				honorRewardInfo = C_PvP.GetHonorRewardInfo(honorLevel)
+			end
 		end
 
 		if UnitIsPVPFreeForAll(unit) then
