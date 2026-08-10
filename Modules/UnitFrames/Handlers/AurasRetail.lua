@@ -297,12 +297,47 @@ function Auras:GetSortMethod(mode)
 		return 0
 	end
 
+	-- Each entry is nil-tolerant: a build that lacks one of these simply falls
+	-- back to sorting by expiration rather than passing nil to AddGroup.
 	local lookup = {
 		expiration = methods.ExpirationOnly,
 		instanceID = methods.AuraInstanceIDOnly,
+		name = methods.Name,
+		debuffs = methods.UnitFrameDebuff,
+		defensive = methods.BigDefensive,
+		important = methods.ImportantOnly,
 	}
 
 	return lookup[mode] or methods.ExpirationOnly
+end
+
+---The sort methods this client actually provides, for the options dropdown.
+---@return table<string, string>
+function Auras:GetSortMethodValues()
+	local methods = AuraContainerSortMethod
+	local values = { expiration = L['Time left'] }
+
+	if not methods then
+		return values
+	end
+
+	if methods.AuraInstanceIDOnly then
+		values.instanceID = L['Order the game provides']
+	end
+	if methods.Name then
+		values.name = L['Name']
+	end
+	if methods.UnitFrameDebuff then
+		values.debuffs = L['Debuffs first']
+	end
+	if methods.BigDefensive then
+		values.defensive = L['Major defensives first']
+	end
+	if methods.ImportantOnly then
+		values.important = L['Important first']
+	end
+
+	return values
 end
 
 ---@param direction? string
@@ -819,7 +854,7 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 				},
 				maxDuration = {
 					name = L['Longest duration to show'],
-					desc = L['In seconds. Zero shows auras of any length.'],
+					desc = L['In seconds. Zero shows auras of any length. Setting any limit also hides permanent auras.'],
 					type = 'range',
 					order = 22,
 					min = 0,
@@ -843,10 +878,9 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 							name = L['Sort by'],
 							type = 'select',
 							order = 1,
-							values = {
-								expiration = L['Time left'],
-								instanceID = L['Order the game provides'],
-							},
+							values = function()
+								return Auras:GetSortMethodValues()
+							end,
 							get = function()
 								return GroupDB(index).sortMethod
 							end,
