@@ -1416,13 +1416,29 @@ function Auras:RefreshSlots(element, DB)
 		if key then
 			local entry = self:ResolveEntry(DB, index)
 
-			if element.SetAuraGroupFilterString then
-				element:SetAuraGroupFilterString(key, self:GetEntryFilter(entry))
+			-- Slots and groups are separate registries with their own keys, so
+			-- the group APIs reject a slot key. Which spell a slot shows is
+			-- driven by its candidate filters rather than a filter string.
+			if element.SetAuraSlotCandidateFilters then
+				element:SetAuraSlotCandidateFilters(
+					key,
+					self:BuildCandidateFilters({
+						includeSpellIDs = entry.enabled and entry.spellId or nil,
+					})
+				)
 			end
 
 			-- Slots auto-position relative to each other by default; anchoring
 			-- them explicitly is what makes per-spell placement possible.
-			local slot = element.GetAuraGroupFrame and element:GetAuraGroupFrame(key)
+			-- The accessor name is unconfirmed, so try the slot form first and
+			-- fall back to the group one rather than assuming either exists.
+			local slot
+			if element.GetAuraSlotFrame then
+				slot = element:GetAuraSlotFrame(key)
+			elseif element.GetAuraGroupFrame then
+				slot = element:GetAuraGroupFrame(key)
+			end
+
 			if slot and slot.ClearAllPoints then
 				slot:ClearAllPoints()
 				slot:SetPoint(entry.anchor or 'CENTER', frame, entry.anchor or 'CENTER', entry.x or 0, entry.y or 0)

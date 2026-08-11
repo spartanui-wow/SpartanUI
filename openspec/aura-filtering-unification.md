@@ -53,7 +53,33 @@ Take the filtering, not the drawing.
 3. **Only then** consider whether AuraBars should consume a container for
    candidate selection while continuing to draw its own bars. **Still pending.**
 
-Remaining work is step 3 alone.
+## Also pending: the indicator elements still read the aura list
+
+Dispel, CornerIndicators, DefensiveIndicator and AuraDesigner all call
+`AuraUtil.ForEachAura` or `C_UnitAuras.GetAuraDataByIndex`. On 12.1 addon code
+may not read the aura list while auras are secret - the call **throws** rather
+than returning nothing:
+
+```
+GetAuraSlots(): Auras cannot be accessed when secret while tainted by 'SpartanUI'
+```
+
+Every one of those calls is currently wrapped in `pcall`, so the element goes
+quiet instead of erroring. That stops the spam but means the highlight or
+indicator simply does not appear in exactly the situation it matters most -
+in combat, in an instance.
+
+The real fix is the same shape as the aura groups: an `AuraSlot` with
+`includeDispelTypes` candidate filters and a callback that draws the highlight,
+so nothing inspects an aura. ElvUI does this in `E:Auras_SetHighlight`
+(`Modules/Auras/Containers.lua`), using `AddAuraSlot` plus
+`SetAuraSlotCandidateFilters`.
+
+Note that slots and groups are **separate registries with separate keys**. The
+group APIs reject a slot key, which is why slot updates use
+`SetAuraSlotCandidateFilters` rather than `SetAuraGroupFilterString`.
+
+Remaining work is step 3 and this indicator rework.
 
 ## Trigger to revisit
 

@@ -144,7 +144,7 @@ local function FindDefensiveAura_NewAPI(unit)
 	-- Use AuraUtil.ForEachAura with BIG_DEFENSIVE filter
 	local bestAura = nil
 
-	AuraUtil.ForEachAura(unit, 'HELPFUL|BIG_DEFENSIVE', nil, function(aura)
+	pcall(AuraUtil.ForEachAura, unit, 'HELPFUL|BIG_DEFENSIVE', nil, function(aura)
 		-- Take the first one (highest priority)
 		if not bestAura then
 			bestAura = aura

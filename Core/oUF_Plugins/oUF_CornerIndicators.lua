@@ -105,7 +105,7 @@ local function CheckCorner_NewAPI(unit, cornerCfg)
 		-- Scan HARMFUL auras for matching dispel type
 		-- WoW 12.0: aura.dispelName can be secret - cannot use as table key OR in comparisons
 		local found = false
-		AuraUtil.ForEachAura(unit, 'HARMFUL', nil, function(aura)
+		pcall(AuraUtil.ForEachAura, unit, 'HARMFUL', nil, function(aura)
 			if aura.dispelName then
 				-- Check if value is accessible before using it
 				local SUI = SUI
@@ -130,7 +130,7 @@ local function CheckCorner_NewAPI(unit, cornerCfg)
 		-- Scan HELPFUL auras for matching name
 		-- WoW 12.0: aura.name can be secret - cannot use as table key OR in comparisons
 		local found = false
-		AuraUtil.ForEachAura(unit, 'HELPFUL', nil, function(aura)
+		pcall(AuraUtil.ForEachAura, unit, 'HELPFUL', nil, function(aura)
 			if aura.name then
 				-- Check if value is accessible before using it
 				local SUI = SUI

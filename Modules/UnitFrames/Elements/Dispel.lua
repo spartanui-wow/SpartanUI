@@ -180,11 +180,20 @@ local function FindDispellableDebuff_NewAPI(unit)
 	local foundAura = nil
 	local foundDispelType = nil
 
-	AuraUtil.ForEachAura(unit, 'HARMFUL|RAID_PLAYER_DISPELLABLE', nil, function(aura)
+	-- ForEachAura reads the aura list, which addon code may not do while auras
+	-- are secret - it throws rather than returning nothing. The highlight is
+	-- simply skipped in that case until this is rebuilt on an aura slot, which
+	-- describes what to match instead of inspecting.
+	-- See openspec/aura-filtering-unification.md
+	local ok = pcall(AuraUtil.ForEachAura, unit, 'HARMFUL|RAID_PLAYER_DISPELLABLE', nil, function(aura)
 		foundAura = aura
 		foundDispelType = aura.dispelName
 		return true
 	end, true)
+
+	if not ok then
+		return nil, nil
+	end
 
 	return foundAura, foundDispelType
 end
@@ -219,7 +228,12 @@ end
 ---@return string|nil dispelType
 local function FindDispellableDebuff_Retail_Legacy(unit, filterByPlayerDispels)
 	for i = 1, 40 do
-		local aura = C_UnitAuras.GetAuraDataByIndex(unit, i, 'HARMFUL')
+		-- Reading the aura list throws while auras are secret, so the highlight
+		-- is skipped rather than erroring on every update.
+		local ok, aura = pcall(C_UnitAuras.GetAuraDataByIndex, unit, i, 'HARMFUL')
+		if not ok then
+			return nil, nil
+		end
 		if not aura then
 			break
 		end

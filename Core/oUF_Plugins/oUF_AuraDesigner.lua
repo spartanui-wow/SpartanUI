@@ -58,7 +58,7 @@ local function ScanAuras_NewAPI(unit, entries, lookups, nameToKey)
 	local matches = {}
 
 	for filter, spellLookup in pairs(lookups) do
-		AuraUtil.ForEachAura(unit, filter, nil, function(aura)
+		pcall(AuraUtil.ForEachAura, unit, filter, nil, function(aura)
 			if aura.spellId and CanAccess(aura.spellId) then
 				local entryKey = spellLookup[aura.spellId]
 				if entryKey then
