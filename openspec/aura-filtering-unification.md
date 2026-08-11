@@ -1,8 +1,8 @@
 # Unify aura filtering on the 12.1 candidate filter system
 
-**Status:** Deferred - waiting on upstream to settle
+**Status:** Steps 1 and 2 done (2026-08-07). Step 3 deferred - waiting on upstream to settle.
 **Raised:** 2026-08-07
-**Scope:** Retail only. Classic keeps its existing filtering.
+**Scope:** Step 3 is Retail only. Steps 1 and 2 apply on every version.
 
 ## Problem
 
@@ -42,15 +42,18 @@ The end state is one filtering layer that every aura display feeds through.
 
 Take the filtering, not the drawing.
 
-1. **Extract a shared filter builder.** Lift `BuildCandidateFilters` and
-   `BuildSpellIDMap` out of `Elements/Auras.lua` into `UF.Auras` so all three
-   paths call the same code. Low risk, no behaviour change.
-2. **Give AuraBars spell ID include/exclude** through that builder. This is real
-   feature parity with aura groups and needs no architecture change.
+1. ~~**Extract a shared filter builder.**~~ **Done.** `BuildCandidateFilters`
+   now lives on `UF.Auras` alongside `BuildSpellIDMap`; aura groups and the
+   spell tracker both call it.
+2. ~~**Give AuraBars spell ID include/exclude.**~~ **Done.** Both lists are
+   honoured on Retail (`RetailAuraFilter`) and Classic (`ClassicAuraFilter`),
+   with options under "Spell lists". On Retail an unreadable secret spell ID is
+   kept when only an exclude list is set and dropped when an include list
+   demands a specific spell, so a hidden aura cannot bypass an allow list.
 3. **Only then** consider whether AuraBars should consume a container for
-   candidate selection while continuing to draw its own bars.
+   candidate selection while continuing to draw its own bars. **Still pending.**
 
-Step 1 and 2 can happen at any time. Step 3 should wait.
+Remaining work is step 3 alone.
 
 ## Trigger to revisit
 
