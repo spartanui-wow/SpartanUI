@@ -65,6 +65,11 @@ local function Build(frame, DB)
 	element:ClearAllPoints()
 	element:SetAllPoints(frame)
 
+	-- Draw above artwork overlays, as the old per-spell indicators did.
+	if frame.raised and frame.raised.GetFrameLevel then
+		element:SetFrameLevel(frame.raised:GetFrameLevel() + 1)
+	end
+
 	UF.Auras:AttachSlots(element, DB, BuildSlotSettings)
 
 	-- Containers only receive their unit through oUF's 'Auras' meta element.

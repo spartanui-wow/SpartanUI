@@ -56,7 +56,7 @@ local function Update(self, event, unit)
 	-- SUI: UnitHonorLevel is a secret for units whose identity is restricted,
 	-- and GetHonorRewardInfo cannot take one.
 	local honorLevel = UnitHonorLevel(unit)
-	local honorRewardInfo = not issecretvalue(honorLevel) and C_PvP.GetHonorRewardInfo(honorLevel)
+	local honorRewardInfo = honorLevel and not issecretvalue(honorLevel) and C_PvP.GetHonorRewardInfo(honorLevel)
 
 	if(UnitIsPVPFreeForAll(unit)) then
 		status = 'FFA'

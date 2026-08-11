@@ -1257,6 +1257,13 @@ function Auras:PositionContainer(element, frame, DB)
 	element:ClearAllPoints()
 	element:SetPoint(anchor, relativeTo, position.relativePoint or anchor, position.x or 0, position.y or 0)
 
+	-- CreateAuras parents the container to the frame itself, so without this
+	-- the icons draw underneath artwork overlays. The old buff element parented
+	-- to frame.raised for the same reason.
+	if frame.raised and frame.raised.GetFrameLevel then
+		element:SetFrameLevel(frame.raised:GetFrameLevel() + 1)
+	end
+
 	-- Containers grow to fit their buttons, but need a non-zero starting size.
 	-- GetWidth returns 0 rather than nil on a realized frame, and can be a
 	-- secret value if the frame carries secret anchors, so it is only compared
