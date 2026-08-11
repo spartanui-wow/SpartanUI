@@ -1041,3 +1041,11 @@ L['In seconds. Zero shows auras of any length. Setting any limit also hides perm
 L['Debuffs first'] = true
 L['Important first'] = true
 L['Major defensives first'] = true
+
+-- Unit Frames: aura bar spell lists
+L['Choose how aura bars are filtered. Healer shows your helpful auras, DPS shows your harmful auras, Tank shows your defensive auras.'] = true
+L['Custom (Your Auras + Boss)'] = true
+L['DPS (Your Harmful Auras)'] = true
+L['Healer (Your Helpful Auras)'] = true
+L['Spell lists'] = true
+L['Tank (Your Defensive Auras)'] = true

@@ -23,9 +23,10 @@ local function BuildSlotSettings(element, entry)
 		maxFrameCount = 1,
 		size = entry.size or 26,
 
-		-- The spell ID list is what pins this slot to one aura.
-		candidateFilters = UF.Auras:ValidateCandidateKeys({
-			includeSpellIDs = UF.Auras:BuildSpellIDMap(entry.spellId),
+		-- The spell ID list is what pins this slot to one aura. Built through
+		-- the shared filter builder so every aura display filters alike.
+		candidateFilters = UF.Auras:BuildCandidateFilters({
+			includeSpellIDs = entry.spellId,
 		}),
 
 		showCount = entry.showStacks ~= false,

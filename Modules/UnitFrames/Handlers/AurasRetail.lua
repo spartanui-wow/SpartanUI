@@ -266,6 +266,58 @@ function Auras:ValidateCandidateKeys(filters)
 	end
 end
 
+---Build the candidateFilters table from a settings table.
+---
+---Shared by every aura display so they filter the same way: aura groups, the
+---spell tracker and aura bars all describe what they want with the same keys
+---rather than each rolling their own.
+---
+---Recognised settings, all optional:
+---  includeSpellIDs / excludeSpellIDs - comma or space separated ID lists
+---  maxDuration                       - seconds; also hides permanent auras
+---  onlyStealable                     - unconfirmed key, dropped if unsupported
+---
+---Returns nil when nothing was set, which is what the aura APIs expect for
+---"no candidate filtering".
+---@param settings table
+---@return table?
+function Auras:BuildCandidateFilters(settings)
+	if type(settings) ~= 'table' then
+		return
+	end
+
+	local filters = {}
+	local used = false
+
+	-- "Only mine" is deliberately not here: it rides the PLAYER filter token,
+	-- because isFromPlayerOrPlayerPet is unconfirmed and would fail open.
+	if settings.onlyStealable then
+		filters.isStealable = true
+		used = true
+	end
+
+	if settings.maxDuration and settings.maxDuration > 0 then
+		filters.maxDuration = settings.maxDuration
+		used = true
+	end
+
+	local include = self:BuildSpellIDMap(settings.includeSpellIDs)
+	if include then
+		filters.includeSpellIDs = include
+		used = true
+	end
+
+	local exclude = self:BuildSpellIDMap(settings.excludeSpellIDs)
+	if exclude then
+		filters.excludeSpellIDs = exclude
+		used = true
+	end
+
+	if used then
+		return self:ValidateCandidateKeys(filters)
+	end
+end
+
 ---Parse a comma or space separated list of spell IDs into the map Blizzard wants.
 ---@param raw? string
 ---@return table<number, boolean>?

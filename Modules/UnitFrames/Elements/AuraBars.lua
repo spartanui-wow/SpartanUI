@@ -177,6 +177,35 @@ local function Build(frame, DB)
 	---@param unit UnitId
 	---@param data UnitAuraInfo
 	function element:RetailAuraFilter(unit, data)
+		local DB = self.DB
+		if not DB then
+			return true
+		end
+
+		-- Spell ID lists, matching what aura groups offer. spellId is a secret
+		-- for restricted units, so an unreadable one cannot be matched either
+		-- way: it is kept when only an exclude list is set, and dropped when an
+		-- include list demands a specific spell.
+		local include = UF.Auras:BuildSpellIDMap(DB.includeSpellIDs)
+		local exclude = UF.Auras:BuildSpellIDMap(DB.excludeSpellIDs)
+
+		if not include and not exclude then
+			return true
+		end
+
+		local spellId = data.spellId
+		if not spellId or not SUI.BlizzAPI.canaccessvalue(spellId) then
+			return include == nil
+		end
+
+		if exclude and exclude[spellId] then
+			return false
+		end
+
+		if include then
+			return include[spellId] == true
+		end
+
 		return true
 	end
 
@@ -186,6 +215,24 @@ local function Build(frame, DB)
 	function element:ClassicAuraFilter(unit, data)
 		local DB = self.DB
 		local canAccess = SUI.BlizzAPI.canaccessvalue
+
+		-- Spell ID lists apply on every version. Classic has no secret values,
+		-- so spellId is always readable here.
+		local include = UF.Auras:BuildSpellIDMap(DB.includeSpellIDs)
+		local exclude = UF.Auras:BuildSpellIDMap(DB.excludeSpellIDs)
+		if include or exclude then
+			local listedSpellId = data.spellId
+			if listedSpellId and canAccess(listedSpellId) then
+				if exclude and exclude[listedSpellId] then
+					return false
+				end
+				if include and not include[listedSpellId] then
+					return false
+				end
+			elseif include then
+				return false
+			end
+		end
 
 		-- Guard: secret values from combat restriction predicates
 		local duration = data.duration
@@ -342,6 +389,41 @@ local function Options(unitName, OptionSet)
 	end
 
 	-- Add Filter Mode options
+	OptionSet.args.SpellLists = {
+		name = L['Spell lists'],
+		type = 'group',
+		order = 49,
+		inline = true,
+		args = {
+			includeSpellIDs = {
+				name = L['Always show these spell IDs'],
+				desc = L['Separate each ID with a comma'],
+				type = 'input',
+				order = 1,
+				width = 'full',
+				get = function()
+					return UF.CurrentSettings[unitName].elements.AuraBars.includeSpellIDs
+				end,
+				set = function(_, val)
+					OptUpdate('includeSpellIDs', val)
+				end,
+			},
+			excludeSpellIDs = {
+				name = L['Never show these spell IDs'],
+				desc = L['Separate each ID with a comma'],
+				type = 'input',
+				order = 2,
+				width = 'full',
+				get = function()
+					return UF.CurrentSettings[unitName].elements.AuraBars.excludeSpellIDs
+				end,
+				set = function(_, val)
+					OptUpdate('excludeSpellIDs', val)
+				end,
+			},
+		},
+	}
+
 	OptionSet.args.FilterMode = {
 		name = L['Filter Mode'],
 		type = 'group',
@@ -639,6 +721,9 @@ local Settings = {
 	gap = 1,
 	scaleTime = false,
 	icon = true,
+	-- Spell ID lists, same format and behaviour as aura groups
+	includeSpellIDs = '',
+	excludeSpellIDs = '',
 	-- Enhanced filtering options
 	filterMode = 'healer', -- 'healer', 'dps', 'tank', 'custom' - default to healer as primary AuraBars use case
 	raiderMode = true, -- Show boss auras by default

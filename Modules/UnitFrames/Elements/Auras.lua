@@ -14,43 +14,6 @@ local L = SUI.L
 
 local MAX_GROUPS = UF.Auras.MAX_GROUPS
 
----Build the candidateFilters table Blizzard uses to narrow a group.
----Only includes keys the user actually set, since nil means "ignore" and
----false is a meaningful negation.
----@param groupDB table
----@return table?
-local function BuildCandidateFilters(groupDB)
-	local filters = {}
-	local used = false
-
-	-- onlyMine is handled by appending PLAYER to the filter string instead;
-	-- see UF.Auras:GetGroupFilter.
-	if groupDB.onlyStealable then
-		filters.isStealable = true
-		used = true
-	end
-	if groupDB.maxDuration and groupDB.maxDuration > 0 then
-		filters.maxDuration = groupDB.maxDuration
-		used = true
-	end
-
-	local include = UF.Auras:BuildSpellIDMap(groupDB.includeSpellIDs)
-	if include then
-		filters.includeSpellIDs = include
-		used = true
-	end
-
-	local exclude = UF.Auras:BuildSpellIDMap(groupDB.excludeSpellIDs)
-	if exclude then
-		filters.excludeSpellIDs = exclude
-		used = true
-	end
-
-	if used then
-		return UF.Auras:ValidateCandidateKeys(filters)
-	end
-end
-
 ---Translate a group's settings into the options table AddGroup expects.
 ---@param element table
 ---@param groupDB table
@@ -63,7 +26,7 @@ local function BuildContainerGroupSettings(element, groupDB)
 		size = size,
 		sortMethod = UF.Auras:GetSortMethod(groupDB.sortMethod),
 		sortDirection = UF.Auras:GetSortDirection(groupDB.sortDirection),
-		candidateFilters = BuildCandidateFilters(groupDB),
+		candidateFilters = UF.Auras:BuildCandidateFilters(groupDB),
 
 		-- Sub-widgets. These are engine-drawn, so they stay correct on secret auras.
 		showCount = groupDB.showCount ~= false,
