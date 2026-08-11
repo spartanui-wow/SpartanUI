@@ -1,7 +1,7 @@
 # Unify aura filtering on the 12.1 candidate filter system
 
-**Status:** Steps 1 and 2 done, Dispel and DefensiveIndicator rebuilt on aura slots (2026-08-11).
-Step 3 and CornerIndicators still open.
+**Status:** Steps 1 and 2 done. Dispel, DefensiveIndicator and CornerIndicators
+rebuilt on aura slots (2026-08-11). Step 3 and name-matched corners still open.
 **Raised:** 2026-08-07
 **Scope:** Step 3 is Retail only. Steps 1 and 2 apply on every version.
 
@@ -70,13 +70,15 @@ read the aura list on Retail. `UF.Auras:CreateWatcher` creates a one-aura slot
 and hands its button to a callback; artwork is attached to that button, so the
 engine shows and hides it along with the aura.
 
-**CornerIndicators is still outstanding.** Its dispel-type and buff branches
-match on `aura.dispelName` and `aura.name`, which means enumerating. Both are
-`pcall`-guarded so they stay quiet rather than erroring, but a corner set to
-those track types will not light up while auras are secret. The spell ID branch
-uses `GetAuraDataBySpellName` and is unaffected. Converting the other two needs
-`includeDispelTypes` and `includeSpellIDs` candidate filters, one slot per
-configured corner.
+**CornerIndicators is converted for the cases that can be described.** A corner
+tracking a dispel type uses `includeDispelTypes`; one tracking a spell ID uses
+`includeSpellIDs`. Both get their own slot via `UF.Auras:CreateWatcher`.
+
+The one remaining gap is a corner that matches a **buff by name**. There is no
+candidate filter for a name, so it still scans and stays quiet while auras are
+secret. Closing that needs the name resolved to a spell ID at configuration
+time, which changes what the option stores - worth doing when the corner
+options are next touched.
 
 The pattern to follow is `UF.Auras:CreateWatcher`, which ElvUI arrives at the
 same way in `E:Auras_SetHighlight` (`Modules/Auras/Containers.lua`): an
@@ -86,7 +88,7 @@ Note that slots and groups are **separate registries with separate keys**. The
 group APIs reject a slot key, which is why slot updates use
 `SetAuraSlotCandidateFilters` rather than `SetAuraGroupFilterString`.
 
-Remaining work is step 3 and the CornerIndicators conversion.
+Remaining work is step 3, and name-matched corners.
 
 ## Trigger to revisit
 
