@@ -179,6 +179,52 @@ local function MigrateFromLegacy()
 	end
 end
 
+---Rename aura group and tracked spell keys from '1' to slot1.
+---
+---Numeric-looking string keys survive a round trip through SavedVariables
+---only as long as nothing normalises them to real numbers. Word keys cannot
+---be normalised, so saved settings are moved onto them once.
+local function MigrateAuraSlotKeys()
+	if UF.DB._auraSlotKeysMigrated then
+		return
+	end
+
+	local renamed = 0
+
+	for presetName, frames in pairs(UF.DB.UserSettings) do
+		if presetName ~= '**' and type(frames) == 'table' then
+			for frameName, frameSettings in pairs(frames) do
+				local elements = frameName ~= '**' and type(frameSettings) == 'table' and frameSettings.elements
+
+				if type(elements) == 'table' then
+					for elementName, collection in pairs({
+						AuraGroups = type(elements.AuraGroups) == 'table' and elements.AuraGroups.groups,
+						AuraTracker = type(elements.AuraTracker) == 'table' and elements.AuraTracker.entries,
+					}) do
+						if type(collection) == 'table' then
+							for index = 1, 12 do
+								local old = tostring(index)
+								local new = 'slot' .. index
+								if collection[old] ~= nil and collection[new] == nil then
+									collection[new] = collection[old]
+									collection[old] = nil
+									renamed = renamed + 1
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	UF.DB._auraSlotKeysMigrated = true
+
+	if UF.Log and renamed > 0 then
+		UF.Log.info('Moved ' .. renamed .. ' aura entries onto named keys')
+	end
+end
+
 ---Carry Retail Buffs/Debuffs customisations over to the AuraGroups element.
 ---
 ---Settings that still mean the same thing (counts, sizes, spacing, growth,
@@ -207,7 +253,7 @@ local function MigrateAurasToGroups()
 					target.groups = target.groups or {}
 
 					-- Buffs become group 1, debuffs group 2.
-					local mapping = { { source = buffs, index = '1' }, { source = debuffs, index = '2' } }
+					local mapping = { { source = buffs, index = 'slot1' }, { source = debuffs, index = 'slot2' } }
 
 					for _, entry in ipairs(mapping) do
 						local source = entry.source
@@ -363,6 +409,7 @@ function UF:OnInitialize()
 
 	-- Carry Buffs/Debuffs customisations over to the new aura group element
 	MigrateAurasToGroups()
+	MigrateAuraSlotKeys()
 
 	-- Migrate from single 'raid' to per-tier raid types (raid10/raid25/raid40)
 	if UF.DB.UserSettings then

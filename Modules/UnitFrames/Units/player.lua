@@ -117,7 +117,7 @@ local Settings = {
 			growthx = 'RIGHT',
 			growthy = 'DOWN',
 			groups = {
-				['1'] = {
+				slot1 = {
 					enabled = true,
 					name = 'Buffs',
 					filterMode = 'all_buffs',
@@ -125,7 +125,7 @@ local Settings = {
 					size = 24,
 					spacing = 2,
 				},
-				['2'] = {
+				slot2 = {
 					enabled = true,
 					name = 'Debuffs',
 					filterMode = 'all_debuffs',

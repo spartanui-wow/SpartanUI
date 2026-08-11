@@ -96,6 +96,18 @@ function Auras:HasNativeContainers()
 	return SUI.IsRetail and C_UnitAuras ~= nil and AuraContainerSortMethod ~= nil
 end
 
+---Storage key for a group or tracked spell.
+---
+---Deliberately a word rather than a number. Numeric-looking string keys such
+---as '1' pass through SavedVariables serialisation and several table merges,
+---and anything that normalises one to a real number silently breaks the
+---lookup - the entry then reads as unconfigured and falls back to defaults.
+---@param index number|string
+---@return string
+function Auras:GetSlotKey(index)
+	return 'slot' .. tostring(index)
+end
+
 ---Read a group's settings with defaults applied.
 ---Always returns a table, so callers can read any group index without a nil
 ---check. An unconfigured index simply reads as the defaults.
@@ -103,7 +115,7 @@ end
 ---@param index number|string
 ---@return table
 function Auras:ResolveGroup(DB, index)
-	local stored = type(DB) == 'table' and DB.groups and DB.groups[tostring(index)]
+	local stored = type(DB) == 'table' and DB.groups and DB.groups[self:GetSlotKey(index)]
 	local resolved = {}
 
 	for key, value in pairs(self.GROUP_DEFAULTS) do
@@ -710,13 +722,13 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 		local preset = UF:GetPresetForFrame(unitName)
 		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
 		stored.groups = stored.groups or {}
-		stored.groups[tostring(index)] = stored.groups[tostring(index)] or {}
-		stored.groups[tostring(index)][key] = val
+		stored.groups[Auras:GetSlotKey(index)] = stored.groups[Auras:GetSlotKey(index)] or {}
+		stored.groups[Auras:GetSlotKey(index)][key] = val
 
 		local current = UF.CurrentSettings[unitName].elements.AuraGroups
 		current.groups = current.groups or {}
-		current.groups[tostring(index)] = current.groups[tostring(index)] or {}
-		current.groups[tostring(index)][key] = val
+		current.groups[Auras:GetSlotKey(index)] = current.groups[Auras:GetSlotKey(index)] or {}
+		current.groups[Auras:GetSlotKey(index)][key] = val
 
 		-- The frame may not be spawned (disabled frame, arena out of arena).
 		if UF.Unit[unitName] then
@@ -729,15 +741,15 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 		local preset = UF:GetPresetForFrame(unitName)
 		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
 		stored.groups = stored.groups or {}
-		stored.groups[tostring(index)] = stored.groups[tostring(index)] or {}
-		stored.groups[tostring(index)][key] = stored.groups[tostring(index)][key] or {}
-		stored.groups[tostring(index)][key][subKey] = val
+		stored.groups[Auras:GetSlotKey(index)] = stored.groups[Auras:GetSlotKey(index)] or {}
+		stored.groups[Auras:GetSlotKey(index)][key] = stored.groups[Auras:GetSlotKey(index)][key] or {}
+		stored.groups[Auras:GetSlotKey(index)][key][subKey] = val
 
 		local current = UF.CurrentSettings[unitName].elements.AuraGroups
 		current.groups = current.groups or {}
-		current.groups[tostring(index)] = current.groups[tostring(index)] or {}
-		current.groups[tostring(index)][key] = current.groups[tostring(index)][key] or {}
-		current.groups[tostring(index)][key][subKey] = val
+		current.groups[Auras:GetSlotKey(index)] = current.groups[Auras:GetSlotKey(index)] or {}
+		current.groups[Auras:GetSlotKey(index)][key] = current.groups[Auras:GetSlotKey(index)][key] or {}
+		current.groups[Auras:GetSlotKey(index)][key][subKey] = val
 
 		if UF.Unit[unitName] then
 			UF.Unit[unitName]:ElementUpdate('AuraGroups')
@@ -1322,7 +1334,7 @@ function Auras:ResolveEntry(DB, index)
 		end
 	end
 
-	local stored = type(DB) == 'table' and DB.entries and DB.entries[tostring(index)]
+	local stored = type(DB) == 'table' and DB.entries and DB.entries[self:GetSlotKey(index)]
 	if stored then
 		for key, value in pairs(stored) do
 			local default = resolved[key]
@@ -1461,13 +1473,13 @@ function Auras:BuildTrackerOptions(unitName, OptionSet, maxSlots)
 		local preset = UF:GetPresetForFrame(unitName)
 		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraTracker
 		stored.entries = stored.entries or {}
-		stored.entries[tostring(index)] = stored.entries[tostring(index)] or {}
-		stored.entries[tostring(index)][key] = val
+		stored.entries[Auras:GetSlotKey(index)] = stored.entries[Auras:GetSlotKey(index)] or {}
+		stored.entries[Auras:GetSlotKey(index)][key] = val
 
 		local current = UF.CurrentSettings[unitName].elements.AuraTracker
 		current.entries = current.entries or {}
-		current.entries[tostring(index)] = current.entries[tostring(index)] or {}
-		current.entries[tostring(index)][key] = val
+		current.entries[Auras:GetSlotKey(index)] = current.entries[Auras:GetSlotKey(index)] or {}
+		current.entries[Auras:GetSlotKey(index)][key] = val
 
 		-- The frame may not be spawned (disabled frame, arena out of arena).
 		if UF.Unit[unitName] then

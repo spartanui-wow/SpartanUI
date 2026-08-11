@@ -301,7 +301,7 @@ function AuraPresets:ApplyPresetToGroupElement(unitName, preset)
 	settings.groups = settings.groups or {}
 
 	-- Group 1 carries the preset's buffs, group 2 its debuffs.
-	local mapping = { { index = '1', source = 'Buffs' }, { index = '2', source = 'Debuffs' } }
+	local mapping = { { index = 'slot1', source = 'Buffs' }, { index = 'slot2', source = 'Debuffs' } }
 
 	for _, entry in ipairs(mapping) do
 		local presetElement = preset[entry.source]

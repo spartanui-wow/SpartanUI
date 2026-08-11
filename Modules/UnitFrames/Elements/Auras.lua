@@ -155,12 +155,12 @@ local Settings = {
 	-- Only the groups that differ from GROUP_DEFAULTS are stored. Everything
 	-- else is filled in by UF.Auras:ResolveGroup at read time.
 	groups = {
-		['1'] = {
+		slot1 = {
 			enabled = true,
 			name = 'Buffs',
 			filterMode = 'all_buffs',
 		},
-		['2'] = {
+		slot2 = {
 			enabled = true,
 			name = 'Debuffs',
 			filterMode = 'all_debuffs',

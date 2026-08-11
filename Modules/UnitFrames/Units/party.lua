@@ -261,7 +261,7 @@ local Settings = {
 			growthx = 'RIGHT',
 			growthy = 'UP',
 			groups = {
-				['1'] = {
+				slot1 = {
 					enabled = true,
 					name = 'HoTs',
 					filterMode = 'healing_mode',
@@ -270,7 +270,7 @@ local Settings = {
 					size = 15,
 					spacing = 1,
 				},
-				['2'] = {
+				slot2 = {
 					enabled = true,
 					name = 'Raid debuffs',
 					filterMode = 'raid_debuffs',

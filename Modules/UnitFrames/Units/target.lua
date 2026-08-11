@@ -82,7 +82,7 @@ local Settings = {
 			growthx = 'LEFT',
 			growthy = 'DOWN',
 			groups = {
-				['1'] = {
+				slot1 = {
 					enabled = true,
 					name = 'Buffs',
 					filterMode = 'healing_mode',
@@ -90,7 +90,7 @@ local Settings = {
 					size = 22,
 					spacing = 1,
 				},
-				['2'] = {
+				slot2 = {
 					enabled = true,
 					name = 'Debuffs',
 					filterMode = 'player_debuffs',
