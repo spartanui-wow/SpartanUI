@@ -3,6 +3,11 @@ package-as: SpartanUI
 ignore:
   - "*.md"
   - "*.Definition.lua"
+  # Developer-only, never shipped. The *.md rule already covers the files
+  # inside these, but name the directories explicitly so a non-markdown file
+  # added later does not start shipping by accident.
+  - "openspec"
+  - ".context"
 
 manual-changelog:
   filename: CHANGELOG.md
