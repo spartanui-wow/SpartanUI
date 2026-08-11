@@ -120,13 +120,19 @@ function Auras:ResolveGroup(DB, index)
 
 	if stored then
 		for key, value in pairs(stored) do
-			if type(value) == 'table' and type(resolved[key]) == 'table' then
+			local default = resolved[key]
+
+			if type(value) == 'table' and type(default) == 'table' then
 				for k, v in pairs(value) do
 					resolved[key][k] = v
 				end
-			else
+			elseif default == nil or type(value) == type(default) then
 				resolved[key] = value
 			end
+			-- A stored value whose type does not match the default is dropped.
+			-- The shared element defaults carry sub-tables (position, text)
+			-- that a profile merge can leave inside a group, and handing one to
+			-- the aura APIs errors: they expect numbers and strings.
 		end
 	end
 
@@ -1319,13 +1325,19 @@ function Auras:ResolveEntry(DB, index)
 	local stored = type(DB) == 'table' and DB.entries and DB.entries[tostring(index)]
 	if stored then
 		for key, value in pairs(stored) do
-			if type(value) == 'table' and type(resolved[key]) == 'table' then
+			local default = resolved[key]
+
+			if type(value) == 'table' and type(default) == 'table' then
 				for k, v in pairs(value) do
 					resolved[key][k] = v
 				end
-			else
+			elseif default == nil or type(value) == type(default) then
 				resolved[key] = value
 			end
+			-- A stored value whose type does not match the default is dropped.
+			-- The shared element defaults carry sub-tables (position, text)
+			-- that a profile merge can leave inside a group, and handing one to
+			-- the aura APIs errors: they expect numbers and strings.
 		end
 	end
 
