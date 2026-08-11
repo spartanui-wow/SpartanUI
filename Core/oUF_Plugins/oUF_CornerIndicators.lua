@@ -305,7 +305,14 @@ local function Update(self, event, unit)
 
 	for cornerKey, cornerTexture in pairs(element.corners) do
 		local cornerCfg = DB.corners[cornerKey]
-		if cornerCfg and cornerCfg.enabled then
+
+		-- A corner backed by an aura slot draws itself; touching it here would
+		-- fight the engine.
+		local ownedByWatcher = element.usingWatchers and self.auraWatchers and self.auraWatchers['Corner_' .. tostring(cornerKey)]
+
+		if ownedByWatcher then
+			-- nothing to do
+		elseif cornerCfg and cornerCfg.enabled then
 			if CheckCorner(unit, cornerCfg) then
 				local color = cornerCfg.color or { 1, 1, 1, 1 }
 				cornerTexture:SetVertexColor(color[1] or 1, color[2] or 1, color[3] or 1, color[4] or 1)
@@ -327,11 +334,95 @@ local function ForceUpdate(element)
 	return Update(element.__owner, 'ForceUpdate', element.__owner.unit)
 end
 
+---Build the filter and candidate filters describing one corner.
+---
+---Returns nil when the corner cannot be expressed as a description, which
+---means it would need the aura list read and so cannot work while auras are
+---secret.
+---@param cornerCfg table
+---@return string? filter
+---@return table? candidateFilters
+local function DescribeCorner(cornerCfg)
+	local trackType = cornerCfg.trackType
+	local trackValue = cornerCfg.trackValue
+
+	if not trackValue or trackValue == '' then
+		return
+	end
+
+	if trackType == 'debuffType' then
+		return 'HARMFUL', { includeDispelTypes = { [trackValue] = true } }
+	elseif trackType == 'spellID' then
+		local id = tonumber(trackValue)
+		if id then
+			return 'HELPFUL|HARMFUL', { includeSpellIDs = { [id] = true } }
+		end
+	end
+
+	-- 'buff' matches on the aura name, which the engine cannot be asked about.
+	return
+end
+
+---Drive corners from aura slots so nothing reads the aura list.
+---@param frame table
+---@param element table
+---@return boolean anyAttached
+local function AttachCornerWatchers(frame, element)
+	local UF = SUI and SUI.UF
+	if not UF or not UF.Auras or not UF.Auras.CreateWatcher or not UF.Auras:HasNativeContainers() then
+		return false
+	end
+
+	local DB = element.DB
+	if not DB or not DB.corners then
+		return false
+	end
+
+	local attached = false
+
+	for cornerKey, cornerTexture in pairs(element.corners) do
+		local cornerCfg = DB.corners[cornerKey]
+		if cornerCfg and cornerCfg.enabled then
+			local filter, candidates = DescribeCorner(cornerCfg)
+			if filter then
+				local color = cornerCfg.color or { 1, 1, 1, 1 }
+
+				local watcher = UF.Auras:CreateWatcher(frame, 'Corner_' .. tostring(cornerKey), filter, candidates, function(button)
+					-- The corner texture is parented to the element, so it is
+					-- shown alongside the button the engine keeps filled.
+					button:EnableMouse(false)
+					button:SetAllPoints(cornerTexture)
+
+					local swatch = button:CreateTexture(nil, 'OVERLAY')
+					swatch:SetAllPoints(cornerTexture)
+					swatch:SetTexture(cornerTexture:GetTexture())
+					swatch:SetVertexColor(color[1] or 1, color[2] or 1, color[3] or 1, color[4] or 1)
+				end)
+
+				if watcher then
+					attached = true
+					-- The slot's own artwork stands in for this corner.
+					cornerTexture:Hide()
+				end
+			end
+		end
+	end
+
+	return attached
+end
+
 local function Enable(self)
 	local element = self.CornerIndicators
 	if element then
 		element.__owner = self
 		element.ForceUpdate = ForceUpdate
+
+		-- Retail: corners that can be described to the engine are driven by
+		-- aura slots. Reading the aura list is not permitted while auras are
+		-- secret, so a name-matched corner still falls through to the scan and
+		-- simply stays quiet in that case.
+		element.usingWatchers = AttachCornerWatchers(self, element)
+
 		self:RegisterEvent('UNIT_AURA', Update)
 		return true
 	end

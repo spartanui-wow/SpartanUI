@@ -398,6 +398,31 @@ local Settings = {
 		Buffs = {
 			enabled = false,
 		},
+		AuraGroups = {
+			enabled = true,
+			position = {
+				anchor = 'LEFT',
+				relativeTo = 'Frame',
+				x = 0,
+				y = -2,
+			},
+			growthx = 'RIGHT',
+			growthy = 'DOWN',
+			groups = {
+				slot1 = {
+					enabled = false,
+				},
+				slot2 = {
+					enabled = true,
+					name = 'Debuffs',
+					filterMode = 'raid_debuffs',
+					number = 3,
+					size = 15,
+					spacing = 1,
+					showDebuffBorder = true,
+				},
+			},
+		},
 		Debuffs = {
 			enabled = true,
 			number = 3,

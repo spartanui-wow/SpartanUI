@@ -35,6 +35,20 @@ local function Options() end
 local Settings = {
 	width = 100,
 	elements = {
+		AuraGroups = {
+			enabled = true,
+			groups = {
+				slot1 = {
+					enabled = false,
+				},
+				slot2 = {
+					enabled = true,
+					name = 'Debuffs',
+					filterMode = 'player_debuffs',
+					showDebuffBorder = true,
+				},
+			},
+		},
 		Debuffs = {
 			enabled = true,
 			onlyShowPlayer = true,
