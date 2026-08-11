@@ -1191,10 +1191,17 @@ end
 function Auras:GetLayoutLimit(DB)
 	local widest = 0
 
+	-- Saved settings can hold a non-number here: the shared element defaults
+	-- carry sub-tables (position, text) that a merge can leave in a group, so
+	-- every value is checked before it is used in arithmetic.
+	local function number(value, fallback)
+		return type(value) == 'number' and value or fallback
+	end
+
 	for index = 1, self.MAX_GROUPS do
 		local group = self:ResolveGroup(DB, index)
 		if group.enabled then
-			local perRow = (group.number or 10) * ((group.size or 24) + (group.spacing or 2))
+			local perRow = number(group.number, 10) * (number(group.size, 24) + number(group.spacing, 2))
 			if perRow > widest then
 				widest = perRow
 			end

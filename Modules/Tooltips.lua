@@ -1027,9 +1027,19 @@ function module:OnEnable()
 		TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Quest, TooltipSetGeneric)
 	end
 
-	GameTooltip:HookScript('OnTooltipSetItem', TooltipSetItem)
-	GameTooltip:HookScript('OnTooltipSetUnit', TooltipSetUnit)
-	GameTooltip:HookScript('OnTooltipSetSpell', TooltipSetSpell)
+	-- Retail 12.1.0 removed these script types, so HookScript errors on them.
+	-- Mists still ships Blizzard_GameTooltip_Classic, whose XML wires them
+	-- directly and never reaches the data processor, so both paths are needed.
+	-- pcall keeps a client that dropped one from taking the rest down.
+	for scriptType, handler in pairs({
+		OnTooltipSetItem = TooltipSetItem,
+		OnTooltipSetUnit = TooltipSetUnit,
+		OnTooltipSetSpell = TooltipSetSpell,
+	}) do
+		if GameTooltip:HasScript(scriptType) then
+			pcall(GameTooltip.HookScript, GameTooltip, scriptType, handler)
+		end
+	end
 end
 
 function module:RegisterSetupWizardPage()

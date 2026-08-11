@@ -19,10 +19,17 @@ local MAX_GROUPS = UF.Auras.MAX_GROUPS
 ---@param groupDB table
 ---@return table
 local function BuildContainerGroupSettings(element, groupDB)
-	local size = groupDB.size or 24
+	-- Saved settings can hold a non-number where a number is expected, since
+	-- the shared element defaults carry sub-tables that a merge can leave
+	-- behind. Blizzard's aura APIs will not take those.
+	local function number(value, fallback)
+		return type(value) == 'number' and value or fallback
+	end
+
+	local size = number(groupDB.size, 24)
 
 	return {
-		maxFrameCount = groupDB.number or 10,
+		maxFrameCount = number(groupDB.number, 10),
 		size = size,
 		sortMethod = UF.Auras:GetSortMethod(groupDB.sortMethod),
 		sortDirection = UF.Auras:GetSortDirection(groupDB.sortDirection),
@@ -44,9 +51,9 @@ local function BuildContainerGroupSettings(element, groupDB)
 		durationColors = UF.Auras:GetDurationColorCurve(groupDB.expiring),
 
 		layout = {
-			elementSpacing = groupDB.spacing or 2,
-			lineSpacing = groupDB.lineSpacing or groupDB.spacing or 2,
-			groupSpacing = groupDB.groupSpacing or 4,
+			elementSpacing = number(groupDB.spacing, 2),
+			lineSpacing = number(groupDB.lineSpacing, number(groupDB.spacing, 2)),
+			groupSpacing = number(groupDB.groupSpacing, 4),
 			forceNewLine = groupDB.forceNewLine,
 		},
 
