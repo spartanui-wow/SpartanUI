@@ -653,11 +653,16 @@ function Auras:GetGroupFilter(group)
 		return 'HELPFUL|HARMFUL'
 	end
 
-	if group.customFilter and group.customFilter ~= '' then
+	-- Saved settings can hold a non-string here, so the type is checked before
+	-- it reaches AddGroup, which requires a string and errors on anything else.
+	if type(group.customFilter) == 'string' and group.customFilter ~= '' then
 		return group.customFilter
 	end
 
-	local filter = self:GetFilterString(group.filterMode) or 'HELPFUL'
+	local filter = self:GetFilterString(group.filterMode)
+	if type(filter) ~= 'string' then
+		filter = 'HELPFUL'
+	end
 
 	-- "Only mine" rides on the PLAYER filter token rather than the
 	-- isFromPlayerOrPlayerPet candidate filter, which is not confirmed on a
@@ -1337,7 +1342,13 @@ function Auras:GetEntryFilter(entry)
 		return 'HELPFUL|HARMFUL'
 	end
 
-	local filter = entry.filter or 'HELPFUL'
+	-- AddSlot requires a string, so a saved non-string is replaced rather than
+	-- passed through.
+	local filter = entry.filter
+	if type(filter) ~= 'string' or filter == '' then
+		filter = 'HELPFUL'
+	end
+
 	if entry.onlyMine then
 		filter = filter .. '|PLAYER'
 	end

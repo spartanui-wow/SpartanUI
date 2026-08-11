@@ -35,7 +35,7 @@ local Private = oUF.Private
 local unitExists = Private.unitExists
 
 local function Update(self, event, unit)
-	if(unit ~= self.unit) then return end
+	if(unit ~= self.__unit) then return end
 
 	local element = self.ThreatIndicator
 	--[[ Callback: ThreatIndicator:PreUpdate(unit)
@@ -47,7 +47,7 @@ local function Update(self, event, unit)
 	if(element.PreUpdate) then element:PreUpdate(unit) end
 
 	local feedbackUnit = element.feedbackUnit
-	unit = unit or self.unit
+	unit = unit or self.__unit
 
 	local status
 	-- BUG: Non-existent '*target' or '*pet' units cause UnitThreatSituation() errors
@@ -60,8 +60,8 @@ local function Update(self, event, unit)
 	end
 
 	local color
-	-- SUI: UnitThreatSituation returns a secret number when called from tainted code.
-	-- Gate both the comparison and the table lookup; hide the indicator if inaccessible.
+	-- SUI: UnitThreatSituation returns a secret number when called from tainted
+	-- code. Gate both the comparison and the table lookup.
 	if(status and canaccessvalue(status) and status > 0) then
 		color = self.colors.threat[status]
 
@@ -99,7 +99,7 @@ local function Path(self, ...)
 end
 
 local function ForceUpdate(element)
-	return Path(element.__owner, 'ForceUpdate', element.__owner.unit)
+	return Path(element.__owner, 'ForceUpdate', element.__owner.__unit)
 end
 
 local function Enable(self)
