@@ -1,6 +1,7 @@
 # Unify aura filtering on the 12.1 candidate filter system
 
-**Status:** Steps 1 and 2 done (2026-08-07). Step 3 deferred - waiting on upstream to settle.
+**Status:** Steps 1 and 2 done, Dispel and DefensiveIndicator rebuilt on aura slots (2026-08-11).
+Step 3 and CornerIndicators still open.
 **Raised:** 2026-08-07
 **Scope:** Step 3 is Retail only. Steps 1 and 2 apply on every version.
 
@@ -77,17 +78,15 @@ uses `GetAuraDataBySpellName` and is unaffected. Converting the other two needs
 `includeDispelTypes` and `includeSpellIDs` candidate filters, one slot per
 configured corner.
 
-The real fix is the same shape as the aura groups: an `AuraSlot` with
-`includeDispelTypes` candidate filters and a callback that draws the highlight,
-so nothing inspects an aura. ElvUI does this in `E:Auras_SetHighlight`
-(`Modules/Auras/Containers.lua`), using `AddAuraSlot` plus
-`SetAuraSlotCandidateFilters`.
+The pattern to follow is `UF.Auras:CreateWatcher`, which ElvUI arrives at the
+same way in `E:Auras_SetHighlight` (`Modules/Auras/Containers.lua`): an
+`AddAuraSlot` whose button carries the artwork.
 
 Note that slots and groups are **separate registries with separate keys**. The
 group APIs reject a slot key, which is why slot updates use
 `SetAuraSlotCandidateFilters` rather than `SetAuraGroupFilterString`.
 
-Remaining work is step 3 and this indicator rework.
+Remaining work is step 3 and the CornerIndicators conversion.
 
 ## Trigger to revisit
 
