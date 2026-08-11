@@ -329,6 +329,31 @@ local function Enable(self)
 		element.__owner = self
 		element.ForceUpdate = ForceUpdate
 
+		-- Retail: let an aura slot hold the defensive. Reading the aura list is
+		-- not permitted while auras are secret, and the slot's own button
+		-- already draws the icon and cooldown the indicator wants.
+		local UF = SUI and SUI.UF
+		if UF and UF.Auras and UF.Auras.CreateWatcher and UF.Auras:HasNativeContainers() then
+			element.watcher = UF.Auras:CreateWatcher(self, 'DefensiveIndicator', 'HELPFUL|BIG_DEFENSIVE', nil, function(button)
+				button:EnableMouse(false)
+				button:SetAllPoints(element)
+
+				local icon = button:CreateTexture(nil, 'ARTWORK')
+				icon:SetAllPoints()
+				button:SetIcon(icon)
+
+				if element.cooldown then
+					button:SetDurationCooldown(element.cooldown)
+				end
+
+				element:Show()
+			end)
+
+			if element.watcher then
+				return true
+			end
+		end
+
 		-- Setup Blizzard hooks for legacy fallback
 		if not hasBigDefensiveFilter then
 			SetupBlizzardHooks()

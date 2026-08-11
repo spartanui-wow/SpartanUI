@@ -97,6 +97,13 @@ end
 ---@param unit string
 ---@param cornerCfg table Corner config with trackType, trackValue
 ---@return boolean
+-- Reading the aura list is not permitted while auras are secret, and the calls
+-- below throw rather than returning nothing. Where a check can be answered
+-- without enumerating - a specific spell, or "is any aura of this dispel type
+-- present" - it is; the name-matching branch cannot be, and reports nothing
+-- rather than erroring.
+-- Rebuilding these on aura slots is tracked in
+-- openspec/aura-filtering-unification.md
 local function CheckCorner_NewAPI(unit, cornerCfg)
 	local trackType = cornerCfg.trackType
 	local trackValue = cornerCfg.trackValue

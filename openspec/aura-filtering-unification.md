@@ -64,10 +64,18 @@ than returning nothing:
 GetAuraSlots(): Auras cannot be accessed when secret while tainted by 'SpartanUI'
 ```
 
-Every one of those calls is currently wrapped in `pcall`, so the element goes
-quiet instead of erroring. That stops the spam but means the highlight or
-indicator simply does not appear in exactly the situation it matters most -
-in combat, in an instance.
+**Dispel and DefensiveIndicator are now rebuilt on aura slots** and no longer
+read the aura list on Retail. `UF.Auras:CreateWatcher` creates a one-aura slot
+and hands its button to a callback; artwork is attached to that button, so the
+engine shows and hides it along with the aura.
+
+**CornerIndicators is still outstanding.** Its dispel-type and buff branches
+match on `aura.dispelName` and `aura.name`, which means enumerating. Both are
+`pcall`-guarded so they stay quiet rather than erroring, but a corner set to
+those track types will not light up while auras are secret. The spell ID branch
+uses `GetAuraDataBySpellName` and is unaffected. Converting the other two needs
+`includeDispelTypes` and `includeSpellIDs` candidate filters, one slot per
+configured corner.
 
 The real fix is the same shape as the aura groups: an `AuraSlot` with
 `includeDispelTypes` candidate filters and a callback that draws the highlight,

@@ -305,6 +305,59 @@ end
 
 ---@param frame table
 ---@param DB table
+---Attach the engine-driven highlight used on Retail.
+---
+---The aura list cannot be read while auras are secret, so instead of searching
+---for a dispellable debuff the engine is asked to keep a slot filled with one.
+---The border and type icon hang off that slot's button, which the engine shows
+---and hides along with the aura.
+---@param frame table
+---@param element table
+---@param DB table
+local function AttachRetailWatcher(frame, element, DB)
+	if not SUI.IsRetail or not UF.Auras.CreateWatcher then
+		return
+	end
+
+	local filter = hasPlayerDispellableFilter and 'HARMFUL|RAID_PLAYER_DISPELLABLE' or 'HARMFUL|DISPELLABLE'
+
+	element.watcher = UF.Auras:CreateWatcher(frame, 'Dispel', filter, nil, function(button)
+		-- The button stands in for the matched aura. Artwork is created on it
+		-- and coloured by the engine, so it appears and disappears with the
+		-- aura and nothing here reads an aura property.
+		button:EnableMouse(false)
+		button:SetAllPoints(element)
+
+		local borderDB = DB.border or {}
+		if borderDB.enabled and button.AddDispelTypeTexture then
+			local border = button:CreateTexture(nil, 'OVERLAY')
+			border:SetAllPoints()
+			button.SUIBorder = border
+
+			button:AddDispelTypeTexture(border, {
+				style = Enum.CustomAuraButtonDispelTypeTextureStyle and Enum.CustomAuraButtonDispelTypeTextureStyle.Border,
+				showWhenHarmful = true,
+				customDispelColorMap = frame.colors and frame.colors.dispel,
+			})
+		end
+
+		local iconDB = DB.typeIcon or {}
+		if iconDB.enabled and button.AddDispelTypeTexture then
+			local icon = button:CreateTexture(nil, 'OVERLAY', nil, 1)
+			icon:SetSize(iconDB.size or 16, iconDB.size or 16)
+			icon:SetPoint(iconDB.anchor or 'TOPRIGHT', element, iconDB.anchor or 'TOPRIGHT', iconDB.x or 0, iconDB.y or 0)
+			button.SUITypeIcon = icon
+
+			button:AddDispelTypeTexture(icon, {
+				style = Enum.CustomAuraButtonDispelTypeTextureStyle and Enum.CustomAuraButtonDispelTypeTextureStyle.Icon,
+				showWhenHarmful = true,
+			})
+		end
+
+		element:Show()
+	end)
+end
+
 local function Build(frame, DB)
 	local parent = frame.raised or frame
 	local element = CreateFrame('Frame', nil, parent)
@@ -403,6 +456,10 @@ local function Build(frame, DB)
 	frame.Dispel = element
 
 	UpdatePlayerDispelTypes()
+
+	-- Retail drives the highlight from an aura slot instead of searching the
+	-- aura list, which addon code may not do while auras are secret.
+	AttachRetailWatcher(frame, element, DB)
 end
 
 -- ============================================================
@@ -714,6 +771,13 @@ local function Update(frame, settings)
 	LayoutBorders(element, DB)
 	LayoutTypeIcon(element, DB)
 	LayoutDebuffIcon(element, DB)
+
+	-- When the aura slot is driving this, the engine shows and hides the
+	-- artwork itself; searching the aura list here would both duplicate that
+	-- and throw while auras are secret.
+	if element.watcher then
+		return
+	end
 
 	local filterByPlayerDispels = DB.onlyShowDispellable ~= false
 	local aura, dispelType, slotIndex = FindDispellableDebuff(unit, filterByPlayerDispels)

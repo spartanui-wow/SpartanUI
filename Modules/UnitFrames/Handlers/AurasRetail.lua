@@ -1202,6 +1202,73 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 end
 
 ----------------------------------------------------------------------------------------------------
+-- Aura watchers
+----------------------------------------------------------------------------------------------------
+
+---Show an indicator for as long as one aura matching a description is present.
+---
+---Addon code may not enumerate auras while they are secret - `ForEachAura` and
+---`GetAuraDataByIndex` throw rather than returning nothing. An AuraSlot instead
+---lets the engine find the aura and own the button that represents it, so the
+---indicator appears and disappears with the aura and no addon code ever reads
+---an aura property.
+---
+---`decorate` runs once per button, inside `initializeFrame`, which is the only
+---window where native script calls such as SetPoint and SetSize are permitted
+---on an aura button. Attach artwork to the button there and the engine handles
+---the rest: when no aura matches, there is no button to show.
+---
+---@param frame table Unit frame to watch
+---@param name string Unique name for this watcher on the frame
+---@param filter string Aura filter string, e.g. 'HARMFUL|RAID_PLAYER_DISPELLABLE'
+---@param candidateFilters? table Extra narrowing, e.g. includeDispelTypes
+---@param decorate fun(button: table, watcher: table) Dress the button
+---@return table? watcher
+function Auras:CreateWatcher(frame, name, filter, candidateFilters, decorate)
+	if not self:HasNativeContainers() or not frame.CreateAuras then
+		return
+	end
+
+	frame.auraWatchers = frame.auraWatchers or {}
+	if frame.auraWatchers[name] then
+		return frame.auraWatchers[name]
+	end
+
+	local container = frame:CreateAuras({ initialAnchor = 'CENTER' })
+	container:ClearAllPoints()
+	container:SetAllPoints(frame)
+
+	if frame.raised and frame.raised.GetFrameLevel then
+		container:SetFrameLevel(frame.raised:GetFrameLevel() + 1)
+	end
+
+	local watcher = { frame = frame, container = container, buttons = {} }
+
+	watcher.slotKey = container:AddSlot(filter, {
+		maxFrameCount = 1,
+		disableMouse = true,
+		disableCooldown = true,
+		candidateFilters = candidateFilters and self:ValidateCandidateKeys(candidateFilters) or nil,
+		initializeFrame = function(button)
+			if not button then
+				return
+			end
+
+			watcher.buttons[#watcher.buttons + 1] = button
+
+			if decorate then
+				decorate(button, watcher)
+			end
+		end,
+	})
+
+	self:ScheduleContainerStateSync(frame)
+	frame.auraWatchers[name] = watcher
+
+	return watcher
+end
+
+----------------------------------------------------------------------------------------------------
 -- Container placement and driving
 ----------------------------------------------------------------------------------------------------
 
