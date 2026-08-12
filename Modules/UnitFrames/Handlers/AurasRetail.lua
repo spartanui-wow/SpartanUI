@@ -1348,7 +1348,28 @@ function Auras:PositionContainer(element, frame, DB)
 		end
 	end
 
-	element:SetSize(width or 100, DB.height or 1)
+	-- A container one pixel tall clips its own buttons. Height is taken from
+	-- the tallest enabled group so there is room for a row of icons before the
+	-- container resizes itself around them.
+	local height = DB.height
+	if type(height) ~= 'number' or height <= 0 then
+		height = 0
+		for index = 1, self.MAX_GROUPS do
+			local group = self:ResolveGroup(DB, index)
+			if group.enabled then
+				local rowHeight = (type(group.size) == 'number' and group.size or 24) + (type(group.spacing) == 'number' and group.spacing or 2)
+				if rowHeight > height then
+					height = rowHeight
+				end
+			end
+		end
+
+		if height <= 0 then
+			height = 26
+		end
+	end
+
+	element:SetSize(width or 100, height)
 end
 
 ---Settle each aura element's enabled state once oUF has finished building.

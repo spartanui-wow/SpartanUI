@@ -2187,7 +2187,13 @@ function Options:Initialize()
 					-- Options:IndicatorAddDisplay(ElementOptSet)
 					Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
 				elseif elementConfig.type == 'Auras' then
-					if not elementConfig.NoGenericOptions then
+					-- AuraGroups and AuraTracker carry their own per-group and
+					-- per-spell settings, so the shared aura layout and filter
+					-- options do not apply. They still need somewhere to set
+					-- where the whole thing sits on the frame.
+					if elementName == 'AuraGroups' or elementName == 'AuraTracker' then
+						Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+					elseif not elementConfig.NoGenericOptions then
 						Options:IndicatorAddDisplay(ElementOptSet)
 						Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
 						Options:AddAuraLayout(frameName, ElementOptSet)

@@ -815,6 +815,49 @@ function UF:OnEnable()
 		BlizzardWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
 	end
 
+	SUI:AddChatCommand('auradebug', function(args)
+		local frameName = (args and args ~= '' and args) or 'player'
+		local frame = UF.Unit and UF.Unit:Get(frameName)
+
+		if not frame then
+			SUI:Print('No frame called ' .. frameName)
+			return
+		end
+
+		SUI:Print('|cff00FF98Aura state for ' .. frameName .. '|r')
+		SUI:Print('  unit: ' .. tostring(frame.unit) .. '   built: ' .. tostring(frame.IsBuilt))
+
+		local element = frame.AuraGroups
+		if not element then
+			SUI:Print('  |cffFF5252no AuraGroups element|r - the frame did not build one')
+			SUI:Print('  native containers available: ' .. tostring(UF.Auras:HasNativeContainers()))
+			return
+		end
+
+		SUI:Print('  container exists, enabled setting: ' .. tostring(element.DB and element.DB.enabled))
+		SUI:Print('  container unit: ' .. tostring(element.GetUnit and element:GetUnit()))
+		SUI:Print('  shown: ' .. tostring(element:IsShown()) .. '   alpha: ' .. tostring(element:GetAlpha()))
+
+		local a, _, _, x, y = element:GetPoint()
+		SUI:Print('  anchored: ' .. tostring(a) .. ' ' .. tostring(x) .. ',' .. tostring(y) .. '   size: ' .. tostring(element:GetWidth()) .. 'x' .. tostring(element:GetHeight()))
+
+		for index = 1, UF.Auras.MAX_GROUPS do
+			local group = UF.Auras:ResolveGroup(element.DB or {}, index)
+			local key = element.groupKeys and element.groupKeys[index]
+			if group.enabled or key then
+				SUI:Print(
+					('  group %d: %s  enabled=%s  filter=%s  key=%s'):format(
+						index,
+						tostring(group.name ~= '' and group.name or '-'),
+						tostring(group.enabled),
+						tostring(UF.Auras:GetGroupFilter(group)),
+						tostring(key)
+					)
+				)
+			end
+		end
+	end, 'Report why a frame is or is not showing auras')
+
 	SUI:AddChatCommand('BuffDebug', function(args)
 		local unit, spellId = strsplit(' ', args)
 
