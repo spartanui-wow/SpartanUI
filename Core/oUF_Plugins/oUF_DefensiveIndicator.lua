@@ -342,9 +342,14 @@ local function Enable(self)
 				icon:SetAllPoints()
 				button:SetIcon(icon)
 
-				if element.cooldown then
-					button:SetDurationCooldown(element.cooldown)
-				end
+				-- The cooldown has to belong to the button. The element's own
+				-- cooldown is parented to the element, and the game rejects a
+				-- frame that is not a descendant of the button it is given to.
+				local cooldown = CreateFrame('Cooldown', nil, button, 'CooldownFrameTemplate')
+				cooldown:SetAllPoints()
+				cooldown:SetHideCountdownNumbers(element.hideCountdownNumbers ~= false)
+				button.SUICooldown = cooldown
+				button:SetDurationCooldown(cooldown)
 
 				element:Show()
 			end)
