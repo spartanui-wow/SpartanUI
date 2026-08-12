@@ -28,7 +28,7 @@ Two elements, matching the two shapes the API offers:
 
 ### Constraints that shaped the design
 
-Groups and slots are additive-only and their options are frozen at creation; containers must be anchored and sized by the element (the flow layout is internal only) and only receive their unit through oUF's `Auras` meta element; buttons accept native script calls only inside `initializeFrame`; and the element must not be named `Auras`. Full detail in `.context/common-pitfalls.md` (2026-08-05 entries).
+Groups and slots are additive-only, but their options are NOT frozen - the container has a setter for each (see `.context/common-pitfalls.md`, corrected 2026-08-11), so size, count, sorting, spacing and filters all apply live; only settings that decide whether a sub-widget is built need a rebuild. containers must be anchored and sized by the element (the flow layout is internal only) and only receive their unit through oUF's `Auras` meta element; buttons accept native script calls only inside `initializeFrame`; and the element must not be named `Auras`. Full detail in `.context/common-pitfalls.md` (2026-08-05 entries).
 
 ### Verification status
 

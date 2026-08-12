@@ -633,6 +633,14 @@ function Auras:StyleButton(button, groupDB, element)
 		return
 	end
 
+	-- Remember the button so its styling can be redone when settings change.
+	-- Buttons accept native calls outside initializeFrame, so restyling a live
+	-- one is allowed and avoids making the user reload.
+	if element then
+		element.styledButtons = element.styledButtons or {}
+		element.styledButtons[button] = groupDB
+	end
+
 	local durationDB = groupDB.durationText or {}
 	local stackDB = groupDB.stackText or {}
 
@@ -654,6 +662,77 @@ function Auras:StyleButton(button, groupDB, element)
 
 	if element and element.PostCreateButton then
 		element:PostCreateButton(button, groupDB)
+	end
+end
+
+---Apply the settings a live button can still take: its size, and where its
+---text sits. The container sizes buttons through the group layout, but the
+---text is ours and only moves if we move it.
+---@param button table
+---@param groupDB table
+function Auras:StyleButtonWidgets(button, groupDB)
+	if not button or type(groupDB) ~= 'table' then
+		return
+	end
+
+	local size = type(groupDB.size) == 'number' and groupDB.size or 24
+	if button.SetSize then
+		button:SetSize(size, size)
+	end
+
+	if button.EnableMouse then
+		button:EnableMouse(not groupDB.clickThrough)
+	end
+
+	local stackDB = groupDB.stackText or {}
+	if button.Count then
+		button.Count:ClearAllPoints()
+		button.Count:SetPoint(stackDB.anchor or 'BOTTOMRIGHT', stackDB.x or -1, stackDB.y or 0)
+	end
+
+	local durationDB = groupDB.durationText or {}
+	if button.Time then
+		button.Time:ClearAllPoints()
+		button.Time:SetPoint(durationDB.anchor or 'CENTER', durationDB.x or 0, durationDB.y or 0)
+	end
+end
+
+---Re-apply styling to every button a container has already created.
+---
+---Text size, borders and the rest are applied when a button is built, so a
+---settings change would otherwise only show on buttons created afterwards.
+---@param element table
+---@param DB table
+function Auras:RestyleButtons(element, DB)
+	if not element or not element.styledButtons then
+		return
+	end
+
+	-- Rebuild the group lookup so each button is restyled with its own
+	-- group's current settings rather than whichever one it started with.
+	local byIndex = {}
+	for index = 1, self.MAX_GROUPS do
+		byIndex[index] = self:ResolveGroup(DB, index)
+	end
+
+	-- Collect first: forbidden buttons are dropped from the table below, and
+	-- removing entries while iterating it is not safe.
+	local stale
+	for button, groupDB in pairs(element.styledButtons) do
+		if button.IsForbidden and button:IsForbidden() then
+			-- Buttons become forbidden while auras are secret; touching one
+			-- errors, so it is dropped until it is rebuilt.
+			stale = stale or {}
+			stale[#stale + 1] = button
+		else
+			local current = (button.auraGroupIndex and byIndex[button.auraGroupIndex]) or groupDB
+			self:StyleButton(button, current, element)
+			self:StyleButtonWidgets(button, current)
+		end
+	end
+
+	for _, button in ipairs(stale or {}) do
+		element.styledButtons[button] = nil
 	end
 end
 
@@ -701,6 +780,26 @@ function Auras:GetGroupSignature(DB)
 			group.includeSpellIDs or '',
 			group.excludeSpellIDs or '',
 			tostring(group.clickThrough),
+			-- These have live setters, so a change is applied by repointing
+			-- rather than needing the container rebuilt.
+			tostring(group.sortMethod or ''),
+			tostring(group.sortDirection or ''),
+			tostring(group.lineSpacing or ''),
+			tostring(group.groupSpacing or ''),
+			tostring(group.forceNewLine),
+			-- Button styling is re-applied to live buttons, so these belong
+			-- here rather than among the settings that need a rebuild.
+			tostring(group.fontSize or ''),
+			tostring(group.durationText and group.durationText.size or ''),
+			tostring(group.durationText and group.durationText.outline or ''),
+			tostring(group.durationText and group.durationText.anchor or ''),
+			tostring(group.durationText and group.durationText.x or ''),
+			tostring(group.durationText and group.durationText.y or ''),
+			tostring(group.stackText and group.stackText.size or ''),
+			tostring(group.stackText and group.stackText.outline or ''),
+			tostring(group.stackText and group.stackText.anchor or ''),
+			tostring(group.stackText and group.stackText.x or ''),
+			tostring(group.stackText and group.stackText.y or ''),
 		}, ':')
 	end
 
@@ -725,21 +824,6 @@ function Auras:GetGroupBuildSignature(DB)
 		local group = self:ResolveGroup(DB, index)
 		parts[#parts + 1] = table.concat({
 			index,
-			tostring(group.number or ''),
-			tostring(group.size or ''),
-			tostring(group.spacing or ''),
-			tostring(group.lineSpacing or ''),
-			tostring(group.groupSpacing or ''),
-			tostring(group.forceNewLine),
-			tostring(group.onlyMine),
-			tostring(group.onlyStealable),
-			tostring(group.maxDuration or ''),
-			group.includeSpellIDs or '',
-			group.excludeSpellIDs or '',
-			tostring(group.clickThrough),
-			tostring(group.sortMethod or ''),
-			tostring(group.sortDirection or ''),
-			tostring(group.fontSize or ''),
 			tostring(group.showCount),
 			tostring(group.showDuration),
 			tostring(group.showCooldown),
@@ -751,15 +835,6 @@ function Auras:GetGroupBuildSignature(DB)
 			tostring(group.showStealableBorder),
 			tostring(group.expiring and group.expiring.enabled),
 			tostring(group.expiring and group.expiring.threshold or ''),
-			-- Text styling is read when a button is created, so a change only
-			-- takes effect on rebuild.
-			tostring(group.durationText and group.durationText.size or ''),
-			tostring(group.durationText and group.durationText.outline or ''),
-			tostring(group.durationText and group.durationText.anchor or ''),
-			tostring(group.durationText and group.durationText.colorByTime),
-			tostring(group.stackText and group.stackText.size or ''),
-			tostring(group.stackText and group.stackText.outline or ''),
-			tostring(group.stackText and group.stackText.anchor or ''),
 		}, ':')
 	end
 
@@ -825,6 +900,38 @@ function Auras:RepointGroups(frame, element, DB)
 			if key then
 				local group = self:ResolveGroup(DB, index)
 				element:SetAuraGroupFilterString(key, self:GetGroupFilter(group))
+
+				-- A group's settings are not frozen after all: the container
+				-- exposes a setter for each of them, so icon size, count,
+				-- sorting and the spell ID lists all change live. Icon size
+				-- lives inside the layout table as elementWidth/Height.
+				if element.SetAuraGroupMaxFrameCount then
+					element:SetAuraGroupMaxFrameCount(key, type(group.number) == 'number' and group.number or 10)
+				end
+
+				if element.SetAuraGroupSortMethod then
+					element:SetAuraGroupSortMethod(key, self:GetSortMethod(group.sortMethod), self:GetSortDirection(group.sortDirection))
+				end
+
+				if element.SetAuraGroupCandidateFilters then
+					local candidates = self:BuildCandidateFilters(group)
+					if candidates then
+						element:SetAuraGroupCandidateFilters(key, candidates)
+					end
+				end
+
+				if element.SetAuraGroupLayout then
+					local size = type(group.size) == 'number' and group.size or 24
+					local spacing = type(group.spacing) == 'number' and group.spacing or 2
+					element:SetAuraGroupLayout(key, {
+						elementWidth = size,
+						elementHeight = size,
+						elementSpacing = spacing,
+						lineSpacing = type(group.lineSpacing) == 'number' and group.lineSpacing or spacing,
+						groupSpacing = type(group.groupSpacing) == 'number' and group.groupSpacing or 4,
+						forceNewLine = group.forceNewLine,
+					})
+				end
 			end
 		end
 	else
@@ -833,12 +940,15 @@ function Auras:RepointGroups(frame, element, DB)
 		UF:debug('Aura group filters cannot be changed at runtime on this client')
 	end
 
-	-- Icon size, icon count and the spell ID lists are baked into each group
-	-- when it is created and there is no API to change them afterwards, so
-	-- those only take effect on reload. Say so rather than appearing to ignore
-	-- the setting.
+	-- Buttons already on screen keep the styling they were built with, so
+	-- restyle them rather than waiting for the user to reload.
+	self:RestyleButtons(element, DB)
+
+	-- Turning a border, timer or stack count on or off decides whether that
+	-- widget is built at all, and a button that never had one cannot grow it
+	-- later. Everything else now applies live.
 	if self:GroupBuildOptionsChanged(element, DB) then
-		SUI:Print(L['Icon size and count changes apply after you reload (/rl)'])
+		SUI:Print(L['Turning aura borders and text on or off applies after you reload (/rl)'])
 	end
 	element.groupBuildSignature = self:GetGroupBuildSignature(DB)
 
@@ -1017,15 +1127,12 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 		max = 600,
 		step = 1,
 		get = function()
-			local DB = ContainerDB()
-			local width = DB.width
-			-- Anything too narrow to hold an icon is the inherited element
-			-- default rather than a real choice, and is ignored when laying
-			-- out, so show it as unset.
-			if type(width) ~= 'number' or width ~= Auras:GetLayoutLimit(DB) then
-				return 0
-			end
-			return width
+			-- The merged settings always carry an inherited width, so read the
+			-- user's own value: anything else would show a number the layout
+			-- is ignoring.
+			local preset = UF:GetPresetForFrame(unitName)
+			local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
+			return type(stored.width) == 'number' and stored.width or 0
 		end,
 		set = function(_, val)
 			-- Zero means "work it out", which is what a missing value does.
@@ -1705,6 +1812,28 @@ end
 ---@param DB table
 ---@param frame? table Unit frame, used for the width fallback
 ---@return number?
+---Whether the user has set a row width for this frame's aura container.
+---
+---The merged settings always carry a width, because every element inherits
+---one from the shared element defaults. Only the sparse user table says
+---whether it was actually chosen.
+---@param frame? table
+---@return boolean
+function Auras:HasUserWidth(frame)
+	local unitName = frame and frame.unitOnCreate
+	if not unitName or not UF.DB or not UF.DB.UserSettings then
+		return false
+	end
+
+	local preset = UF:GetPresetForFrame(unitName)
+	local settings = UF.DB.UserSettings[preset]
+	settings = settings and settings[unitName]
+	settings = settings and settings.elements
+	settings = settings and settings.AuraGroups
+
+	return type(settings) == 'table' and type(settings.width) == 'number'
+end
+
 function Auras:GetLayoutLimit(DB, frame)
 	local widest = 0
 
@@ -1715,29 +1844,17 @@ function Auras:GetLayoutLimit(DB, frame)
 		return type(value) == 'number' and value or fallback
 	end
 
-	-- A width wide enough to hold a row is the user saying where it ends, so
-	-- it wins over the width the icons would otherwise ask for.
+	-- A width the user set is them saying where the row ends, so it wins over
+	-- the width the icons would otherwise ask for.
 	--
-	-- Every element inherits width/height from the shared element defaults,
-	-- where they mean the size of a single widget (20x20). For a container
-	-- they mean the wrap width instead, and 20px is narrower than one icon, so
-	-- an inherited default would wrap after every icon and stack them into a
-	-- column. Only a width that can hold at least one icon is a real choice.
-	if type(DB.width) == 'number' then
-		local smallest = 0
-		for index = 1, self.MAX_GROUPS do
-			local group = self:ResolveGroup(DB, index)
-			if group.enabled then
-				local iconWidth = number(group.size, 24) + number(group.spacing, 2)
-				if smallest == 0 or iconWidth < smallest then
-					smallest = iconWidth
-				end
-			end
-		end
-
-		if DB.width >= smallest and smallest > 0 then
-			return DB.width
-		end
+	-- It has to be the user's own value, not the merged one: every element
+	-- inherits width/height from the shared element defaults, where they mean
+	-- the size of a single widget (20x20). A container reads width as the
+	-- wrap point instead, and 20px is about one icon, so the inherited default
+	-- would wrap after every icon and stack them into a column. The sparse
+	-- user settings only hold what was actually chosen, so ask them.
+	if self:HasUserWidth(frame) and type(DB.width) == 'number' and DB.width > 0 then
+		return DB.width
 	end
 
 	-- Icons per row is the setting people reach for: it is the count they can
@@ -2247,7 +2364,7 @@ function Auras:AttachGroups(element, DB, buildOptions)
 	-- appear without leaking a container is to have built it up front.
 	for index = 1, self.MAX_GROUPS do
 		local group = self:ResolveGroup(DB, index)
-		element.groupKeys[index] = element:AddGroup(self:GetGroupFilter(group), buildOptions(element, group))
+		element.groupKeys[index] = element:AddGroup(self:GetGroupFilter(group), buildOptions(element, group, index))
 	end
 
 	element.groupSignature = self:GetGroupSignature(DB)

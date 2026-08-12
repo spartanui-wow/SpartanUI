@@ -1079,3 +1079,5 @@ L['Left'] = true
 L['Up'] = true
 L['Down'] = true
 L['How wide the icons run before they wrap onto the next row. Leave at 0 to use the icons per row setting, or the frame width.'] = true
+
+L['Turning aura borders and text on or off applies after you reload (/rl)'] = true

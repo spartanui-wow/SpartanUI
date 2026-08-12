@@ -18,7 +18,7 @@ local MAX_GROUPS = UF.Auras.MAX_GROUPS
 ---@param element table
 ---@param groupDB table
 ---@return table
-local function BuildContainerGroupSettings(element, groupDB)
+local function BuildContainerGroupSettings(element, groupDB, groupIndex)
 	-- Saved settings can hold a non-number where a number is expected, since
 	-- the shared element defaults carry sub-tables that a merge can leave
 	-- behind. Blizzard's aura APIs will not take those.
@@ -72,6 +72,9 @@ local function BuildContainerGroupSettings(element, groupDB)
 		-- first and then applies our own styling.
 		CreateButton = function(auraElement, options, button)
 			UF.Auras:CreateAuraButton(auraElement, options, button)
+			-- Tag the button with its group so a later restyle can look up
+			-- that group's current settings rather than this closure's copy.
+			button.auraGroupIndex = groupIndex
 			UF.Auras:StyleButton(button, groupDB, element)
 		end,
 	}
