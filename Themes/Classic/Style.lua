@@ -194,15 +194,20 @@ local function CreateArtwork()
 			self.TimeSinceLastUpdate = self.TimeSinceLastUpdate + elapsed
 			if self.TimeSinceLastUpdate > self.UpdateInterval then
 				local abSettings = module.CurrentSettings
+				-- The MouseIsOver global was removed; it only ever forwarded to
+				-- the frame's own method, which is still there.
+				local function IsMouseOver(frame)
+					return frame and frame.IsMouseOver and frame:IsMouseOver()
+				end
 				if abSettings.popup1 and abSettings.popup1.enable and abSettings.popup1.anim then
-					if not MouseIsOver(plate.mask1) and not MouseIsOver(plate.POP1) then
+					if not IsMouseOver(plate.mask1) and not IsMouseOver(plate.POP1) then
 						plate.mask1:Show()
 					else
 						plate.mask1:Hide()
 					end
 				end
 				if abSettings.popup2 and abSettings.popup2.enable and abSettings.popup2.anim then
-					if not MouseIsOver(plate.mask2) and not MouseIsOver(plate.POP2) then
+					if not IsMouseOver(plate.mask2) and not IsMouseOver(plate.POP2) then
 						plate.mask2:Show()
 					else
 						plate.mask2:Hide()
