@@ -467,6 +467,91 @@ end
 ---@param button table
 ---@param groupDB table
 ---@param element table
+---Give an aura button the widgets that make it visible.
+---
+---This mirrors the library's own button setup. It has to be reproduced rather
+---than called because the library only uses its default when no override is
+---supplied, and an override is needed to apply SpartanUI's styling.
+---
+---Runs inside initializeFrame, the only window where native script methods
+---such as SetSize are permitted on an aura button.
+---@param element table The aura container
+---@param options table Group options passed to AddGroup
+---@param button table The aura button
+function Auras:CreateAuraButton(element, options, button)
+	if not button then
+		return
+	end
+
+	local size = options.size or element.size or 16
+	button:SetSize(options.width or element.width or size, options.height or element.height or size)
+	button:EnableMouse(not (options.disableMouse or element.disableMouse))
+
+	if not (options.disableCooldown or element.disableCooldown) then
+		local cooldown = CreateFrame('Cooldown', '$parentCooldown', button, 'CooldownFrameTemplate')
+		cooldown:SetAllPoints()
+		button.Cooldown = cooldown
+		button:SetDurationCooldown(cooldown)
+	end
+
+	local icon = button:CreateTexture(nil, 'BORDER')
+	icon:SetAllPoints()
+	button.Icon = icon
+	button:SetIcon(icon)
+
+	-- Text sits above the cooldown swipe, so it needs its own frame.
+	local textParent = button
+	if not (options.disableCooldown or element.disableCooldown) then
+		textParent = CreateFrame('Frame', nil, button)
+		textParent:SetAllPoints()
+		textParent:SetFrameLevel(button.Cooldown:GetFrameLevel() + 1)
+	end
+
+	if options.showCount or element.showCount then
+		local count = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
+		count:SetPoint('BOTTOMRIGHT', -1, 0)
+		button.Count = count
+		button:SetApplicationCount(count, {})
+	end
+
+	if options.showDuration or element.showDuration then
+		local time = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
+		time:SetPoint('TOPLEFT', 1, 0)
+		button.Time = time
+		button:SetDurationText(time, {
+			textColor = options.durationColors or element.durationColors,
+		})
+	end
+
+	if options.showBuffBorder or options.showDebuffBorder then
+		local border = button:CreateTexture(nil, 'OVERLAY')
+		border:SetAllPoints()
+		button.Border = border
+		button:AddDispelTypeTexture(border, {
+			style = Enum.CustomAuraButtonDispelTypeTextureStyle and Enum.CustomAuraButtonDispelTypeTextureStyle.Border,
+			showWhenHarmful = options.showDebuffBorder,
+			showWhenHelpful = options.showBuffBorder,
+			customDispelColorMap = element.__owner and element.__owner.colors and element.__owner.colors.dispel,
+		})
+	end
+
+	if options.showBuffIndicator or options.showDebuffIndicator then
+		local indicator = button:CreateTexture(nil, 'OVERLAY', nil, 1)
+		indicator:SetPoint('CENTER', button, 'TOPRIGHT')
+		indicator:SetSize(18, 18)
+		button.DispelIndicator = indicator
+		button:AddDispelTypeTexture(indicator, {
+			style = Enum.CustomAuraButtonDispelTypeTextureStyle and Enum.CustomAuraButtonDispelTypeTextureStyle.Icon,
+			showWhenHarmful = options.showDebuffIndicator,
+			showWhenHelpful = options.showBuffIndicator,
+		})
+	end
+
+	if options.cancelButton then
+		button:SetCancelAuraButtons(options.cancelButton)
+	end
+end
+
 function Auras:StyleButton(button, groupDB, element)
 	if not button then
 		return

@@ -60,7 +60,13 @@ local function BuildContainerGroupSettings(element, groupDB)
 		-- Blizzard calls this with just the button. oUF's own default gets
 		-- (element, options, button) only because oUF wraps it in a closure;
 		-- an initializeFrame supplied directly is called raw.
-		initializeFrame = function(button)
+		-- CreateButton, not initializeFrame. Supplying initializeFrame replaces
+		-- the library's own button setup, which is what gives a button its
+		-- size, icon, cooldown and text - without it the buttons exist but
+		-- draw nothing. This hook runs instead of that default, so it calls it
+		-- first and then applies our own styling.
+		CreateButton = function(auraElement, options, button)
+			UF.Auras:CreateAuraButton(auraElement, options, button)
 			UF.Auras:StyleButton(button, groupDB, element)
 		end,
 	}
