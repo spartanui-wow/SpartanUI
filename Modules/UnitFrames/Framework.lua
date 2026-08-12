@@ -838,7 +838,12 @@ function UF:OnEnable()
 		SUI:Print('  container unit: ' .. tostring(element.GetUnit and element:GetUnit()))
 		SUI:Print('  shown: ' .. tostring(element:IsShown()) .. '   alpha: ' .. tostring(element:GetAlpha()))
 
-		if element:GetNumPoints() > 0 then
+		-- A container that carries secret anchors returns a secret from
+		-- GetNumPoints, which cannot be compared. Only read it when it is safe.
+		local points = element:GetNumPoints()
+		if not SUI.BlizzAPI.canaccessvalue(points) then
+			SUI:Print('  anchoring is secret on this container, cannot be read')
+		elseif points > 0 then
 			local a, _, rp, x, y = element:GetPoint()
 			SUI:Print(('  anchored: %s -> %s  offset %s,%s'):format(tostring(a), tostring(rp), tostring(x), tostring(y)))
 		else
@@ -846,6 +851,31 @@ function UF:OnEnable()
 		end
 
 		SUI:Print(('  size: %sx%s   level: %s'):format(tostring(element:GetWidth()), tostring(element:GetHeight()), tostring(element:GetFrameLevel())))
+		SUI:Print('  anchors secret: ' .. tostring(element.IsAnchoringSecret and element:IsAnchoringSecret()))
+
+		-- How the icons are meant to flow. A row that will not wrap shows up
+		-- as a single column, so report what the layout was actually told.
+		local DB = element.DB or {}
+		SUI:Print(('  wrap width: %s   (width=%s layoutLimit=%s)'):format(tostring(UF.Auras:GetLayoutLimit(DB, frame)), tostring(DB.width), tostring(DB.layoutLimit)))
+		SUI:Print(('  growth: %s / %s'):format(tostring(DB.growthx), tostring(DB.growthy)))
+
+		-- Whether the line size can be changed after the container is built is
+		-- the open question: oUF only ever sets it in Create. If the live value
+		-- does not match what we asked for, it is create-time only and the
+		-- setting needs a rebuild rather than an update.
+		if element.GetFlowLayoutMaximumLineSize then
+			local live = element:GetFlowLayoutMaximumLineSize()
+			local want = UF.Auras:GetLayoutLimit(DB, frame)
+			SUI:Print(('  live line size: %s   wanted: %s   %s'):format(tostring(live), tostring(want), tostring(live) == tostring(want) and '|cff00FF98match|r' or '|cffFF5252MISMATCH|r'))
+		end
+
+		for _, method in ipairs({ 'GetFlowLayoutMaximumLineSize', 'GetFlowLayoutAxis', 'GetFlowLayoutGrowthDirection', 'GetFlowLayoutAnchorPoint' }) do
+			if element[method] then
+				SUI:Print(('  %s: %s'):format(method:gsub('GetFlowLayout', ''), tostring(element[method](element))))
+			else
+				SUI:Print(('  %s: |cffFFC107no getter on this client|r'):format(method:gsub('GetFlowLayout', '')))
+			end
+		end
 
 		for index = 1, UF.Auras.MAX_GROUPS do
 			local group = UF.Auras:ResolveGroup(element.DB or {}, index)
@@ -858,6 +888,15 @@ function UF:OnEnable()
 						tostring(group.enabled),
 						tostring(UF.Auras:GetGroupFilter(group)),
 						tostring(key)
+					)
+				)
+				SUI:Print(
+					('     perRow=%s size=%s spacing=%s max=%s forceNewLine=%s'):format(
+						tostring(group.perRow),
+						tostring(group.size),
+						tostring(group.spacing),
+						tostring(group.number),
+						tostring(group.forceNewLine)
 					)
 				)
 			end
