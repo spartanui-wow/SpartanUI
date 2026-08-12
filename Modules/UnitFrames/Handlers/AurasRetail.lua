@@ -340,12 +340,17 @@ end
 ---@param raw? string
 ---@return table<number, boolean>?
 function Auras:BuildSpellIDMap(raw)
-	if not raw or raw == '' then
+	-- Only a string or number is a spell list. A table would stringify to its
+	-- address and scrape digits out of it, inventing spell IDs.
+	if type(raw) == 'number' then
+		raw = tostring(raw)
+	end
+	if type(raw) ~= 'string' or raw == '' then
 		return
 	end
 
 	local map, count = {}, 0
-	for id in tostring(raw):gmatch('%d+') do
+	for id in raw:gmatch('%d+') do
 		map[tonumber(id)] = true
 		count = count + 1
 	end
@@ -1508,7 +1513,10 @@ function Auras:RefreshSlots(element, DB)
 
 			if slot and slot.ClearAllPoints then
 				slot:ClearAllPoints()
-				slot:SetPoint(entry.anchor or 'CENTER', frame, entry.anchor or 'CENTER', entry.x or 0, entry.y or 0)
+				local anchor = type(entry.anchor) == 'string' and entry.anchor or 'CENTER'
+				local offsetX = type(entry.x) == 'number' and entry.x or 0
+				local offsetY = type(entry.y) == 'number' and entry.y or 0
+				slot:SetPoint(anchor, frame, anchor, offsetX, offsetY)
 			end
 		end
 	end
@@ -1524,7 +1532,7 @@ function Auras:StyleTrackerButton(button, entry, element)
 		return
 	end
 
-	local font = SUI.Font:GetFontObject(nil, entry.fontSize or 12, 'OUTLINE')
+	local font = SUI.Font:GetFontObject(nil, type(entry.fontSize) == 'number' and entry.fontSize or 12, 'OUTLINE')
 
 	if button.Count and font then
 		button.Count:SetFontObject(font)

@@ -21,7 +21,7 @@ local MAX_SLOTS = UF.Auras.MAX_TRACKER_SLOTS
 local function BuildSlotSettings(element, entry)
 	return {
 		maxFrameCount = 1,
-		size = entry.size or 26,
+		size = type(entry.size) == 'number' and entry.size or 26,
 
 		-- The spell ID list is what pins this slot to one aura. Built through
 		-- the shared filter builder so every aura display filters alike.
