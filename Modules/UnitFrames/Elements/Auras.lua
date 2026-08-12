@@ -18,6 +18,8 @@ local MAX_GROUPS = UF.Auras.MAX_GROUPS
 ---@param element table
 ---@param groupDB table
 ---@return table
+local Update
+
 local function BuildContainerGroupSettings(element, groupDB, groupIndex)
 	-- Saved settings can hold a non-number where a number is expected, since
 	-- the shared element defaults carry sub-tables that a merge can leave
@@ -87,6 +89,15 @@ local function Build(frame, DB)
 		return
 	end
 
+	-- Containers are additive: CreateAuras always makes a new one, and there
+	-- is no way to remove it or its groups afterwards. Building twice leaves
+	-- the first container still drawing its own copy of every aura, which
+	-- shows as auras duplicated and overlapping.
+	if frame.AuraGroups then
+		Update(frame, DB)
+		return
+	end
+
 	local element = frame:CreateAuras({
 		initialAnchor = DB.position and DB.position.anchor or 'TOPLEFT',
 		growthX = DB.growthx or 'RIGHT',
@@ -116,7 +127,7 @@ end
 
 ---@param frame table
 ---@param settings? table
-local function Update(frame, settings)
+function Update(frame, settings)
 	local element = frame.AuraGroups
 	if not element then
 		return

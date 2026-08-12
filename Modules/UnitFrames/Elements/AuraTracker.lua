@@ -18,6 +18,8 @@ local MAX_SLOTS = UF.Auras.MAX_TRACKER_SLOTS
 ---@param element table
 ---@param entry table
 ---@return table
+local Update
+
 local function BuildSlotSettings(element, entry)
 	return {
 		maxFrameCount = 1,
@@ -54,6 +56,13 @@ local function Build(frame, DB)
 		return
 	end
 
+	-- Containers cannot be removed once created, so building a second one
+	-- leaves the first still drawing its own copy of every tracked aura.
+	if frame.AuraTracker then
+		Update(frame, DB)
+		return
+	end
+
 	local element = frame:CreateAuras({
 		initialAnchor = 'CENTER',
 	})
@@ -82,7 +91,7 @@ end
 
 ---@param frame table
 ---@param settings? table
-local function Update(frame, settings)
+function Update(frame, settings)
 	local element = frame.AuraTracker
 	if not element then
 		return
