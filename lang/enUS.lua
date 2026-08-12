@@ -1066,3 +1066,16 @@ L['Texture only'] = true
 -- Unit Frames: aura container width
 L['Row width'] = true
 L['How wide the icons run before they wrap onto the next row. Leave at 0 to match the frame width.'] = true
+
+-- Unit Frames: aura layout
+L['Icons per row'] = true
+L['How many icons sit side by side before starting a new row. Leave at 0 to fit as many as the frame is wide.'] = true
+L['Grow sideways'] = true
+L['Which way new icons are added across a row'] = true
+L['Grow up or down'] = true
+L['Which way new rows are added'] = true
+L['Right'] = true
+L['Left'] = true
+L['Up'] = true
+L['Down'] = true
+L['How wide the icons run before they wrap onto the next row. Leave at 0 to use the icons per row setting, or the frame width.'] = true

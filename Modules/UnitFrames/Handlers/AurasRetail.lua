@@ -61,6 +61,7 @@ Auras.GROUP_DEFAULTS = {
 	filterMode = 'all_buffs',
 	customFilter = '',
 	number = 10,
+	perRow = 0,
 	size = 24,
 	spacing = 2,
 	lineSpacing = 2,
@@ -691,6 +692,7 @@ function Auras:GetGroupSignature(DB)
 			group.filterMode or '',
 			group.customFilter or '',
 			tostring(group.number or ''),
+			tostring(group.perRow or ''),
 			tostring(group.size or ''),
 			tostring(group.spacing or ''),
 			tostring(group.onlyMine),
@@ -956,30 +958,78 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 		end
 	end
 
-	-- Container-wide settings. The groups all flow inside one container, so
-	-- how wide it is decides where a row wraps for every group at once.
+	-- Container-wide settings. Every group flows inside one container, so
+	-- these apply to all of them at once.
+	local function SetContainer(key, val)
+		local preset = UF:GetPresetForFrame(unitName)
+		UF.DB.UserSettings[preset][unitName].elements.AuraGroups[key] = val
+		UF.CurrentSettings[unitName].elements.AuraGroups[key] = val
+
+		if UF.Unit[unitName] then
+			UF.Unit[unitName]:ElementUpdate('AuraGroups')
+		end
+	end
+
+	local function ContainerDB()
+		return UF.CurrentSettings[unitName].elements.AuraGroups
+	end
+
+	OptionSet.args.growthx = {
+		name = L['Grow sideways'],
+		desc = L['Which way new icons are added across a row'],
+		type = 'select',
+		order = 3,
+		values = {
+			RIGHT = L['Right'],
+			LEFT = L['Left'],
+		},
+		get = function()
+			return ContainerDB().growthx or 'RIGHT'
+		end,
+		set = function(_, val)
+			SetContainer('growthx', val)
+		end,
+	}
+
+	OptionSet.args.growthy = {
+		name = L['Grow up or down'],
+		desc = L['Which way new rows are added'],
+		type = 'select',
+		order = 4,
+		values = {
+			UP = L['Up'],
+			DOWN = L['Down'],
+		},
+		get = function()
+			return ContainerDB().growthy or 'UP'
+		end,
+		set = function(_, val)
+			SetContainer('growthy', val)
+		end,
+	}
+
 	OptionSet.args.width = {
 		name = L['Row width'],
-		desc = L['How wide the icons run before they wrap onto the next row. Leave at 0 to match the frame width.'],
+		desc = L['How wide the icons run before they wrap onto the next row. Leave at 0 to use the icons per row setting, or the frame width.'],
 		type = 'range',
 		order = 5,
 		min = 0,
 		max = 600,
 		step = 1,
 		get = function()
-			local width = UF.CurrentSettings[unitName].elements.AuraGroups.width
-			return type(width) == 'number' and width or 0
+			local DB = ContainerDB()
+			local width = DB.width
+			-- Anything too narrow to hold an icon is the inherited element
+			-- default rather than a real choice, and is ignored when laying
+			-- out, so show it as unset.
+			if type(width) ~= 'number' or width ~= Auras:GetLayoutLimit(DB) then
+				return 0
+			end
+			return width
 		end,
 		set = function(_, val)
-			local preset = UF:GetPresetForFrame(unitName)
-			-- Zero means "follow the frame", which is what a missing value does.
-			local stored = val > 0 and val or nil
-			UF.DB.UserSettings[preset][unitName].elements.AuraGroups.width = stored
-			UF.CurrentSettings[unitName].elements.AuraGroups.width = stored
-
-			if UF.Unit[unitName] then
-				UF.Unit[unitName]:ElementUpdate('AuraGroups')
-			end
+			-- Zero means "work it out", which is what a missing value does.
+			SetContainer('width', val > 0 and val or nil)
 		end,
 	}
 
@@ -1048,6 +1098,21 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 					end,
 					set = function(_, val)
 						SetGroup(index, 'number', val)
+					end,
+				},
+				perRow = {
+					name = L['Icons per row'],
+					desc = L['How many icons sit side by side before starting a new row. Leave at 0 to fit as many as the frame is wide.'],
+					type = 'range',
+					order = 4.5,
+					min = 0,
+					max = 40,
+					step = 1,
+					get = function()
+						return GroupDB(index).perRow or 0
+					end,
+					set = function(_, val)
+						SetGroup(index, 'perRow', val)
 					end,
 				},
 				size = {
@@ -1629,11 +1694,18 @@ end
 
 ---Work out how long a row of icons may run before it wraps.
 ---
----Derived from the widest enabled group, so a group set to 8 icons wraps
----after 8 rather than wherever the unit frame's width happens to end.
+---This is a width in pixels, not a count. The flow layout wraps when the
+---next icon would cross it, and nothing else limits a row, so it decides how
+---many icons sit side by side.
+---
+---Priority: an explicit width, then icons-per-row translated into a width,
+---then the unit frame's own width. Falling back to the total width of every
+---icon in the group would put them all on one line, which reads as a single
+---run of icons off the side of the frame.
 ---@param DB table
+---@param frame? table Unit frame, used for the width fallback
 ---@return number?
-function Auras:GetLayoutLimit(DB)
+function Auras:GetLayoutLimit(DB, frame)
 	local widest = 0
 
 	-- Saved settings can hold a non-number here: the shared element defaults
@@ -1643,24 +1715,57 @@ function Auras:GetLayoutLimit(DB)
 		return type(value) == 'number' and value or fallback
 	end
 
-	-- An explicit width is the user saying where the row ends, so it wins over
-	-- the width the icons would otherwise ask for.
-	if type(DB.width) == 'number' and DB.width > 0 then
-		return DB.width
+	-- A width wide enough to hold a row is the user saying where it ends, so
+	-- it wins over the width the icons would otherwise ask for.
+	--
+	-- Every element inherits width/height from the shared element defaults,
+	-- where they mean the size of a single widget (20x20). For a container
+	-- they mean the wrap width instead, and 20px is narrower than one icon, so
+	-- an inherited default would wrap after every icon and stack them into a
+	-- column. Only a width that can hold at least one icon is a real choice.
+	if type(DB.width) == 'number' then
+		local smallest = 0
+		for index = 1, self.MAX_GROUPS do
+			local group = self:ResolveGroup(DB, index)
+			if group.enabled then
+				local iconWidth = number(group.size, 24) + number(group.spacing, 2)
+				if smallest == 0 or iconWidth < smallest then
+					smallest = iconWidth
+				end
+			end
+		end
+
+		if DB.width >= smallest and smallest > 0 then
+			return DB.width
+		end
 	end
 
+	-- Icons per row is the setting people reach for: it is the count they can
+	-- see, so it is translated into the width that fits exactly that many.
 	for index = 1, self.MAX_GROUPS do
 		local group = self:ResolveGroup(DB, index)
 		if group.enabled then
-			local perRow = number(group.number, 10) * (number(group.size, 24) + number(group.spacing, 2))
-			if perRow > widest then
-				widest = perRow
+			local perRow = number(group.perRow, 0)
+			if perRow > 0 then
+				local rowWidth = perRow * (number(group.size, 24) + number(group.spacing, 2))
+				if rowWidth > widest then
+					widest = rowWidth
+				end
 			end
 		end
 	end
 
 	if widest > 0 then
 		return widest
+	end
+
+	-- Otherwise wrap at the frame's width, which keeps the icons over the
+	-- frame they belong to.
+	if frame and frame.GetWidth then
+		local frameWidth = frame:GetWidth()
+		if frameWidth and SUI.BlizzAPI.canaccessvalue(frameWidth) and frameWidth > 0 then
+			return frameWidth
+		end
 	end
 end
 
@@ -1697,19 +1802,20 @@ function Auras:PositionContainer(element, frame, DB)
 	-- Where a row wraps is set on the flow layout when the container is built,
 	-- so re-apply it here or a width change would resize the container without
 	-- moving any icons.
-	if element.SetFlowLayoutMaximumLineSize then
-		local limit = DB.layoutLimit or self:GetLayoutLimit(DB)
-		if limit then
-			element:SetFlowLayoutMaximumLineSize(limit)
-		end
+	local limit = DB.layoutLimit or self:GetLayoutLimit(DB, frame)
+	if element.SetFlowLayoutMaximumLineSize and limit then
+		element:SetFlowLayoutMaximumLineSize(limit)
 	end
 
 	-- Containers grow to fit their buttons, but need a non-zero starting size.
-	-- GetWidth returns 0 rather than nil on a realized frame, and can be a
-	-- secret value if the frame carries secret anchors, so it is only compared
-	-- once it is known to be readable.
-	local width = DB.width
+	-- This has to be the same width the flow layout wraps at: a container
+	-- narrower than the wrap point clips the row it just laid out, which shows
+	-- as icons stacking into a single column no matter what is configured.
+	local width = limit or DB.width
 	if not width then
+		-- GetWidth returns 0 rather than nil on a realized frame, and can be a
+		-- secret value if the frame carries secret anchors, so it is only
+		-- compared once it is known to be readable.
 		local frameWidth = frame:GetWidth()
 		if frameWidth and SUI.BlizzAPI.canaccessvalue(frameWidth) and frameWidth > 0 then
 			width = frameWidth
