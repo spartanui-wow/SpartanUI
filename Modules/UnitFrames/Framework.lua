@@ -477,7 +477,10 @@ function UF:OnInitialize()
 		UF.DB.Presets.raid40 = nil
 	end
 
-	if C_MountJournal and C_MountJournal.GetMountIDs then
+	-- Only the Classic aura path checks this map; Retail filters auras engine
+	-- side and never reads it. Building it there means a journal lookup per
+	-- collected mount at every login for nothing.
+	if not SUI.IsRetail and C_MountJournal and C_MountJournal.GetMountIDs then
 		for _, mountID in next, C_MountJournal.GetMountIDs() do
 			local _, spellID = C_MountJournal.GetMountInfoByID(mountID)
 			UF.MountIds[spellID] = spellID
