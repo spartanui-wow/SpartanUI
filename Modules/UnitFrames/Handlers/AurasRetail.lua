@@ -675,11 +675,10 @@ function Auras:StyleButtonWidgets(button, groupDB)
 		return
 	end
 
-	local size = type(groupDB.size) == 'number' and groupDB.size or 24
-	if button.SetSize then
-		button:SetSize(size, size)
-	end
-
+	-- Button size is not set here. The container sizes its own buttons from
+	-- the group layout (elementWidth/elementHeight), and setting it again
+	-- here leaves the layout positioning buttons at one size while they draw
+	-- at another, which overlaps them.
 	if button.EnableMouse then
 		button:EnableMouse(not groupDB.clickThrough)
 	end
