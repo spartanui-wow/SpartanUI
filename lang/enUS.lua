@@ -1062,3 +1062,7 @@ L['How the aura type is drawn on the icon'] = true
 L['Border'] = true
 L['Corner icon'] = true
 L['Texture only'] = true
+
+-- Unit Frames: aura container width
+L['Row width'] = true
+L['How wide the icons run before they wrap onto the next row. Leave at 0 to match the frame width.'] = true

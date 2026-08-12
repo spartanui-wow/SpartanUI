@@ -679,6 +679,8 @@ function Auras:GetGroupSignature(DB)
 		tostring(position.y or 0),
 		DB.growthx or '',
 		DB.growthy or '',
+		tostring(DB.width or ''),
+		tostring(DB.layoutLimit or ''),
 	}, ':')
 
 	for index = 1, self.MAX_GROUPS do
@@ -953,6 +955,33 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 			UF.Unit[unitName]:ElementUpdate('AuraGroups')
 		end
 	end
+
+	-- Container-wide settings. The groups all flow inside one container, so
+	-- how wide it is decides where a row wraps for every group at once.
+	OptionSet.args.width = {
+		name = L['Row width'],
+		desc = L['How wide the icons run before they wrap onto the next row. Leave at 0 to match the frame width.'],
+		type = 'range',
+		order = 5,
+		min = 0,
+		max = 600,
+		step = 1,
+		get = function()
+			local width = UF.CurrentSettings[unitName].elements.AuraGroups.width
+			return type(width) == 'number' and width or 0
+		end,
+		set = function(_, val)
+			local preset = UF:GetPresetForFrame(unitName)
+			-- Zero means "follow the frame", which is what a missing value does.
+			local stored = val > 0 and val or nil
+			UF.DB.UserSettings[preset][unitName].elements.AuraGroups.width = stored
+			UF.CurrentSettings[unitName].elements.AuraGroups.width = stored
+
+			if UF.Unit[unitName] then
+				UF.Unit[unitName]:ElementUpdate('AuraGroups')
+			end
+		end,
+	}
 
 	for index = 1, maxGroups do
 		local groupKey = 'group' .. index
@@ -1614,6 +1643,12 @@ function Auras:GetLayoutLimit(DB)
 		return type(value) == 'number' and value or fallback
 	end
 
+	-- An explicit width is the user saying where the row ends, so it wins over
+	-- the width the icons would otherwise ask for.
+	if type(DB.width) == 'number' and DB.width > 0 then
+		return DB.width
+	end
+
 	for index = 1, self.MAX_GROUPS do
 		local group = self:ResolveGroup(DB, index)
 		if group.enabled then
@@ -1658,6 +1693,16 @@ function Auras:PositionContainer(element, frame, DB)
 
 	element:ClearAllPoints()
 	element:SetPoint(anchor, relativeTo, position.relativePoint or anchor, position.x or 0, position.y or 0)
+
+	-- Where a row wraps is set on the flow layout when the container is built,
+	-- so re-apply it here or a width change would resize the container without
+	-- moving any icons.
+	if element.SetFlowLayoutMaximumLineSize then
+		local limit = DB.layoutLimit or self:GetLayoutLimit(DB)
+		if limit then
+			element:SetFlowLayoutMaximumLineSize(limit)
+		end
+	end
 
 	-- Containers grow to fit their buttons, but need a non-zero starting size.
 	-- GetWidth returns 0 rather than nil on a realized frame, and can be a
