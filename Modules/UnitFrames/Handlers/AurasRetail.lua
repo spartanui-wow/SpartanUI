@@ -490,6 +490,14 @@ function Auras:CreateAuraButton(element, options, button)
 	if not (options.disableCooldown or element.disableCooldown) then
 		local cooldown = CreateFrame('Cooldown', '$parentCooldown', button, 'CooldownFrameTemplate')
 		cooldown:SetAllPoints()
+
+		-- The cooldown draws its own countdown when the game's cooldown numbers
+		-- are switched on. Our own duration text sits on top of it, so one of
+		-- the two has to go or every icon shows the time twice.
+		if cooldown.SetHideCountdownNumbers then
+			cooldown:SetHideCountdownNumbers(true)
+		end
+
 		button.Cooldown = cooldown
 		button:SetDurationCooldown(cooldown)
 	end
