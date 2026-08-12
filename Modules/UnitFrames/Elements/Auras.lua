@@ -43,6 +43,7 @@ local function BuildContainerGroupSettings(element, groupDB)
 		showBuffIndicator = groupDB.showBuffIndicator,
 		showDebuffIndicator = groupDB.showDebuffIndicator,
 		showStealableBorder = groupDB.showStealableBorder,
+		dispelBorderStyle = groupDB.dispelBorderStyle,
 		disableCooldown = groupDB.showCooldown == false,
 		disableMouse = groupDB.clickThrough,
 		cancelButton = groupDB.cancelButton,

@@ -89,6 +89,7 @@ Auras.GROUP_DEFAULTS = {
 	showCooldown = true,
 	showDebuffBorder = true,
 	showBuffBorder = false,
+	dispelBorderStyle = 'border',
 	showBuffIndicator = false,
 	showDebuffIndicator = false,
 	showStealableBorder = false,
@@ -379,6 +380,53 @@ end
 -- Sorting
 ----------------------------------------------------------------------------------------------------
 
+---Resolve the dispel border style for an aura button.
+---
+---The engine draws the dispel-type border itself, which is what brings back
+---the old "show aura type" colouring: on the previous system it had to be
+---switched off entirely because reading an aura's dispel type errored once
+---auras became secret.
+---@param style? string Key from GetDispelBorderStyleValues
+---@return number|nil
+function Auras:GetDispelBorderStyle(style)
+	local styles = Enum.CustomAuraButtonDispelTypeTextureStyle
+	if not styles then
+		return nil
+	end
+
+	-- Names are resolved rather than hardcoded so a client missing one of them
+	-- falls back to the standard border instead of passing nil.
+	local byName = {
+		border = styles.Border,
+		icon = styles.Icon,
+		preserve = styles.PreserveAsset,
+	}
+
+	return byName[style] or styles.Border
+end
+
+---The dispel border styles available for the options dropdown.
+---@return table<string, string>
+function Auras:GetDispelBorderStyleValues()
+	local styles = Enum.CustomAuraButtonDispelTypeTextureStyle
+	if not styles then
+		return {}
+	end
+
+	local values = {}
+	if styles.Border then
+		values.border = L['Border']
+	end
+	if styles.Icon then
+		values.icon = L['Corner icon']
+	end
+	if styles.PreserveAsset then
+		values.preserve = L['Texture only']
+	end
+
+	return values
+end
+
 ---@param mode? string
 ---@return number
 function Auras:GetSortMethod(mode)
@@ -555,7 +603,7 @@ function Auras:CreateAuraButton(element, options, button)
 		border:SetAllPoints()
 		button.Border = border
 		button:AddDispelTypeTexture(border, {
-			style = Enum.CustomAuraButtonDispelTypeTextureStyle and Enum.CustomAuraButtonDispelTypeTextureStyle.Border,
+			style = Auras:GetDispelBorderStyle(options.dispelBorderStyle),
 			showWhenHarmful = options.showDebuffBorder,
 			showWhenHelpful = options.showBuffBorder,
 			customDispelColorMap = element.__owner and element.__owner.colors and element.__owner.colors.dispel,
@@ -693,6 +741,7 @@ function Auras:GetGroupBuildSignature(DB)
 			tostring(group.showCooldown),
 			tostring(group.showBuffBorder),
 			tostring(group.showDebuffBorder),
+			tostring(group.dispelBorderStyle or ''),
 			tostring(group.showBuffIndicator),
 			tostring(group.showDebuffIndicator),
 			tostring(group.showStealableBorder),
@@ -1253,6 +1302,28 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 							end,
 							set = function(_, val)
 								SetGroup(index, 'showBuffBorder', val)
+							end,
+						},
+						dispelBorderStyle = {
+							name = L['Border style'],
+							desc = L['How the aura type is drawn on the icon'],
+							type = 'select',
+							order = 2.5,
+							values = function()
+								return Auras:GetDispelBorderStyleValues()
+							end,
+							hidden = function()
+								return not next(Auras:GetDispelBorderStyleValues())
+							end,
+							disabled = function()
+								local group = GroupDB(index)
+								return not (group.showBuffBorder or group.showDebuffBorder)
+							end,
+							get = function()
+								return GroupDB(index).dispelBorderStyle
+							end,
+							set = function(_, val)
+								SetGroup(index, 'dispelBorderStyle', val)
 							end,
 						},
 						showDebuffIndicator = {

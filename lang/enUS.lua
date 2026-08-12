@@ -1055,3 +1055,10 @@ L['Color by remaining time'] = true
 L['Stack count'] = true
 L['Thick'] = true
 L['Thin'] = true
+
+-- Unit Frames: aura border style
+L['Border style'] = true
+L['How the aura type is drawn on the icon'] = true
+L['Border'] = true
+L['Corner icon'] = true
+L['Texture only'] = true
