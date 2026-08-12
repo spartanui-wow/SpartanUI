@@ -838,8 +838,14 @@ function UF:OnEnable()
 		SUI:Print('  container unit: ' .. tostring(element.GetUnit and element:GetUnit()))
 		SUI:Print('  shown: ' .. tostring(element:IsShown()) .. '   alpha: ' .. tostring(element:GetAlpha()))
 
-		local a, _, _, x, y = element:GetPoint()
-		SUI:Print('  anchored: ' .. tostring(a) .. ' ' .. tostring(x) .. ',' .. tostring(y) .. '   size: ' .. tostring(element:GetWidth()) .. 'x' .. tostring(element:GetHeight()))
+		if element:GetNumPoints() > 0 then
+			local a, _, rp, x, y = element:GetPoint()
+			SUI:Print(('  anchored: %s -> %s  offset %s,%s'):format(tostring(a), tostring(rp), tostring(x), tostring(y)))
+		else
+			SUI:Print('  |cffFF5252not anchored|r - the container has no position')
+		end
+
+		SUI:Print(('  size: %sx%s   level: %s'):format(tostring(element:GetWidth()), tostring(element:GetHeight()), tostring(element:GetFrameLevel())))
 
 		for index = 1, UF.Auras.MAX_GROUPS do
 			local group = UF.Auras:ResolveGroup(element.DB or {}, index)

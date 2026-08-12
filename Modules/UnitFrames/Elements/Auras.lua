@@ -116,6 +116,12 @@ local function Update(frame, settings)
 		return
 	end
 
+	-- Re-anchor every update. The container is a plain child frame and anything
+	-- that clears its points - a profile change, a preset swap, the layout
+	-- being rebuilt - would otherwise leave it unanchored for good, which shows
+	-- as auras simply not appearing.
+	UF.Auras:PositionContainer(element, frame, DB)
+
 	-- Changed settings mean the live groups no longer match; repoint them.
 	-- AddGroup is one-way, so groups are never recreated, only re-aimed.
 	if UF.Auras:GroupsNeedRebuild(element, DB) then
