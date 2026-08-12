@@ -34,6 +34,21 @@ Groups and slots are additive-only and their options are frozen at creation; con
 
 Filter tokens and option names come from oUF's 12.1 rewrite, which exercises them directly. The `candidateFilters` keys other than `includeSpellIDs` come from Blizzard's PTR notes and are **not yet confirmed against a live client** - `UF.Auras:ValidateCandidateKeys` drops unrecognised keys rather than failing open. Re-verify on a 12.1 PTR build.
 
+### 7.0.6 option parity
+
+Every aura setting the pre-12.1 elements had is present, except three that the
+new system makes unreachable or meaningless:
+
+| 7.0.6 setting | Status on 12.1 |
+|---|---|
+| `showType` | Restored as `dispelBorderStyle`. The engine draws the dispel-type border, so it no longer has to be disabled on Retail to avoid reading a secret aura's type. |
+| `width` | Restored as the container's row width option, which also drives where the flow layout wraps. |
+| `rows` | Converted to `layoutLimit` (icons per row x (size + spacing)); the flow layout wraps on width, not a row count. |
+| `durationText` / `stackText` | Restored per group (size, outline, anchor, offset, colour-by-time). |
+| `expiring.pulsate` | **Not restorable.** The glow was triggered by `remaining <= threshold`, a comparison on the now-secret expiration time. `durationColors` replaces the colour change (including the configured alpha) but the engine offers no alpha or animation curve to pulse with. |
+| `position.smartPosition` | **Obsolete.** It anchored the Buffs element to the Debuffs element when that element was enabled, to stop two separate elements overlapping. Both are groups inside one self-sizing container now, so they cannot overlap. |
+| `classic.rules` | Intentionally not migrated; see below. Duration/stealable/whitelist/blacklist have `candidateFilters` equivalents, the rest map to filter tokens. `minTime` has no equivalent - a minimum-duration filter would mean comparing a secret duration. |
+
 ### Migration
 
 `MigrateAurasToGroups` in `Modules/UnitFrames/Framework.lua` moves counts, sizes, spacing, growth, filter mode and click-through from Buffs/Debuffs onto groups 1 and 2, once per profile behind `UF.DB._auraGroupsMigrated`. Classic rule tables, whitelist/blacklist and rows/maxCols are intentionally not migrated - they have no equivalent.
