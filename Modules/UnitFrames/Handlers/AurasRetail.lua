@@ -69,6 +69,21 @@ Auras.GROUP_DEFAULTS = {
 	sortMethod = 'expiration',
 	sortDirection = 'normal',
 	fontSize = 12,
+	durationText = {
+		size = 10,
+		outline = 'OUTLINE',
+		anchor = 'CENTER',
+		x = 0,
+		y = 0,
+		colorByTime = true,
+	},
+	stackText = {
+		size = 10,
+		outline = 'OUTLINE',
+		anchor = 'BOTTOMRIGHT',
+		x = 2,
+		y = -2,
+	},
 	showCount = true,
 	showDuration = true,
 	showCooldown = true,
@@ -515,19 +530,23 @@ function Auras:CreateAuraButton(element, options, button)
 		textParent:SetFrameLevel(button.Cooldown:GetFrameLevel() + 1)
 	end
 
+	local stackDB = options.stackText or {}
 	if options.showCount or element.showCount then
 		local count = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
-		count:SetPoint('BOTTOMRIGHT', -1, 0)
+		count:SetPoint(stackDB.anchor or 'BOTTOMRIGHT', stackDB.x or -1, stackDB.y or 0)
 		button.Count = count
 		button:SetApplicationCount(count, {})
 	end
 
+	local durationDB = options.durationText or {}
 	if options.showDuration or element.showDuration then
 		local time = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
-		time:SetPoint('TOPLEFT', 1, 0)
+		time:SetPoint(durationDB.anchor or 'CENTER', durationDB.x or 0, durationDB.y or 0)
 		button.Time = time
 		button:SetDurationText(time, {
-			textColor = options.durationColors or element.durationColors,
+			-- Colour by remaining time is the same curve the expiring highlight
+			-- uses, so turning it off simply passes no curve.
+			textColor = durationDB.colorByTime ~= false and (options.durationColors or element.durationColors) or nil,
 		})
 	end
 
@@ -565,14 +584,24 @@ function Auras:StyleButton(button, groupDB, element)
 		return
 	end
 
-	local font = SUI.Font:GetFontObject(nil, groupDB.fontSize or 12, 'OUTLINE')
+	local durationDB = groupDB.durationText or {}
+	local stackDB = groupDB.stackText or {}
 
-	if button.Count and font then
-		button.Count:SetFontObject(font)
+	local function apply(fontString, settings)
+		if not fontString then
+			return
+		end
+
+		local size = type(settings.size) == 'number' and settings.size or (type(groupDB.fontSize) == 'number' and groupDB.fontSize or 12)
+		local outline = type(settings.outline) == 'string' and settings.outline or 'OUTLINE'
+		local font = SUI.Font:GetFontObject(nil, size, outline ~= 'NONE' and outline or nil)
+		if font then
+			fontString:SetFontObject(font)
+		end
 	end
-	if button.Time and font then
-		button.Time:SetFontObject(font)
-	end
+
+	apply(button.Count, stackDB)
+	apply(button.Time, durationDB)
 
 	if element and element.PostCreateButton then
 		element:PostCreateButton(button, groupDB)
@@ -669,6 +698,15 @@ function Auras:GetGroupBuildSignature(DB)
 			tostring(group.showStealableBorder),
 			tostring(group.expiring and group.expiring.enabled),
 			tostring(group.expiring and group.expiring.threshold or ''),
+			-- Text styling is read when a button is created, so a change only
+			-- takes effect on rebuild.
+			tostring(group.durationText and group.durationText.size or ''),
+			tostring(group.durationText and group.durationText.outline or ''),
+			tostring(group.durationText and group.durationText.anchor or ''),
+			tostring(group.durationText and group.durationText.colorByTime),
+			tostring(group.stackText and group.stackText.size or ''),
+			tostring(group.stackText and group.stackText.outline or ''),
+			tostring(group.stackText and group.stackText.anchor or ''),
 		}, ':')
 	end
 
@@ -794,6 +832,19 @@ end
 ----------------------------------------------------------------------------------------------------
 -- Options
 ----------------------------------------------------------------------------------------------------
+
+-- Anchor points offered wherever something can be placed on a frame.
+local anchors = {
+	CENTER = L['Center'],
+	TOP = L['Top'],
+	BOTTOM = L['Bottom'],
+	LEFT = L['Left'],
+	RIGHT = L['Right'],
+	TOPLEFT = L['Top left'],
+	TOPRIGHT = L['Top right'],
+	BOTTOMLEFT = L['Bottom left'],
+	BOTTOMRIGHT = L['Bottom right'],
+}
 
 ---Sorted list of filter presets for a dropdown.
 ---@return table<string, string>
@@ -1241,6 +1292,112 @@ function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
 					},
 				},
 
+				text = {
+					name = L['Text'],
+					type = 'group',
+					order = 65,
+					inline = true,
+					args = {
+						durationHeader = {
+							name = L['Time left'],
+							type = 'header',
+							order = 1,
+						},
+						durationSize = {
+							name = L['Size'],
+							type = 'range',
+							order = 2,
+							min = 6,
+							max = 24,
+							step = 1,
+							get = function()
+								return GroupDB(index).durationText.size
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'durationText', 'size', val)
+							end,
+						},
+						durationOutline = {
+							name = L['Outline'],
+							type = 'select',
+							order = 3,
+							values = { NONE = L['None'], OUTLINE = L['Thin'], THICKOUTLINE = L['Thick'] },
+							get = function()
+								return GroupDB(index).durationText.outline
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'durationText', 'outline', val)
+							end,
+						},
+						durationAnchor = {
+							name = L['Position'],
+							type = 'select',
+							order = 4,
+							values = anchors,
+							get = function()
+								return GroupDB(index).durationText.anchor
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'durationText', 'anchor', val)
+							end,
+						},
+						durationColorByTime = {
+							name = L['Color by remaining time'],
+							type = 'toggle',
+							order = 5,
+							get = function()
+								return GroupDB(index).durationText.colorByTime
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'durationText', 'colorByTime', val)
+							end,
+						},
+						stackHeader = {
+							name = L['Stack count'],
+							type = 'header',
+							order = 10,
+						},
+						stackSize = {
+							name = L['Size'],
+							type = 'range',
+							order = 11,
+							min = 6,
+							max = 24,
+							step = 1,
+							get = function()
+								return GroupDB(index).stackText.size
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'stackText', 'size', val)
+							end,
+						},
+						stackOutline = {
+							name = L['Outline'],
+							type = 'select',
+							order = 12,
+							values = { NONE = L['None'], OUTLINE = L['Thin'], THICKOUTLINE = L['Thick'] },
+							get = function()
+								return GroupDB(index).stackText.outline
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'stackText', 'outline', val)
+							end,
+						},
+						stackAnchor = {
+							name = L['Position'],
+							type = 'select',
+							order = 13,
+							values = anchors,
+							get = function()
+								return GroupDB(index).stackText.anchor
+							end,
+							set = function(_, val)
+								SetGroupSub(index, 'stackText', 'anchor', val)
+							end,
+						},
+					},
+				},
+
 				expiring = {
 					name = L['Running out'],
 					type = 'group',
@@ -1667,18 +1824,6 @@ end
 ---@param OptionSet AceConfig.OptionsTable
 ---@param maxSlots number
 function Auras:BuildTrackerOptions(unitName, OptionSet, maxSlots)
-	local anchors = {
-		CENTER = L['Center'],
-		TOP = L['Top'],
-		BOTTOM = L['Bottom'],
-		LEFT = L['Left'],
-		RIGHT = L['Right'],
-		TOPLEFT = L['Top left'],
-		TOPRIGHT = L['Top right'],
-		BOTTOMLEFT = L['Bottom left'],
-		BOTTOMRIGHT = L['Bottom right'],
-	}
-
 	local function EntryDB(index)
 		return Auras:ResolveEntry(UF.CurrentSettings[unitName].elements.AuraTracker, index)
 	end

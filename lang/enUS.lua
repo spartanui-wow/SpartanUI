@@ -1049,3 +1049,9 @@ L['DPS (Your Harmful Auras)'] = true
 L['Healer (Your Helpful Auras)'] = true
 L['Spell lists'] = true
 L['Tank (Your Defensive Auras)'] = true
+
+-- Unit Frames: aura text options
+L['Color by remaining time'] = true
+L['Stack count'] = true
+L['Thick'] = true
+L['Thin'] = true

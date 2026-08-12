@@ -50,6 +50,10 @@ local function BuildContainerGroupSettings(element, groupDB)
 		-- Engine-side duration coloring replaces the old expiring-glow polling.
 		durationColors = UF.Auras:GetDurationColorCurve(groupDB.expiring),
 
+		-- Text placement and styling, read back in CreateAuraButton.
+		durationText = groupDB.durationText,
+		stackText = groupDB.stackText,
+
 		layout = {
 			elementSpacing = number(groupDB.spacing, 2),
 			lineSpacing = number(groupDB.lineSpacing, number(groupDB.spacing, 2)),
