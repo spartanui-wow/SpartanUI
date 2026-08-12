@@ -118,15 +118,15 @@ local function TranslateThemeAuras(frames)
 					target.position = SUI:CopyData({}, anchorSource.position)
 				end
 
-				-- Rows are not a container setting; the flow layout wraps on
-				-- width instead. Translate to the row width that produces the
-				-- requested number of rows, which is what layoutLimit means.
-				local rows = anchorSource.rows
-				local count = anchorSource.number
-				if type(rows) == 'number' and rows > 1 and type(count) == 'number' then
-					local size = type(anchorSource.size) == 'number' and anchorSource.size or 24
-					local spacing = type(anchorSource.spacing) == 'number' and anchorSource.spacing or 2
-					target.layoutLimit = math.ceil(count / rows) * (size + spacing)
+				-- Rows became icons per row: the flow layout wraps on width, and
+				-- a count is both what the theme meant and what the user can
+				-- edit afterwards.
+				for _, entry in ipairs({ { source = buffs, key = 'slot1' }, { source = debuffs, key = 'slot2' }, { source = raidDebuffs, key = 'slot3' } }) do
+					local source = entry.source
+					local group = source and target.groups[entry.key]
+					if group and type(source.rows) == 'number' and source.rows > 1 and type(source.number) == 'number' then
+						group.perRow = math.ceil(source.number / source.rows)
+					end
 				end
 
 				elements.AuraGroups = target
