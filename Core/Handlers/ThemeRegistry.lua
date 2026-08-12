@@ -49,6 +49,93 @@ local function BridgeToSubsystems(themeName, data)
 end
 
 -- ============================================================
+-- Internal: Translate a theme's aura layout for Retail
+-- ============================================================
+-- Themes describe their aura layout as Buffs/Debuffs frame configs. Retail
+-- 12.1 replaced those elements with a single AuraGroups container, so without
+-- this every theme would fall back to the bare defaults and lose its intended
+-- icon sizes, counts, growth and placement.
+--
+-- Buffs become group 1 and debuffs group 2, matching the order the user
+-- settings migration uses. A theme that defines AuraGroups itself is left
+-- alone, so a future theme can opt out by describing groups directly.
+---@param frames table<string, table>
+local function TranslateThemeAuras(frames)
+	for _, frameConfig in pairs(frames) do
+		local elements = type(frameConfig) == 'table' and frameConfig.elements
+
+		if type(elements) == 'table' and not elements.AuraGroups then
+			local buffs = type(elements.Buffs) == 'table' and elements.Buffs or nil
+			local debuffs = type(elements.Debuffs) == 'table' and elements.Debuffs or nil
+			-- RaidDebuffs is a Classic-only element now, so a theme's raid
+			-- debuff layout has to become a third group or it is lost.
+			local raidDebuffs = type(elements.RaidDebuffs) == 'table' and elements.RaidDebuffs or nil
+
+			if buffs or debuffs or raidDebuffs then
+				local target = { groups = {} }
+
+				for _, entry in ipairs({
+					{ source = buffs, key = 'slot1' },
+					{ source = debuffs, key = 'slot2' },
+					{ source = raidDebuffs, key = 'slot3', filterMode = 'raid_debuffs' },
+				}) do
+					local source = entry.source
+					if source then
+						local group = {}
+
+						for _, key in ipairs({ 'enabled', 'number', 'size', 'spacing' }) do
+							if source[key] ~= nil then
+								group[key] = source[key]
+							end
+						end
+
+						if type(source.retail) == 'table' and source.retail.filterMode then
+							group.filterMode = source.retail.filterMode
+						elseif entry.filterMode then
+							group.filterMode = entry.filterMode
+						end
+
+						target.groups[entry.key] = group
+					end
+				end
+
+				-- Growth and placement lived on each element, but 12.1 sets the
+				-- growth direction on the container, so both groups now share
+				-- one. Prefer whichever the theme actually turned on, since a
+				-- disabled group's layout is never seen.
+				local anchorSource = buffs
+				if not anchorSource or (anchorSource.enabled == false and debuffs and debuffs.enabled ~= false) then
+					anchorSource = debuffs or buffs
+				end
+				anchorSource = anchorSource or raidDebuffs
+				if anchorSource.growthx then
+					target.growthx = anchorSource.growthx
+				end
+				if anchorSource.growthy then
+					target.growthy = anchorSource.growthy
+				end
+				if type(anchorSource.position) == 'table' then
+					target.position = SUI:CopyData({}, anchorSource.position)
+				end
+
+				-- Rows are not a container setting; the flow layout wraps on
+				-- width instead. Translate to the row width that produces the
+				-- requested number of rows, which is what layoutLimit means.
+				local rows = anchorSource.rows
+				local count = anchorSource.number
+				if type(rows) == 'number' and rows > 1 and type(count) == 'number' then
+					local size = type(anchorSource.size) == 'number' and anchorSource.size or 24
+					local spacing = type(anchorSource.spacing) == 'number' and anchorSource.spacing or 2
+					target.layoutLimit = math.ceil(count / rows) * (size + spacing)
+				end
+
+				elements.AuraGroups = target
+			end
+		end
+	end
+end
+
+-- ============================================================
 -- Internal: Ensure a theme's full data is loaded and cached
 -- ============================================================
 ---@param themeName string
@@ -64,6 +151,13 @@ local function EnsureLoaded(themeName)
 	end
 
 	dataCache[themeName] = entry.dataCallback()
+
+	-- Themes still describe auras as Buffs/Debuffs. Retail draws them through
+	-- AuraGroups, so translate once here rather than in every theme.
+	if SUI.IsRetail and type(dataCache[themeName]) == 'table' and type(dataCache[themeName].frames) == 'table' then
+		TranslateThemeAuras(dataCache[themeName].frames)
+	end
+
 	BridgeToSubsystems(themeName, dataCache[themeName])
 	return dataCache[themeName]
 end
