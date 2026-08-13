@@ -711,6 +711,7 @@ local Settings = {
 		rules = {
 			duration = {
 				enabled = true,
+				mode = 'include',
 				maxTime = 180,
 				minTime = 1,
 			},

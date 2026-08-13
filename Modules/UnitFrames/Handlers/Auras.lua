@@ -140,6 +140,13 @@ function Auras:FilterClassic(element, unit, data, config)
 	local rules = config and config.rules or {}
 	local spellIdNum = data.spellId and tonumber(data.spellId)
 
+	-- With no rules there is nothing to match on, and the display logic below defaults to
+	-- hiding. Profiles saved before the classic/retail config split land here, so treat an
+	-- empty rule set as "no filtering" rather than hiding every aura.
+	if not next(rules) then
+		return true
+	end
+
 	---@param msg any
 	local function debug(msg)
 		if not UF.MonitoredBuffs[unit] then
@@ -217,15 +224,20 @@ function Auras:FilterClassic(element, unit, data, config)
 		end
 	end
 
-	if rules.duration and rules.duration.enabled then
+	-- A duration of 0 means the aura is permanent, not "shorter than the minimum".
+	-- Range checking it would hide every permanent aura, so skip the gate entirely.
+	if rules.duration and rules.duration.enabled and data.duration and data.duration ~= 0 then
 		local moreThanMax = data.duration > rules.duration.maxTime
 		local lessThanMin = data.duration < rules.duration.minTime
 		debug('Durration is ' .. data.duration)
 		debug('Is More than ' .. rules.duration.maxTime .. ' = ' .. (moreThanMax and 'true' or 'false'))
 		debug('Is Less than ' .. rules.duration.minTime .. ' = ' .. (lessThanMin and 'true' or 'false'))
-		if ShouldDisplay and (not lessThanMin and not moreThanMax) and rules.duration.mode == 'include' then
+		-- Older saved rules can be missing 'mode'. Treat that as 'include' rather than
+		-- failing both branches, which would hide every aura.
+		local durationMode = rules.duration.mode or 'include'
+		if ShouldDisplay and (not lessThanMin and not moreThanMax) and durationMode == 'include' then
 			AddDisplayReason('duration')
-		elseif ShouldDisplay and (lessThanMin or moreThanMax) and rules.duration.mode == 'exclude' then
+		elseif ShouldDisplay and (lessThanMin or moreThanMax) and durationMode == 'exclude' then
 			AddDisplayReason('duration')
 		else
 			debug('Durration check Failed, ShouldDisplay is now false')

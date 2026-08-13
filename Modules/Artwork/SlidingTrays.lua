@@ -24,7 +24,10 @@ local SetBarVisibility = function(side, state)
 		['BT4BarBagBar'] = 'right',
 		['BT4BarMicroMenu'] = 'right',
 	}
-	if not module:GetTraySettings(side).enabled then
+	-- A disabled tray still has to release the bars it was managing. Without this, bars
+	-- hidden by the tray stay hidden - or reappear on login and never get hidden again -
+	-- because nothing else drives them. Only 'hide' is blocked while disabled.
+	if state == 'hide' and not module:GetTraySettings(side).enabled then
 		return
 	end
 
@@ -80,6 +83,8 @@ local trayWatcherEvents = function()
 		if not module:GetTraySettings(key).enabled then
 			module.Trays[key].expanded:Hide()
 			module.Trays[key].collapsed:Hide()
+			-- Hand the bars back rather than leaving them wherever the tray last put them.
+			SetBarVisibility(key, 'show')
 		elseif module.CurrentSettings.SlidingTrays[key].collapsed then
 			module.Trays[key].expanded:Hide()
 			module.Trays[key].collapsed:Show()
