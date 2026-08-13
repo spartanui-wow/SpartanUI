@@ -198,7 +198,7 @@ local function MigrateAuraSlotKeys()
 
 				if type(elements) == 'table' then
 					for elementName, collection in pairs({
-						AuraGroups = type(elements.AuraGroups) == 'table' and elements.AuraGroups.groups,
+						BuffContainer = nil,
 						AuraTracker = type(elements.AuraTracker) == 'table' and elements.AuraTracker.entries,
 					}) do
 						if type(collection) == 'table' then
@@ -225,92 +225,154 @@ local function MigrateAuraSlotKeys()
 	end
 end
 
----Carry Retail Buffs/Debuffs customisations over to the AuraGroups element.
+---Move saved aura settings onto the per-type containers.
 ---
----Settings that still mean the same thing (counts, sizes, spacing, growth,
----filter mode, click-through) move across. Settings with no equivalent are
----left behind rather than guessed at: the Classic rule tables and
----whitelist/blacklist have no counterpart now that Blizzard does the
----filtering, and the old rows/maxCols numbers are meaningless against a
----self-sizing container.
-local function MigrateAurasToGroups()
-	if not SUI.IsRetail or UF.DB._auraGroupsMigrated then
+---Two generations are handled at once, because a profile can be at either:
+---the original Buffs/Debuffs elements, and the single AuraGroups container
+---that briefly replaced them. Both end up at BuffContainer/DebuffContainer/
+---CustomAuras, which is one container per aura type again.
+---
+---Settings that still mean the same thing move across. Ones with no
+---equivalent are left behind rather than guessed at: the Classic rule tables
+---and whitelist/blacklist have no counterpart now that Blizzard does the
+---filtering.
+local function MigrateAuraContainers()
+	if not SUI.IsRetail or UF.DB._auraContainersMigrated then
 		return
 	end
 
+	-- Keys that mean the same thing on a container as they did on a group or
+	-- on the old Buffs/Debuffs elements.
+	local carried = {
+		'enabled',
+		'number',
+		'size',
+		'spacing',
+		'perRow',
+		'filterMode',
+		'customFilter',
+		'sortMethod',
+		'sortDirection',
+		'clickThrough',
+		'showDebuffBorder',
+		'showBuffBorder',
+		'showBuffIndicator',
+		'showDebuffIndicator',
+		'showStealableBorder',
+		'dispelBorderStyle',
+		'showCount',
+		'showDuration',
+		'showCooldown',
+		'onlyStealable',
+		'maxDuration',
+		'includeSpellIDs',
+		'excludeSpellIDs',
+		'durationText',
+		'stackText',
+		'expiring',
+	}
+
 	local migrated = 0
+
+	---Copy the settings that still apply from one table onto a container.
+	local function carry(target, source)
+		if type(source) ~= 'table' then
+			return
+		end
+
+		for _, key in ipairs(carried) do
+			if source[key] ~= nil and target[key] == nil then
+				target[key] = source[key]
+			end
+		end
+
+		-- "Only mine" became the absence of the others variant.
+		if source.onlyMine and target.showOthers == nil then
+			target.showOthers = false
+		end
+
+		migrated = migrated + 1
+	end
 
 	for presetName, frames in pairs(UF.DB.UserSettings) do
 		if presetName ~= '**' and type(frames) == 'table' then
 			for frameName, frameSettings in pairs(frames) do
 				local elements = frameName ~= '**' and type(frameSettings) == 'table' and frameSettings.elements
-				local buffs = type(elements) == 'table' and elements.Buffs
-				local debuffs = type(elements) == 'table' and elements.Debuffs
 
-				if type(buffs) == 'table' or type(debuffs) == 'table' then
-					elements.AuraGroups = elements.AuraGroups or {}
-					local target = elements.AuraGroups
-					target.groups = target.groups or {}
+				if type(elements) == 'table' then
+					local groups = type(elements.AuraGroups) == 'table' and elements.AuraGroups or nil
 
-					-- Buffs become group 1, debuffs group 2.
-					local mapping = { { source = buffs, index = 'slot1' }, { source = debuffs, index = 'slot2' } }
+					local mapping = {
+						{ target = 'BuffContainer', group = 'slot1', legacy = 'Buffs' },
+						{ target = 'DebuffContainer', group = 'slot2', legacy = 'Debuffs' },
+						{ target = 'CustomAuras', group = 'slot3' },
+					}
 
 					for _, entry in ipairs(mapping) do
-						local source = entry.source
-						if type(source) == 'table' then
-							local group = target.groups[entry.index] or {}
+						local groupDB = groups and type(groups.groups) == 'table' and groups.groups[entry.group] or nil
+						local legacyDB = entry.legacy and type(elements[entry.legacy]) == 'table' and elements[entry.legacy] or nil
 
-							for _, key in ipairs({ 'number', 'size', 'spacing' }) do
-								if source[key] ~= nil then
-									group[key] = source[key]
+						if groupDB or legacyDB then
+							elements[entry.target] = elements[entry.target] or {}
+							local target = elements[entry.target]
+
+							-- The group generation is newer, so it wins where
+							-- both describe the same setting.
+							carry(target, groupDB)
+							carry(target, legacyDB)
+
+							-- Position and growth were container-wide under
+							-- AuraGroups; each container owns its own now, so
+							-- both start where the shared one was and can be
+							-- moved apart afterwards.
+							local source = groupDB or legacyDB
+							if groups then
+								if groups.growthx and target.growthx == nil then
+									target.growthx = groups.growthx
+								end
+								if groups.growthy and target.growthy == nil then
+									target.growthy = groups.growthy
+								end
+								if type(groups.position) == 'table' and target.position == nil then
+									target.position = SUI:CopyData({}, groups.position)
+								end
+								if groups.width and target.width == nil then
+									target.width = groups.width
 								end
 							end
 
-							if source.clickThrough ~= nil then
-								group.clickThrough = source.clickThrough
+							-- The old elements carried their own growth and
+							-- position, which is exactly what we want back.
+							if type(source) == 'table' then
+								if source.growthx then
+									target.growthx = source.growthx
+								end
+								if source.growthy then
+									target.growthy = source.growthy
+								end
+								if type(source.position) == 'table' then
+									target.position = SUI:CopyData({}, source.position)
+								end
+								-- Rows became icons per row.
+								if type(source.rows) == 'number' and source.rows > 1 and type(source.number) == 'number' then
+									target.perRow = math.ceil(source.number / source.rows)
+								end
 							end
-							if source.enabled ~= nil then
-								group.enabled = source.enabled
-							end
-							if source.retail and source.retail.filterMode then
-								group.filterMode = source.retail.filterMode
-							end
-							if source.retail and source.retail.customFilter then
-								group.customFilter = source.retail.customFilter
-							end
-							if source.onlyShowPlayer then
-								group.onlyMine = true
-							end
-
-							target.groups[entry.index] = group
-							migrated = migrated + 1
 						end
 					end
 
-					-- Growth direction lived per element; the container owns it now,
-					-- so take it from whichever one defined it.
-					local growthSource = buffs or debuffs
-					if type(growthSource) == 'table' then
-						if growthSource.growthx then
-							target.growthx = growthSource.growthx
-						end
-						if growthSource.growthy then
-							target.growthy = growthSource.growthy
-						end
-						if type(growthSource.position) == 'table' and growthSource.position.anchor then
-							target.position = target.position or {}
-							target.position.anchor = growthSource.position.anchor
-						end
-					end
+					-- The shared container is gone; leaving it would keep
+					-- feeding a dead element name into the options tree.
+					elements.AuraGroups = nil
 				end
 			end
 		end
 	end
 
-	UF.DB._auraGroupsMigrated = true
+	UF.DB._auraContainersMigrated = true
 
 	if UF.Log and migrated > 0 then
-		UF.Log.info('Migrated ' .. migrated .. ' buff/debuff configs to aura groups')
+		UF.Log.info('Moved ' .. migrated .. ' aura configs onto their own containers')
 	end
 end
 
@@ -408,7 +470,7 @@ function UF:OnInitialize()
 	MigrateFromLegacy()
 
 	-- Carry Buffs/Debuffs customisations over to the new aura group element
-	MigrateAurasToGroups()
+	MigrateAuraContainers()
 	MigrateAuraSlotKeys()
 
 	-- Migrate from single 'raid' to per-tier raid types (raid10/raid25/raid40)
@@ -822,39 +884,138 @@ function UF:OnEnable()
 		local frameName = (args and args ~= '' and args) or 'player'
 		local frame = UF.Unit and UF.Unit:Get(frameName)
 
+		-- An aura container carries secret anchors, which spread to anything
+		-- derived from them - IsShown, GetAlpha, GetWidth, GetNumPoints. tostring
+		-- on a secret errors, so every value read off the container goes through
+		-- here rather than straight into a message.
+		local function show(value)
+			if not SUI.BlizzAPI.canaccessvalue(value) then
+				return '<secret>'
+			end
+			return tostring(value)
+		end
+
+		---Call a method and report the result without erroring on a secret.
+		local function get(object, method, ...)
+			if not object or not object[method] then
+				return '<no ' .. method .. '>'
+			end
+			local ok, result = pcall(object[method], object, ...)
+			if not ok then
+				return '<errored>'
+			end
+			return show(result)
+		end
+
 		if not frame then
 			SUI:Print('No frame called ' .. frameName)
 			return
 		end
 
 		SUI:Print('|cff00FF98Aura state for ' .. frameName .. '|r')
-		SUI:Print('  unit: ' .. tostring(frame.unit) .. '   built: ' .. tostring(frame.IsBuilt))
+		SUI:Print('  unit: ' .. show(frame.unit) .. '   built: ' .. show(frame.IsBuilt))
 
-		local element = frame.AuraGroups
+		local element = frame.BuffContainer
 		if not element then
-			SUI:Print('  |cffFF5252no AuraGroups element|r - the frame did not build one')
+			SUI:Print('  |cffFF5252no BuffContainer element|r - the frame did not build one')
 			SUI:Print('  native containers available: ' .. tostring(UF.Auras:HasNativeContainers()))
 			return
 		end
 
-		SUI:Print('  container exists, enabled setting: ' .. tostring(element.DB and element.DB.enabled))
-		SUI:Print('  container unit: ' .. tostring(element.GetUnit and element:GetUnit()))
-		SUI:Print('  shown: ' .. tostring(element:IsShown()) .. '   alpha: ' .. tostring(element:GetAlpha()))
+		-- Count every aura container parented to this frame. There should be
+		-- one per aura element; more than that means a build created extra
+		-- ones, and each draws its own copy of every aura.
+		do
+			local containers, names = 0, {}
+			for _, child in ipairs({ frame:GetChildren() }) do
+				if child.AddAuraGroup or child.AddSlot then
+					containers = containers + 1
+					names[#names + 1] = (child.GetName and child:GetName()) or '?'
+				end
+			end
+			local expected = (frame.BuffContainer and 1 or 0) + (frame.DebuffContainer and 1 or 0) + (frame.CustomAuras and 1 or 0) + (frame.AuraTracker and 1 or 0)
+			for _ in pairs(frame.auraWatchers or {}) do
+				expected = expected + 1
+			end
+			SUI:Print(('  aura containers on this frame: %d (expected %d)%s'):format(containers, expected, containers > expected and '  |cffFF5252<- EXTRA CONTAINERS|r' or ''))
+			SUI:Print('    ' .. table.concat(names, ', '))
 
-		-- A container that carries secret anchors returns a secret from
-		-- GetNumPoints, which cannot be compared. Only read it when it is safe.
+			-- Which container is actually drawing. A container with no unit
+			-- shows nothing, so if auras are on screen while the buff
+			-- container has no unit, another container is drawing them.
+			for _, child in ipairs({ frame:GetChildren() }) do
+				if child.AddAuraGroup or child.AddSlot then
+					local label = (child.GetName and child:GetName()) or '?'
+					local role = (child == frame.BuffContainer and 'BuffContainer')
+						or (child == frame.DebuffContainer and 'DebuffContainer')
+						or (child == frame.CustomAuras and 'CustomAuras')
+						or (child == frame.AuraTracker and 'AuraTracker')
+						or 'watcher/other'
+					-- Name the watcher, and count the buttons it has actually
+					-- built. A per-spell watcher should own exactly one.
+					if role == 'watcher/other' then
+						for watcherName, watcher in pairs(frame.auraWatchers or {}) do
+							if watcher.container == child then
+								role = 'watcher:' .. watcherName .. ' buttons=' .. #(watcher.buttons or {})
+							end
+						end
+					end
+					SUI:Print(('    %s [%s] unit=%s shown=%s'):format(label, role, get(child, 'GetUnit'), get(child, 'IsShown')))
+				end
+			end
+		end
+
+		-- Per container: what it is enabled to, and the live filter each of its
+		-- variants is pointed at. Two containers drawing the same aura will
+		-- show the same filter string here.
+		for _, name in ipairs({ 'BuffContainer', 'DebuffContainer', 'CustomAuras' }) do
+			local c = frame[name]
+			if c then
+				local db = c.DB or {}
+				-- Where the enabled flag comes from matters: a value in the
+				-- user table is a saved setting, otherwise it is the default.
+				local preset = UF:GetPresetForFrame(frameName)
+				local userTbl = UF.DB.UserSettings[preset]
+				userTbl = userTbl and userTbl[frameName]
+				userTbl = userTbl and userTbl.elements
+				userTbl = userTbl and userTbl[name]
+				local userEnabled = type(userTbl) == 'table' and userTbl.enabled
+
+				SUI:Print(
+					('  %s: enabled=%s (saved=%s) base=%s filterMode=%s showOthers=%s'):format(name, show(db.enabled), show(userEnabled), show(c.baseFilter), show(db.filterMode), show(db.showOthers))
+				)
+				for _, variant in ipairs({ 'player', 'others' }) do
+					local key = c.groupKeys and c.groupKeys[variant]
+					if key then
+						local live = UF.Auras:GetVariantFilter(db, c.baseFilter, variant)
+						local off = not UF.Auras:IsVariantEnabled(db, c.baseFilter, variant)
+						local appliedMax = c.variantFrameCounts and c.variantFrameCounts[variant]
+						SUI:Print(('     %s -> %s   applied max: %s'):format(variant, off and 'disabled' or live:gsub('|', '||'), show(appliedMax)))
+					end
+				end
+			end
+		end
+
+		SUI:Print('  container exists, enabled setting: ' .. show(element.DB and element.DB.enabled))
+		SUI:Print('  container unit: ' .. get(element, 'GetUnit'))
+		SUI:Print('  shown: ' .. get(element, 'IsShown') .. '   alpha: ' .. get(element, 'GetAlpha'))
+
 		local points = element:GetNumPoints()
 		if not SUI.BlizzAPI.canaccessvalue(points) then
 			SUI:Print('  anchoring is secret on this container, cannot be read')
 		elseif points > 0 then
-			local a, _, rp, x, y = element:GetPoint()
-			SUI:Print(('  anchored: %s -> %s  offset %s,%s'):format(tostring(a), tostring(rp), tostring(x), tostring(y)))
+			local ok, a, _, rp, x, y = pcall(element.GetPoint, element)
+			if ok then
+				SUI:Print(('  anchored: %s -> %s  offset %s,%s'):format(show(a), show(rp), show(x), show(y)))
+			else
+				SUI:Print('  anchored, but the points cannot be read')
+			end
 		else
 			SUI:Print('  |cffFF5252not anchored|r - the container has no position')
 		end
 
-		SUI:Print(('  size: %sx%s   level: %s'):format(tostring(element:GetWidth()), tostring(element:GetHeight()), tostring(element:GetFrameLevel())))
-		SUI:Print('  anchors secret: ' .. tostring(element.IsAnchoringSecret and element:IsAnchoringSecret()))
+		SUI:Print(('  size: %sx%s   level: %s'):format(get(element, 'GetWidth'), get(element, 'GetHeight'), get(element, 'GetFrameLevel')))
+		SUI:Print('  anchors secret: ' .. get(element, 'IsAnchoringSecret'))
 
 		-- How the icons are meant to flow. A row that will not wrap shows up
 		-- as a single column, so report what the layout was actually told.
@@ -867,32 +1028,28 @@ function UF:OnEnable()
 		-- does not match what we asked for, it is create-time only and the
 		-- setting needs a rebuild rather than an update.
 		if element.GetFlowLayoutMaximumLineSize then
-			local live = element:GetFlowLayoutMaximumLineSize()
-			local want = UF.Auras:GetLayoutLimit(DB, frame)
-			SUI:Print(('  live line size: %s   wanted: %s   %s'):format(tostring(live), tostring(want), tostring(live) == tostring(want) and '|cff00FF98match|r' or '|cffFF5252MISMATCH|r'))
+			local live = get(element, 'GetFlowLayoutMaximumLineSize')
+			local want = show(UF.Auras:GetLayoutLimit(DB, frame))
+			SUI:Print(('  live line size: %s   wanted: %s   %s'):format(live, want, live == want and '|cff00FF98match|r' or '|cffFF5252MISMATCH|r'))
 		end
 
 		for _, method in ipairs({ 'GetFlowLayoutMaximumLineSize', 'GetFlowLayoutAxis', 'GetFlowLayoutGrowthDirection', 'GetFlowLayoutAnchorPoint' }) do
-			if element[method] then
-				SUI:Print(('  %s: %s'):format(method:gsub('GetFlowLayout', ''), tostring(element[method](element))))
-			else
-				SUI:Print(('  %s: |cffFFC107no getter on this client|r'):format(method:gsub('GetFlowLayout', '')))
-			end
+			SUI:Print(('  %s: %s'):format(method:gsub('GetFlowLayout', ''), get(element, method)))
 		end
 
 		for index = 1, UF.Auras.MAX_GROUPS do
 			local group = UF.Auras:ResolveGroup(element.DB or {}, index)
 			local key = element.groupKeys and element.groupKeys[index]
 			if group.enabled or key then
-				SUI:Print(
-					('  group %d: %s  enabled=%s  filter=%s  key=%s'):format(
-						index,
-						tostring(group.name ~= '' and group.name or '-'),
-						tostring(group.enabled),
-						tostring(UF.Auras:GetGroupFilter(group)),
-						tostring(key)
-					)
-				)
+				SUI:Print(('  group %d: %s  enabled=%s  filter=%s  key=%s'):format(
+					index,
+					tostring(group.name ~= '' and group.name or '-'),
+					tostring(group.enabled),
+					-- Double the pipes: the chat frame eats |R and friends as
+					-- colour escapes, which makes a filter look corrupted.
+					(tostring(UF.Auras:GetGroupFilter(group)):gsub('|', '||')),
+					tostring(key)
+				))
 				SUI:Print(
 					('     perRow=%s size=%s spacing=%s max=%s forceNewLine=%s'):format(
 						tostring(group.perRow),
@@ -1203,8 +1360,9 @@ function UF:RegisterSetupWizardPages()
 		}
 
 		-- Only add aura preset selector if system is loaded and frame has auras.
-		-- Retail drives the AuraGroups element; Classic still uses Buffs/Debuffs.
-		local auraHost = SUI.IsRetail and 'AuraGroups' or 'Buffs'
+		-- Both flavors keep buffs and debuffs in their own element now; only
+		-- the names differ.
+		local auraHost = SUI.IsRetail and 'BuffContainer' or 'Buffs'
 		if UF.AuraPresets and getElemCS(auraHost) then
 			defs.buffFilter = {
 				type = 'dropdown',
@@ -1215,13 +1373,13 @@ function UF:RegisterSetupWizardPages()
 					local buffsMode, debuffsMode
 
 					if SUI.IsRetail then
-						local groupsCS = getElemCS('AuraGroups')
-						local groups = groupsCS and groupsCS.groups
-						if not groups then
+						local buffsCS = getElemCS('BuffContainer')
+						local debuffsCS = getElemCS('DebuffContainer')
+						if not buffsCS or not debuffsCS then
 							return 'custom'
 						end
-						buffsMode = UF.Auras:ResolveGroup(groupsCS, 1).filterMode
-						debuffsMode = UF.Auras:ResolveGroup(groupsCS, 2).filterMode
+						buffsMode = buffsCS.filterMode
+						debuffsMode = debuffsCS.filterMode
 					else
 						local buffsCS = getElemCS('Buffs')
 						local debuffsCS = getElemCS('Debuffs')

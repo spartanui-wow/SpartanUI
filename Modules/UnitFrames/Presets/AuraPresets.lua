@@ -287,31 +287,32 @@ function AuraPresets:GetPresetList()
 end
 
 -- Apply a preset to a specific unit
----Map a preset's Buffs/Debuffs entries onto AuraGroups groups 1 and 2.
+---Write a preset's Buffs/Debuffs entries onto their own containers.
 ---@param unitName string
 ---@param preset table
 function AuraPresets:ApplyPresetToGroupElement(unitName, preset)
-	local settings = UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements.AuraGroups
-	if not settings then
+	local frameSettings = UF.CurrentSettings[unitName] and UF.CurrentSettings[unitName].elements
+	if not frameSettings then
 		return
 	end
 
-	local userSettings = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraGroups
-	userSettings.groups = userSettings.groups or {}
-	settings.groups = settings.groups or {}
+	local userElements = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements
 
-	-- Group 1 carries the preset's buffs, group 2 its debuffs.
-	local mapping = { { index = 'slot1', source = 'Buffs' }, { index = 'slot2', source = 'Debuffs' } }
+	local mapping = {
+		{ element = 'BuffContainer', source = 'Buffs' },
+		{ element = 'DebuffContainer', source = 'Debuffs' },
+	}
 
 	for _, entry in ipairs(mapping) do
 		local presetElement = preset[entry.source]
-		if presetElement then
-			settings.groups[entry.index] = settings.groups[entry.index] or {}
-			userSettings.groups[entry.index] = userSettings.groups[entry.index] or {}
+		local settings = frameSettings[entry.element]
+
+		if presetElement and settings then
+			userElements[entry.element] = userElements[entry.element] or {}
 
 			local function write(key, value)
-				settings.groups[entry.index][key] = value
-				userSettings.groups[entry.index][key] = value
+				settings[key] = value
+				userElements[entry.element][key] = value
 			end
 
 			-- Shared visual settings that still mean the same thing.
@@ -329,7 +330,9 @@ function AuraPresets:ApplyPresetToGroupElement(unitName, preset)
 	end
 
 	if UF.Unit[unitName] then
-		UF.Unit[unitName]:ElementUpdate('AuraGroups')
+		for _, entry in ipairs(mapping) do
+			UF.Unit[unitName]:ElementUpdate(entry.element)
+		end
 	end
 end
 
@@ -343,7 +346,7 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 
 	local branch = SUI.IsRetail and 'retail' or 'classic'
 
-	-- Retail renders auras through AuraGroups, where the preset's Buffs and
+	-- Retail gives buffs and debuffs their own containers, where the preset's
 	-- Debuffs entries map onto groups 1 and 2.
 	if SUI.IsRetail then
 		self:ApplyPresetToGroupElement(unitName, preset)

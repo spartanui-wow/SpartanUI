@@ -53,7 +53,7 @@ Auras.TRACKER_DEFAULTS = {
 
 -- Per-group defaults, resolved in code rather than through an AceDB ['**']
 -- wildcard. The UserSettings wildcard chain is only six levels deep and is
--- fully consumed by preset/unit/elements/AuraGroups/groups/index, and
+-- fully consumed by preset/unit/elements/<container>/groups/index, and
 -- SUI:MergeData (which builds CurrentSettings) does not expand wildcards at all.
 Auras.GROUP_DEFAULTS = {
 	enabled = false,
@@ -735,6 +735,292 @@ function Auras:RestyleButtons(element, DB)
 	end
 end
 
+-- Frames waiting for combat to end before their container is rebuilt.
+-- A single watcher drains this; registering PLAYER_REGEN_ENABLED on the UF
+-- module itself would replace SpawnFrames' GroupWatcher handler, since
+-- AceEvent keys its registry by the calling object.
+local pendingRebuilds = {}
+local rebuildWatcher
+
+local function DrainPendingRebuilds()
+	for frame in pairs(pendingRebuilds) do
+		pendingRebuilds[frame] = nil
+		for _, name in ipairs({ 'BuffContainer', 'DebuffContainer', 'CustomAuras' }) do
+			UF.Elements:Update(frame, name)
+		end
+	end
+end
+
+---Re-point the existing groups at the current settings.
+---
+---Containers cannot drop groups and oUF never releases a container it created,
+---so creating a replacement would leak one container per settings change.
+---Instead every group is created once at build time and this repoints the
+---live ones, hiding the rest with a filter that matches nothing.
+---@param frame table
+---@param element table
+---@param DB table
+---Append an optional token to a filter string.
+---
+---A value of 1 means "the opposite of this", which the filter syntax spells
+---with a leading `!`.
+---@param filter string
+---@param value? boolean|number
+---@param token string
+---@return string
+function Auras:AddFilter(filter, value, token)
+	if value == 1 then
+		return filter .. '|!' .. token
+	elseif value then
+		return filter .. '|' .. token
+	end
+
+	return filter
+end
+
+---Return the source variant selected by an exact PLAYER filter token.
+---Tokens such as RAID_PLAYER_DISPELLABLE describe the player's ability to
+---dispel an aura, not who applied it, so substring matching is not valid here.
+---@param filter? string
+---@return string? variant 'player' or 'others'
+local function GetSourceVariant(filter)
+	if type(filter) ~= 'string' then
+		return
+	end
+
+	for token in filter:gmatch('[^|]+') do
+		if token == 'PLAYER' then
+			return 'player'
+		elseif token == '!PLAYER' then
+			return 'others'
+		end
+	end
+end
+
+---Build the filter string for one variant of a container.
+---
+---A container shows the same kind of aura twice over: the ones you cast and
+---the ones everyone else cast. Splitting them means each half can carry its
+---own extra tokens, which is how "only show dispellable debuffs from others"
+---is expressed without a second container.
+---@param DB table
+---@param baseFilter string
+---@param variant string 'player' or 'others'
+---@return string
+function Auras:GetVariantFilter(DB, baseFilter, variant)
+	-- A custom filter is taken exactly as written. Variant visibility keeps it
+	-- on one group so the same filter is never registered twice.
+	if type(DB.customFilter) == 'string' and DB.customFilter ~= '' then
+		return DB.customFilter
+	end
+
+	local base = baseFilter or 'HELPFUL'
+
+	-- A chosen preset replaces the base, since it already says helpful or
+	-- harmful. The variant token is still appended so the split holds.
+	local preset = self:GetFilterString(DB.filterMode)
+	if type(preset) == 'string' and preset ~= '' then
+		base = preset
+	end
+
+	local filter = base
+	if not GetSourceVariant(filter) then
+		filter = filter .. (variant == 'others' and '|!PLAYER' or '|PLAYER')
+	end
+
+	local tokens = DB.tokens or {}
+	filter = self:AddFilter(filter, tokens.raid, 'RAID')
+	filter = self:AddFilter(filter, tokens.raidInCombat, 'RAID_IN_COMBAT')
+	filter = self:AddFilter(filter, tokens.dispellable, 'RAID_PLAYER_DISPELLABLE')
+	filter = self:AddFilter(filter, tokens.crowdControl, 'CROWD_CONTROL')
+	filter = self:AddFilter(filter, tokens.bigDefensive, 'BIG_DEFENSIVE')
+	filter = self:AddFilter(filter, tokens.externalDefensive, 'EXTERNAL_DEFENSIVE')
+	filter = self:AddFilter(filter, tokens.cancelable, 'CANCELABLE')
+
+	return filter
+end
+
+---Whether one of a container's two source variants should be live.
+---@param DB table
+---@param baseFilter string
+---@param variant string 'player' or 'others'
+---@return boolean
+function Auras:IsVariantEnabled(DB, baseFilter, variant)
+	if DB.enabled == false or (variant == 'others' and DB.showOthers == false) then
+		return false
+	end
+
+	local customFilter = type(DB.customFilter) == 'string' and DB.customFilter ~= '' and DB.customFilter or nil
+	if customFilter then
+		return variant == (GetSourceVariant(customFilter) or 'player')
+	end
+
+	local filter = self:GetFilterString(DB.filterMode) or baseFilter or 'HELPFUL'
+	local sourceVariant = GetSourceVariant(filter)
+	return sourceVariant == nil or sourceVariant == variant
+end
+
+---Attach one group per filter variant. Groups cannot be removed, so this runs
+---once per container and later changes are repointed instead.
+---@param element table
+---@param DB table
+---@param baseFilter string
+---@param buildSettings fun(element: table, DB: table, variant: string): table
+function Auras:AttachVariants(element, DB, baseFilter, buildSettings)
+	if element.groupKeys and next(element.groupKeys) then
+		self:RepointVariants(element.__owner, element, DB)
+		return
+	end
+
+	element.groupKeys = {}
+	element.buildSettings = buildSettings
+
+	-- Both variants are always created, so turning "others" on later does not
+	-- need a container rebuild - the group is simply pointed at a filter that
+	-- matches nothing while it is off.
+	for _, variant in ipairs({ 'player', 'others' }) do
+		local settings = buildSettings(element, DB, variant)
+		element.groupKeys[variant] = element:AddGroup(self:GetVariantFilter(DB, baseFilter, variant), settings)
+	end
+
+	element.variantSignature = self:GetVariantSignature(DB, baseFilter)
+	self:ApplyVariantVisibility(element, DB, baseFilter)
+end
+
+---Describe everything that decides what the variants show.
+---@param DB table
+---@param baseFilter string
+---@return string
+function Auras:GetVariantSignature(DB, baseFilter)
+	return table.concat({
+		tostring(baseFilter or ''),
+		tostring(DB.filterMode or ''),
+		tostring(DB.customFilter or ''),
+		tostring(DB.showOthers),
+		tostring(DB.number or ''),
+		tostring(DB.size or ''),
+		tostring(DB.spacing or ''),
+		tostring(DB.perRow or ''),
+		tostring(DB.sortMethod or ''),
+		tostring(DB.sortDirection or ''),
+		tostring(DB.onlyStealable),
+		tostring(DB.maxDuration or ''),
+		tostring(DB.includeSpellIDs or ''),
+		tostring(DB.excludeSpellIDs or ''),
+		tostring(DB.position and DB.position.anchor or ''),
+		tostring(DB.position and DB.position.x or ''),
+		tostring(DB.position and DB.position.y or ''),
+		tostring(DB.growthx or ''),
+		tostring(DB.growthy or ''),
+	}, ':')
+end
+
+---@param element table
+---@param DB table
+---@return boolean
+function Auras:VariantsNeedRepoint(element, DB)
+	return element.variantSignature ~= self:GetVariantSignature(DB, element.baseFilter)
+end
+
+---Apply the current source-variant visibility without destroying either group.
+---@param element table
+---@param DB table
+---@param baseFilter string
+function Auras:ApplyVariantVisibility(element, DB, baseFilter)
+	self:ApplyContainerFilters(element, DB, baseFilter)
+end
+
+---Point each variant at its filter and set its live icon limit.
+---
+---A group matches auras whether or not its container is shown, so a disabled
+---container would still draw over an enabled one. A zero frame count is the
+---native off state; contradictory filter tokens are not a reliable substitute.
+---@param element table
+---@param DB table
+---@param baseFilter string
+function Auras:ApplyContainerFilters(element, DB, baseFilter)
+	if not element.groupKeys then
+		return
+	end
+
+	element.variantFrameCounts = element.variantFrameCounts or {}
+	local maxFrameCount = type(DB.number) == 'number' and DB.number or 10
+	for _, variant in ipairs({ 'player', 'others' }) do
+		local key = element.groupKeys[variant]
+		if key then
+			local enabled = self:IsVariantEnabled(DB, baseFilter, variant)
+			if element.SetAuraGroupFilterString then
+				element:SetAuraGroupFilterString(key, self:GetVariantFilter(DB, baseFilter, variant))
+			end
+			if element.SetAuraGroupMaxFrameCount then
+				local appliedMax = enabled and maxFrameCount or 0
+				element:SetAuraGroupMaxFrameCount(key, appliedMax)
+				element.variantFrameCounts[variant] = appliedMax
+			end
+		end
+	end
+end
+
+---Re-point a container's variants at the current settings.
+---@param frame table
+---@param element table
+---@param DB table
+function Auras:RepointVariants(frame, element, DB)
+	frame = frame or element.__owner
+	if not frame then
+		return
+	end
+
+	if InCombatLockdown() then
+		pendingRebuilds[frame] = true
+
+		if not rebuildWatcher then
+			rebuildWatcher = CreateFrame('Frame')
+			rebuildWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
+			rebuildWatcher:SetScript('OnEvent', DrainPendingRebuilds)
+		end
+		return
+	end
+
+	pendingRebuilds[frame] = nil
+
+	self:PositionContainer(element, frame, DB)
+
+	local baseFilter = element.baseFilter
+	for _, variant in ipairs({ 'player', 'others' }) do
+		local key = element.groupKeys and element.groupKeys[variant]
+		if key then
+			if element.SetAuraGroupSortMethod then
+				element:SetAuraGroupSortMethod(key, self:GetSortMethod(DB.sortMethod), self:GetSortDirection(DB.sortDirection))
+			end
+			if element.SetAuraGroupCandidateFilters then
+				local candidates = self:BuildCandidateFilters(DB)
+				if candidates then
+					element:SetAuraGroupCandidateFilters(key, candidates)
+				end
+			end
+			if element.SetAuraGroupLayout then
+				local size = type(DB.size) == 'number' and DB.size or 24
+				local spacing = type(DB.spacing) == 'number' and DB.spacing or 2
+				element:SetAuraGroupLayout(key, {
+					elementWidth = size,
+					elementHeight = size,
+					elementSpacing = spacing,
+					lineSpacing = type(DB.lineSpacing) == 'number' and DB.lineSpacing or spacing,
+					groupSpacing = type(DB.groupSpacing) == 'number' and DB.groupSpacing or 4,
+				})
+			end
+		end
+	end
+
+	self:ApplyContainerFilters(element, DB, baseFilter)
+	self:RestyleButtons(element, DB)
+
+	element.variantSignature = self:GetVariantSignature(DB, baseFilter)
+	element:SetEnabled(true)
+	element:ForceUpdate()
+end
+
 ----------------------------------------------------------------------------------------------------
 -- Container lifecycle
 ----------------------------------------------------------------------------------------------------
@@ -853,30 +1139,13 @@ function Auras:GroupBuildOptionsChanged(element, DB)
 	return element.groupBuildSignature ~= self:GetGroupBuildSignature(DB)
 end
 
--- Frames waiting for combat to end before their container is rebuilt.
--- A single watcher drains this; registering PLAYER_REGEN_ENABLED on the UF
--- module itself would replace SpawnFrames' GroupWatcher handler, since
--- AceEvent keys its registry by the calling object.
-local pendingRebuilds = {}
-local rebuildWatcher
-
-local function DrainPendingRebuilds()
-	for frame in pairs(pendingRebuilds) do
-		pendingRebuilds[frame] = nil
-		UF.Elements:Update(frame, 'AuraGroups')
-	end
-end
-
----Re-point the existing groups at the current settings.
----
----Containers cannot drop groups and oUF never releases a container it created,
----so creating a replacement would leak one container per settings change.
----Instead every group is created once at build time and this repoints the
----live ones, hiding the rest with a filter that matches nothing.
----@param frame table
----@param element table
----@param DB table
 function Auras:RepointGroups(frame, element, DB)
+	-- The frame is the key for deferred rebuilds, so it has to be real.
+	frame = frame or element.__owner
+	if not frame then
+		return
+	end
+
 	if InCombatLockdown() then
 		pendingRebuilds[frame] = true
 
@@ -905,7 +1174,8 @@ function Auras:RepointGroups(frame, element, DB)
 				-- sorting and the spell ID lists all change live. Icon size
 				-- lives inside the layout table as elementWidth/Height.
 				if element.SetAuraGroupMaxFrameCount then
-					element:SetAuraGroupMaxFrameCount(key, type(group.number) == 'number' and group.number or 10)
+					local maxFrameCount = type(group.number) == 'number' and group.number or 10
+					element:SetAuraGroupMaxFrameCount(key, group.enabled and maxFrameCount or 0)
 				end
 
 				if element.SetAuraGroupSortMethod then
@@ -960,13 +1230,14 @@ function Auras:RepointGroups(frame, element, DB)
 	element:ForceUpdate()
 end
 
----The filter string for a group, or a never-matching one when it is disabled.
+---The filter string for a group.
 ---@param group? table
 ---@return string
 function Auras:GetGroupFilter(group)
 	if not group or not group.enabled then
-		-- No aura is both helpful and harmful, so this shows nothing.
-		return 'HELPFUL|HARMFUL'
+		-- Disabled groups are suppressed with maxFrameCount = 0. Keep a valid
+		-- filter here so enabling the group later only has to restore its count.
+		return 'HELPFUL'
 	end
 
 	-- Saved settings can hold a non-string here, so the type is checked before
@@ -984,7 +1255,7 @@ function Auras:GetGroupFilter(group)
 	-- isFromPlayerOrPlayerPet candidate filter, which is not confirmed on a
 	-- live client. An unsupported candidate filter fails open, whereas the
 	-- token is part of the filter string and always honoured.
-	if group.onlyMine and not filter:find('PLAYER', 1, true) then
+	if group.onlyMine and GetSourceVariant(filter) ~= 'player' then
 		filter = filter .. '|PLAYER'
 	end
 
@@ -1018,737 +1289,302 @@ function Auras:GetFilterSelectValues()
 	return values
 end
 
----Build the per-group options tree for a frame.
----@param unitName string
----@param OptionSet AceConfig.OptionsTable
----@param maxGroups number
-function Auras:BuildGroupOptions(unitName, OptionSet, maxGroups)
-	-- Always returns a full table, so an unconfigured group reads as defaults
-	-- instead of erroring.
-	local function GroupDB(index)
-		return Auras:ResolveGroup(UF.CurrentSettings[unitName].elements.AuraGroups, index)
+---Read one size key straight from the sparse user settings.
+---@param frame? table
+---@param elementName? string
+---@param key string
+---@return boolean
+local function HasUserSize(frame, elementName, key)
+	local unitName = frame and frame.unitOnCreate
+	if not unitName or not UF.DB or not UF.DB.UserSettings then
+		return false
 	end
 
-	local function SetGroup(index, key, val)
-		local preset = UF:GetPresetForFrame(unitName)
-		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
-		stored.groups = stored.groups or {}
-		stored.groups[Auras:GetSlotKey(index)] = stored.groups[Auras:GetSlotKey(index)] or {}
-		stored.groups[Auras:GetSlotKey(index)][key] = val
+	local preset = UF:GetPresetForFrame(unitName)
+	local settings = UF.DB.UserSettings[preset]
+	settings = settings and settings[unitName]
+	settings = settings and settings.elements
+	settings = settings and settings[elementName or 'BuffContainer']
 
-		local current = UF.CurrentSettings[unitName].elements.AuraGroups
-		current.groups = current.groups or {}
-		current.groups[Auras:GetSlotKey(index)] = current.groups[Auras:GetSlotKey(index)] or {}
-		current.groups[Auras:GetSlotKey(index)][key] = val
+	return type(settings) == 'table' and type(settings[key]) == 'number'
+end
 
-		-- The frame may not be spawned (disabled frame, arena out of arena).
-		if UF.Unit[unitName] then
-			UF.Unit[unitName]:ElementUpdate('AuraGroups')
+---Whether the user has set a row width for this container.
+---
+---The merged settings always carry a width, because every element inherits
+---one from the shared element defaults, where it means the size of a single
+---widget. Only the sparse user table says whether it was actually chosen.
+---@param frame? table
+---@param elementName? string
+---@return boolean
+function Auras:HasUserWidth(frame, elementName)
+	return HasUserSize(frame, elementName, 'width')
+end
+
+---Whether the user has set a height for this container.
+---@param frame? table
+---@param elementName? string
+---@return boolean
+function Auras:HasUserHeight(frame, elementName)
+	return HasUserSize(frame, elementName, 'height')
+end
+
+---Work out how long a row of icons may run before it wraps.
+---
+---This is a width in pixels, not a count. The flow layout wraps when the next
+---icon would cross it, so it decides how many icons sit side by side.
+---
+---Priority: a width the user set, then icons-per-row translated into a width,
+---then the unit frame's own width.
+---@param DB table
+---@param frame? table
+---@param elementName? string
+---@return number?
+function Auras:GetLayoutLimit(DB, frame, elementName)
+	local function number(value, fallback)
+		return type(value) == 'number' and value or fallback
+	end
+
+	-- A width the user set is them saying where the row ends. It has to be
+	-- their own value, not the merged one: every element inherits width and
+	-- height from the shared element defaults, where they describe a single
+	-- 20x20 widget. A container reads width as the wrap point instead, and
+	-- 20px is about one icon, so the inherited default would wrap after every
+	-- icon and stack them into a column.
+	if self:HasUserWidth(frame, elementName) and type(DB.width) == 'number' and DB.width > 0 then
+		return DB.width
+	end
+
+	-- Icons per row is the setting people reach for, being the count they can
+	-- see, so it is translated into the width that fits exactly that many.
+	local perRow = number(DB.perRow, 0)
+	if perRow > 0 then
+		return perRow * (number(DB.size, 24) + number(DB.spacing, 2))
+	end
+
+	-- Otherwise wrap at the frame's width, which keeps the icons over the
+	-- frame they belong to.
+	if frame and frame.GetWidth then
+		local frameWidth = frame:GetWidth()
+		if frameWidth and SUI.BlizzAPI.canaccessvalue(frameWidth) and frameWidth > 0 then
+			return frameWidth
 		end
-	end
-
-	---Write one key inside a nested per-group table, such as `expiring`.
-	local function SetGroupSub(index, key, subKey, val)
-		local preset = UF:GetPresetForFrame(unitName)
-		local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
-		stored.groups = stored.groups or {}
-		stored.groups[Auras:GetSlotKey(index)] = stored.groups[Auras:GetSlotKey(index)] or {}
-		stored.groups[Auras:GetSlotKey(index)][key] = stored.groups[Auras:GetSlotKey(index)][key] or {}
-		stored.groups[Auras:GetSlotKey(index)][key][subKey] = val
-
-		local current = UF.CurrentSettings[unitName].elements.AuraGroups
-		current.groups = current.groups or {}
-		current.groups[Auras:GetSlotKey(index)] = current.groups[Auras:GetSlotKey(index)] or {}
-		current.groups[Auras:GetSlotKey(index)][key] = current.groups[Auras:GetSlotKey(index)][key] or {}
-		current.groups[Auras:GetSlotKey(index)][key][subKey] = val
-
-		if UF.Unit[unitName] then
-			UF.Unit[unitName]:ElementUpdate('AuraGroups')
-		end
-	end
-
-	-- Container-wide settings. Every group flows inside one container, so
-	-- these apply to all of them at once.
-	local function SetContainer(key, val)
-		local preset = UF:GetPresetForFrame(unitName)
-		UF.DB.UserSettings[preset][unitName].elements.AuraGroups[key] = val
-		UF.CurrentSettings[unitName].elements.AuraGroups[key] = val
-
-		if UF.Unit[unitName] then
-			UF.Unit[unitName]:ElementUpdate('AuraGroups')
-		end
-	end
-
-	local function ContainerDB()
-		return UF.CurrentSettings[unitName].elements.AuraGroups
-	end
-
-	OptionSet.args.growthx = {
-		name = L['Grow sideways'],
-		desc = L['Which way new icons are added across a row'],
-		type = 'select',
-		order = 3,
-		values = {
-			RIGHT = L['Right'],
-			LEFT = L['Left'],
-		},
-		get = function()
-			return ContainerDB().growthx or 'RIGHT'
-		end,
-		set = function(_, val)
-			SetContainer('growthx', val)
-		end,
-	}
-
-	OptionSet.args.growthy = {
-		name = L['Grow up or down'],
-		desc = L['Which way new rows are added'],
-		type = 'select',
-		order = 4,
-		values = {
-			UP = L['Up'],
-			DOWN = L['Down'],
-		},
-		get = function()
-			return ContainerDB().growthy or 'UP'
-		end,
-		set = function(_, val)
-			SetContainer('growthy', val)
-		end,
-	}
-
-	OptionSet.args.width = {
-		name = L['Row width'],
-		desc = L['How wide the icons run before they wrap onto the next row. Leave at 0 to use the icons per row setting, or the frame width.'],
-		type = 'range',
-		order = 5,
-		min = 0,
-		max = 600,
-		step = 1,
-		get = function()
-			-- The merged settings always carry an inherited width, so read the
-			-- user's own value: anything else would show a number the layout
-			-- is ignoring.
-			local preset = UF:GetPresetForFrame(unitName)
-			local stored = UF.DB.UserSettings[preset][unitName].elements.AuraGroups
-			return type(stored.width) == 'number' and stored.width or 0
-		end,
-		set = function(_, val)
-			-- Zero means "work it out", which is what a missing value does.
-			SetContainer('width', val > 0 and val or nil)
-		end,
-	}
-
-	for index = 1, maxGroups do
-		local groupKey = 'group' .. index
-
-		OptionSet.args[groupKey] = {
-			name = function()
-				local db = GroupDB(index)
-				local label = (db and db.name ~= '' and db.name) or (L['Group'] .. ' ' .. index)
-				if db and not db.enabled then
-					label = label .. ' (' .. L['Off'] .. ')'
-				end
-				return label
-			end,
-			type = 'group',
-			order = 10 + index,
-			args = {
-				enabled = {
-					name = L['Show this group'],
-					type = 'toggle',
-					order = 1,
-					get = function()
-						return GroupDB(index).enabled
-					end,
-					set = function(_, val)
-						SetGroup(index, 'enabled', val)
-					end,
-				},
-				name = {
-					name = L['Name'],
-					desc = L['A label for you, it is not shown on your frames'],
-					type = 'input',
-					order = 2,
-					get = function()
-						return GroupDB(index).name
-					end,
-					set = function(_, val)
-						SetGroup(index, 'name', val)
-					end,
-				},
-				filterMode = {
-					name = L['Show'],
-					desc = L['Which auras belong in this group'],
-					type = 'select',
-					order = 3,
-					values = function()
-						return Auras:GetFilterSelectValues()
-					end,
-					get = function()
-						return GroupDB(index).filterMode
-					end,
-					set = function(_, val)
-						SetGroup(index, 'filterMode', val)
-					end,
-				},
-				number = {
-					name = L['Max icons'],
-					type = 'range',
-					order = 4,
-					min = 1,
-					max = 40,
-					step = 1,
-					get = function()
-						return GroupDB(index).number
-					end,
-					set = function(_, val)
-						SetGroup(index, 'number', val)
-					end,
-				},
-				perRow = {
-					name = L['Icons per row'],
-					desc = L['How many icons sit side by side before starting a new row. Leave at 0 to fit as many as the frame is wide.'],
-					type = 'range',
-					order = 4.5,
-					min = 0,
-					max = 40,
-					step = 1,
-					get = function()
-						return GroupDB(index).perRow or 0
-					end,
-					set = function(_, val)
-						SetGroup(index, 'perRow', val)
-					end,
-				},
-				size = {
-					name = L['Icon size'],
-					type = 'range',
-					order = 5,
-					min = 8,
-					max = 64,
-					step = 1,
-					get = function()
-						return GroupDB(index).size
-					end,
-					set = function(_, val)
-						SetGroup(index, 'size', val)
-					end,
-				},
-				spacing = {
-					name = L['Spacing'],
-					type = 'range',
-					order = 6,
-					min = 0,
-					max = 20,
-					step = 1,
-					get = function()
-						return GroupDB(index).spacing
-					end,
-					set = function(_, val)
-						SetGroup(index, 'spacing', val)
-					end,
-				},
-				onlyMine = {
-					name = L['Only mine'],
-					desc = L['Only show auras you cast'],
-					type = 'toggle',
-					order = 7,
-					get = function()
-						return GroupDB(index).onlyMine
-					end,
-					set = function(_, val)
-						SetGroup(index, 'onlyMine', val)
-					end,
-				},
-				clickThrough = {
-					name = L['Click through'],
-					desc = L['Let clicks pass through to the frame behind these icons'],
-					type = 'toggle',
-					order = 8,
-					get = function()
-						return GroupDB(index).clickThrough
-					end,
-					set = function(_, val)
-						SetGroup(index, 'clickThrough', val)
-					end,
-				},
-				includeSpellIDs = {
-					name = L['Always show these spell IDs'],
-					desc = L['Separate each ID with a comma'],
-					type = 'input',
-					order = 20,
-					width = 'full',
-					get = function()
-						return GroupDB(index).includeSpellIDs
-					end,
-					set = function(_, val)
-						SetGroup(index, 'includeSpellIDs', val)
-					end,
-				},
-				excludeSpellIDs = {
-					name = L['Never show these spell IDs'],
-					desc = L['Separate each ID with a comma'],
-					type = 'input',
-					order = 21,
-					width = 'full',
-					get = function()
-						return GroupDB(index).excludeSpellIDs
-					end,
-					set = function(_, val)
-						SetGroup(index, 'excludeSpellIDs', val)
-					end,
-				},
-				customFilter = {
-					name = L['Custom filter'],
-					desc = L['Advanced. Overrides the Show setting above. Example: HELPFUL|PLAYER'],
-					type = 'input',
-					order = 30,
-					width = 'full',
-					get = function()
-						return GroupDB(index).customFilter
-					end,
-					set = function(_, val)
-						SetGroup(index, 'customFilter', val)
-					end,
-				},
-
-				onlyStealable = {
-					name = L['Only stealable'],
-					desc = L['Only show buffs you could steal or purge. Needs game support that is not confirmed yet.'],
-					type = 'toggle',
-					order = 9,
-					get = function()
-						return GroupDB(index).onlyStealable
-					end,
-					set = function(_, val)
-						SetGroup(index, 'onlyStealable', val)
-					end,
-				},
-				maxDuration = {
-					name = L['Longest duration to show'],
-					desc = L['In seconds. Zero shows auras of any length. Setting any limit also hides permanent auras.'],
-					type = 'range',
-					order = 22,
-					min = 0,
-					max = 3600,
-					step = 5,
-					get = function()
-						return GroupDB(index).maxDuration
-					end,
-					set = function(_, val)
-						SetGroup(index, 'maxDuration', val)
-					end,
-				},
-
-				layout = {
-					name = L['Layout'],
-					type = 'group',
-					order = 40,
-					inline = true,
-					args = {
-						sortMethod = {
-							name = L['Sort by'],
-							type = 'select',
-							order = 1,
-							values = function()
-								return Auras:GetSortMethodValues()
-							end,
-							get = function()
-								return GroupDB(index).sortMethod
-							end,
-							set = function(_, val)
-								SetGroup(index, 'sortMethod', val)
-							end,
-						},
-						sortDirection = {
-							name = L['Sort direction'],
-							type = 'select',
-							order = 2,
-							values = {
-								normal = L['Normal'],
-								reversed = L['Reversed'],
-							},
-							get = function()
-								return GroupDB(index).sortDirection
-							end,
-							set = function(_, val)
-								SetGroup(index, 'sortDirection', val)
-							end,
-						},
-						lineSpacing = {
-							name = L['Space between rows'],
-							type = 'range',
-							order = 3,
-							min = 0,
-							max = 20,
-							step = 1,
-							get = function()
-								return GroupDB(index).lineSpacing
-							end,
-							set = function(_, val)
-								SetGroup(index, 'lineSpacing', val)
-							end,
-						},
-						groupSpacing = {
-							name = L['Space before this group'],
-							type = 'range',
-							order = 4,
-							min = 0,
-							max = 40,
-							step = 1,
-							get = function()
-								return GroupDB(index).groupSpacing
-							end,
-							set = function(_, val)
-								SetGroup(index, 'groupSpacing', val)
-							end,
-						},
-						forceNewLine = {
-							name = L['Start on a new row'],
-							desc = L['Begin this group on its own row instead of continuing the previous one'],
-							type = 'toggle',
-							order = 5,
-							get = function()
-								return GroupDB(index).forceNewLine
-							end,
-							set = function(_, val)
-								SetGroup(index, 'forceNewLine', val)
-							end,
-						},
-					},
-				},
-
-				display = {
-					name = L['Icon display'],
-					type = 'group',
-					order = 50,
-					inline = true,
-					args = {
-						showCount = {
-							name = L['Show stack count'],
-							type = 'toggle',
-							order = 1,
-							get = function()
-								return GroupDB(index).showCount
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showCount', val)
-							end,
-						},
-						showDuration = {
-							name = L['Show time left'],
-							type = 'toggle',
-							order = 2,
-							get = function()
-								return GroupDB(index).showDuration
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showDuration', val)
-							end,
-						},
-						showCooldown = {
-							name = L['Show cooldown sweep'],
-							type = 'toggle',
-							order = 3,
-							get = function()
-								return GroupDB(index).showCooldown
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showCooldown', val)
-							end,
-						},
-						fontSize = {
-							name = L['Text size'],
-							type = 'range',
-							order = 4,
-							min = 6,
-							max = 24,
-							step = 1,
-							get = function()
-								return GroupDB(index).fontSize
-							end,
-							set = function(_, val)
-								SetGroup(index, 'fontSize', val)
-							end,
-						},
-					},
-				},
-
-				borders = {
-					name = L['Borders'],
-					type = 'group',
-					order = 60,
-					inline = true,
-					args = {
-						showDebuffBorder = {
-							name = L['Color debuff borders'],
-							desc = L['Tint the border by what kind of debuff it is'],
-							type = 'toggle',
-							order = 1,
-							get = function()
-								return GroupDB(index).showDebuffBorder
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showDebuffBorder', val)
-							end,
-						},
-						showBuffBorder = {
-							name = L['Color buff borders'],
-							type = 'toggle',
-							order = 2,
-							get = function()
-								return GroupDB(index).showBuffBorder
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showBuffBorder', val)
-							end,
-						},
-						dispelBorderStyle = {
-							name = L['Border style'],
-							desc = L['How the aura type is drawn on the icon'],
-							type = 'select',
-							order = 2.5,
-							values = function()
-								return Auras:GetDispelBorderStyleValues()
-							end,
-							hidden = function()
-								return not next(Auras:GetDispelBorderStyleValues())
-							end,
-							disabled = function()
-								local group = GroupDB(index)
-								return not (group.showBuffBorder or group.showDebuffBorder)
-							end,
-							get = function()
-								return GroupDB(index).dispelBorderStyle
-							end,
-							set = function(_, val)
-								SetGroup(index, 'dispelBorderStyle', val)
-							end,
-						},
-						showDebuffIndicator = {
-							name = L['Debuff type icon'],
-							desc = L['Show a small icon in the corner for the debuff type'],
-							type = 'toggle',
-							order = 3,
-							get = function()
-								return GroupDB(index).showDebuffIndicator
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showDebuffIndicator', val)
-							end,
-						},
-						showBuffIndicator = {
-							name = L['Buff type icon'],
-							type = 'toggle',
-							order = 4,
-							get = function()
-								return GroupDB(index).showBuffIndicator
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showBuffIndicator', val)
-							end,
-						},
-						showStealableBorder = {
-							name = L['Highlight stealable buffs'],
-							type = 'toggle',
-							order = 5,
-							get = function()
-								return GroupDB(index).showStealableBorder
-							end,
-							set = function(_, val)
-								SetGroup(index, 'showStealableBorder', val)
-							end,
-						},
-					},
-				},
-
-				text = {
-					name = L['Text'],
-					type = 'group',
-					order = 65,
-					inline = true,
-					args = {
-						durationHeader = {
-							name = L['Time left'],
-							type = 'header',
-							order = 1,
-						},
-						durationSize = {
-							name = L['Size'],
-							type = 'range',
-							order = 2,
-							min = 6,
-							max = 24,
-							step = 1,
-							get = function()
-								return GroupDB(index).durationText.size
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'durationText', 'size', val)
-							end,
-						},
-						durationOutline = {
-							name = L['Outline'],
-							type = 'select',
-							order = 3,
-							values = { NONE = L['None'], OUTLINE = L['Thin'], THICKOUTLINE = L['Thick'] },
-							get = function()
-								return GroupDB(index).durationText.outline
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'durationText', 'outline', val)
-							end,
-						},
-						durationAnchor = {
-							name = L['Position'],
-							type = 'select',
-							order = 4,
-							values = anchors,
-							get = function()
-								return GroupDB(index).durationText.anchor
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'durationText', 'anchor', val)
-							end,
-						},
-						durationColorByTime = {
-							name = L['Color by remaining time'],
-							type = 'toggle',
-							order = 5,
-							get = function()
-								return GroupDB(index).durationText.colorByTime
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'durationText', 'colorByTime', val)
-							end,
-						},
-						stackHeader = {
-							name = L['Stack count'],
-							type = 'header',
-							order = 10,
-						},
-						stackSize = {
-							name = L['Size'],
-							type = 'range',
-							order = 11,
-							min = 6,
-							max = 24,
-							step = 1,
-							get = function()
-								return GroupDB(index).stackText.size
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'stackText', 'size', val)
-							end,
-						},
-						stackOutline = {
-							name = L['Outline'],
-							type = 'select',
-							order = 12,
-							values = { NONE = L['None'], OUTLINE = L['Thin'], THICKOUTLINE = L['Thick'] },
-							get = function()
-								return GroupDB(index).stackText.outline
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'stackText', 'outline', val)
-							end,
-						},
-						stackAnchor = {
-							name = L['Position'],
-							type = 'select',
-							order = 13,
-							values = anchors,
-							get = function()
-								return GroupDB(index).stackText.anchor
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'stackText', 'anchor', val)
-							end,
-						},
-					},
-				},
-
-				expiring = {
-					name = L['Running out'],
-					type = 'group',
-					order = 70,
-					inline = true,
-					args = {
-						enabled = {
-							name = L['Color the timer as it runs out'],
-							type = 'toggle',
-							order = 1,
-							get = function()
-								return GroupDB(index).expiring.enabled
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'expiring', 'enabled', val)
-							end,
-						},
-						threshold = {
-							name = L['Start coloring at'],
-							desc = L['Seconds remaining when the timer starts changing color'],
-							type = 'range',
-							order = 2,
-							min = 1,
-							max = 30,
-							step = 1,
-							disabled = function()
-								return not GroupDB(index).expiring.enabled
-							end,
-							get = function()
-								return GroupDB(index).expiring.threshold
-							end,
-							set = function(_, val)
-								SetGroupSub(index, 'expiring', 'threshold', val)
-							end,
-						},
-						color = {
-							name = L['Color'],
-							type = 'color',
-							order = 3,
-							hasAlpha = false,
-							disabled = function()
-								return not GroupDB(index).expiring.enabled
-							end,
-							get = function()
-								local c = GroupDB(index).expiring.color
-								return c[1], c[2], c[3]
-							end,
-							set = function(_, r, g, b)
-								SetGroupSub(index, 'expiring', 'color', { r, g, b, 1 })
-							end,
-						},
-					},
-				},
-			},
-		}
 	end
 end
 
-----------------------------------------------------------------------------------------------------
--- Aura watchers
-----------------------------------------------------------------------------------------------------
+---Anchor an aura container to its unit frame and give it a starting size.
+---
+---`CreateAuras` only configures the flow layout, which decides how buttons
+---flow inside the container. The container is an ordinary child frame and
+---still needs a real anchor.
+---@param element table
+---@param frame table
+---@param DB table
+function Auras:PositionContainer(element, frame, DB)
+	local position = DB.position or {}
+	local anchor = position.anchor or 'TOPLEFT'
+	local elementName = element.elementName
 
----Show an indicator for as long as one aura matching a description is present.
----
----Addon code may not enumerate auras while they are secret - `ForEachAura` and
----`GetAuraDataByIndex` throw rather than returning nothing. An AuraSlot instead
----lets the engine find the aura and own the button that represents it, so the
----indicator appears and disappears with the aura and no addon code ever reads
----an aura property.
----
----`decorate` runs once per button, inside `initializeFrame`, which is the only
----window where native script calls such as SetPoint and SetSize are permitted
----on an aura button. Attach artwork to the button there and the engine handles
----the rest: when no aura matches, there is no button to show.
----
----@param frame table Unit frame to watch
----@param name string Unique name for this watcher on the frame
----@param filter string Aura filter string, e.g. 'HARMFUL|RAID_PLAYER_DISPELLABLE'
----@param candidateFilters? table Extra narrowing, e.g. includeDispelTypes
----@param decorate fun(button: table, watcher: table) Dress the button
+	local relativeTo = frame
+	if position.relativeTo and position.relativeTo ~= 'Frame' and frame[position.relativeTo] then
+		relativeTo = frame[position.relativeTo]
+	end
+
+	-- Level first: changing it after anchoring has been seen to drop the
+	-- container's points, which leaves it unanchored and its icons invisible.
+	if frame.raised and frame.raised.GetFrameLevel then
+		element:SetFrameLevel(frame.raised:GetFrameLevel() + 1)
+	end
+
+	element:ClearAllPoints()
+	element:SetPoint(anchor, relativeTo, position.relativePoint or anchor, position.x or 0, position.y or 0)
+
+	-- Where a row wraps is set on the flow layout when the container is built,
+	-- so re-apply it here or a width change would resize the container without
+	-- moving any icons.
+	local limit = self:GetLayoutLimit(DB, frame, elementName)
+	if element.SetFlowLayoutMaximumLineSize and limit then
+		element:SetFlowLayoutMaximumLineSize(limit)
+	end
+
+	-- Containers grow to fit their buttons but need a non-zero starting size,
+	-- and it has to match the width the flow layout wraps at: a container
+	-- narrower than the row it just laid out clips it back into a column.
+	local width = limit or DB.width
+	if not width then
+		local frameWidth = frame:GetWidth()
+		if frameWidth and SUI.BlizzAPI.canaccessvalue(frameWidth) and frameWidth > 0 then
+			width = frameWidth
+		end
+	end
+
+	-- Height covers every row this container can produce. An inherited height
+	-- is not a real choice for the same reason an inherited width is not.
+	local height = self:HasUserHeight(frame, elementName) and type(DB.height) == 'number' and DB.height > 0 and DB.height or nil
+	if not height then
+		local size = type(DB.size) == 'number' and DB.size or 24
+		local spacing = type(DB.spacing) == 'number' and DB.spacing or 2
+		local count = type(DB.number) == 'number' and DB.number or 10
+		local perRow = type(DB.perRow) == 'number' and DB.perRow or 0
+
+		local rows = 1
+		if perRow > 0 and count > perRow then
+			rows = math.ceil(count / perRow)
+		end
+
+		height = rows * (size + spacing)
+	end
+
+	element:SetSize(width or 100, height)
+end
+
+---@return table
+function Auras:ResolveEntry(DB, index)
+	local resolved = {}
+
+	for key, value in pairs(self.TRACKER_DEFAULTS) do
+		if type(value) == 'table' then
+			local copy = {}
+			for k, v in pairs(value) do
+				copy[k] = v
+			end
+			resolved[key] = copy
+		else
+			resolved[key] = value
+		end
+	end
+
+	local stored = type(DB) == 'table' and DB.entries and DB.entries[self:GetSlotKey(index)]
+	if stored then
+		for key, value in pairs(stored) do
+			local default = resolved[key]
+
+			if type(value) == 'table' and type(default) == 'table' then
+				for k, v in pairs(value) do
+					resolved[key][k] = v
+				end
+			elseif default == nil or type(value) == type(default) then
+				resolved[key] = value
+			end
+			-- A stored value whose type does not match the default is dropped.
+			-- The shared element defaults carry sub-tables (position, text)
+			-- that a profile merge can leave inside a group, and handing one to
+			-- the aura APIs errors: they expect numbers and strings.
+		end
+	end
+
+	return resolved
+end
+
+---@param element table
+function Auras:StyleTrackerButton(button, entry, element)
+	if not button then
+		return
+	end
+
+	local font = SUI.Font:GetFontObject(nil, type(entry.fontSize) == 'number' and entry.fontSize or 12, 'OUTLINE')
+
+	if button.Count and font then
+		button.Count:SetFontObject(font)
+	end
+	if button.Time and font then
+		button.Time:SetFontObject(font)
+	end
+end
+
+---@param frame table
+function Auras:ScheduleContainerStateSync(frame)
+	if frame.auraStatePending then
+		return
+	end
+	frame.auraStatePending = true
+
+	-- Next frame: after walkObject has enabled every element.
+	C_Timer.After(0, function()
+		frame.auraStatePending = nil
+		self:ApplyContainerEnabledStates(frame)
+	end)
+end
+
+---@param buildSettings fun(element: table, entry: table): table
+function Auras:AttachSlots(element, DB, buildSettings)
+	element.slotKeys = element.slotKeys or {}
+
+	for index = 1, self.MAX_TRACKER_SLOTS do
+		local entry = self:ResolveEntry(DB, index)
+		element.slotKeys[index] = element:AddSlot(self:GetEntryFilter(entry), buildSettings(element, entry))
+	end
+end
+
+---@param DB table
+function Auras:RefreshSlots(element, DB)
+	local frame = element.trackerOwner
+	if not frame then
+		return
+	end
+
+	for index = 1, self.MAX_TRACKER_SLOTS do
+		local key = element.slotKeys and element.slotKeys[index]
+		if key then
+			local entry = self:ResolveEntry(DB, index)
+			local spellID = entry.enabled and entry.spellId ~= '' and entry.spellId or 0
+
+			-- Slots and groups are separate registries with their own keys, so
+			-- the group APIs reject a slot key. Which spell a slot shows is
+			-- driven by its candidate filters rather than a filter string.
+			if element.SetAuraSlotCandidateFilters then
+				element:SetAuraSlotCandidateFilters(
+					key,
+					self:BuildCandidateFilters({
+						includeSpellIDs = spellID,
+					})
+				)
+			end
+
+			-- Slots auto-position relative to each other by default; anchoring
+			-- them explicitly is what makes per-spell placement possible.
+			-- The accessor name is unconfirmed, so try the slot form first and
+			-- fall back to the group one rather than assuming either exists.
+			local slot
+			if element.GetAuraSlotFrame then
+				slot = element:GetAuraSlotFrame(key)
+			elseif element.GetAuraGroupFrame then
+				slot = element:GetAuraGroupFrame(key)
+			end
+
+			if slot and slot.ClearAllPoints then
+				slot:ClearAllPoints()
+				local anchor = type(entry.anchor) == 'string' and entry.anchor or 'CENTER'
+				local offsetX = type(entry.x) == 'number' and entry.x or 0
+				local offsetY = type(entry.y) == 'number' and entry.y or 0
+				slot:SetPoint(anchor, frame, anchor, offsetX, offsetY)
+			end
+		end
+	end
+end
+
+---@return string
+function Auras:GetEntryFilter(entry)
+	if not entry.enabled or not entry.spellId or entry.spellId == '' then
+		-- Candidate spell ID 0 suppresses inactive slots. This remains a valid
+		-- base filter so the slot never relies on contradictory filter tokens.
+		return 'HELPFUL'
+	end
+
+	-- AddSlot requires a string, so a saved non-string is replaced rather than
+	-- passed through.
+	local filter = entry.filter
+	if type(filter) ~= 'string' or filter == '' then
+		filter = 'HELPFUL'
+	end
+
+	if entry.onlyMine then
+		filter = filter .. '|PLAYER'
+	end
+
+	return filter
+end
+
 ---@return table? watcher
 function Auras:CreateWatcher(frame, name, filter, candidateFilters, decorate)
 	if not self:HasNativeContainers() or not frame.CreateAuras then
@@ -1794,205 +1630,9 @@ function Auras:CreateWatcher(frame, name, filter, candidateFilters, decorate)
 	return watcher
 end
 
-----------------------------------------------------------------------------------------------------
--- Container placement and driving
-----------------------------------------------------------------------------------------------------
-
----Work out how long a row of icons may run before it wraps.
----
----This is a width in pixels, not a count. The flow layout wraps when the
----next icon would cross it, and nothing else limits a row, so it decides how
----many icons sit side by side.
----
----Priority: an explicit width, then icons-per-row translated into a width,
----then the unit frame's own width. Falling back to the total width of every
----icon in the group would put them all on one line, which reads as a single
----run of icons off the side of the frame.
----@param DB table
----@param frame? table Unit frame, used for the width fallback
----@return number?
----Whether the user has set a row width for this frame's aura container.
----
----The merged settings always carry a width, because every element inherits
----one from the shared element defaults. Only the sparse user table says
----whether it was actually chosen.
----@param frame? table
----@return boolean
-function Auras:HasUserWidth(frame)
-	local unitName = frame and frame.unitOnCreate
-	if not unitName or not UF.DB or not UF.DB.UserSettings then
-		return false
-	end
-
-	local preset = UF:GetPresetForFrame(unitName)
-	local settings = UF.DB.UserSettings[preset]
-	settings = settings and settings[unitName]
-	settings = settings and settings.elements
-	settings = settings and settings.AuraGroups
-
-	return type(settings) == 'table' and type(settings.width) == 'number'
-end
-
-function Auras:GetLayoutLimit(DB, frame)
-	local widest = 0
-
-	-- Saved settings can hold a non-number here: the shared element defaults
-	-- carry sub-tables (position, text) that a merge can leave in a group, so
-	-- every value is checked before it is used in arithmetic.
-	local function number(value, fallback)
-		return type(value) == 'number' and value or fallback
-	end
-
-	-- A width the user set is them saying where the row ends, so it wins over
-	-- the width the icons would otherwise ask for.
-	--
-	-- It has to be the user's own value, not the merged one: every element
-	-- inherits width/height from the shared element defaults, where they mean
-	-- the size of a single widget (20x20). A container reads width as the
-	-- wrap point instead, and 20px is about one icon, so the inherited default
-	-- would wrap after every icon and stack them into a column. The sparse
-	-- user settings only hold what was actually chosen, so ask them.
-	if self:HasUserWidth(frame) and type(DB.width) == 'number' and DB.width > 0 then
-		return DB.width
-	end
-
-	-- Icons per row is the setting people reach for: it is the count they can
-	-- see, so it is translated into the width that fits exactly that many.
-	for index = 1, self.MAX_GROUPS do
-		local group = self:ResolveGroup(DB, index)
-		if group.enabled then
-			local perRow = number(group.perRow, 0)
-			if perRow > 0 then
-				local rowWidth = perRow * (number(group.size, 24) + number(group.spacing, 2))
-				if rowWidth > widest then
-					widest = rowWidth
-				end
-			end
-		end
-	end
-
-	if widest > 0 then
-		return widest
-	end
-
-	-- Otherwise wrap at the frame's width, which keeps the icons over the
-	-- frame they belong to.
-	if frame and frame.GetWidth then
-		local frameWidth = frame:GetWidth()
-		if frameWidth and SUI.BlizzAPI.canaccessvalue(frameWidth) and frameWidth > 0 then
-			return frameWidth
-		end
-	end
-end
-
----Anchor an aura container to its unit frame.
----
----`CreateAuras` only configures the flow layout, which decides how buttons
----flow inside the container. The container is an ordinary child frame and
----still needs a real anchor, and elements that own their layout opt out of
----SpartanUI's generic positioning pass.
----@param element table
----@param frame table
----@param DB table
-function Auras:PositionContainer(element, frame, DB)
-	local position = DB.position or {}
-	local anchor = position.anchor or 'TOPLEFT'
-
-	local relativeTo = frame
-	if position.relativeTo and position.relativeTo ~= 'Frame' and frame[position.relativeTo] then
-		relativeTo = frame[position.relativeTo]
-	end
-
-	-- Level first: changing it after anchoring has been seen to drop the
-	-- container's points, which leaves it unanchored and its icons invisible.
-	-- CreateAuras parents the container to the frame itself, so without this
-	-- the icons draw underneath artwork overlays. The old buff element parented
-	-- to frame.raised for the same reason.
-	if frame.raised and frame.raised.GetFrameLevel then
-		element:SetFrameLevel(frame.raised:GetFrameLevel() + 1)
-	end
-
-	element:ClearAllPoints()
-	element:SetPoint(anchor, relativeTo, position.relativePoint or anchor, position.x or 0, position.y or 0)
-
-	-- Where a row wraps is set on the flow layout when the container is built,
-	-- so re-apply it here or a width change would resize the container without
-	-- moving any icons.
-	local limit = DB.layoutLimit or self:GetLayoutLimit(DB, frame)
-	if element.SetFlowLayoutMaximumLineSize and limit then
-		element:SetFlowLayoutMaximumLineSize(limit)
-	end
-
-	-- Containers grow to fit their buttons, but need a non-zero starting size.
-	-- This has to be the same width the flow layout wraps at: a container
-	-- narrower than the wrap point clips the row it just laid out, which shows
-	-- as icons stacking into a single column no matter what is configured.
-	local width = limit or DB.width
-	if not width then
-		-- GetWidth returns 0 rather than nil on a realized frame, and can be a
-		-- secret value if the frame carries secret anchors, so it is only
-		-- compared once it is known to be readable.
-		local frameWidth = frame:GetWidth()
-		if frameWidth and SUI.BlizzAPI.canaccessvalue(frameWidth) and frameWidth > 0 then
-			width = frameWidth
-		end
-	end
-
-	-- A container one pixel tall clips its own buttons. Height is taken from
-	-- the tallest enabled group so there is room for a row of icons before the
-	-- container resizes itself around them.
-	local height = DB.height
-	if type(height) ~= 'number' or height <= 0 then
-		height = 0
-		for index = 1, self.MAX_GROUPS do
-			local group = self:ResolveGroup(DB, index)
-			if group.enabled then
-				local rowHeight = (type(group.size) == 'number' and group.size or 24) + (type(group.spacing) == 'number' and group.spacing or 2)
-				if rowHeight > height then
-					height = rowHeight
-				end
-			end
-		end
-
-		if height <= 0 then
-			height = 26
-		end
-	end
-
-	element:SetSize(width or 100, height)
-end
-
----Settle each aura element's enabled state once oUF has finished building.
----
----oUF's own 'Auras' meta element is what pushes the unit into every container
----on a frame, and oUF enables it automatically for every frame it builds
----(walkObject enables every registered element right after the style function
----runs). So there is nothing to enable here.
----
----What does need handling: that automatic pass calls SetEnabled(true) on
----*every* container, which would switch on a display the user turned off. The
----elements build during the style function, before oUF's enable pass, so the
----correction is deferred to the end of the frame's build.
----@param frame table
-function Auras:ScheduleContainerStateSync(frame)
-	if frame.auraStatePending then
-		return
-	end
-	frame.auraStatePending = true
-
-	-- Next frame: after walkObject has enabled every element.
-	C_Timer.After(0, function()
-		frame.auraStatePending = nil
-		self:ApplyContainerEnabledStates(frame)
-	end)
-end
-
----Re-apply each aura element's own enabled setting.
----oUF's meta element enables all containers on the frame at once, which would
----otherwise switch on a container the user turned off.
 ---@param frame table
 function Auras:ApplyContainerEnabledStates(frame)
-	for _, name in ipairs({ 'AuraGroups', 'AuraTracker' }) do
+	for _, name in ipairs({ 'BuffContainer', 'DebuffContainer', 'CustomAuras', 'AuraTracker' }) do
 		local element = frame[name]
 		if element and element.SetEnabled then
 			local db = element.DB
@@ -2001,167 +1641,338 @@ function Auras:ApplyContainerEnabledStates(frame)
 	end
 end
 
-----------------------------------------------------------------------------------------------------
--- Tracker slots
-----------------------------------------------------------------------------------------------------
-
----Read a tracked spell's settings with defaults applied.
----@param DB table
----@param index number|string
----@return table
-function Auras:ResolveEntry(DB, index)
-	local resolved = {}
-
-	for key, value in pairs(self.TRACKER_DEFAULTS) do
-		if type(value) == 'table' then
-			local copy = {}
-			for k, v in pairs(value) do
-				copy[k] = v
-			end
-			resolved[key] = copy
-		else
-			resolved[key] = value
-		end
-	end
-
-	local stored = type(DB) == 'table' and DB.entries and DB.entries[self:GetSlotKey(index)]
-	if stored then
-		for key, value in pairs(stored) do
-			local default = resolved[key]
-
-			if type(value) == 'table' and type(default) == 'table' then
-				for k, v in pairs(value) do
-					resolved[key][k] = v
-				end
-			elseif default == nil or type(value) == type(default) then
-				resolved[key] = value
-			end
-			-- A stored value whose type does not match the default is dropped.
-			-- The shared element defaults carry sub-tables (position, text)
-			-- that a profile merge can leave inside a group, and handing one to
-			-- the aura APIs errors: they expect numbers and strings.
-		end
-	end
-
-	return resolved
-end
-
----The filter string for a tracked spell.
----A slot with no spell ID gets a filter that matches nothing, so an unused
----slot stays empty instead of showing an arbitrary aura.
----@param entry table
----@return string
-function Auras:GetEntryFilter(entry)
-	if not entry.enabled or not entry.spellId or entry.spellId == '' then
-		return 'HELPFUL|HARMFUL'
-	end
-
-	-- AddSlot requires a string, so a saved non-string is replaced rather than
-	-- passed through.
-	local filter = entry.filter
-	if type(filter) ~= 'string' or filter == '' then
-		filter = 'HELPFUL'
-	end
-
-	if entry.onlyMine then
-		filter = filter .. '|PLAYER'
-	end
-
-	return filter
-end
-
----Create every tracker slot up front.
----Slots share the additive-only limitation of groups, so they are all built
----now and repointed later rather than being created on demand.
----@param element table
----@param DB table
----@param buildSettings fun(element: table, entry: table): table
-function Auras:AttachSlots(element, DB, buildSettings)
-	element.slotKeys = element.slotKeys or {}
-
-	for index = 1, self.MAX_TRACKER_SLOTS do
-		local entry = self:ResolveEntry(DB, index)
-		element.slotKeys[index] = element:AddSlot(self:GetEntryFilter(entry), buildSettings(element, entry))
-	end
-end
-
----Repoint existing slots at the current settings and reposition them.
----@param element table
----@param DB table
-function Auras:RefreshSlots(element, DB)
-	local frame = element.trackerOwner
-	if not frame then
-		return
-	end
-
-	for index = 1, self.MAX_TRACKER_SLOTS do
-		local key = element.slotKeys and element.slotKeys[index]
-		if key then
-			local entry = self:ResolveEntry(DB, index)
-
-			-- Slots and groups are separate registries with their own keys, so
-			-- the group APIs reject a slot key. Which spell a slot shows is
-			-- driven by its candidate filters rather than a filter string.
-			if element.SetAuraSlotCandidateFilters then
-				element:SetAuraSlotCandidateFilters(
-					key,
-					self:BuildCandidateFilters({
-						includeSpellIDs = entry.enabled and entry.spellId or nil,
-					})
-				)
-			end
-
-			-- Slots auto-position relative to each other by default; anchoring
-			-- them explicitly is what makes per-spell placement possible.
-			-- The accessor name is unconfirmed, so try the slot form first and
-			-- fall back to the group one rather than assuming either exists.
-			local slot
-			if element.GetAuraSlotFrame then
-				slot = element:GetAuraSlotFrame(key)
-			elseif element.GetAuraGroupFrame then
-				slot = element:GetAuraGroupFrame(key)
-			end
-
-			if slot and slot.ClearAllPoints then
-				slot:ClearAllPoints()
-				local anchor = type(entry.anchor) == 'string' and entry.anchor or 'CENTER'
-				local offsetX = type(entry.x) == 'number' and entry.x or 0
-				local offsetY = type(entry.y) == 'number' and entry.y or 0
-				slot:SetPoint(anchor, frame, anchor, offsetX, offsetY)
-			end
-		end
-	end
-end
-
----Style a tracker button. Runs inside initializeFrame, the only window where
----native script methods are allowed on an aura button.
----@param button table
----@param entry table
----@param element table
-function Auras:StyleTrackerButton(button, entry, element)
-	if not button then
-		return
-	end
-
-	local font = SUI.Font:GetFontObject(nil, type(entry.fontSize) == 'number' and entry.fontSize or 12, 'OUTLINE')
-
-	if button.Count and font then
-		button.Count:SetFontObject(font)
-	end
-	if button.Time and font then
-		button.Time:SetFontObject(font)
-	end
-end
-
-----------------------------------------------------------------------------------------------------
--- Groups
-----------------------------------------------------------------------------------------------------
-
----Build the per-spell tracker options tree.
+---Build the options for one aura container.
+---
+---A container's settings are flat - it is one filter with one look - so this
+---is a single page rather than the nested per-group tree the shared container
+---needed.
 ---@param unitName string
 ---@param OptionSet AceConfig.OptionsTable
----@param maxSlots number
+---@param elementName string
+---@param displayName string
+function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayName)
+	-- These containers only exist on Retail. Building their options anywhere
+	-- else adds a full page per frame for an element that can never draw,
+	-- which is real work for the options validator and shows the user
+	-- settings that do nothing.
+	if not self:HasNativeContainers() then
+		return
+	end
+
+	local function DB()
+		return UF.CurrentSettings[unitName].elements[elementName] or {}
+	end
+
+	local function Set(key, val)
+		local preset = UF:GetPresetForFrame(unitName)
+		UF.DB.UserSettings[preset][unitName].elements[elementName][key] = val
+		UF.CurrentSettings[unitName].elements[elementName][key] = val
+
+		-- The frame may not be spawned (disabled frame, arena out of arena).
+		if UF.Unit[unitName] then
+			UF.Unit[unitName]:ElementUpdate(elementName)
+		end
+	end
+
+	---Write one key inside a nested table, such as `tokens` or `durationText`.
+	local function SetSub(key, subKey, val)
+		local preset = UF:GetPresetForFrame(unitName)
+		local stored = UF.DB.UserSettings[preset][unitName].elements[elementName]
+		stored[key] = stored[key] or {}
+		stored[key][subKey] = val
+
+		local current = UF.CurrentSettings[unitName].elements[elementName]
+		current[key] = current[key] or {}
+		current[key][subKey] = val
+
+		if UF.Unit[unitName] then
+			UF.Unit[unitName]:ElementUpdate(elementName)
+		end
+	end
+
+	local function SubDB(key)
+		local db = DB()
+		return type(db[key]) == 'table' and db[key] or {}
+	end
+
+	OptionSet.args.display = {
+		name = L['Display'],
+		type = 'group',
+		order = 10,
+		inline = true,
+		args = {
+			number = {
+				name = L['Max icons'],
+				type = 'range',
+				order = 1,
+				min = 1,
+				max = 40,
+				step = 1,
+				get = function()
+					return DB().number or 16
+				end,
+				set = function(_, val)
+					Set('number', val)
+				end,
+			},
+			perRow = {
+				name = L['Icons per row'],
+				desc = L['How many icons sit side by side before starting a new row. Leave at 0 to fit as many as the frame is wide.'],
+				type = 'range',
+				order = 2,
+				min = 0,
+				max = 40,
+				step = 1,
+				get = function()
+					return DB().perRow or 0
+				end,
+				set = function(_, val)
+					Set('perRow', val)
+				end,
+			},
+			size = {
+				name = L['Icon size'],
+				type = 'range',
+				order = 3,
+				min = 8,
+				max = 64,
+				step = 1,
+				get = function()
+					return DB().size or 24
+				end,
+				set = function(_, val)
+					Set('size', val)
+				end,
+			},
+			spacing = {
+				name = L['Spacing'],
+				type = 'range',
+				order = 4,
+				min = 0,
+				max = 20,
+				step = 1,
+				get = function()
+					return DB().spacing or 2
+				end,
+				set = function(_, val)
+					Set('spacing', val)
+				end,
+			},
+			growthx = {
+				name = L['Grow sideways'],
+				desc = L['Which way new icons are added across a row'],
+				type = 'select',
+				order = 5,
+				values = {
+					RIGHT = L['Right'],
+					LEFT = L['Left'],
+				},
+				get = function()
+					return DB().growthx or 'RIGHT'
+				end,
+				set = function(_, val)
+					Set('growthx', val)
+				end,
+			},
+			growthy = {
+				name = L['Grow up or down'],
+				desc = L['Which way new rows are added'],
+				type = 'select',
+				order = 6,
+				values = {
+					UP = L['Up'],
+					DOWN = L['Down'],
+				},
+				get = function()
+					return DB().growthy or 'UP'
+				end,
+				set = function(_, val)
+					Set('growthy', val)
+				end,
+			},
+			clickThrough = {
+				name = L['Click through'],
+				desc = L['Stop these icons taking mouse clicks'],
+				type = 'toggle',
+				order = 7,
+				get = function()
+					return DB().clickThrough
+				end,
+				set = function(_, val)
+					Set('clickThrough', val)
+				end,
+			},
+		},
+	}
+
+	OptionSet.args.filtering = {
+		name = L['What to show'],
+		type = 'group',
+		order = 20,
+		inline = true,
+		args = {
+			filterMode = {
+				name = L['Show'],
+				desc = L['Which auras belong in this container'],
+				type = 'select',
+				order = 1,
+				values = function()
+					return Auras:GetFilterSelectValues()
+				end,
+				get = function()
+					return DB().filterMode
+				end,
+				set = function(_, val)
+					Set('filterMode', val)
+				end,
+			},
+			showOthers = {
+				name = L['Include auras from others'],
+				desc = L['Show auras cast by other players as well as your own'],
+				type = 'toggle',
+				order = 2,
+				get = function()
+					return DB().showOthers ~= false
+				end,
+				set = function(_, val)
+					Set('showOthers', val)
+				end,
+			},
+			customFilter = {
+				name = L['Custom filter'],
+				desc = L['Advanced: a filter string used exactly as written, replacing the choice above'],
+				type = 'input',
+				order = 3,
+				width = 'full',
+				get = function()
+					return DB().customFilter or ''
+				end,
+				set = function(_, val)
+					Set('customFilter', val)
+				end,
+			},
+			includeSpellIDs = {
+				name = L['Always show these spell IDs'],
+				type = 'input',
+				order = 4,
+				width = 'full',
+				get = function()
+					return DB().includeSpellIDs or ''
+				end,
+				set = function(_, val)
+					Set('includeSpellIDs', val)
+				end,
+			},
+			excludeSpellIDs = {
+				name = L['Never show these spell IDs'],
+				type = 'input',
+				order = 5,
+				width = 'full',
+				get = function()
+					return DB().excludeSpellIDs or ''
+				end,
+				set = function(_, val)
+					Set('excludeSpellIDs', val)
+				end,
+			},
+			maxDuration = {
+				name = L['Longest duration to show'],
+				type = 'range',
+				order = 6,
+				min = 0,
+				max = 3600,
+				step = 1,
+				get = function()
+					return DB().maxDuration or 0
+				end,
+				set = function(_, val)
+					Set('maxDuration', val)
+				end,
+			},
+		},
+	}
+
+	-- Optional filter tokens. Each one narrows what the container shows, and
+	-- they apply on top of the choice above.
+	local tokenOptions = {}
+	local tokenList = {
+		{ key = 'raid', name = L['Important raid auras'], order = 1 },
+		{ key = 'raidInCombat', name = L['Active in combat'], order = 2 },
+		{ key = 'dispellable', name = L['Only what you can dispel'], order = 3 },
+		{ key = 'crowdControl', name = L['Crowd control'], order = 4 },
+		{ key = 'bigDefensive', name = L['Major defensives'], order = 5 },
+		{ key = 'externalDefensive', name = L['Defensives cast on the unit'], order = 6 },
+		{ key = 'cancelable', name = L['Auras you can cancel'], order = 7 },
+	}
+
+	for _, token in ipairs(tokenList) do
+		tokenOptions[token.key] = {
+			name = token.name,
+			type = 'toggle',
+			order = token.order,
+			get = function()
+				return SubDB('tokens')[token.key] == true
+			end,
+			set = function(_, val)
+				SetSub('tokens', token.key, val or nil)
+			end,
+		}
+	end
+
+	OptionSet.args.tokens = {
+		name = L['Narrow it down'],
+		desc = L['Extra conditions an aura must also meet'],
+		type = 'group',
+		order = 30,
+		inline = true,
+		args = tokenOptions,
+	}
+
+	OptionSet.args.sorting = {
+		name = L['Sorting'],
+		type = 'group',
+		order = 40,
+		inline = true,
+		args = {
+			sortMethod = {
+				name = L['Sort by'],
+				type = 'select',
+				order = 1,
+				values = function()
+					return Auras:GetSortMethodValues()
+				end,
+				get = function()
+					return DB().sortMethod
+				end,
+				set = function(_, val)
+					Set('sortMethod', val)
+				end,
+			},
+			sortDirection = {
+				name = L['Sort direction'],
+				type = 'select',
+				order = 2,
+				values = {
+					normal = L['Normal'],
+					reversed = L['Reversed'],
+				},
+				get = function()
+					return DB().sortDirection
+				end,
+				set = function(_, val)
+					Set('sortDirection', val)
+				end,
+			},
+		},
+	}
+end
+
 function Auras:BuildTrackerOptions(unitName, OptionSet, maxSlots)
+	-- Slots only exist on Retail; see the note in BuildContainerOptions.
+	if not self:HasNativeContainers() then
+		return
+	end
+
 	local function EntryDB(index)
 		return Auras:ResolveEntry(UF.CurrentSettings[unitName].elements.AuraTracker, index)
 	end
@@ -2356,6 +2167,14 @@ end
 ---@param DB table
 ---@param buildOptions fun(element: table, groupDB: table): table
 function Auras:AttachGroups(element, DB, buildOptions)
+	-- Groups cannot be removed, so attaching twice leaves the first set live
+	-- and drawing its own copy of every aura. Whoever calls this again just
+	-- wants the current settings applied.
+	if element.groupKeys and next(element.groupKeys) then
+		self:RepointGroups(element.__owner, element, DB)
+		return
+	end
+
 	element.groupKeys = element.groupKeys or {}
 
 	-- Every slot is created now, including the ones currently switched off.
@@ -2363,7 +2182,11 @@ function Auras:AttachGroups(element, DB, buildOptions)
 	-- appear without leaking a container is to have built it up front.
 	for index = 1, self.MAX_GROUPS do
 		local group = self:ResolveGroup(DB, index)
-		element.groupKeys[index] = element:AddGroup(self:GetGroupFilter(group), buildOptions(element, group, index))
+		local options = buildOptions(element, group, index)
+		if not group.enabled then
+			options.maxFrameCount = 0
+		end
+		element.groupKeys[index] = element:AddGroup(self:GetGroupFilter(group), options)
 	end
 
 	element.groupSignature = self:GetGroupSignature(DB)

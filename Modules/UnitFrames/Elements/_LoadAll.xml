@@ -4,7 +4,10 @@
 	<Script file="AdditionalPower.lua"/>
 	<Script file="AssistantIndicator.lua"/>
 	<Script file="AuraBars.lua"/>
-	<Script file="Auras.lua"/>
+	<Script file="AuraContainer.lua"/>
+	<Script file="Buffs.Retail.lua"/>
+	<Script file="Debuffs.Retail.lua"/>
+	<Script file="CustomAuras.lua"/>
 	<Script file="AuraTracker.lua"/>
 	<Script file="AuraWatch.lua"/>
 	<Script file="Buffs.lua"/>

@@ -13,7 +13,9 @@ local function Builder(frame)
 	UF.Elements:Build(frame, 'Dispel', elementDB['Dispel'])
 	UF.Elements:Build(frame, 'SpartanArt', elementDB['SpartanArt'])
 	if SUI.IsRetail then
-		UF.Elements:Build(frame, 'AuraGroups', elementDB['AuraGroups'])
+		UF.Elements:Build(frame, 'BuffContainer', elementDB['BuffContainer'])
+		UF.Elements:Build(frame, 'DebuffContainer', elementDB['DebuffContainer'])
+		UF.Elements:Build(frame, 'CustomAuras', elementDB['CustomAuras'])
 	else
 		UF.Elements:Build(frame, 'Buffs', elementDB['Buffs'])
 		UF.Elements:Build(frame, 'Debuffs', elementDB['Debuffs'])
@@ -71,7 +73,7 @@ local Settings = {
 		AuraBars = {
 			enabled = true,
 		},
-		AuraGroups = {
+		BuffContainer = {
 			enabled = true,
 			position = {
 				anchor = 'TOPRIGHT',
@@ -81,26 +83,26 @@ local Settings = {
 			},
 			growthx = 'LEFT',
 			growthy = 'DOWN',
-			groups = {
-				slot1 = {
-					enabled = true,
-					name = 'Buffs',
-					filterMode = 'healing_mode',
-					number = 16,
-					size = 22,
-					spacing = 1,
-				},
-				slot2 = {
-					enabled = true,
-					name = 'Debuffs',
-					filterMode = 'player_debuffs',
-					number = 16,
-					size = 26,
-					spacing = 1,
-					showDebuffBorder = true,
-					forceNewLine = true,
-				},
+			filterMode = 'healing_mode',
+			number = 16,
+			size = 22,
+			spacing = 1,
+		},
+		DebuffContainer = {
+			enabled = true,
+			position = {
+				anchor = 'TOPRIGHT',
+				relativeTo = 'Frame',
+				x = 0,
+				y = -2,
 			},
+			growthx = 'LEFT',
+			growthy = 'DOWN',
+			filterMode = 'player_debuffs',
+			number = 16,
+			size = 26,
+			spacing = 1,
+			showDebuffBorder = true,
 		},
 		Buffs = {
 			enabled = true,

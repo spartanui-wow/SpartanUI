@@ -13,7 +13,9 @@ local elementList = {
 	'SpartanArt',
 	not SUI.IsRetail and 'Buffs',
 	not SUI.IsRetail and 'Debuffs',
-	SUI.IsRetail and 'AuraGroups',
+	SUI.IsRetail and 'BuffContainer',
+	SUI.IsRetail and 'DebuffContainer',
+	SUI.IsRetail and 'CustomAuras',
 	'ClassIcon',
 	'RaidTargetIndicator',
 	'TargetIndicator',
@@ -1107,7 +1109,7 @@ local tierOverrides = {
 		unitsPerColumn = 5,
 		columnSpacing = 2,
 		elements = {
-			AuraGroups = {
+			BuffContainer = {
 				enabled = true,
 				position = {
 					anchor = 'BOTTOMRIGHT',
@@ -1117,27 +1119,27 @@ local tierOverrides = {
 				},
 				growthx = 'RIGHT',
 				growthy = 'UP',
-				groups = {
-					slot1 = {
-						enabled = true,
-						name = 'HoTs',
-						filterMode = 'healing_mode',
-						onlyMine = true,
-						number = 5,
-						size = 18,
-						spacing = 1,
-					},
-					slot2 = {
-						enabled = true,
-						name = 'Raid debuffs',
-						filterMode = 'raid_debuffs',
-						number = 5,
-						size = 18,
-						spacing = 1,
-						showDebuffBorder = true,
-						forceNewLine = true,
-					},
+				filterMode = 'healing_mode',
+				onlyMine = true,
+				number = 5,
+				size = 18,
+				spacing = 1,
+			},
+			DebuffContainer = {
+				enabled = true,
+				position = {
+					anchor = 'BOTTOMRIGHT',
+					relativeTo = 'Frame',
+					x = 0,
+					y = 2,
 				},
+				growthx = 'RIGHT',
+				growthy = 'UP',
+				filterMode = 'raid_debuffs',
+				number = 5,
+				size = 18,
+				spacing = 1,
+				showDebuffBorder = true,
 			},
 			Buffs = {
 				enabled = true,
@@ -1205,7 +1207,7 @@ local tierOverrides = {
 		unitsPerColumn = 5,
 		columnSpacing = 2,
 		elements = {
-			AuraGroups = {
+			BuffContainer = {
 				enabled = true,
 				position = {
 					anchor = 'BOTTOMRIGHT',
@@ -1215,27 +1217,27 @@ local tierOverrides = {
 				},
 				growthx = 'RIGHT',
 				growthy = 'UP',
-				groups = {
-					slot1 = {
-						enabled = true,
-						name = 'HoTs',
-						filterMode = 'healing_mode',
-						onlyMine = true,
-						number = 5,
-						size = 18,
-						spacing = 1,
-					},
-					slot2 = {
-						enabled = true,
-						name = 'Raid debuffs',
-						filterMode = 'raid_debuffs',
-						number = 5,
-						size = 18,
-						spacing = 1,
-						showDebuffBorder = true,
-						forceNewLine = true,
-					},
+				filterMode = 'healing_mode',
+				onlyMine = true,
+				number = 5,
+				size = 18,
+				spacing = 1,
+			},
+			DebuffContainer = {
+				enabled = true,
+				position = {
+					anchor = 'BOTTOMRIGHT',
+					relativeTo = 'Frame',
+					x = 0,
+					y = 2,
 				},
+				growthx = 'RIGHT',
+				growthy = 'UP',
+				filterMode = 'raid_debuffs',
+				number = 5,
+				size = 18,
+				spacing = 1,
+				showDebuffBorder = true,
 			},
 			Buffs = {
 				enabled = true,
@@ -1303,7 +1305,7 @@ local tierOverrides = {
 		unitsPerColumn = 10,
 		columnSpacing = 2,
 		elements = {
-			AuraGroups = {
+			BuffContainer = {
 				enabled = true,
 				position = {
 					anchor = 'BOTTOMRIGHT',
@@ -1313,27 +1315,27 @@ local tierOverrides = {
 				},
 				growthx = 'RIGHT',
 				growthy = 'UP',
-				groups = {
-					slot1 = {
-						enabled = true,
-						name = 'HoTs',
-						filterMode = 'healing_mode',
-						onlyMine = true,
-						number = 5,
-						size = 18,
-						spacing = 1,
-					},
-					slot2 = {
-						enabled = true,
-						name = 'Raid debuffs',
-						filterMode = 'raid_debuffs',
-						number = 5,
-						size = 18,
-						spacing = 1,
-						showDebuffBorder = true,
-						forceNewLine = true,
-					},
+				filterMode = 'healing_mode',
+				onlyMine = true,
+				number = 5,
+				size = 18,
+				spacing = 1,
+			},
+			DebuffContainer = {
+				enabled = true,
+				position = {
+					anchor = 'BOTTOMRIGHT',
+					relativeTo = 'Frame',
+					x = 0,
+					y = 2,
 				},
+				growthx = 'RIGHT',
+				growthy = 'UP',
+				filterMode = 'raid_debuffs',
+				number = 5,
+				size = 18,
+				spacing = 1,
+				showDebuffBorder = true,
 			},
 			Buffs = {
 				enabled = true,

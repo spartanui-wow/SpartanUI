@@ -4,7 +4,8 @@ local L = SUI.L
 
 -- Per-spell aura tracking for Retail 12.1+.
 --
--- Where AuraGroups answers "what is on this unit", this answers "is this
+-- Where the buff and debuff containers answer "what is on this unit", this
+-- answers "is this
 -- specific thing up, and where do I want to see it". Each tracked spell gets
 -- an AuraSlot: a group capped at one aura, which unlike a group can be
 -- anchored wherever the user wants.
@@ -28,7 +29,7 @@ local function BuildSlotSettings(element, entry)
 		-- The spell ID list is what pins this slot to one aura. Built through
 		-- the shared filter builder so every aura display filters alike.
 		candidateFilters = UF.Auras:BuildCandidateFilters({
-			includeSpellIDs = entry.spellId,
+			includeSpellIDs = entry.enabled and entry.spellId ~= '' and entry.spellId or 0,
 		}),
 
 		showCount = entry.showStacks ~= false,

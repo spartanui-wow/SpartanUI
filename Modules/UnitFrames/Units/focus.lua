@@ -10,7 +10,9 @@ local elementList = {
 	'SpartanArt',
 	not SUI.IsRetail and 'Buffs',
 	not SUI.IsRetail and 'Debuffs',
-	SUI.IsRetail and 'AuraGroups',
+	SUI.IsRetail and 'BuffContainer',
+	SUI.IsRetail and 'DebuffContainer',
+	SUI.IsRetail and 'CustomAuras',
 	'RaidTargetIndicator',
 	'Range',
 	'Fader',
@@ -35,19 +37,13 @@ local function Options() end
 local Settings = {
 	width = 100,
 	elements = {
-		AuraGroups = {
+		BuffContainer = {
+			enabled = false,
+		},
+		DebuffContainer = {
 			enabled = true,
-			groups = {
-				slot1 = {
-					enabled = false,
-				},
-				slot2 = {
-					enabled = true,
-					name = 'Debuffs',
-					filterMode = 'player_debuffs',
-					showDebuffBorder = true,
-				},
-			},
+			filterMode = 'player_debuffs',
+			showDebuffBorder = true,
 		},
 		Debuffs = {
 			enabled = true,

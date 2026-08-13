@@ -14,7 +14,9 @@ local function Builder(frame)
 		'SpartanArt',
 		not SUI.IsRetail and 'Buffs',
 		not SUI.IsRetail and 'Debuffs',
-		SUI.IsRetail and 'AuraGroups',
+		SUI.IsRetail and 'BuffContainer',
+		SUI.IsRetail and 'DebuffContainer',
+		SUI.IsRetail and 'CustomAuras',
 		'ClassIcon',
 		'RaidTargetIndicator',
 		'ThreatIndicator',
@@ -106,7 +108,7 @@ local Settings = {
 		AuraBars = {
 			enabled = true,
 		},
-		AuraGroups = {
+		BuffContainer = {
 			enabled = true,
 			position = {
 				anchor = 'TOPLEFT',
@@ -116,26 +118,26 @@ local Settings = {
 			},
 			growthx = 'RIGHT',
 			growthy = 'DOWN',
-			groups = {
-				slot1 = {
-					enabled = true,
-					name = 'Buffs',
-					filterMode = 'all_buffs',
-					number = 32,
-					size = 24,
-					spacing = 2,
-				},
-				slot2 = {
-					enabled = true,
-					name = 'Debuffs',
-					filterMode = 'all_debuffs',
-					number = 16,
-					size = 28,
-					spacing = 2,
-					showDebuffBorder = true,
-					forceNewLine = true,
-				},
+			filterMode = 'all_buffs',
+			number = 32,
+			size = 24,
+			spacing = 2,
+		},
+		DebuffContainer = {
+			enabled = true,
+			position = {
+				anchor = 'TOPLEFT',
+				relativeTo = 'Frame',
+				x = 0,
+				y = -2,
 			},
+			growthx = 'RIGHT',
+			growthy = 'DOWN',
+			filterMode = 'all_debuffs',
+			number = 16,
+			size = 28,
+			spacing = 2,
+			showDebuffBorder = true,
 		},
 		Buffs = {
 			enabled = true,

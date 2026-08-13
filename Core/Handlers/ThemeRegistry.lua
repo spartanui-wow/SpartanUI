@@ -51,85 +51,59 @@ end
 -- ============================================================
 -- Internal: Translate a theme's aura layout for Retail
 -- ============================================================
--- Themes describe their aura layout as Buffs/Debuffs frame configs. Retail
--- 12.1 replaced those elements with a single AuraGroups container, so without
--- this every theme would fall back to the bare defaults and lose its intended
--- icon sizes, counts, growth and placement.
+-- Themes describe their aura layout as Buffs/Debuffs/RaidDebuffs frame
+-- configs. Those elements are Classic-only now, so without this every theme
+-- would fall back to the bare defaults on Retail and lose its intended icon
+-- sizes, counts, growth and placement.
 --
--- Buffs become group 1 and debuffs group 2, matching the order the user
--- settings migration uses. A theme that defines AuraGroups itself is left
--- alone, so a future theme can opt out by describing groups directly.
+-- Each one maps to its own container, so a theme keeps buffs above the frame
+-- growing up while debuffs sit below growing down - which is what it always
+-- described. A theme that defines the containers itself is left alone.
 ---@param frames table<string, table>
 local function TranslateThemeAuras(frames)
+	local mapping = {
+		{ source = 'Buffs', target = 'BuffContainer' },
+		{ source = 'Debuffs', target = 'DebuffContainer' },
+		-- RaidDebuffs has no direct equivalent; it becomes the custom
+		-- container with a raid filter.
+		{ source = 'RaidDebuffs', target = 'CustomAuras', filterMode = 'raid_debuffs' },
+	}
+
 	for _, frameConfig in pairs(frames) do
 		local elements = type(frameConfig) == 'table' and frameConfig.elements
 
-		if type(elements) == 'table' and not elements.AuraGroups then
-			local buffs = type(elements.Buffs) == 'table' and elements.Buffs or nil
-			local debuffs = type(elements.Debuffs) == 'table' and elements.Debuffs or nil
-			-- RaidDebuffs is a Classic-only element now, so a theme's raid
-			-- debuff layout has to become a third group or it is lost.
-			local raidDebuffs = type(elements.RaidDebuffs) == 'table' and elements.RaidDebuffs or nil
+		if type(elements) == 'table' then
+			for _, entry in ipairs(mapping) do
+				local source = type(elements[entry.source]) == 'table' and elements[entry.source] or nil
 
-			if buffs or debuffs or raidDebuffs then
-				local target = { groups = {} }
+				if source and not elements[entry.target] then
+					local target = {}
 
-				for _, entry in ipairs({
-					{ source = buffs, key = 'slot1' },
-					{ source = debuffs, key = 'slot2' },
-					{ source = raidDebuffs, key = 'slot3', filterMode = 'raid_debuffs' },
-				}) do
-					local source = entry.source
-					if source then
-						local group = {}
-
-						for _, key in ipairs({ 'enabled', 'number', 'size', 'spacing' }) do
-							if source[key] ~= nil then
-								group[key] = source[key]
-							end
+					for _, key in ipairs({ 'enabled', 'number', 'size', 'spacing', 'growthx', 'growthy' }) do
+						if source[key] ~= nil then
+							target[key] = source[key]
 						end
-
-						if type(source.retail) == 'table' and source.retail.filterMode then
-							group.filterMode = source.retail.filterMode
-						elseif entry.filterMode then
-							group.filterMode = entry.filterMode
-						end
-
-						target.groups[entry.key] = group
 					end
-				end
 
-				-- Growth and placement lived on each element, but 12.1 sets the
-				-- growth direction on the container, so both groups now share
-				-- one. Prefer whichever the theme actually turned on, since a
-				-- disabled group's layout is never seen.
-				local anchorSource = buffs
-				if not anchorSource or (anchorSource.enabled == false and debuffs and debuffs.enabled ~= false) then
-					anchorSource = debuffs or buffs
-				end
-				anchorSource = anchorSource or raidDebuffs
-				if anchorSource.growthx then
-					target.growthx = anchorSource.growthx
-				end
-				if anchorSource.growthy then
-					target.growthy = anchorSource.growthy
-				end
-				if type(anchorSource.position) == 'table' then
-					target.position = SUI:CopyData({}, anchorSource.position)
-				end
-
-				-- Rows became icons per row: the flow layout wraps on width, and
-				-- a count is both what the theme meant and what the user can
-				-- edit afterwards.
-				for _, entry in ipairs({ { source = buffs, key = 'slot1' }, { source = debuffs, key = 'slot2' }, { source = raidDebuffs, key = 'slot3' } }) do
-					local source = entry.source
-					local group = source and target.groups[entry.key]
-					if group and type(source.rows) == 'number' and source.rows > 1 and type(source.number) == 'number' then
-						group.perRow = math.ceil(source.number / source.rows)
+					if type(source.position) == 'table' then
+						target.position = SUI:CopyData({}, source.position)
 					end
-				end
 
-				elements.AuraGroups = target
+					if type(source.retail) == 'table' and source.retail.filterMode then
+						target.filterMode = source.retail.filterMode
+					elseif entry.filterMode then
+						target.filterMode = entry.filterMode
+					end
+
+					-- Rows became icons per row: the flow layout wraps on width,
+					-- and a count is both what the theme meant and what the user
+					-- can edit afterwards.
+					if type(source.rows) == 'number' and source.rows > 1 and type(source.number) == 'number' then
+						target.perRow = math.ceil(source.number / source.rows)
+					end
+
+					elements[entry.target] = target
+				end
 			end
 		end
 	end
@@ -153,7 +127,7 @@ local function EnsureLoaded(themeName)
 	dataCache[themeName] = entry.dataCallback()
 
 	-- Themes still describe auras as Buffs/Debuffs. Retail draws them through
-	-- AuraGroups, so translate once here rather than in every theme.
+	-- their own containers, so translate once here rather than in every theme.
 	if SUI.IsRetail and type(dataCache[themeName]) == 'table' and type(dataCache[themeName].frames) == 'table' then
 		TranslateThemeAuras(dataCache[themeName].frames)
 	end

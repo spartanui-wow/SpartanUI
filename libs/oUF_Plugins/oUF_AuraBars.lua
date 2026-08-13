@@ -302,7 +302,24 @@ local function filterBarsRetail(element, unit, filter, limit, isDebuff, offset, 
 	local visible = 0
 	local hidden = 0
 
-	local slots = { GetAuraSlots(unit, filter) }
+	-- GetAuraSlots errors outright once auras are secret - it is not a value
+	-- that can be checked with canaccessvalue, the call itself is refused. The
+	-- bars simply have nothing to show in that case.
+	local ok, slots = pcall(function()
+		return { GetAuraSlots(unit, filter) }
+	end)
+	if not ok then
+		-- Hide whatever is still on screen, exactly as the normal path does
+		-- when it runs out of auras, or the last visible bars would stay up.
+		if not dontHide then
+			for i = offset + 1, #element do
+				element[i]:Hide()
+			end
+		end
+
+		return 0, 0
+	end
+
 	local index = 0
 	for i = 2, #slots do
 		if visible >= limit then

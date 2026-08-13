@@ -88,7 +88,7 @@ end
 ---@param unitName string
 ---@param OptionSet AceConfig.OptionsTable
 local function Options(unitName, OptionSet)
-	-- Retail renders auras through AuraGroups. This element cannot draw there,
+	-- Retail renders auras through its own containers. This element cannot draw there,
 	-- so showing its settings would be a panel that does nothing.
 	if SUI.IsRetail then
 		return

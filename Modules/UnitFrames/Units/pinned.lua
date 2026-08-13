@@ -9,7 +9,9 @@ local elementList = {
 	'SpartanArt',
 	not SUI.IsRetail and 'Buffs',
 	not SUI.IsRetail and 'Debuffs',
-	SUI.IsRetail and 'AuraGroups',
+	SUI.IsRetail and 'BuffContainer',
+	SUI.IsRetail and 'DebuffContainer',
+	SUI.IsRetail and 'CustomAuras',
 	'RaidTargetIndicator',
 	'ThreatIndicator',
 	'Range',
@@ -398,7 +400,18 @@ local Settings = {
 		Buffs = {
 			enabled = false,
 		},
-		AuraGroups = {
+		BuffContainer = {
+			enabled = false,
+			position = {
+				anchor = 'LEFT',
+				relativeTo = 'Frame',
+				x = 0,
+				y = -2,
+			},
+			growthx = 'RIGHT',
+			growthy = 'DOWN',
+		},
+		DebuffContainer = {
 			enabled = true,
 			position = {
 				anchor = 'LEFT',
@@ -408,20 +421,11 @@ local Settings = {
 			},
 			growthx = 'RIGHT',
 			growthy = 'DOWN',
-			groups = {
-				slot1 = {
-					enabled = false,
-				},
-				slot2 = {
-					enabled = true,
-					name = 'Debuffs',
-					filterMode = 'raid_debuffs',
-					number = 3,
-					size = 15,
-					spacing = 1,
-					showDebuffBorder = true,
-				},
-			},
+			filterMode = 'raid_debuffs',
+			number = 3,
+			size = 15,
+			spacing = 1,
+			showDebuffBorder = true,
 		},
 		Debuffs = {
 			enabled = true,
