@@ -331,7 +331,11 @@ function Auras:BuildCandidateFilters(settings)
 		used = true
 	end
 
-	if settings.maxDuration and settings.maxDuration > 0 then
+	-- Saved settings can hold a table where a number belongs: every element
+	-- inherits the shared element defaults, which carry sub-tables, and a
+	-- profile merge can leave one behind under any key. Comparing that errors,
+	-- so the type is checked before the value is used.
+	if type(settings.maxDuration) == 'number' and settings.maxDuration > 0 then
 		filters.maxDuration = settings.maxDuration
 		used = true
 	end
@@ -1803,6 +1807,18 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 		end
 	end
 
+	---Read a setting, falling back when it is missing or the wrong type.
+	---
+	---A profile merge can leave a sub-table under any key, and handing a table
+	---to a range or select widget errors.
+	local function Get(key, fallback)
+		local value = DB()[key]
+		if type(value) ~= type(fallback) then
+			return fallback
+		end
+		return value
+	end
+
 	local function SubDB(key)
 		local db = DB()
 		return type(db[key]) == 'table' and db[key] or {}
@@ -1822,7 +1838,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				max = 40,
 				step = 1,
 				get = function()
-					return DB().number or 16
+					return Get('number', 16)
 				end,
 				set = function(_, val)
 					Set('number', val)
@@ -1837,7 +1853,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				max = 40,
 				step = 1,
 				get = function()
-					return DB().perRow or 0
+					return Get('perRow', 0)
 				end,
 				set = function(_, val)
 					Set('perRow', val)
@@ -1851,7 +1867,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				max = 64,
 				step = 1,
 				get = function()
-					return DB().size or 24
+					return Get('size', 24)
 				end,
 				set = function(_, val)
 					Set('size', val)
@@ -1865,7 +1881,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				max = 20,
 				step = 1,
 				get = function()
-					return DB().spacing or 2
+					return Get('spacing', 2)
 				end,
 				set = function(_, val)
 					Set('spacing', val)
@@ -1881,7 +1897,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 					LEFT = L['Left'],
 				},
 				get = function()
-					return DB().growthx or 'RIGHT'
+					return Get('growthx', 'RIGHT')
 				end,
 				set = function(_, val)
 					Set('growthx', val)
@@ -1897,7 +1913,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 					DOWN = L['Down'],
 				},
 				get = function()
-					return DB().growthy or 'UP'
+					return Get('growthy', 'UP')
 				end,
 				set = function(_, val)
 					Set('growthy', val)
@@ -1958,7 +1974,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				order = 3,
 				width = 'full',
 				get = function()
-					return DB().customFilter or ''
+					return Get('customFilter', '')
 				end,
 				set = function(_, val)
 					Set('customFilter', val)
@@ -1982,7 +1998,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				order = 4,
 				width = 'full',
 				get = function()
-					return DB().includeSpellIDs or ''
+					return Get('includeSpellIDs', '')
 				end,
 				set = function(_, val)
 					Set('includeSpellIDs', val)
@@ -1994,7 +2010,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				order = 5,
 				width = 'full',
 				get = function()
-					return DB().excludeSpellIDs or ''
+					return Get('excludeSpellIDs', '')
 				end,
 				set = function(_, val)
 					Set('excludeSpellIDs', val)
@@ -2008,7 +2024,7 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				max = 3600,
 				step = 1,
 				get = function()
-					return DB().maxDuration or 0
+					return Get('maxDuration', 0)
 				end,
 				set = function(_, val)
 					Set('maxDuration', val)
