@@ -14,7 +14,7 @@ local function Update(frame, settings)
 end
 
 local function Options(unitName, OptionSet)
-	UF.Auras:BuildContainerOptions(unitName, OptionSet, 'DebuffContainer', L['Debuffs'])
+	UF.Auras:BuildContainerOptions(unitName, OptionSet, 'DebuffContainer', L['Debuffs'], 'HARMFUL')
 end
 
 local Settings = UF.AuraContainer:Settings(L['Debuffs'], {

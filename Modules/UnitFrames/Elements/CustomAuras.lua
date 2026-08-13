@@ -7,19 +7,23 @@ local L = SUI.L
 -- the frame. Off by default.
 
 local function Build(frame, DB)
-	UF.AuraContainer:Build(frame, 'CustomAuras', DB, 'HARMFUL')
+	UF.AuraContainer:Build(frame, 'CustomAuras', DB, 'HELPFUL')
 end
 
 local function Update(frame, settings)
-	UF.AuraContainer:Update(frame, 'CustomAuras', settings, 'HARMFUL')
+	UF.AuraContainer:Update(frame, 'CustomAuras', settings, 'HELPFUL')
 end
 
 local function Options(unitName, OptionSet)
-	UF.Auras:BuildContainerOptions(unitName, OptionSet, 'CustomAuras', L['Custom auras'])
+	UF.Auras:BuildContainerOptions(unitName, OptionSet, 'CustomAuras', L['Custom auras'], 'HELPFUL')
 end
 
 local Settings = UF.AuraContainer:Settings(L['Custom auras'], {
 	enabled = false,
+	-- Sized for a handful of specific things rather than a full aura list.
+	number = 8,
+	perRow = 8,
+	size = 22,
 	position = {
 		anchor = 'BOTTOMRIGHT',
 		relativeTo = 'Frame',

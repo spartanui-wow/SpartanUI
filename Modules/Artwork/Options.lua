@@ -330,7 +330,10 @@ function module:SetupOptions()
 			module.DB.barBG[key][opt] = val
 			SUI.DBM:RefreshSettings(module)
 
-			module.ActiveStyle.Artwork.barBG[key][opt] = val
+			-- RefreshSettings builds a new CurrentSettings table, so ActiveStyle is left
+			-- pointing at the previous one. Re-point it instead of writing into the stale
+			-- table, which is why changes applied live but did not survive a reload.
+			module.ActiveStyle.Artwork.barBG = module.CurrentSettings.barBG
 			module:UpdateBarBG()
 		end
 

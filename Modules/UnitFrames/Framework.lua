@@ -542,12 +542,33 @@ function UF:OnInitialize()
 	-- Only the Classic aura path checks this map; Retail filters auras engine
 	-- side and never reads it. Building it there means a journal lookup per
 	-- collected mount at every login for nothing.
-	if not SUI.IsRetail and C_MountJournal and C_MountJournal.GetMountIDs then
+	if not SUI.IsRetail then
+		UF:BuildMountList()
+	end
+end
+
+---Collect the spell IDs of every mount, for the "show mounts" aura filter.
+---
+---This is a journal lookup per collected mount, which on a full collection is
+---hundreds of calls, so it is built on demand and only once.
+---@return table<number, number>
+function UF:BuildMountList()
+	if UF.MountIdsBuilt then
+		return UF.MountIds
+	end
+
+	if C_MountJournal and C_MountJournal.GetMountIDs then
 		for _, mountID in next, C_MountJournal.GetMountIDs() do
 			local _, spellID = C_MountJournal.GetMountInfoByID(mountID)
-			UF.MountIds[spellID] = spellID
+			if spellID then
+				UF.MountIds[spellID] = spellID
+			end
 		end
+
+		UF.MountIdsBuilt = true
 	end
+
+	return UF.MountIds
 end
 
 -- Apply user color overrides to oUF's color tables

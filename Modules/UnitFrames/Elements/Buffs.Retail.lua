@@ -14,7 +14,7 @@ local function Update(frame, settings)
 end
 
 local function Options(unitName, OptionSet)
-	UF.Auras:BuildContainerOptions(unitName, OptionSet, 'BuffContainer', L['Buffs'])
+	UF.Auras:BuildContainerOptions(unitName, OptionSet, 'BuffContainer', L['Buffs'], 'HELPFUL')
 end
 
 local Settings = UF.AuraContainer:Settings(L['Buffs'], {

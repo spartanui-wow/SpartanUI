@@ -337,6 +337,21 @@ function Auras:BuildCandidateFilters(settings)
 	end
 
 	local include = self:BuildSpellIDMap(settings.includeSpellIDs)
+
+	-- Showing mounts means allow-listing every mount spell. That is a
+	-- restriction, not an addition: a container with an allow list shows only
+	-- what is on it, which is why this belongs on its own container rather
+	-- than being mixed into one showing everything.
+	if settings.showMounts then
+		local mounts = UF:BuildMountList()
+		if next(mounts) then
+			include = include or {}
+			for spellID in pairs(mounts) do
+				include[spellID] = true
+			end
+		end
+	end
+
 	if include then
 		filters.includeSpellIDs = include
 		used = true
@@ -781,6 +796,84 @@ end
 ---Return the source variant selected by an exact PLAYER filter token.
 ---Tokens such as RAID_PLAYER_DISPELLABLE describe the player's ability to
 ---dispel an aura, not who applied it, so substring matching is not valid here.
+-- Optional conditions an aura must ALSO meet to be shown.
+--
+-- Every token in a filter string is an AND, so ticking one always shows fewer
+-- auras, never more. Some only ever match helpful auras and some only harmful,
+-- so a token is only offered on a container whose base filter can satisfy it -
+-- asking for major defensives on a debuff container matches nothing, which
+-- reads as the setting being broken.
+---@class SUI.UF.Auras.Token
+---@field key string Key stored under DB.tokens
+---@field token string The filter token the game understands
+---@field kind? string 'HELPFUL', 'HARMFUL', or nil for either
+---@field name string
+---@field desc string
+Auras.TOKENS = {
+	{
+		key = 'raid',
+		token = 'RAID',
+		name = L['Only important ones'],
+		desc = L['Hide everything except the auras the game marks as worth watching in a raid'],
+	},
+	{
+		key = 'raidInCombat',
+		token = 'RAID_IN_COMBAT',
+		name = L['Only ones that matter in combat'],
+		desc = L['Hide auras the game does not consider relevant while fighting'],
+	},
+	{
+		key = 'dispellable',
+		token = 'RAID_PLAYER_DISPELLABLE',
+		kind = 'HARMFUL',
+		name = L['Only what you can dispel'],
+		desc = L['Hide debuffs you have no way to remove'],
+	},
+	{
+		key = 'crowdControl',
+		token = 'CROWD_CONTROL',
+		kind = 'HARMFUL',
+		name = L['Only crowd control'],
+		desc = L['Hide everything except stuns, roots, fears and the like'],
+	},
+	{
+		key = 'bigDefensive',
+		token = 'BIG_DEFENSIVE',
+		kind = 'HELPFUL',
+		name = L['Only major defensives'],
+		desc = L['Hide everything except the big defensive cooldowns'],
+	},
+	{
+		key = 'externalDefensive',
+		token = 'EXTERNAL_DEFENSIVE',
+		kind = 'HELPFUL',
+		name = L['Only defensives cast by someone else'],
+		desc = L['Hide everything except protective buffs another player put on this unit'],
+	},
+	{
+		key = 'cancelable',
+		token = 'CANCELABLE',
+		kind = 'HELPFUL',
+		name = L['Only ones you can cancel'],
+		desc = L['Hide buffs you cannot right-click off'],
+	},
+}
+
+---Whether a token can ever match on a container with this base filter.
+---
+---A token that only marks helpful auras can never be true for a harmful one,
+---so offering it would be offering a setting that always shows nothing.
+---@param entry SUI.UF.Auras.Token
+---@param baseFilter? string
+---@return boolean
+function Auras:TokenAppliesTo(entry, baseFilter)
+	if not entry.kind then
+		return true
+	end
+
+	return type(baseFilter) == 'string' and baseFilter:find(entry.kind, 1, true) ~= nil
+end
+
 ---@param filter? string
 ---@return string? variant 'player' or 'others'
 local function GetSourceVariant(filter)
@@ -828,14 +921,14 @@ function Auras:GetVariantFilter(DB, baseFilter, variant)
 		filter = filter .. (variant == 'others' and '|!PLAYER' or '|PLAYER')
 	end
 
+	-- Tokens that cannot match on this container are skipped rather than
+	-- appended, so a stale saved setting cannot silently blank the container.
 	local tokens = DB.tokens or {}
-	filter = self:AddFilter(filter, tokens.raid, 'RAID')
-	filter = self:AddFilter(filter, tokens.raidInCombat, 'RAID_IN_COMBAT')
-	filter = self:AddFilter(filter, tokens.dispellable, 'RAID_PLAYER_DISPELLABLE')
-	filter = self:AddFilter(filter, tokens.crowdControl, 'CROWD_CONTROL')
-	filter = self:AddFilter(filter, tokens.bigDefensive, 'BIG_DEFENSIVE')
-	filter = self:AddFilter(filter, tokens.externalDefensive, 'EXTERNAL_DEFENSIVE')
-	filter = self:AddFilter(filter, tokens.cancelable, 'CANCELABLE')
+	for _, entry in ipairs(self.TOKENS) do
+		if tokens[entry.key] and self:TokenAppliesTo(entry, base) then
+			filter = self:AddFilter(filter, true, entry.token)
+		end
+	end
 
 	return filter
 end
@@ -887,6 +980,22 @@ function Auras:AttachVariants(element, DB, baseFilter, buildSettings)
 	self:ApplyVariantVisibility(element, DB, baseFilter)
 end
 
+---Describe the optional filter tokens in a stable order.
+---@param tokens? table
+---@return string
+local function TokenSignature(tokens)
+	if type(tokens) ~= 'table' then
+		return ''
+	end
+
+	local parts = {}
+	for _, entry in ipairs(Auras.TOKENS) do
+		parts[#parts + 1] = tostring(tokens[entry.key])
+	end
+
+	return table.concat(parts, ',')
+end
+
 ---Describe everything that decides what the variants show.
 ---@param DB table
 ---@param baseFilter string
@@ -905,6 +1014,7 @@ function Auras:GetVariantSignature(DB, baseFilter)
 		tostring(DB.sortDirection or ''),
 		tostring(DB.onlyStealable),
 		tostring(DB.maxDuration or ''),
+		tostring(DB.showMounts),
 		tostring(DB.includeSpellIDs or ''),
 		tostring(DB.excludeSpellIDs or ''),
 		tostring(DB.position and DB.position.anchor or ''),
@@ -912,6 +1022,9 @@ function Auras:GetVariantSignature(DB, baseFilter)
 		tostring(DB.position and DB.position.y or ''),
 		tostring(DB.growthx or ''),
 		tostring(DB.growthy or ''),
+		-- Tokens change the filter string, so a change here has to repoint the
+		-- groups or the setting writes to the database and does nothing.
+		TokenSignature(DB.tokens),
 	}, ':')
 end
 
@@ -1650,7 +1763,7 @@ end
 ---@param OptionSet AceConfig.OptionsTable
 ---@param elementName string
 ---@param displayName string
-function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayName)
+function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayName, baseFilter)
 	-- These containers only exist on Retail. Building their options anywhere
 	-- else adds a full page per frame for an element that can never draw,
 	-- which is real work for the options validator and shows the user
@@ -1851,6 +1964,18 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 					Set('customFilter', val)
 				end,
 			},
+			showMounts = {
+				name = L['Show mounts'],
+				desc = L['Show what the unit is riding. This narrows the container to mounts and any spell IDs you list below, so give it a container of its own.'],
+				type = 'toggle',
+				order = 3.5,
+				get = function()
+					return DB().showMounts == true
+				end,
+				set = function(_, val)
+					Set('showMounts', val or nil)
+				end,
+			},
 			includeSpellIDs = {
 				name = L['Always show these spell IDs'],
 				type = 'input',
@@ -1892,36 +2017,33 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 		},
 	}
 
-	-- Optional filter tokens. Each one narrows what the container shows, and
-	-- they apply on top of the choice above.
+	-- Optional filter tokens. Every one is an AND, so each ticked box shows
+	-- FEWER auras. Only the ones that can match on this container are offered:
+	-- a helpful-only token on a debuff container would always show nothing.
 	local tokenOptions = {}
-	local tokenList = {
-		{ key = 'raid', name = L['Important raid auras'], order = 1 },
-		{ key = 'raidInCombat', name = L['Active in combat'], order = 2 },
-		{ key = 'dispellable', name = L['Only what you can dispel'], order = 3 },
-		{ key = 'crowdControl', name = L['Crowd control'], order = 4 },
-		{ key = 'bigDefensive', name = L['Major defensives'], order = 5 },
-		{ key = 'externalDefensive', name = L['Defensives cast on the unit'], order = 6 },
-		{ key = 'cancelable', name = L['Auras you can cancel'], order = 7 },
-	}
-
-	for _, token in ipairs(tokenList) do
-		tokenOptions[token.key] = {
-			name = token.name,
-			type = 'toggle',
-			order = token.order,
-			get = function()
-				return SubDB('tokens')[token.key] == true
-			end,
-			set = function(_, val)
-				SetSub('tokens', token.key, val or nil)
-			end,
-		}
+	for index, entry in ipairs(Auras.TOKENS) do
+		if Auras:TokenAppliesTo(entry, baseFilter) then
+			tokenOptions[entry.key] = {
+				name = entry.name,
+				desc = entry.desc,
+				type = 'toggle',
+				order = index,
+				get = function()
+					return SubDB('tokens')[entry.key] == true
+				end,
+				set = function(_, val)
+					SetSub('tokens', entry.key, val or nil)
+				end,
+			}
+		end
 	end
 
 	OptionSet.args.tokens = {
-		name = L['Narrow it down'],
-		desc = L['Extra conditions an aura must also meet'],
+		name = L['Show less'],
+		desc = L['Each of these hides more auras. They stack, so ticking two shows only what meets both.'],
+		hidden = function()
+			return not next(tokenOptions)
+		end,
 		type = 'group',
 		order = 30,
 		inline = true,

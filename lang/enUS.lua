@@ -1081,3 +1081,24 @@ L['Down'] = true
 L['How wide the icons run before they wrap onto the next row. Leave at 0 to use the icons per row setting, or the frame width.'] = true
 
 L['Turning aura borders and text on or off applies after you reload (/rl)'] = true
+
+-- Unit Frames: aura filter tokens
+L['Only important ones'] = true
+L['Hide everything except the auras the game marks as worth watching in a raid'] = true
+L['Only ones that matter in combat'] = true
+L['Hide auras the game does not consider relevant while fighting'] = true
+L['Hide debuffs you have no way to remove'] = true
+L['Only crowd control'] = true
+L['Hide everything except stuns, roots, fears and the like'] = true
+L['Only major defensives'] = true
+L['Hide everything except the big defensive cooldowns'] = true
+L['Only defensives cast by someone else'] = true
+L['Hide everything except protective buffs another player put on this unit'] = true
+L['Only ones you can cancel'] = true
+L['Hide buffs you cannot right-click off'] = true
+L['Show less'] = true
+L['Each of these hides more auras. They stack, so ticking two shows only what meets both.'] = true
+
+-- Unit Frames: mount filter
+L['Show mounts'] = true
+L['Show what the unit is riding. This narrows the container to mounts and any spell IDs you list below, so give it a container of its own.'] = true
