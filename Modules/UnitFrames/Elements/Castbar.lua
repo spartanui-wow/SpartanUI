@@ -107,8 +107,8 @@ local function Build(frame, DB)
 
 	local flashColorOn = false
 	local function Flash(self)
-		local canAccess = SUI.BlizzAPI.canaccessvalue(self.Castbar.notInterruptible)
-		local isInterruptible = canAccess and not self.Castbar.notInterruptible
+		local canAccess = SUI.BlizzAPI.canaccessvalue(self.Castbar.SUINotInterruptible)
+		local isInterruptible = canAccess and not self.Castbar.SUINotInterruptible
 		if isInterruptible and (self.Castbar.casting or self.Castbar.channeling) and self:IsVisible() then
 			flashColorOn = not flashColorOn
 			if flashColorOn then
@@ -162,10 +162,17 @@ local function Build(frame, DB)
 		timers[unitName .. '_overlay'] = UF:ScheduleTimer(OverlayFlash, DB.InterruptSpeed or 0.1, self)
 	end
 
-	local function UpdateOverlay(self)
+	---oUF 14 keeps notInterruptible in its own private state, so it is only
+	---available as the argument it hands the callback. It is cached on the
+	---element for the timer-driven flashes, which have no argument to read.
+	---@param self table The Castbar element
+	---@param notInterruptible? boolean
+	local function UpdateOverlay(self, notInterruptible)
 		if not self.InterruptibleOverlay or not SUI.IsRetail or not isEnemyFrame then
 			return
 		end
+
+		self.SUINotInterruptible = notInterruptible
 
 		-- Cancel previous overlay flash
 		if timers[unitName .. '_overlay'] then
@@ -177,9 +184,17 @@ local function Build(frame, DB)
 		self.InterruptibleOverlay:SetStatusBarColor(unpack(DB.interruptibleColor or { 0.7, 0, 0, 1 }))
 
 		if SUI.IsRetail then
-			self.InterruptibleOverlay:SetAlphaFromBoolean(self.notInterruptible, 0, 1)
+			-- SetAlphaFromBoolean takes a secret boolean happily; it only
+			-- rejects nil, which means the cast has no interrupt protection.
+			-- Comparing the value here instead would error once it is secret.
+			if notInterruptible == nil then
+				self.InterruptibleOverlay:SetAlpha(1)
+			else
+				self.InterruptibleOverlay:SetAlphaFromBoolean(notInterruptible, 0, 1)
+			end
 		else
-			self.InterruptibleOverlay:SetAlpha(self.notInterruptible and 0 or 1)
+			-- Classic has no secret values, so a plain test is safe.
+			self.InterruptibleOverlay:SetAlpha(notInterruptible and 0 or 1)
 		end
 		SyncOverlay(self)
 
@@ -188,8 +203,8 @@ local function Build(frame, DB)
 		timers[unitName .. '_overlay'] = UF:ScheduleTimer(OverlayFlash, DB.InterruptSpeed or 0.1, self.__owner)
 	end
 
-	local function PostCastStart(self, unit)
-		UpdateOverlay(self)
+	local function PostCastStart(self, unit, _, notInterruptible)
+		UpdateOverlay(self, notInterruptible)
 
 		-- Display cast target name after spell name
 		if DB.showTarget and self.Text and unit then
@@ -223,8 +238,8 @@ local function Build(frame, DB)
 		end
 
 		-- Interruptible flash on main bar color (only when we can confirm interruptible)
-		local canAccess = SUI.BlizzAPI.canaccessvalue(self.notInterruptible)
-		local isInterruptible = canAccess and not self.notInterruptible
+		local canAccess = SUI.BlizzAPI.canaccessvalue(self.SUINotInterruptible)
+		local isInterruptible = canAccess and not self.SUINotInterruptible
 		if isInterruptible and isEnemyFrame and DB.FlashOnInterruptible then
 			self:SetStatusBarColor(0, 0, 0)
 			timers[unitName] = UF:ScheduleTimer(Flash, DB.InterruptSpeed, self.__owner)
@@ -236,8 +251,8 @@ local function Build(frame, DB)
 			end
 		end
 	end
-	local function PostCastInterruptible(self, unit)
-		UpdateOverlay(self)
+	local function PostCastInterruptible(self, unit, _, notInterruptible)
+		UpdateOverlay(self, notInterruptible)
 	end
 	local function PostCastStop(self)
 		if timers[unitName] then
@@ -250,6 +265,10 @@ local function Build(frame, DB)
 		if self.InterruptibleOverlay then
 			self.InterruptibleOverlay:SetAlpha(0)
 		end
+
+		-- Forget the last cast's interrupt state, or the next cast's flash
+		-- decides from a stale value before its own callback arrives.
+		self.SUINotInterruptible = nil
 		HideTicks(self)
 	end
 
