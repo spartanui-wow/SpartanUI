@@ -2082,6 +2082,11 @@ function Options:Initialize()
 		raid40 = L['Raid'],
 	}
 
+	-- Register the tree before building the per-frame options. UFOptions is added by
+	-- reference, so frames still populate it as they are built, but an error while
+	-- building any one frame can no longer leave the whole UnitFrames tree unregistered.
+	SUI.opt.args.UnitFrames = UFOptions
+
 	-- Build frame options
 	for frameName, _ in pairs(UF.Unit:GetBuiltFrameList()) do
 		local FrameOptSet = Options:CreateFrameOptionSet(frameName, function(info)
@@ -2100,327 +2105,335 @@ function Options:Initialize()
 		Options:AddAuraPresets(frameName, FrameOptSet)
 
 		-- Add Element Options
+		-- UnitsBuilt and BuiltFrames are separate tables written at different points in
+		-- Unit:BuildFrame, so a frame can be listed as built while its frame object is
+		-- missing or half-built. Skip its element options rather than erroring out, which
+		-- would abort this loop and leave the whole UnitFrames tree unregistered.
 		local builtFrame = UF.Unit:Get(frameName)
 
-		for elementName, _ in pairs(builtFrame.elementList) do
-			local elementData = builtFrame.config and builtFrame.config.elements and builtFrame.config.elements[elementName]
-			if not elementData or not elementData.config then
-				UF:debug('Options [' .. frameName .. ']: skipping "' .. elementName .. '" - no config (elementData=' .. tostring(elementData ~= nil) .. ')')
-			else
-				local elementConfig = elementData.config
+		if not builtFrame or not builtFrame.elementList then
+			UF:debug('Options [' .. frameName .. ']: skipping element options - frame not built')
+		else
+			for elementName, _ in pairs(builtFrame.elementList) do
+				local elementData = builtFrame.config and builtFrame.config.elements and builtFrame.config.elements[elementName]
+				if not elementData or not elementData.config then
+					UF:debug('Options [' .. frameName .. ']: skipping "' .. elementName .. '" - no config (elementData=' .. tostring(elementData ~= nil) .. ')')
+				else
+					local elementConfig = elementData.config
 
-				local ElementSettings = UF.CurrentSettings[frameName].elements[elementName]
-				local UserSetting = UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName]
+					local ElementSettings = UF.CurrentSettings[frameName].elements[elementName]
+					local UserSetting = UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName]
 
-				---@type AceConfig.OptionsTable
-				local ElementOptSet = {
-					name = elementConfig.DisplayName and L[elementConfig.DisplayName] or elementName,
-					desc = elementConfig.Description or '',
-					type = 'group',
-					order = 1,
-					get = function(info)
-						return ElementSettings[info[#info]] or false
-					end,
-					set = function(info, val)
-						--Update memory
-						ElementSettings[info[#info]] = val
-						--Update the DB
-						UserSetting[info[#info]] = val
-						--Update the screen
-						builtFrame:UpdateAll()
-					end,
-					args = {
-						resetElement = {
-							name = L['Reset Element'],
-							type = 'execute',
-							order = 1.5,
-							hidden = function()
-								return not SUI.Options:hasChanges(UserSetting, UF.Unit.defaultConfigs[frameName].elements[elementName])
-							end,
-							func = function()
-								-- Reset the element's settings to default
-								UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName] = nil
-
-								-- Trigger a full update of the UnitFrames
-								UF:Update()
-
-								-- Refresh the options UI
-								LibStub('AceConfigRegistry-3.0'):NotifyChange('SpartanUI')
-							end,
-						},
-					},
-				}
-
-				local PositionGet = function(info)
-					return ElementSettings.position[info[#info]]
-				end
-				local PositionSet = function(info, val)
-					if val == elementName then
-						SUI:Print(L['Cannot set position to self'])
-						return
-					end
-					--Update memory
-					ElementSettings.position[info[#info]] = val
-					--Update the DB
-					UserSetting.position[info[#info]] = val
-					--Update Screen
-					UF.Unit[frameName]:ElementUpdate(elementName)
-				end
-
-				if elementConfig.type == 'General' then
-				elseif elementConfig.type == 'StatusBar' then
-					Options:StatusBarDefaults(frameName, ElementOptSet, elementName)
-					Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
-				elseif elementConfig.type == 'Indicator' then
-					if not elementConfig.NoGenericOptions then
-						Options:IndicatorAddDisplay(ElementOptSet)
-						Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
-					end
-					if elementName == 'CombatIndicator' then
-						ElementOptSet.args.display.args.glow = {
-							name = L['Glow'],
-							type = 'toggle',
-							order = 4,
-						}
-					end
-				elseif elementConfig.type == 'Text' then
-					-- Options:IndicatorAddDisplay(ElementOptSet)
-					Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
-				elseif elementConfig.type == 'Auras' then
-					-- The aura containers and AuraTracker carry their own
-					-- per-spell settings, so the shared aura layout and filter
-					-- options do not apply. They still need somewhere to set
-					-- where the whole thing sits on the frame.
-					if elementName == 'BuffContainer' or elementName == 'DebuffContainer' or elementName == 'CustomAuras' or elementName == 'AuraTracker' then
-						Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
-					elseif not elementConfig.NoGenericOptions then
-						Options:IndicatorAddDisplay(ElementOptSet)
-						Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
-						Options:AddAuraLayout(frameName, ElementOptSet)
-
-						-- Basic Filtering Options
-						local FilterGet, FilterSet
-						if SUI.IsRetail then
-							-- Retail: filter mode is handled by the element's own Options function
-							FilterGet = function()
-								return false
-							end
-							FilterSet = function() end
-						else
-							-- Classic: full rules-based filtering via classic sub-table
-							local classicSettings = ElementSettings.classic or ElementSettings
-							local classicRules = classicSettings.rules or {}
-							local classicUserSetting = UserSetting.classic or UserSetting
-
-							FilterGet = function(info, key)
-								if info[#info - 1] == 'duration' then
-									return classicRules.duration and classicRules.duration[info[#info]] or false
-								else
-									return classicRules[key] or false
-								end
-							end
-							FilterSet = function(info, key, val)
-								if info[#info - 1] == 'duration' then
-									if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
-										return
-									elseif (info[#info] == 'maxTime') and classicRules.duration and key < classicRules.duration.minTime then
-										return
-									end
-
-									-- Ensure classic config structure exists
-									classicSettings.rules = classicSettings.rules or {}
-									classicSettings.rules.duration = classicSettings.rules.duration or {}
-									classicUserSetting.rules = classicUserSetting.rules or {}
-									classicUserSetting.rules.duration = classicUserSetting.rules.duration or {}
-
-									--Update memory
-									classicSettings.rules.duration[info[#info]] = key
-									--Update the DB
-									classicUserSetting.rules.duration[info[#info]] = key
-								else
-									-- Ensure classic config structure exists
-									classicSettings.rules = classicSettings.rules or {}
-									classicUserSetting.rules = classicUserSetting.rules or {}
-
-									--Update memory
-									classicSettings.rules[key] = (val or false)
-									--Update the DB
-									classicUserSetting.rules[key] = (val or nil)
-								end
-								--Update Screen
-								UF.Unit[frameName]:ElementUpdate(elementName)
-							end
-						end
-						Options:AddAuraFilters(frameName, ElementOptSet, FilterSet, FilterGet)
-
-						-- Whitelist and Blacklist Options
-						local buildItemList
-
-						local spellLabel = {
-							type = 'description',
-							width = 'double',
-							fontSize = 'medium',
-							order = function(info)
-								return tonumber(string.match(info[#info], '(%d+)'))
-							end,
-							name = function(info)
-								local id = tonumber(string.match(info[#info], '(%d+)'))
-								local name = 'unknown'
-								if id then
-									local spellInfo = GetSpellInfoCompat(id)
-									if spellInfo then
-										name = string.format('|T%s:14:14:0:0|t %s (#%i)', spellInfo.iconID or 'Interface\\Icons\\Inv_misc_questionmark', spellInfo.name or L['Unknown'], id)
-									end
-								end
-								return name
-							end,
-						}
-
-						-- Whitelist/Blacklist uses classic sub-table
-						local wlClassicSettings = ElementSettings.classic or ElementSettings
-						local wlClassicUserSetting = UserSetting.classic or UserSetting
-
-						local spellDelete = {
-							type = 'execute',
-							name = L['Delete'],
-							width = 'half',
-							order = function(info)
-								return tonumber(string.match(info[#info], '(%d+)')) + 0.5
-							end,
-							func = function(info)
-								local id = tonumber(info[#info])
-								local mode = info[#info - 2]
-
-								--Remove Setting
-								if wlClassicSettings[mode] then
-									wlClassicSettings[mode][id] = nil
-								end
-								if wlClassicUserSetting[mode] then
-									wlClassicUserSetting[mode][id] = nil
-								end
-
-								--Update Screen
-								buildItemList(mode)
-								UF.Unit[frameName]:ElementUpdate(elementName)
-							end,
-						}
-
-						buildItemList = function(mode)
-							local spellsOpt = ElementOptSet.args[mode].args.spells.args
-							table.wipe(spellsOpt)
-
-							local modeTable = wlClassicSettings[mode] or {}
-							for spellID, _ in pairs(modeTable) do
-								spellsOpt[spellID .. 'label'] = spellLabel
-								spellsOpt[tostring(spellID)] = spellDelete
-							end
-						end
-						local additem = function(info, input)
-							local spellId
-							if type(input) == 'string' then
-								-- See if we got a spell link
-								if input:find('|Hspell:%d+') then
-									spellId = tonumber(input:match('|Hspell:(%d+)'))
-								elseif input:find('%[(.-)%]') then
-									local spellInfo = GetSpellInfoCompat(input:match('%[(.-)%]'))
-									spellId = spellInfo and spellInfo.spellID
-								else
-									local spellInfo = GetSpellInfoCompat(input)
-									spellId = spellInfo and spellInfo.spellID
-								end
-								if not spellId then
-									SUI:Print('Invalid spell name or ID')
-									return
-								end
-							end
-
-							local mode = info[#info - 1]
-							wlClassicSettings[mode] = wlClassicSettings[mode] or {}
-							wlClassicSettings[mode][spellId] = true
-							wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}
-							wlClassicUserSetting[mode][spellId] = true
-
-							UF.Unit[frameName]:ElementUpdate(elementName)
-							buildItemList(mode)
-						end
-
-						Options:AddAuraWhitelistBlacklist(frameName, ElementOptSet, additem)
-						if not SUI.IsRetail then
-							buildItemList('whitelist')
-							buildItemList('blacklist')
-						end
-					end -- if not NoGenericOptions
-				end
-
-				--Call Elements Custom function
-				UF.Elements:Options(frameName, elementName, ElementOptSet, ElementSettings)
-
-				-- Per-element OOR/dead alpha options (skip elements that manage their own alpha)
-				if not elementConfig.NoBulkUpdate and elementName ~= 'Range' and elementName ~= 'Fader' and elementName ~= 'FrameBackground' then
-					ElementOptSet.args.ElementAlpha = {
-						name = L['State Alpha'],
+					---@type AceConfig.OptionsTable
+					local ElementOptSet = {
+						name = elementConfig.DisplayName and L[elementConfig.DisplayName] or elementName,
+						desc = elementConfig.Description or '',
 						type = 'group',
-						order = 200,
-						inline = true,
+						order = 1,
+						get = function(info)
+							return ElementSettings[info[#info]] or false
+						end,
+						set = function(info, val)
+							--Update memory
+							ElementSettings[info[#info]] = val
+							--Update the DB
+							UserSetting[info[#info]] = val
+							--Update the screen
+							builtFrame:UpdateAll()
+						end,
 						args = {
-							oorAlpha = {
-								name = L['Out of range alpha'],
-								desc = L['Alpha for this element when the unit is out of range. Leave at 0 to use frame-wide range alpha instead.'],
-								type = 'range',
-								order = 1,
-								min = 0,
-								max = 1,
-								step = 0.05,
-								get = function()
-									return ElementSettings.oorAlpha or 0
+							resetElement = {
+								name = L['Reset Element'],
+								type = 'execute',
+								order = 1.5,
+								hidden = function()
+									return not SUI.Options:hasChanges(UserSetting, UF.Unit.defaultConfigs[frameName].elements[elementName])
 								end,
-								set = function(_, val)
-									local storeVal = val > 0 and val or false
-									ElementSettings.oorAlpha = storeVal
-									UserSetting.oorAlpha = storeVal
-									UF.Unit[frameName]:ElementUpdate(elementName)
-								end,
-							},
-							deadAlpha = {
-								name = L['Dead unit alpha'],
-								desc = L['Alpha for this element when the unit is dead. Leave at 0 to use normal alpha.'],
-								type = 'range',
-								order = 2,
-								min = 0,
-								max = 1,
-								step = 0.05,
-								get = function()
-									return ElementSettings.deadAlpha or 0
-								end,
-								set = function(_, val)
-									local storeVal = val > 0 and val or false
-									ElementSettings.deadAlpha = storeVal
-									UserSetting.deadAlpha = storeVal
-									UF.Unit[frameName]:ElementUpdate(elementName)
+								func = function()
+									-- Reset the element's settings to default
+									UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName] = nil
+
+									-- Trigger a full update of the UnitFrames
+									UF:Update()
+
+									-- Refresh the options UI
+									LibStub('AceConfigRegistry-3.0'):NotifyChange('SpartanUI')
 								end,
 							},
 						},
 					}
-				end
 
-				if not ElementOptSet.args.enabled then
-					--Add a disable check to all args
-					for k, v in pairs(ElementOptSet.args) do
-						v.disabled = function()
-							return not ElementSettings.enabled
+					local PositionGet = function(info)
+						return ElementSettings.position[info[#info]]
+					end
+					local PositionSet = function(info, val)
+						if val == elementName then
+							SUI:Print(L['Cannot set position to self'])
+							return
 						end
+						--Update memory
+						ElementSettings.position[info[#info]] = val
+						--Update the DB
+						UserSetting.position[info[#info]] = val
+						--Update Screen
+						UF.Unit[frameName]:ElementUpdate(elementName)
 					end
 
-					ElementOptSet.args.enabled = {
-						name = L['Enabled'],
-						type = 'toggle',
-						order = 1,
-					}
-				end
-				-- Add element option to screen
-				FrameOptSet.args[elementConfig.type].args[elementName] = ElementOptSet
-			end -- else (elementData check)
-		end
+					if elementConfig.type == 'General' then
+					elseif elementConfig.type == 'StatusBar' then
+						Options:StatusBarDefaults(frameName, ElementOptSet, elementName)
+						Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+					elseif elementConfig.type == 'Indicator' then
+						if not elementConfig.NoGenericOptions then
+							Options:IndicatorAddDisplay(ElementOptSet)
+							Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+						end
+						if elementName == 'CombatIndicator' then
+							ElementOptSet.args.display.args.glow = {
+								name = L['Glow'],
+								type = 'toggle',
+								order = 4,
+							}
+						end
+					elseif elementConfig.type == 'Text' then
+						-- Options:IndicatorAddDisplay(ElementOptSet)
+						Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+					elseif elementConfig.type == 'Auras' then
+						-- The aura containers and AuraTracker carry their own
+						-- per-spell settings, so the shared aura layout and filter
+						-- options do not apply. They still need somewhere to set
+						-- where the whole thing sits on the frame.
+						if elementName == 'BuffContainer' or elementName == 'DebuffContainer' or elementName == 'CustomAuras' or elementName == 'AuraTracker' then
+							Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+						elseif not elementConfig.NoGenericOptions then
+							Options:IndicatorAddDisplay(ElementOptSet)
+							Options:AddPositioning(builtFrame.elementList, ElementOptSet, PositionGet, PositionSet)
+							Options:AddAuraLayout(frameName, ElementOptSet)
+
+							-- Basic Filtering Options
+							local FilterGet, FilterSet
+							if SUI.IsRetail then
+								-- Retail: filter mode is handled by the element's own Options function
+								FilterGet = function()
+									return false
+								end
+								FilterSet = function() end
+							else
+								-- Classic: full rules-based filtering via classic sub-table
+								local classicSettings = ElementSettings.classic or ElementSettings
+								local classicRules = classicSettings.rules or {}
+								local classicUserSetting = UserSetting.classic or UserSetting
+
+								FilterGet = function(info, key)
+									if info[#info - 1] == 'duration' then
+										return classicRules.duration and classicRules.duration[info[#info]] or false
+									else
+										return classicRules[key] or false
+									end
+								end
+								FilterSet = function(info, key, val)
+									if info[#info - 1] == 'duration' then
+										if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
+											return
+										elseif (info[#info] == 'maxTime') and classicRules.duration and key < classicRules.duration.minTime then
+											return
+										end
+
+										-- Ensure classic config structure exists
+										classicSettings.rules = classicSettings.rules or {}
+										classicSettings.rules.duration = classicSettings.rules.duration or {}
+										classicUserSetting.rules = classicUserSetting.rules or {}
+										classicUserSetting.rules.duration = classicUserSetting.rules.duration or {}
+
+										--Update memory
+										classicSettings.rules.duration[info[#info]] = key
+										--Update the DB
+										classicUserSetting.rules.duration[info[#info]] = key
+									else
+										-- Ensure classic config structure exists
+										classicSettings.rules = classicSettings.rules or {}
+										classicUserSetting.rules = classicUserSetting.rules or {}
+
+										--Update memory
+										classicSettings.rules[key] = (val or false)
+										--Update the DB
+										classicUserSetting.rules[key] = (val or nil)
+									end
+									--Update Screen
+									UF.Unit[frameName]:ElementUpdate(elementName)
+								end
+							end
+							Options:AddAuraFilters(frameName, ElementOptSet, FilterSet, FilterGet)
+
+							-- Whitelist and Blacklist Options
+							local buildItemList
+
+							local spellLabel = {
+								type = 'description',
+								width = 'double',
+								fontSize = 'medium',
+								order = function(info)
+									return tonumber(string.match(info[#info], '(%d+)'))
+								end,
+								name = function(info)
+									local id = tonumber(string.match(info[#info], '(%d+)'))
+									local name = 'unknown'
+									if id then
+										local spellInfo = GetSpellInfoCompat(id)
+										if spellInfo then
+											name = string.format('|T%s:14:14:0:0|t %s (#%i)', spellInfo.iconID or 'Interface\\Icons\\Inv_misc_questionmark', spellInfo.name or L['Unknown'], id)
+										end
+									end
+									return name
+								end,
+							}
+
+							-- Whitelist/Blacklist uses classic sub-table
+							local wlClassicSettings = ElementSettings.classic or ElementSettings
+							local wlClassicUserSetting = UserSetting.classic or UserSetting
+
+							local spellDelete = {
+								type = 'execute',
+								name = L['Delete'],
+								width = 'half',
+								order = function(info)
+									return tonumber(string.match(info[#info], '(%d+)')) + 0.5
+								end,
+								func = function(info)
+									local id = tonumber(info[#info])
+									local mode = info[#info - 2]
+
+									--Remove Setting
+									if wlClassicSettings[mode] then
+										wlClassicSettings[mode][id] = nil
+									end
+									if wlClassicUserSetting[mode] then
+										wlClassicUserSetting[mode][id] = nil
+									end
+
+									--Update Screen
+									buildItemList(mode)
+									UF.Unit[frameName]:ElementUpdate(elementName)
+								end,
+							}
+
+							buildItemList = function(mode)
+								local spellsOpt = ElementOptSet.args[mode].args.spells.args
+								table.wipe(spellsOpt)
+
+								local modeTable = wlClassicSettings[mode] or {}
+								for spellID, _ in pairs(modeTable) do
+									spellsOpt[spellID .. 'label'] = spellLabel
+									spellsOpt[tostring(spellID)] = spellDelete
+								end
+							end
+							local additem = function(info, input)
+								local spellId
+								if type(input) == 'string' then
+									-- See if we got a spell link
+									if input:find('|Hspell:%d+') then
+										spellId = tonumber(input:match('|Hspell:(%d+)'))
+									elseif input:find('%[(.-)%]') then
+										local spellInfo = GetSpellInfoCompat(input:match('%[(.-)%]'))
+										spellId = spellInfo and spellInfo.spellID
+									else
+										local spellInfo = GetSpellInfoCompat(input)
+										spellId = spellInfo and spellInfo.spellID
+									end
+									if not spellId then
+										SUI:Print('Invalid spell name or ID')
+										return
+									end
+								end
+
+								local mode = info[#info - 1]
+								wlClassicSettings[mode] = wlClassicSettings[mode] or {}
+								wlClassicSettings[mode][spellId] = true
+								wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}
+								wlClassicUserSetting[mode][spellId] = true
+
+								UF.Unit[frameName]:ElementUpdate(elementName)
+								buildItemList(mode)
+							end
+
+							Options:AddAuraWhitelistBlacklist(frameName, ElementOptSet, additem)
+							if not SUI.IsRetail then
+								buildItemList('whitelist')
+								buildItemList('blacklist')
+							end
+						end -- if not NoGenericOptions
+					end
+
+					--Call Elements Custom function
+					UF.Elements:Options(frameName, elementName, ElementOptSet, ElementSettings)
+
+					-- Per-element OOR/dead alpha options (skip elements that manage their own alpha)
+					if not elementConfig.NoBulkUpdate and elementName ~= 'Range' and elementName ~= 'Fader' and elementName ~= 'FrameBackground' then
+						ElementOptSet.args.ElementAlpha = {
+							name = L['State Alpha'],
+							type = 'group',
+							order = 200,
+							inline = true,
+							args = {
+								oorAlpha = {
+									name = L['Out of range alpha'],
+									desc = L['Alpha for this element when the unit is out of range. Leave at 0 to use frame-wide range alpha instead.'],
+									type = 'range',
+									order = 1,
+									min = 0,
+									max = 1,
+									step = 0.05,
+									get = function()
+										return ElementSettings.oorAlpha or 0
+									end,
+									set = function(_, val)
+										local storeVal = val > 0 and val or false
+										ElementSettings.oorAlpha = storeVal
+										UserSetting.oorAlpha = storeVal
+										UF.Unit[frameName]:ElementUpdate(elementName)
+									end,
+								},
+								deadAlpha = {
+									name = L['Dead unit alpha'],
+									desc = L['Alpha for this element when the unit is dead. Leave at 0 to use normal alpha.'],
+									type = 'range',
+									order = 2,
+									min = 0,
+									max = 1,
+									step = 0.05,
+									get = function()
+										return ElementSettings.deadAlpha or 0
+									end,
+									set = function(_, val)
+										local storeVal = val > 0 and val or false
+										ElementSettings.deadAlpha = storeVal
+										UserSetting.deadAlpha = storeVal
+										UF.Unit[frameName]:ElementUpdate(elementName)
+									end,
+								},
+							},
+						}
+					end
+
+					if not ElementOptSet.args.enabled then
+						--Add a disable check to all args
+						for k, v in pairs(ElementOptSet.args) do
+							v.disabled = function()
+								return not ElementSettings.enabled
+							end
+						end
+
+						ElementOptSet.args.enabled = {
+							name = L['Enabled'],
+							type = 'toggle',
+							order = 1,
+						}
+					end
+					-- Add element option to screen
+					FrameOptSet.args[elementConfig.type].args[elementName] = ElementOptSet
+				end -- else (elementData check)
+			end
+		end -- else (builtFrame check)
 
 		UF.Unit:BuildOptions(frameName, FrameOptSet)
 
@@ -2429,8 +2442,6 @@ function Options:Initialize()
 		end
 		UFOptions.args[frameName] = FrameOptSet
 	end
-
-	SUI.opt.args.UnitFrames = UFOptions
 end
 
 Options.CONST = { anchorPoints = anchorPoints }

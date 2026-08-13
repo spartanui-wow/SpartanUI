@@ -162,12 +162,26 @@ local function AttachToHolder(frame, holder, pos)
 	frame.SUIHolderMountPoint = pos or 'CENTER'
 end
 
+---Check if a Blizzard mover is turned on.
+---CurrentSettings is built by SUI:MergeData, which does not expand the ['**'] wildcard
+---used by the BlizzMoverStates defaults, so a mover key can be missing entirely.
+---@param moverName string
+---@return boolean
+local function MoverEnabled(moverName)
+	local states = module.CurrentSettings.BlizzMoverStates
+	local state = states and states[moverName]
+	if not state then
+		return true
+	end
+	return state.enabled and true or false
+end
+
 -- Blizzard Movers
 local function TalkingHead()
 	local moverName = 'TalkingHead'
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -242,7 +256,7 @@ local function FramerateFrame()
 	end
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -276,7 +290,7 @@ local function AlertFrame()
 	end
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		if groupLootContainer and module.BlizzMoverCache[moverName .. '_GroupLoot'] then
 			RestoreOriginalPosition(moverName .. '_GroupLoot')
@@ -321,7 +335,7 @@ local function VehicleLeaveButton()
 		end
 
 		-- Check if mover is enabled
-		if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+		if not MoverEnabled(moverName) then
 			RestoreOriginalPosition(moverName)
 			return
 		end
@@ -397,7 +411,7 @@ local function VehicleSeatIndicator()
 	end
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -436,7 +450,7 @@ local function WidgetPowerBarContainer()
 	local playerPowerBarAlt = _G['PlayerPowerBarAlt']
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		if playerPowerBarAlt and module.BlizzMoverCache[moverName .. '_PowerBarAlt'] then
 			RestoreOriginalPosition(moverName .. '_PowerBarAlt')
@@ -489,7 +503,7 @@ local function TopCenterContainer()
 	end
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -547,7 +561,7 @@ local function EncounterBar()
 	end
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName] or not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -600,7 +614,7 @@ local function ArchaeologyBar()
 	end
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName] or not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		return
 	end
@@ -639,7 +653,7 @@ local function HudTooltip()
 	local retailContainer = _G['GameTooltipDefaultContainer']
 
 	-- Check if mover is enabled
-	if not module.CurrentSettings.BlizzMoverStates[moverName].enabled then
+	if not MoverEnabled(moverName) then
 		if retailContainer then
 			RestoreOriginalPosition(moverName)
 		end
