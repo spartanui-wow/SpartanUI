@@ -330,15 +330,46 @@ local function AttachRetailWatcher(frame, element, DB)
 
 		local borderDB = DB.border or {}
 		if borderDB.enabled and button.AddDispelTypeTexture then
-			local border = button:CreateTexture(nil, 'OVERLAY')
-			border:SetAllPoints()
-			button.SUIBorder = border
+			local size = borderDB.size or 2
+			local alpha = borderDB.alpha or 0.8
+			local style = Enum.CustomAuraButtonDispelTypeTextureStyle and Enum.CustomAuraButtonDispelTypeTextureStyle.PreserveAsset
+			local edges = {}
 
-			button:AddDispelTypeTexture(border, {
-				style = Enum.CustomAuraButtonDispelTypeTextureStyle and Enum.CustomAuraButtonDispelTypeTextureStyle.Border,
-				showWhenHarmful = true,
-				customDispelColorMap = frame.colors and frame.colors.dispel,
-			})
+			local function AddEdge()
+				local edge = button:CreateTexture(nil, 'OVERLAY')
+				edge:SetColorTexture(1, 1, 1, alpha)
+				edges[#edges + 1] = edge
+
+				button:AddDispelTypeTexture(edge, {
+					style = style,
+					showWhenHarmful = true,
+					customDispelColorMap = frame.colors and frame.colors.dispel,
+				})
+
+				return edge
+			end
+
+			local top = AddEdge()
+			top:SetPoint('TOPLEFT', element, 'TOPLEFT')
+			top:SetPoint('TOPRIGHT', element, 'TOPRIGHT')
+			top:SetHeight(size)
+
+			local bottom = AddEdge()
+			bottom:SetPoint('BOTTOMLEFT', element, 'BOTTOMLEFT')
+			bottom:SetPoint('BOTTOMRIGHT', element, 'BOTTOMRIGHT')
+			bottom:SetHeight(size)
+
+			local left = AddEdge()
+			left:SetPoint('TOPLEFT', element, 'TOPLEFT', 0, -size)
+			left:SetPoint('BOTTOMLEFT', element, 'BOTTOMLEFT', 0, size)
+			left:SetWidth(size)
+
+			local right = AddEdge()
+			right:SetPoint('TOPRIGHT', element, 'TOPRIGHT', 0, -size)
+			right:SetPoint('BOTTOMRIGHT', element, 'BOTTOMRIGHT', 0, size)
+			right:SetWidth(size)
+
+			button.SUIBorderEdges = edges
 		end
 
 		local iconDB = DB.typeIcon or {}
@@ -356,6 +387,10 @@ local function AttachRetailWatcher(frame, element, DB)
 
 		element:Show()
 	end)
+
+	if element.watcher and element.watcher.container then
+		element.watcher.container:SetFrameLevel(element:GetFrameLevel() + 1)
+	end
 end
 
 local function Build(frame, DB)
