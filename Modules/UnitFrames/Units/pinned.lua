@@ -50,7 +50,7 @@ local function BuildNameList(settings)
 				end
 				if UnitExists(unit) then
 					local role = UnitGroupRolesAssigned(unit)
-					if role and settings.autoAddRoles[role] then
+					if role and SUI.BlizzAPI.canaccessvalue(role) and settings.autoAddRoles[role] then
 						local unitName = UnitName(unit)
 						if unitName and SUI.BlizzAPI.canaccessvalue(unitName) then
 							-- Check not already in list

@@ -29,6 +29,10 @@ local function Build(frame)
 		local role = UnitGroupRolesAssigned(self.unit)
 		local customTexture = 'Interface\\AddOns\\SpartanUI\\images\\icon_role.tga'
 
+		if not SUI.BlizzAPI.canaccessvalue(role) then
+			role = nil
+		end
+
 		if role == 'TANK' or role == 'HEALER' or role == 'DAMAGER' then
 			parent:SetTexture(customTexture)
 			-- Set texture coordinates for the specific role icon
