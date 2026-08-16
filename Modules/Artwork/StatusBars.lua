@@ -564,8 +564,13 @@ function module:UpdateBarTextVisibility(containerKey)
 
 		-- Update the bar's UpdateTextVisibility function
 		bar.UpdateTextVisibility = function(self)
-			local blizzMode = self:ShouldBarTextBeDisplayed()
-			self.OverlayFrame.Text:SetShown(textMode == Enums.TextDisplayMode.Always and blizzMode)
+			if textMode == Enums.TextDisplayMode.Always then
+				self.OverlayFrame.Text:Show()
+			elseif textMode == Enums.TextDisplayMode.Never then
+				self.OverlayFrame.Text:Hide()
+			else
+				self.OverlayFrame.Text:SetShown(self:ShouldBarTextBeDisplayed())
+			end
 		end
 	end
 end
@@ -1045,8 +1050,13 @@ function module:SetupBarText(bar, StyleSetting, index)
 
 	-- Update the bar's UpdateTextVisibility function
 	bar.UpdateTextVisibility = function(self)
-		local blizzMode = self:ShouldBarTextBeDisplayed()
-		self.OverlayFrame.Text:SetShown(textMode == Enums.TextDisplayMode.Always and blizzMode)
+		if textMode == Enums.TextDisplayMode.Always then
+			self.OverlayFrame.Text:Show()
+		elseif textMode == Enums.TextDisplayMode.Never then
+			self.OverlayFrame.Text:Hide()
+		else
+			self.OverlayFrame.Text:SetShown(self:ShouldBarTextBeDisplayed())
+		end
 	end
 end
 
