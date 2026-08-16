@@ -256,4 +256,46 @@ function BlizzAPI.ClearDuration(binding)
 	binding:UpdateFontString()
 end
 
+---Whether an addon restriction of the given kind is currently active.
+---
+---This is not the same question as InCombatLockdown. Restrictions can be on
+---while out of combat (an encounter, a mythic+ run, a rated match) and the
+---forced CVars turn them on outright, so a lockdown check both misses those
+---and defers work that would have been allowed.
+---@param which string Key of Enum.AddOnRestrictionType, e.g. 'Combat'
+---@return boolean
+function BlizzAPI.IsRestricted(which)
+	local getState = C_RestrictedActions and C_RestrictedActions.GetAddOnRestrictionState or GetAddOnRestrictionState
+	if not getState then
+		return false
+	end
+
+	local restrictionType = Enum and Enum.AddOnRestrictionType and Enum.AddOnRestrictionType[which]
+	if restrictionType == nil then
+		return false
+	end
+
+	-- Absent on older clients, and it errors rather than returning nil there.
+	local ok, state = pcall(getState, restrictionType)
+	if not ok or type(state) ~= 'number' then
+		return false
+	end
+
+	-- Inactive = 0, Activating = 1, Active = 2. Only Active restricts.
+	return state > 1
+end
+
+---Whether combat restrictions are active, by the game's own reckoning.
+---
+---Prefer this over InCombatLockdown when the question is "can I touch aura
+---state right now", since that is what the restriction actually governs.
+---@return boolean
+function BlizzAPI.IsCombatRestricted()
+	if GetCVarBool and GetCVarBool('addonCombatRestrictionsForced') then
+		return true
+	end
+
+	return BlizzAPI.IsRestricted('Combat')
+end
+
 SUI.BlizzAPI = BlizzAPI

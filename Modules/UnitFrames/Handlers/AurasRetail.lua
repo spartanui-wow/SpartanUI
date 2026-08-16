@@ -1088,7 +1088,10 @@ function Auras:RepointVariants(frame, element, DB)
 		return
 	end
 
-	if InCombatLockdown() then
+	-- The game's own restriction state, not InCombatLockdown: aura state can
+	-- be restricted while out of combat (an encounter, a mythic+ run) and
+	-- unrestricted in combat, so a lockdown check gets both cases wrong.
+	if SUI.BlizzAPI.IsCombatRestricted() then
 		pendingRebuilds[frame] = true
 
 		if not rebuildWatcher then
@@ -1263,7 +1266,10 @@ function Auras:RepointGroups(frame, element, DB)
 		return
 	end
 
-	if InCombatLockdown() then
+	-- The game's own restriction state, not InCombatLockdown: aura state can
+	-- be restricted while out of combat (an encounter, a mythic+ run) and
+	-- unrestricted in combat, so a lockdown check gets both cases wrong.
+	if SUI.BlizzAPI.IsCombatRestricted() then
 		pendingRebuilds[frame] = true
 
 		if not rebuildWatcher then

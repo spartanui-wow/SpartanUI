@@ -85,11 +85,17 @@ function Container:Build(frame, elementName, DB, baseFilter)
 		return frame[elementName]
 	end
 
+	-- A pixel of padding on the side the rows grow towards. Without it the
+	-- first row sits flush against the container edge and clips.
+	local growDown = (DB.growthy or 'UP') == 'DOWN'
+
 	local element = frame:CreateAuras({
 		initialAnchor = DB.position and DB.position.anchor or 'TOPLEFT',
 		growthX = DB.growthx or 'RIGHT',
 		growthY = DB.growthy or 'UP',
 		layoutLimit = UF.Auras:GetLayoutLimit(DB, frame),
+		paddingTop = growDown and 1 or 0,
+		paddingBottom = growDown and 0 or 1,
 	})
 
 	element.DB = DB

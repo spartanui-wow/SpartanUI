@@ -197,8 +197,9 @@ local function MigrateAuraSlotKeys()
 				local elements = frameName ~= '**' and type(frameSettings) == 'table' and frameSettings.elements
 
 				if type(elements) == 'table' then
+					-- Only the tracker keys its entries by index; the aura
+					-- containers never did, so nothing there needs renaming.
 					for elementName, collection in pairs({
-						BuffContainer = nil,
 						AuraTracker = type(elements.AuraTracker) == 'table' and elements.AuraTracker.entries,
 					}) do
 						if type(collection) == 'table' then
@@ -1025,6 +1026,13 @@ function UF:OnEnable()
 		if not SUI.BlizzAPI.canaccessvalue(points) then
 			SUI:Print('  anchoring is secret on this container, cannot be read')
 		elseif points > 0 then
+			-- IsAnchoringRestricted answers this directly on 12.1; the pcall is
+			-- the fallback for clients that lack it.
+			if element.IsAnchoringRestricted and element:IsAnchoringRestricted() then
+				SUI:Print('  anchoring is restricted on this container, cannot be read')
+				return
+			end
+
 			local ok, a, _, rp, x, y = pcall(element.GetPoint, element)
 			if ok then
 				SUI:Print(('  anchored: %s -> %s  offset %s,%s'):format(show(a), show(rp), show(x), show(y)))
