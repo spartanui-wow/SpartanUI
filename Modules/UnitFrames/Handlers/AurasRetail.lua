@@ -13,14 +13,21 @@ local Auras = UF.Auras
 -- oUF's 12.1 rewrite, which exercises them directly.
 --
 -- candidateFilters keys confirmed in shipping code (ElvUI uses all four
--- against a live client): includeSpellIDs, excludeSpellIDs, includeDispelTypes,
--- maxDuration. Only these are trusted when the client exposes no validator,
--- because an unsupported key fails OPEN - the group matches every aura rather
--- than erroring.
+-- against a live client, or shipped by ElvUI as a user-facing option):
+-- includeSpellIDs, excludeSpellIDs, includeDispelTypes, maxDuration,
+-- canApplyAura, isBossAura, isBossOrRoleAura, isFromPlayerOrPlayerPet,
+-- isPriorityAura, isRoleAura, isStealable, nameplateShowAll,
+-- nameplateShowPersonal. Only these are trusted when the client exposes no
+-- validator, because an unsupported key fails OPEN - the group matches every
+-- aura rather than erroring.
 --
--- Still unconfirmed, from the PTR notes only: excludeDispelTypes, isStealable,
--- isRoleAura, isPriorityAura, isFromPlayerOrPlayerPet. "Only mine" therefore
--- appends the PLAYER filter token instead of using isFromPlayerOrPlayerPet.
+-- Still unconfirmed, from the PTR notes only: excludeDispelTypes.
+--
+-- "Only mine" still rides the PLAYER filter token rather than
+-- isFromPlayerOrPlayerPet. The token is what splits a container into its
+-- player and others halves, so the two have to agree on one mechanism, and
+-- ElvUI moved the same way when they dropped isFromPlayerOrPlayerPet from
+-- their own ownOnly handling.
 
 -- Number of aura groups offered per frame.
 Auras.MAX_GROUPS = 5
@@ -252,13 +259,23 @@ function Auras:ValidateCandidateKeys(filters)
 	if not validCandidateKeys then
 		validCandidateKeys = {}
 
-		-- Keys confirmed in use against a live 12.1 client (cross-checked with
-		-- ElvUI, which ships these). Trusted even when no validator exists.
+		-- Keys ElvUI ships as user-facing options, so they are exercised
+		-- against a live client by a large user base. Trusted even when this
+		-- client offers no validator.
 		local confirmed = {
 			includeSpellIDs = true,
 			excludeSpellIDs = true,
 			includeDispelTypes = true,
 			maxDuration = true,
+			canApplyAura = true,
+			isBossAura = true,
+			isBossOrRoleAura = true,
+			isFromPlayerOrPlayerPet = true,
+			isPriorityAura = true,
+			isRoleAura = true,
+			isStealable = true,
+			nameplateShowAll = true,
+			nameplateShowPersonal = true,
 		}
 
 		local probe = C_UnitAuras and C_UnitAuras.ValidateCandidateFilters
@@ -268,10 +285,15 @@ function Auras:ValidateCandidateKeys(filters)
 			'includeDispelTypes',
 			'excludeDispelTypes',
 			'maxDuration',
+			'canApplyAura',
+			'isBossAura',
+			'isBossOrRoleAura',
 			'isFromPlayerOrPlayerPet',
-			'isStealable',
-			'isRoleAura',
 			'isPriorityAura',
+			'isRoleAura',
+			'isStealable',
+			'nameplateShowAll',
+			'nameplateShowPersonal',
 		}) do
 			if not probe then
 				-- Without a validator an unsupported key fails OPEN - the group
