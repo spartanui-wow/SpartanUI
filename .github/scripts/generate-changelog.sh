@@ -5,6 +5,8 @@
 # - Detects alpha builds (unreleased commits on master)
 # - Shows releases from the last month
 # - Categorizes commits by type (Features, Fixes, Changes, etc.)
+# - Skips repo maintenance: chore: commits and commits with no recognized
+#   prefix are dropped rather than shown under "Other"
 # - Generates two AI summaries: monthly overview and current release
 # - Auto-detects addon name and reads per-addon config
 #
@@ -112,137 +114,47 @@ categorize_commit() {
     # Convert to lowercase for case-insensitive matching
     local msg_lower=$(echo "$msg" | tr '[:upper:]' '[:lower:]')
 
-    # Check for conventional commit patterns first (highest priority)
-    if [[ "$msg" =~ ^(feat|feature|enhancement)[:\ ] ]] || [[ "$msg" =~ ^NEW: ]]; then
+    # A recognized prefix is REQUIRED for a commit to appear in the changelog.
+    # chore: is repo maintenance (docs, tooling, deps) and is never user-facing,
+    # so it maps to "skip" rather than "change".
+    #
+    # These are matched against the LOWERCASED subject and must list every
+    # spelling in use - notably the house prefixes new:/fixes:/improved:. The
+    # older `^(fix|bug)[:\ ]` style did NOT match "fixes:" (the bracket wants a
+    # colon or space immediately after "fix"), so those commits were only being
+    # categorised by the natural-language verb fallbacks further down. Removing
+    # those fallbacks without fixing this table empties the changelog.
+    if [[ "$msg_lower" =~ ^(feat|feature|new|enhancement): ]]; then
         echo "feature"
         return
-    elif [[ "$msg" =~ ^(fix|bug|bugfix)[:\ ] ]]; then
+    elif [[ "$msg_lower" =~ ^(fix|fixes|bug|bugfix): ]]; then
         echo "fix"
         return
-    elif [[ "$msg" =~ ^(chore|refactor|style|perf)[:\ ] ]]; then
+    elif [[ "$msg_lower" =~ ^chore: ]]; then
+        echo "skip"
+        return
+    elif [[ "$msg_lower" =~ ^(improved|refactor|style|perf): ]]; then
         echo "change"
         return
-    elif [[ "$msg" =~ ^(docs|documentation)[:\ ] ]]; then
+    elif [[ "$msg_lower" =~ ^(docs|documentation): ]]; then
         echo "docs"
         return
-    elif [[ "$msg" =~ ^(breaking|BREAKING)[:\ ] ]]; then
+    elif [[ "$msg_lower" =~ ^breaking: ]]; then
         echo "breaking"
         return
     fi
 
-    # Check for natural language patterns at the start of the message
-    # Fix patterns: "Fix", "Fixes", "Fixed", "Fixing"
-    if [[ "$msg_lower" =~ ^fix(es|ed|ing)?[[:space:]:\-] ]]; then
-        echo "fix"
-        return
-    fi
-
-    # Feature/Add patterns: "Add", "Adds", "Added", "Adding", "New", "Implement", "Implements"
-    if [[ "$msg_lower" =~ ^(add(s|ed|ing)?|new|implement(s|ed|ing)?)[[:space:]:\-] ]]; then
-        echo "feature"
-        return
-    fi
-
-    # Improvement patterns: "Improve", "Improves", "Improved", "Improving", "Enhance", "Enhances", "Update", "Updates"
-    if [[ "$msg_lower" =~ ^(improve(s|d|ing)?|enhance(s|d|ing)?|update(s|d|ing)?)[[:space:]:\-] ]]; then
-        echo "change"
-        return
-    fi
-
-    # Refactor patterns: "Refactor", "Refactors", "Refactored", "Refactoring", "Cleanup", "Clean up"
-    if [[ "$msg_lower" =~ ^(refactor(s|ed|ing)?|cleanup|clean[[:space:]]up|reorganize(s|d)?|simplif(y|ies|ied))[[:space:]:\-] ]]; then
-        echo "change"
-        return
-    fi
-
-    # Migration patterns: "Migrate", "Migrates", "Migrated", "Move", "Moves", "Moved"
-    if [[ "$msg_lower" =~ ^(migrate(s|d)?|move(s|d)?)[[:space:]:\-] ]]; then
-        echo "change"
-        return
-    fi
-
-    # Remove/Delete patterns: "Remove", "Removes", "Removed", "Delete", "Deletes", "Deleted"
-    if [[ "$msg_lower" =~ ^(remove(s|d)?|delete(s|d)?)[[:space:]:\-] ]]; then
-        echo "change"
-        return
-    fi
-
-    # Integration patterns: "Integrate", "Integrates", "Integrated"
-    if [[ "$msg_lower" =~ ^integrate(s|d)?[[:space:]:\-] ]]; then
-        echo "feature"
-        return
-    fi
-
-    # Monitor/Track patterns: "Monitor", "Track", "Respect"
-    if [[ "$msg_lower" =~ ^(monitor|track|respect)[[:space:]:\-] ]]; then
-        echo "feature"
-        return
-    fi
-
-    # Silence/Suppress patterns (usually fixes or improvements)
-    if [[ "$msg_lower" =~ ^(silence|suppress)[[:space:]:\-] ]]; then
-        echo "fix"
-        return
-    fi
-
-    # Protect/Ensure/Guard patterns (usually fixes)
-    if [[ "$msg_lower" =~ ^(protect(s)?|ensure(s)?|guard(s)?)[[:space:]:\-] ]]; then
-        echo "fix"
-        return
-    fi
-
-    # Register patterns (usually features)
-    if [[ "$msg_lower" =~ ^register(s|ed)?[[:space:]:\-] ]]; then
-        echo "feature"
-        return
-    fi
-
-    # Attempt patterns (usually fixes or experimental changes)
-    if [[ "$msg_lower" =~ ^attempt[[:space:]:\-] ]]; then
-        echo "fix"
-        return
-    fi
-
-    # Switch/Replace/Bundle patterns (changes)
-    if [[ "$msg_lower" =~ ^(switch|replace(s|d)?|bundle(s|d)?)[[:space:]:\-] ]]; then
-        echo "change"
-        return
-    fi
-
-    # Module-prefixed commits (e.g., "Minimap: Add feature", "UnitFrames: Fix bug")
-    # These are typically changes/improvements to specific modules
-    if [[ "$msg" =~ ^[A-Z][a-zA-Z]+:[[:space:]] ]]; then
-        # Extract what comes after the module prefix to determine type
-        local after_prefix=$(echo "$msg" | sed -E 's/^[A-Z][a-zA-Z]+:[[:space:]]//')
-        local after_lower=$(echo "$after_prefix" | tr '[:upper:]' '[:lower:]')
-
-        if [[ "$after_lower" =~ ^(fix|fixes|fixed|fixing) ]]; then
-            echo "fix"
-            return
-        elif [[ "$after_lower" =~ ^(add|adds|added|adding|new|implement) ]]; then
-            echo "feature"
-            return
-        else
-            echo "change"
-            return
-        fi
-    fi
-
-    # "Defines" pattern (usually compatibility/feature additions)
-    if [[ "$msg_lower" =~ ^define(s|d)?[[:space:]:\-] ]]; then
-        echo "feature"
-        return
-    fi
-
-    # Default to other
-    echo "other"
+    # No recognized prefix. Bare subjects ("TOC Bump", "Update Minimap.lua",
+    # "ouf lib update") are repo maintenance - skip them rather than guessing
+    # from a leading verb or a "Module:" prefix.
+    echo "skip"
 }
 
 # Function to clean commit message (remove prefixes)
 clean_commit_message() {
     local msg="$1"
     # Remove conventional commit prefixes (case-insensitive)
-    msg=$(echo "$msg" | sed -E 's/^(feat|feature|fix|bug|bugfix|chore|refactor|style|perf|docs|documentation|breaking|BREAKING|NEW|enhancement|new):[ ]+//i')
+    msg=$(echo "$msg" | sed -E 's/^(feat|feature|fix|fixes|bug|bugfix|chore|refactor|style|perf|docs|documentation|breaking|BREAKING|NEW|enhancement|new|improved):[ ]+//i')
 
     # Remove natural language verb prefixes - order matters: longer forms first!
     # Use word boundary patterns to match whole words only
@@ -432,7 +344,7 @@ format_categorized_commits() {
     local commit_file="$1"
 
     # Arrays for each category
-    local -a features=() fixes=() changes=() docs=() breaking=() others=()
+    local -a features=() fixes=() changes=() docs=() breaking=()
 
     # Read and categorize commits
     while IFS= read -r line || [ -n "$line" ]; do  # Handle files without trailing newline
@@ -447,7 +359,8 @@ format_categorized_commits() {
             change) changes+=("$clean_msg") ;;
             docs) docs+=("$clean_msg") ;;
             breaking) breaking+=("$clean_msg") ;;
-            *) others+=("$clean_msg") ;;
+            # Anything else (skip) is repo maintenance - drop it.
+            *) ;;
         esac
     done < "$commit_file"
 
@@ -492,13 +405,6 @@ format_categorized_commits() {
         echo ""
     fi
 
-    if [ ${#others[@]} -gt 0 ]; then
-        echo "### 🔧 Other"
-        for item in "${others[@]}"; do
-            echo "- $item"
-        done
-        echo ""
-    fi
 }
 
 # Main script execution

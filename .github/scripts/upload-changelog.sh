@@ -174,8 +174,9 @@ section_for_heading() {
         *Fixes*)         echo fix ;;
         *Changes*)       echo change ;;
         *Documentation*) echo docs ;;
-        # "### 🔧 Other" is deliberately dropped: those commits are chores that
-        # the website's own list does not show either.
+        # Any unrecognised heading is dropped. generate-changelog.sh no longer
+        # emits "### 🔧 Other" at all - chore: commits and commits with no
+        # recognised prefix are skipped before they reach the markdown.
         *)               echo "" ;;
     esac
 }
