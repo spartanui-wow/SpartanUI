@@ -411,7 +411,7 @@ local function Create(self, options)
 	return Mixin(element, elementMixin)
 end
 
-local function Update(self)
+local function Update(self, event)
 	-- SUI: AuraContainer:SetUnit asserts on a non-string, and oUF runs a full
 	-- element pass before a header has assigned the frame a unit.
 	if(not self.__unit) then return end
@@ -422,6 +422,18 @@ local function Update(self)
 				element:SetUnit(self.__unit) -- triggers a full update
 			else
 				element:ForceUpdate()
+			end
+
+			--[[ Callback: Auras:PostUpdate(event)
+			Called after the element has been updated.
+
+			Note: This only triggers when oUF initiates an update, not when Blizzard does it.
+
+			* self  - the Auras element
+			* event - the event that triggered the update
+			--]]
+			if(element.PostUpdate) then
+				element:PostUpdate(event)
 			end
 		end
 	end
