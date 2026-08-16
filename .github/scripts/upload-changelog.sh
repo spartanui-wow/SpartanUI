@@ -150,6 +150,84 @@ fi
 echo "Extracted $(echo "$CHANGELOG_CONTENT" | wc -l) lines of changelog content"
 
 # ---------------------------------------------------------------------------
+# Derive structured items from the extracted markdown
+# ---------------------------------------------------------------------------
+#
+# The website now stores release notes as tagged items as well as the markdown
+# blob, which is what lets it (and the ProfileHub desktop app) draw coloured
+# section labels without guessing from each line's wording.
+#
+# Derived from the markdown rather than regenerated from commits on purpose:
+# generate-changelog.sh has already categorised everything into "### 🚀
+# Features" style headings, so the section is sitting right there. Re-running
+# that classification here would be a second copy of the rules, free to drift.
+#
+# The blob is still uploaded unchanged, so nothing that reads it today
+# changes, and an addon whose changelog has no recognised headings simply
+# uploads no items and renders exactly as it does now.
+
+section_for_heading() {
+    local h="$1"
+    case "$h" in
+        *Breaking*)      echo breaking ;;
+        *Features*)      echo feature ;;
+        *Fixes*)         echo fix ;;
+        *Changes*)       echo change ;;
+        *Documentation*) echo docs ;;
+        # "### 🔧 Other" is deliberately dropped: those commits are chores that
+        # the website's own list does not show either.
+        *)               echo "" ;;
+    esac
+}
+
+build_items() {
+    local section=""
+    local items="[]"
+
+    while IFS= read -r line; do
+        # A "### ..." heading switches which section following bullets belong to.
+        if [[ "$line" =~ ^###[[:space:]] ]]; then
+            section="$(section_for_heading "$line")"
+            continue
+        fi
+
+        # Only bullets inside a recognised section become items.
+        [ -z "$section" ] && continue
+        [[ "$line" =~ ^-[[:space:]] ]] || continue
+
+        local text="${line#- }"
+        # Explicit [tag] / #tag markers, matching the desktop generator. A
+        # marker must contain a letter so issue refs ("closes #481") and prose
+        # numbers are not mistaken for tags.
+        local tags
+        tags=$(printf '%s\n' "$text" \
+            | grep -oE '(\[[a-zA-Z0-9_/-]*[a-zA-Z][a-zA-Z0-9_/-]*\]|#[a-zA-Z0-9_/-]*[a-zA-Z][a-zA-Z0-9_/-]*)' \
+            | tr -d '[]#' | tr '[:upper:]' '[:lower:]' | sort -u | grep -v '^$' || true)
+        # Strip those markers from the displayed text.
+        text=$(printf '%s' "$text" | sed -E 's/[[:space:]]*(\[[a-zA-Z0-9_/-]*[a-zA-Z][a-zA-Z0-9_/-]*\]|#[a-zA-Z0-9_/-]*[a-zA-Z][a-zA-Z0-9_/-]*)+[[:space:]]*$//')
+        [ -z "$(printf '%s' "$text" | tr -d '[:space:]')" ] && continue
+
+        local tags_json
+        tags_json=$(printf '%s\n' "$tags" | grep -v '^$' | jq -R . | jq -sc . 2>/dev/null || echo '[]')
+
+        items=$(jq -c --arg s "$section" --arg t "$text" --argjson g "$tags_json" \
+            '. += [{section:$s, text:$t, tags:$g}]' <<<"$items")
+    done <<< "$CHANGELOG_CONTENT"
+
+    printf '%s' "$items"
+}
+
+# jq is required for the structured form; without it we simply upload the blob
+# alone, exactly as before.
+ITEMS_JSON="[]"
+if command -v jq &>/dev/null; then
+    ITEMS_JSON="$(build_items)"
+    echo "Derived $(jq 'length' <<<"$ITEMS_JSON") structured items"
+else
+    echo "jq not available - uploading the markdown blob only" >&2
+fi
+
+# ---------------------------------------------------------------------------
 # Build CurseForge download URL (if we have the base URL)
 # ---------------------------------------------------------------------------
 
@@ -174,13 +252,18 @@ if command -v jq &>/dev/null; then
         --arg released_at "$RELEASED_AT" \
         --arg changelog "$CHANGELOG_CONTENT" \
         --arg curseforge_url "$CF_URL" \
+        --argjson items "$ITEMS_JSON" \
         '{
             addon_name: $addon_name,
             version: $version,
             released_at: $released_at,
             changelog: $changelog,
             curseforge_url: (if $curseforge_url == "" then null else $curseforge_url end)
-        }')
+        }
+        # Omitted entirely when nothing could be derived, so the API sees the
+        # same payload it always has rather than an empty array that would
+        # clear any items already stored for this version.
+        + (if ($items | length) > 0 then {items: $items} else {} end)')
 else
     # Manual JSON construction with escaping
     ESCAPED_CHANGELOG=$(echo "$CHANGELOG_CONTENT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo "\"$VERSION release\"")
