@@ -313,6 +313,10 @@ local NamePlateFactory = function(frame, unit)
 			end
 
 			local factionGroup = UnitFactionGroup(unit) or 'Neutral'
+			if not SUI.BlizzAPI.canaccessvalue(factionGroup) then
+				return
+			end
+
 			if settings.Background.type == 'solid' then
 				self.bg.solid:Show()
 				if settings.Background.colorMode == 'faction' and factionGroup then
