@@ -34,7 +34,7 @@ local elementList = {
 	'SummonIndicator',
 	'StatusText',
 	'SUI_RaidGroup',
-	not SUI.IsRetail and 'AuraWatch',
+	'AuraWatch',
 	'DefensiveIndicator',
 	not SUI.IsRetail and 'RaidDebuffs',
 	'CornerIndicators',
