@@ -419,13 +419,23 @@ do
 	oUF.Tags.Methods['SUI_ColorClass'] = function(u)
 		local _, class = UnitClass(u)
 
-		-- A secret class token cannot be used as a table key; fall back to
-		-- white rather than erroring.
-		if not class or not SUI.BlizzAPI.canaccessvalue(class) then
+		if not class then
 			return hex(1, 1, 1)
 		end
 
 		if u == 'pet' or UnitIsPlayer(u) then
+			-- A secret class token cannot be used as a table key, so ask the
+			-- engine instead. It hands back a colour object that builds its
+			-- own markup, which avoids reading the components here.
+			if not SUI.BlizzAPI.canaccessvalue(class) then
+				local color = C_ClassColor and C_ClassColor.GetClassColor and C_ClassColor.GetClassColor(class)
+				if color and color.GenerateHexColorMarkup then
+					return color:GenerateHexColorMarkup()
+				end
+
+				return hex(1, 1, 1)
+			end
+
 			return hex(oUF.colors.class[class])
 		else
 			return hex(1, 1, 1)
