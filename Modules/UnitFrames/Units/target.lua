@@ -43,7 +43,9 @@ local function Builder(frame)
 	UF.Elements:Build(frame, 'RareElite', elementDB['RareElite'])
 	UF.Elements:Build(frame, 'AuraBars', elementDB['AuraBars'])
 
-	UF.Elements:Build(frame, 'AuraWatch', elementDB['AuraWatch'])
+	if not SUI.IsRetail then
+		UF.Elements:Build(frame, 'AuraWatch', elementDB['AuraWatch'])
+	end
 	UF.Elements:Build(frame, 'CustomText', elementDB['CustomText'])
 	if SUI.IsRetail then
 		UF.Elements:Build(frame, 'AuraTracker', elementDB['AuraTracker'])
