@@ -285,17 +285,62 @@ function BlizzAPI.IsRestricted(which)
 	return state > 1
 end
 
+---Whether one kind of restriction is active, CVar override included.
+---
+---Each restriction type has a matching `addon<Type>RestrictionsForced` CVar
+---that turns it on outright, so both have to be asked.
+---@param which string Key of Enum.AddOnRestrictionType, e.g. 'Combat'
+---@return boolean
+function BlizzAPI.IsRestrictedBy(which)
+	local cvar = 'addon' .. which .. 'RestrictionsForced'
+	if GetCVarBool and GetCVarBool(cvar) then
+		return true
+	end
+
+	return BlizzAPI.IsRestricted(which)
+end
+
 ---Whether combat restrictions are active, by the game's own reckoning.
 ---
 ---Prefer this over InCombatLockdown when the question is "can I touch aura
 ---state right now", since that is what the restriction actually governs.
 ---@return boolean
 function BlizzAPI.IsCombatRestricted()
-	if GetCVarBool and GetCVarBool('addonCombatRestrictionsForced') then
-		return true
+	return BlizzAPI.IsRestrictedBy('Combat')
+end
+
+---Whether aura state is restricted for any reason.
+---
+---Combat is not the only one: an encounter, a mythic+ run and a rated match
+---each restrict auras on their own, and any of them can be active while out
+---of combat. Asking only about combat misses all three.
+---@return boolean
+function BlizzAPI.AreAurasRestricted()
+	return BlizzAPI.IsRestrictedBy('Combat') or BlizzAPI.IsRestrictedBy('Encounter') or BlizzAPI.IsRestrictedBy('ChallengeMode') or BlizzAPI.IsRestrictedBy('PvPMatch')
+end
+
+---Get the colour for a class token, secret or not.
+---
+---A secret token cannot be used as a table key, which is why the colour
+---tables are only reachable when the value is accessible. C_ClassColor
+---accepts a secret and does the lookup engine side, so a restricted unit
+---still gets its class colour instead of falling back to grey.
+---@param classToken? string
+---@return table? color A table with r, g and b fields
+function BlizzAPI.GetClassColor(classToken)
+	if not classToken then
+		return nil
 	end
 
-	return BlizzAPI.IsRestricted('Combat')
+	if BlizzAPI.canaccessvalue(classToken) then
+		return (_G.CUSTOM_CLASS_COLORS and _G.CUSTOM_CLASS_COLORS[classToken]) or _G.RAID_CLASS_COLORS[classToken]
+	end
+
+	if C_ClassColor and C_ClassColor.GetClassColor then
+		return C_ClassColor.GetClassColor(classToken)
+	end
+
+	return nil
 end
 
 SUI.BlizzAPI = BlizzAPI
