@@ -28,6 +28,9 @@ This element updates by changing the texture.
 
 local _, ns = ...
 local oUF = ns.oUF
+local CanAccess = canaccessvalue or function()
+	return true
+end
 
 local function Update(self, event)
 	local element = self.RaidRoleIndicator
@@ -43,15 +46,21 @@ local function Update(self, event)
 	end
 
 	local role, shouldShow
-	if(UnitInRaid(unit) ~= nil and not UnitHasVehicleUI(unit)) then
-		if(GetPartyAssignment('MAINTANK', unit)) then
+	local inRaid = UnitInRaid(unit)
+	local inVehicle = UnitHasVehicleUI(unit)
+	if(CanAccess(inRaid) and CanAccess(inVehicle) and inRaid and not inVehicle) then
+		local isMainTank = GetPartyAssignment('MAINTANK', unit)
+		if(CanAccess(isMainTank) and isMainTank) then
 			role = 'MAINTANK'
 			shouldShow = true
 			element:SetAtlas('RaidFrame-Icon-MainTank', element.useAtlasSize)
-		elseif(GetPartyAssignment('MAINASSIST', unit)) then
-			role = 'MAINASSIST'
-			shouldShow = true
-			element:SetAtlas('RaidFrame-Icon-MainAssist', element.useAtlasSize)
+		else
+			local isMainAssist = GetPartyAssignment('MAINASSIST', unit)
+			if(CanAccess(isMainAssist) and isMainAssist) then
+				role = 'MAINASSIST'
+				shouldShow = true
+				element:SetAtlas('RaidFrame-Icon-MainAssist', element.useAtlasSize)
+			end
 		end
 	end
 
