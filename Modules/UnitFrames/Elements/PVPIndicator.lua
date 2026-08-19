@@ -11,6 +11,17 @@ local function Build(frame, DB)
 		local pvp = self.PvPIndicator
 		local status
 		local factionGroup = UnitFactionGroup(unit) or 'Neutral'
+		if not SUI.BlizzAPI.canaccessvalue(factionGroup) then
+			pvp:Hide()
+			if pvp.Badge then
+				pvp.Badge:Hide()
+			end
+			if pvp.shadow then
+				pvp.shadow:Hide()
+			end
+			return
+		end
+
 		local honorRewardInfo = false
 		if SUI.IsRetail then
 			-- UnitHonorLevel is a secret for units whose identity is restricted.
@@ -20,10 +31,23 @@ local function Build(frame, DB)
 			end
 		end
 
-		if UnitIsPVPFreeForAll(unit) then
+		local isFFA = UnitIsPVPFreeForAll(unit)
+		local isPvP = UnitIsPVP(unit)
+		if not SUI.BlizzAPI.canaccessvalue(isFFA) or not SUI.BlizzAPI.canaccessvalue(isPvP) then
+			pvp:Hide()
+			if pvp.Badge then
+				pvp.Badge:Hide()
+			end
+			if pvp.shadow then
+				pvp.shadow:Hide()
+			end
+			return
+		end
+
+		if isFFA then
 			pvp:SetTexture('Interface\\FriendsFrame\\UI-Toast-FriendOnlineIcon')
 			status = 'FFA'
-		elseif factionGroup and factionGroup ~= 'Neutral' and UnitIsPVP(unit) then
+		elseif factionGroup ~= 'Neutral' and isPvP then
 			status = factionGroup
 		end
 
