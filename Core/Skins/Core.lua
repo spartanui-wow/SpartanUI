@@ -259,6 +259,10 @@ local function RemoveBlizzardRegions(frame, name, fadeOut)
 end
 
 function module.RemoveTextures(frame, option)
+	-- Forbidden objects still expose their methods; calling one is what errors.
+	if (not frame) or (frame.IsForbidden and frame:IsForbidden()) then
+		return
+	end
 	if (not frame.GetNumRegions) or (frame.Panel and not frame.Panel.CanBeRemoved) then
 		return
 	end

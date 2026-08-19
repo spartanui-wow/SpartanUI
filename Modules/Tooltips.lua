@@ -255,6 +255,12 @@ local ClearColors = function(SUITip)
 end
 
 local function ApplySkin(tooltip)
+	-- Widget tooltips inside instances can be forbidden; parenting a frame to
+	-- one or reading its regions errors out of our tainted context.
+	if not tooltip or (tooltip.IsForbidden and tooltip:IsForbidden()) then
+		return
+	end
+
 	if not tooltip.SUITip then
 		local SUITip = CreateFrame('Frame', nil, tooltip)
 		SUITip:SetAllPoints(tooltip)
