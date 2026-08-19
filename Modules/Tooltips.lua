@@ -764,9 +764,13 @@ local TooltipSetUnit = function(self, data)
 			local groupedUnit = IsInRaid() and 'raid' .. i or 'party' .. i
 			if UnitIsUnit(groupedUnit .. 'target', unit) then
 				local _, classToken = UnitClass(groupedUnit)
-				-- A secret class token cannot be used as a table key.
-				local classColor = classToken and SUI.BlizzAPI.canaccessvalue(classToken) and RAID_CLASS_COLORS[classToken]
-				if classColor then
+				-- GenerateHexColorMarkup works on both colour tables and the
+				-- ColorMixin the engine returns for a secret class token;
+				-- colorStr is only present on the former.
+				local classColor = SUI.BlizzAPI.GetClassColor(classToken)
+				if classColor and classColor.GenerateHexColorMarkup then
+					_G.tinsert(targetList, classColor:GenerateHexColorMarkup() .. UnitName(groupedUnit) .. '|r')
+				elseif classColor and classColor.colorStr then
 					_G.tinsert(targetList, format('|c%s%s|r', classColor.colorStr, UnitName(groupedUnit)))
 				else
 					_G.tinsert(targetList, UnitName(groupedUnit))
