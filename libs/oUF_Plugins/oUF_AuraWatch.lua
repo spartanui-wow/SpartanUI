@@ -187,7 +187,12 @@ local function updateIcon(element, unit, index, offset, filter, isDebuff, visibl
 		return
 	end
 
-	local AuraData = C_UnitAuras.GetAuraDataByIndex(unit, index, filter)
+	local canReadAuras, AuraData = pcall(C_UnitAuras.GetAuraDataByIndex, unit, index, filter)
+	if not canReadAuras then
+		element._suiCombatRestricted = true
+		element:Hide()
+		return
+	end
 
 	if not AuraData then
 		return
@@ -276,6 +281,22 @@ local function filterIcons(element, unit, filter, limit, isDebuff, offset, dontH
 end
 
 local function UpdateAuras(self, event, unit, isFullUpdate, updatedAuras)
+	-- Aura APIs cannot be called by tainted code while combat restrictions are
+	-- active. Hide AuraWatch until the restriction clears instead of attempting
+	-- to inspect secret aura data.
+	local element = self.AuraWatch
+	if element and SUI and SUI.BlizzAPI and SUI.BlizzAPI.IsCombatRestricted() then
+		element._suiCombatRestricted = true
+		element:Hide()
+		return
+	end
+
+	-- PLAYER_REGEN_ENABLED has no unit payload. Use the frame's current token so
+	-- the first unrestricted update rebuilds the icons immediately.
+	if event == 'PLAYER_REGEN_ENABLED' then
+		unit = self.unit
+	end
+
 	-- Validate event unit token - allows update even if self.unit is invalid (player name)
 	-- This handles the case where frames have invalid unit tokens but events provide correct ones
 	local isValidEventUnit = unit and type(unit) == 'string' and (unit:match('^[a-z]+%d*$') or unit == 'player' or unit == 'pet' or unit == 'target' or unit == 'focus')
@@ -290,8 +311,12 @@ local function UpdateAuras(self, event, unit, isFullUpdate, updatedAuras)
 		return
 	end
 
-	local element = self.AuraWatch
 	if element then
+		if element._suiCombatRestricted then
+			element._suiCombatRestricted = nil
+			element:Show()
+		end
+
 		if element.PreUpdate then
 			element:PreUpdate(unit)
 		end
@@ -354,6 +379,7 @@ local function Enable(self)
 		element.size = element.size or 8
 
 		self:RegisterEvent('UNIT_AURA', UpdateAuras)
+		self:RegisterEvent('PLAYER_REGEN_ENABLED', UpdateAuras, true)
 
 		element:Show()
 
@@ -364,6 +390,7 @@ end
 local function Disable(self)
 	if self.AuraWatch then
 		self:UnregisterEvent('UNIT_AURA', UpdateAuras)
+		self:UnregisterEvent('PLAYER_REGEN_ENABLED', UpdateAuras)
 
 		if self.AuraWatch then
 			self.AuraWatch:Hide()
