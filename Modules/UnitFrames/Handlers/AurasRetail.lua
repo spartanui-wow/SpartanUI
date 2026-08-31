@@ -1143,8 +1143,10 @@ function Auras:RepointVariants(frame, element, DB)
 				end
 			end
 			if element.SetAuraGroupLayout then
-				local size = type(DB.size) == 'number' and DB.size or 24
-				local spacing = type(DB.spacing) == 'number' and DB.spacing or 2
+				-- A saved size can be zero or negative from a hand-edited or
+				-- half-migrated profile, which the layout will not take.
+				local size = type(DB.size) == 'number' and DB.size > 0 and DB.size or 24
+				local spacing = type(DB.spacing) == 'number' and DB.spacing >= 0 and DB.spacing or 2
 				element:SetAuraGroupLayout(key, {
 					elementWidth = size,
 					elementHeight = size,
@@ -1337,8 +1339,9 @@ function Auras:RepointGroups(frame, element, DB)
 				end
 
 				if element.SetAuraGroupLayout then
-					local size = type(group.size) == 'number' and group.size or 24
-					local spacing = type(group.spacing) == 'number' and group.spacing or 2
+					-- See the note on the other SetAuraGroupLayout call.
+					local size = type(group.size) == 'number' and group.size > 0 and group.size or 24
+					local spacing = type(group.spacing) == 'number' and group.spacing >= 0 and group.spacing or 2
 					element:SetAuraGroupLayout(key, {
 						elementWidth = size,
 						elementHeight = size,
