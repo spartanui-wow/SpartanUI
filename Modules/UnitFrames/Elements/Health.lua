@@ -4,7 +4,7 @@ local UF, L = SUI.UF, SUI.L
 ---@param DB table
 local function Build(frame, DB)
 	local health = CreateFrame('StatusBar', nil, frame)
-	health:SetFrameStrata(DB.FrameStrata or frame:GetFrameStrata())
+	SUI.BlizzAPI.SetFrameStrataSafe(health, DB.FrameStrata, frame)
 	health:SetFrameLevel(DB.FrameLevel or 2)
 	health:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 	health:SetSize(DB.width or frame:GetWidth(), DB.height or 20)

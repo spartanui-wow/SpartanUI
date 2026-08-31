@@ -275,7 +275,8 @@ local function Build(frame, DB)
 	local castLevel = DB.FrameLevel or 2
 
 	local cast = CreateFrame('StatusBar', nil, frame)
-	cast:SetFrameStrata(DB.FrameStrata or frame:GetFrameStrata())
+
+	SUI.BlizzAPI.SetFrameStrataSafe(cast, DB.FrameStrata, frame)
 	cast:SetFrameLevel(castLevel)
 	cast:SetStatusBarTexture(UF:FindStatusBarTexture(DB.texture))
 	cast:SetSize(DB.width or frame:GetWidth(), DB.height or 20)

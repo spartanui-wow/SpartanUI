@@ -343,4 +343,29 @@ function BlizzAPI.GetClassColor(classToken)
 	return nil
 end
 
+---Apply a frame strata, ignoring one that cannot be read.
+---
+---A frame carrying secret values reports a secret strata, which cannot be
+---passed back to SetFrameStrata. A child inherits its parent's strata anyway,
+---so skipping the call in that case loses nothing.
+---@param frame table The frame to set the strata on
+---@param strata? string An explicit strata, used as-is when given
+---@param inheritFrom? table Frame to inherit from when no strata is given
+function BlizzAPI.SetFrameStrataSafe(frame, strata, inheritFrom)
+	if not frame or not frame.SetFrameStrata then
+		return
+	end
+
+	if not strata and inheritFrom and inheritFrom.GetFrameStrata then
+		local inherited = inheritFrom:GetFrameStrata()
+		if BlizzAPI.canaccessvalue(inherited) then
+			strata = inherited
+		end
+	end
+
+	if strata then
+		frame:SetFrameStrata(strata)
+	end
+end
+
 SUI.BlizzAPI = BlizzAPI
