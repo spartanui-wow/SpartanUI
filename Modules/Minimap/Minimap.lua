@@ -454,6 +454,19 @@ function module:ModifyMinimapLayout()
 
 	-- BorderTop and ZoneTextButton positioning (retail only)
 	if UsesModernMinimap then
+		-- Forever adds a day/night dial around the minimap that overlaps our border.
+		-- Blizzard re-anchors it from SetEditModeScale, so keep it hidden rather than
+		-- hiding it once.
+		local diel = MinimapCluster.DielFrame
+		if diel then
+			diel:Hide()
+			if not diel.suiHideHooked then
+				diel.suiHideHooked = true
+				diel:HookScript('OnShow', function(self)
+					self:Hide()
+				end)
+			end
+		end
 		module:SetupBorderTop()
 	else
 		-- Classic-specific modifications
@@ -568,11 +581,6 @@ function module:ModifyMinimapLayout()
 
 		if MinimapCluster.BorderTop then
 			MinimapCluster.BorderTop:Hide()
-		end
-
-		-- Forever adds a day/night dial around the minimap that overlaps our border
-		if MinimapCluster.DielFrame then
-			MinimapCluster.DielFrame:Hide()
 		end
 	end
 
