@@ -7,6 +7,13 @@ module.DisplayName = 'Minimap'
 module.description = 'CORE: Skins, sizes, and positions the Minimap'
 module.Core = true
 ----------------------------------------------------------------------------------------------------
+-- Which minimap Blizzard actually draws, independent of content flavor. The modern
+-- MinimapCluster layout ships on Retail and on Forever, which is Classic content built on
+-- the modern engine. Forever and Retail will drift apart over time, so this only claims
+-- that this client has the cluster - never that the two flavors match anywhere else.
+local UsesModernMinimap = (MinimapCluster and MinimapCluster.IndicatorFrame) and true or false
+module.UsesModernMinimap = UsesModernMinimap
+
 module.Settings = nil ---@type SUI.Style.Settings.Minimap
 module.styleOverride = nil ---@type string|nil
 module.layoutModificationPending = false ---@type boolean Track if layout modification was skipped during combat
@@ -360,7 +367,10 @@ function module:UpdateSettings()
 	module.CurrentSettings = nil
 	-- Start with base settings (version-specific)
 	---@type SUI.Style.Settings.IMinimap
-	local baseSettings = SUI.IsRetail and BaseSettings or BaseSettingsClassic
+	-- Layout follows the minimap Blizzard actually draws, not the content flavor. Clients
+	-- built on the modern engine (Retail, Forever) use the MinimapCluster layout even when
+	-- they ship Classic content, so key off the cluster rather than SUI.IsRetail.
+	local baseSettings = UsesModernMinimap and BaseSettings or BaseSettingsClassic
 	module.Settings = SUI:CopyData({}, baseSettings)
 	if Registry[currentStyle] then
 		module.Settings = SUI:MergeData(module.Settings, Registry[currentStyle].settings, true)
@@ -374,7 +384,7 @@ function module:UpdateSettings()
 
 	-- Normalize settings structure for easier access
 	-- Classic uses flat structure, Retail uses nested .elements
-	if not SUI.IsRetail and module.Settings.elements then
+	if not UsesModernMinimap and module.Settings.elements then
 		-- Convert retail structure to classic if needed
 		for key, value in pairs(module.Settings.elements) do
 			if not module.Settings[key] then
@@ -392,9 +402,18 @@ function module:UpdateSettings()
 
 	-- Debug logging for minimap settings verification
 	if module.logger then
-		module.logger.debug(string.format('Minimap Settings - Size: %dx%d, IsRetail: %s, Theme: %s', module.Settings.size[1], module.Settings.size[2], tostring(SUI.IsRetail), currentStyle))
+		module.logger.debug(
+			string.format(
+				'Minimap Settings - Size: %dx%d, ModernMinimap: %s, Flavor: %s, Theme: %s',
+				module.Settings.size[1],
+				module.Settings.size[2],
+				tostring(UsesModernMinimap),
+				SUI.wowVersion,
+				currentStyle
+			)
+		)
 
-		local bgSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.background or module.Settings.background
+		local bgSettings = module.Settings.elements and module.Settings.elements.background or module.Settings.background
 		if bgSettings then
 			module.logger.debug(
 				string.format('Background - Texture: %s, Size: %s', tostring(bgSettings.texture), bgSettings.size and string.format('%dx%d', bgSettings.size[1], bgSettings.size[2]) or 'nil')
@@ -434,7 +453,7 @@ function module:ModifyMinimapLayout()
 	MinimapCompassTexture:Hide()
 
 	-- BorderTop and ZoneTextButton positioning (retail only)
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		module:SetupBorderTop()
 	else
 		-- Classic-specific modifications
@@ -550,6 +569,11 @@ function module:ModifyMinimapLayout()
 		if MinimapCluster.BorderTop then
 			MinimapCluster.BorderTop:Hide()
 		end
+
+		-- Forever adds a day/night dial around the minimap that overlaps our border
+		if MinimapCluster.DielFrame then
+			MinimapCluster.DielFrame:Hide()
+		end
 	end
 
 	-- Setup rotation if needed
@@ -567,7 +591,7 @@ function module:UpdateMinimapSize()
 	end
 
 	-- Set size of SUIMinimap (our holder)
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		-- Retail: Include BorderTop height
 		local borderHeight = MinimapCluster.BorderTop and MinimapCluster.BorderTop:GetHeight() or 28
 		SUIMinimap:SetSize(Minimap:GetWidth(), (Minimap:GetHeight() + borderHeight + 15))
@@ -729,7 +753,7 @@ function module:PositionItem(obj, position)
 end
 
 function module:RepositionElement(element)
-	local settings = SUI.IsRetail and module.Settings.elements and module.Settings.elements[element] or module.Settings[element]
+	local settings = module.Settings.elements and module.Settings.elements[element] or module.Settings[element]
 	if not settings or not settings.position then
 		return
 	end
@@ -738,15 +762,15 @@ function module:RepositionElement(element)
 	if element == 'clock' then
 		obj = TimeManagerClockButton or GameTimeFrame
 	elseif element == 'mailIcon' then
-		obj = SUI.IsRetail and MinimapCluster.IndicatorFrame and MinimapCluster.IndicatorFrame.MailFrame or MiniMapMailFrame
+		obj = (MinimapCluster and MinimapCluster.IndicatorFrame and MinimapCluster.IndicatorFrame.MailFrame) or MiniMapMailFrame
 	elseif element == 'tracking' then
-		obj = SUI.IsRetail and (MinimapCluster.TrackingFrame or MinimapCluster.Tracking) or MiniMapTracking
+		obj = (MinimapCluster and (MinimapCluster.TrackingFrame or MinimapCluster.Tracking)) or MiniMapTracking
 	elseif element == 'calendarButton' then
 		obj = GameTimeFrame
 	elseif element == 'instanceDifficulty' then
-		obj = SUI.IsRetail and MinimapCluster.InstanceDifficulty or MiniMapInstanceDifficulty
+		obj = (MinimapCluster and MinimapCluster.InstanceDifficulty) or MiniMapInstanceDifficulty
 	elseif element == 'queueStatus' then
-		obj = SUI.IsRetail and QueueStatusButton or MiniMapBattlefieldFrame
+		obj = QueueStatusButton or MiniMapBattlefieldFrame
 	elseif element == 'expansionButton' then
 		obj = ExpansionLandingPageMinimapButton
 	elseif element == 'BorderTop' then
@@ -754,7 +778,7 @@ function module:RepositionElement(element)
 	elseif element == 'background' then
 		obj = SUIMinimap and SUIMinimap.BG
 	elseif element == 'ZoneText' then
-		obj = SUI.IsRetail and MinimapCluster.ZoneTextButton or Minimap.ZoneText
+		obj = (MinimapCluster and MinimapCluster.ZoneTextButton) or Minimap.ZoneText
 	elseif element == 'coords' then
 		obj = Minimap.coords
 	elseif element == 'zoomButtons' then
@@ -768,7 +792,7 @@ end
 
 function module:SetupBackground()
 	-- Get background settings (handle both Retail nested and Classic flat structure)
-	local bgSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.background or module.Settings.background
+	local bgSettings = module.Settings.elements and module.Settings.elements.background or module.Settings.background
 
 	-- Hide background if: no settings, enabled is false, or no texture is defined
 	if not bgSettings or bgSettings.enabled == false or not bgSettings.texture then
@@ -816,7 +840,7 @@ end
 
 function module:SetupBorderTop()
 	-- BorderTop is Retail only
-	if not SUI.IsRetail or not MinimapCluster.BorderTop then
+	if not UsesModernMinimap or not MinimapCluster.BorderTop then
 		return
 	end
 
@@ -956,7 +980,7 @@ function module:SetupBorderTop()
 end
 
 function module:SetupZoomButtons()
-	local zoomSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
+	local zoomSettings = module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
 	if not zoomSettings then
 		return
 	end
@@ -989,7 +1013,7 @@ function module:SetupZoomButtons()
 		module.zoomOut = zoomOut
 
 		-- Ensure zoom buttons respect the addonButtons style setting
-		local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+		local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 		local style = addonSettings and addonSettings.style or 'mouseover'
 		module.logger.debug('SetupZoomButtons - addonButtons style: ' .. tostring(style))
 
@@ -1006,7 +1030,7 @@ function module:SetupZoomButtons()
 
 			-- In Retail, Blizzard's MinimapMixin:OnLeave() calls Hide() on zoom buttons
 			-- We need to override this behavior for 'always' mode
-			if SUI.IsRetail then
+			if UsesModernMinimap then
 				-- Hook the Hide method to prevent hiding when style is 'always'
 				if not zoomIn.SUI_HideHooked then
 					zoomIn.SUI_OriginalHide = zoomIn.Hide
@@ -1046,14 +1070,14 @@ function module:SetupZoomButtons()
 end
 
 function module:SetupZoneText()
-	local zoneSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
+	local zoneSettings = module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
 	if not zoneSettings then
 		return
 	end
 
 	local displayMode = zoneSettings.displayMode or 'show'
 
-	if not SUI.IsRetail then
+	if not UsesModernMinimap then
 		-- Classic: Create custom zone text display below minimap
 		if zoneSettings.enabled and displayMode ~= 'hide' then
 			if not Minimap.ZoneText then
@@ -1138,11 +1162,11 @@ function module:SetupZoneTextMouseover()
 	module.zoneTextMouseoverHooked = true
 
 	Minimap:HookScript('OnEnter', function()
-		local zoneSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
+		local zoneSettings = module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
 		if not zoneSettings or (zoneSettings.displayMode or 'show') ~= 'mouseover' then
 			return
 		end
-		if SUI.IsRetail then
+		if UsesModernMinimap then
 			local zoneButton = MinimapCluster.ZoneTextButton
 			if zoneButton then
 				zoneButton:Show()
@@ -1153,11 +1177,11 @@ function module:SetupZoneTextMouseover()
 	end)
 
 	Minimap:HookScript('OnLeave', function()
-		local zoneSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
+		local zoneSettings = module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
 		if not zoneSettings or (zoneSettings.displayMode or 'show') ~= 'mouseover' then
 			return
 		end
-		if SUI.IsRetail then
+		if UsesModernMinimap then
 			local zoneButton = MinimapCluster.ZoneTextButton
 			if zoneButton then
 				zoneButton:Hide()
@@ -1169,7 +1193,7 @@ function module:SetupZoneTextMouseover()
 end
 
 function module:UpdateZoneTextColor()
-	local zoneSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
+	local zoneSettings = module.Settings.elements and module.Settings.elements.ZoneText or module.Settings.ZoneText
 	if not zoneSettings then
 		return
 	end
@@ -1192,7 +1216,7 @@ function module:UpdateZoneTextColor()
 		end
 	end
 
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		if MinimapZoneText then
 			MinimapZoneText:SetTextColor(r, g, b)
 		end
@@ -1202,7 +1226,7 @@ function module:UpdateZoneTextColor()
 end
 
 function module:UpdateClassicZoneText()
-	if SUI.IsRetail or not Minimap.ZoneText or not Minimap.ZoneText:IsShown() then
+	if UsesModernMinimap or not Minimap.ZoneText or not Minimap.ZoneText:IsShown() then
 		return
 	end
 
@@ -1215,8 +1239,33 @@ function module:UpdateClassicZoneText()
 end
 
 function module:SetupCoords()
-	local coordSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.coords or module.Settings.coords
+	local coordSettings = module.Settings.elements and module.Settings.elements.coords or module.Settings.coords
 	if not coordSettings then
+		return
+	end
+
+	-- Newer clients draw their own coordinates on the minimap (CVar minimapShowPlayerCoords).
+	-- Where that exists, let Blizzard own the readout instead of stacking a second one on
+	-- top, but move it to wherever our coords were configured to go.
+	local blizzCoords = MinimapCluster and MinimapCluster.MinimapContainer and MinimapCluster.MinimapContainer.PlayerCoords
+	if blizzCoords then
+		if Minimap.coords then
+			Minimap.coords:Hide()
+		end
+		if module.coordsTimer then
+			module:CancelTimer(module.coordsTimer)
+			module.coordsTimer = nil
+		end
+
+		if coordSettings.enabled then
+			if coordSettings.position then
+				module:PositionItem(blizzCoords, coordSettings.position)
+			end
+			blizzCoords:SetScale(coordSettings.scale or 1)
+			blizzCoords:Show()
+		else
+			blizzCoords:Hide()
+		end
 		return
 	end
 
@@ -1227,7 +1276,7 @@ function module:SetupCoords()
 		ApplyElementFont(Minimap.coords, 10, coordSettings.font)
 
 		-- For Classic/TBC, if ZoneText exists, position relative to it instead of using the position string
-		if not SUI.IsRetail and Minimap.ZoneText and Minimap.ZoneText:IsShown() then
+		if not UsesModernMinimap and Minimap.ZoneText and Minimap.ZoneText:IsShown() then
 			Minimap.coords:ClearAllPoints()
 			Minimap.coords:SetPoint('TOP', Minimap.ZoneText, 'BOTTOM', 0, -4)
 		elseif coordSettings.position then
@@ -1267,7 +1316,7 @@ function module:SetupCoordinatesUpdater()
 			return
 		end
 		if pos.x and pos.y then
-			local coordSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.coords or module.Settings.coords
+			local coordSettings = module.Settings.elements and module.Settings.elements.coords or module.Settings.coords
 			local format = coordSettings and coordSettings.format or '%.1f, %.1f'
 			Minimap.coords:SetText(string.format(format, pos.x * 100, pos.y * 100))
 		end
@@ -1275,18 +1324,18 @@ function module:SetupCoordinatesUpdater()
 end
 
 function module:SetupClock()
-	local clockSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.clock or module.Settings.clock
+	local clockSettings = module.Settings.elements and module.Settings.elements.clock or module.Settings.clock
 	if not clockSettings or not clockSettings.enabled then
 		if TimeManagerClockButton then
 			TimeManagerClockButton:Hide()
 		end
-		if not SUI.IsRetail and GameTimeFrame then
+		if not UsesModernMinimap and GameTimeFrame then
 			GameTimeFrame:Hide()
 		end
 		return
 	end
 
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		-- Retail: TimeManagerClockButton
 		if not TimeManagerClockButton then
 			C_AddOns.LoadAddOn('Blizzard_TimeManager')
@@ -1315,14 +1364,14 @@ function module:SetupClock()
 end
 
 function module:SetupMailIcon()
-	local mailSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.mailIcon or module.Settings.mailIcon
+	local mailSettings = module.Settings.elements and module.Settings.elements.mailIcon or module.Settings.mailIcon
 	if not mailSettings then
 		return
 	end
 
 	-- Get mail frame - different in Retail vs Classic
 	local mailFrame
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		mailFrame = MinimapCluster.IndicatorFrame and MinimapCluster.IndicatorFrame.MailFrame
 	else
 		mailFrame = MiniMapMailFrame
@@ -1334,7 +1383,7 @@ function module:SetupMailIcon()
 
 	if mailSettings.enabled then
 		-- Mark the MailFrame to be ignored by the IndicatorFrame's automatic layout
-		if SUI.IsRetail and mailFrame then
+		if UsesModernMinimap and mailFrame then
 			mailFrame.ignoreInLayout = true
 		end
 
@@ -1345,7 +1394,7 @@ function module:SetupMailIcon()
 		-- mailFrame:Show()
 
 		-- Hook the animation finished event to reapply our positioning
-		if SUI.IsRetail and mailFrame.NewMailAnim and not mailFrame.NewMailAnim.suiHooked then
+		if UsesModernMinimap and mailFrame.NewMailAnim and not mailFrame.NewMailAnim.suiHooked then
 			mailFrame.NewMailAnim:HookScript('OnFinished', function()
 				-- Reapply our custom positioning after animation completes
 				if mailSettings.position then
@@ -1355,7 +1404,7 @@ function module:SetupMailIcon()
 			mailFrame.NewMailAnim.suiHooked = true
 		end
 
-		if SUI.IsRetail and mailFrame.MailReminderAnim and not mailFrame.MailReminderAnim.suiHooked then
+		if UsesModernMinimap and mailFrame.MailReminderAnim and not mailFrame.MailReminderAnim.suiHooked then
 			mailFrame.MailReminderAnim:HookScript('OnFinished', function()
 				-- Reapply our custom positioning after animation completes
 				if mailSettings.position then
@@ -1370,14 +1419,14 @@ function module:SetupMailIcon()
 end
 
 function module:SetupTracking()
-	local trackingSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.tracking or module.Settings.tracking
+	local trackingSettings = module.Settings.elements and module.Settings.elements.tracking or module.Settings.tracking
 	if not trackingSettings then
 		return
 	end
 
 	-- Get tracking frame - different in Retail vs Classic
 	local tracking
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		tracking = MinimapCluster.TrackingFrame or MinimapCluster.Tracking
 	else
 		tracking = MiniMapTracking
@@ -1405,7 +1454,7 @@ function module:SetupTracking()
 end
 
 function module:SetupCalendarButton()
-	if not SUI.IsRetail then
+	if not UsesModernMinimap then
 		return
 	end -- Calendar button is Retail-only
 
@@ -1426,14 +1475,14 @@ function module:SetupCalendarButton()
 end
 
 function module:SetupInstanceDifficulty()
-	local difficultySettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.instanceDifficulty or module.Settings.instanceDifficulty
+	local difficultySettings = module.Settings.elements and module.Settings.elements.instanceDifficulty or module.Settings.instanceDifficulty
 	if not difficultySettings then
 		return
 	end
 
 	-- Get instance difficulty frame - different in Retail vs Classic
 	local difficulty
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		difficulty = MinimapCluster.InstanceDifficulty
 	else
 		difficulty = MiniMapInstanceDifficulty
@@ -1452,14 +1501,14 @@ function module:SetupInstanceDifficulty()
 end
 
 function module:SetupQueueStatus()
-	local queueSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.queueStatus or module.Settings.queueStatus
+	local queueSettings = module.Settings.elements and module.Settings.elements.queueStatus or module.Settings.queueStatus
 	if not queueSettings then
 		return
 	end
 
 	-- Get queue/battlefield frame - different in Retail vs Classic
 	local queueFrame
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		queueFrame = QueueStatusButton
 	else
 		queueFrame = MiniMapBattlefieldFrame
@@ -1478,7 +1527,7 @@ function module:SetupQueueStatus()
 end
 
 function module:SetupExpansionButton()
-	if not SUI.IsRetail then
+	if not UsesModernMinimap then
 		return
 	end -- Expansion button is Retail-only
 	if not ExpansionLandingPageMinimapButton then
@@ -1547,7 +1596,7 @@ function module:SetupAutoZoom()
 end
 
 function module:SetupRightClickMenu()
-	if not SUI.IsRetail then
+	if not UsesModernMinimap then
 		return
 	end
 	if module.Settings.rightClickMenu == false then
@@ -1634,7 +1683,7 @@ end
 
 function module:SetupAddonButtons()
 	-- Check if bag mode is active - if so, don't set up fading
-	local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+	local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 	local style = addonSettings and addonSettings.style or 'mouseover'
 
 	if style == 'bag' then
@@ -1677,7 +1726,7 @@ function module:SetupAddonButtons()
 		local zoomIn = Minimap.ZoomIn or MinimapZoomIn
 		local zoomOut = Minimap.ZoomOut or MinimapZoomOut
 		if button == zoomIn or button == zoomOut then
-			local zoomSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
+			local zoomSettings = module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
 			if zoomSettings and not zoomSettings.enabled then
 				return true
 			end
@@ -1687,7 +1736,7 @@ function module:SetupAddonButtons()
 
 	local function showAllButtons()
 		-- Check the current style
-		local currentSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+		local currentSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 		local currentStyle = currentSettings and currentSettings.style or 'mouseover'
 
 		-- For 'always' mode, ensure buttons stay visible by stopping any fade animations
@@ -1706,7 +1755,7 @@ function module:SetupAddonButtons()
 		end
 
 		-- Explicitly handle zoom buttons (they may be parented to MinimapCluster, not Minimap)
-		local zoomSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
+		local zoomSettings = module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
 		if zoomSettings and zoomSettings.enabled then
 			if module.zoomIn then
 				if module.zoomIn.fadeInAnim then
@@ -1729,7 +1778,7 @@ function module:SetupAddonButtons()
 		end
 
 		-- Process MinimapBackdrop children for Classic
-		if not SUI.IsRetail and MinimapBackdrop then
+		if not UsesModernMinimap and MinimapBackdrop then
 			for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 				if child.fadeInAnim and not isDisabledZoomButton(child) then
 					child.fadeInAnim:Stop()
@@ -1742,7 +1791,7 @@ function module:SetupAddonButtons()
 
 	local function hideAllButtons()
 		-- Check the current style - only hide on mouse leave for 'mouseover' mode
-		local currentSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+		local currentSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 		local currentStyle = currentSettings and currentSettings.style or 'mouseover'
 
 		-- For 'always' mode, ensure buttons stay visible - stop any fade animations and keep alpha at 1
@@ -1756,7 +1805,7 @@ function module:SetupAddonButtons()
 			end
 
 			-- Explicitly handle zoom buttons for 'always' mode
-			local zoomSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
+			local zoomSettings = module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
 			if zoomSettings and zoomSettings.enabled then
 				if module.zoomIn then
 					if module.zoomIn.fadeOutAnim then
@@ -1773,7 +1822,7 @@ function module:SetupAddonButtons()
 			end
 
 			-- Process MinimapBackdrop children for Classic
-			if not SUI.IsRetail and MinimapBackdrop then
+			if not UsesModernMinimap and MinimapBackdrop then
 				for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 					if child.fadeOutAnim and not isDisabledZoomButton(child) then
 						child.fadeInAnim:Stop()
@@ -1799,7 +1848,7 @@ function module:SetupAddonButtons()
 		end
 
 		-- For mouseover mode, also fade out zoom buttons
-		local zoomSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
+		local zoomSettings = module.Settings.elements and module.Settings.elements.zoomButtons or module.Settings.zoomButtons
 		if zoomSettings and zoomSettings.enabled then
 			if module.zoomIn and module.zoomIn.fadeOutAnim then
 				module.zoomIn.fadeInAnim:Stop()
@@ -1812,7 +1861,7 @@ function module:SetupAddonButtons()
 		end
 
 		-- Process MinimapBackdrop children for Classic
-		if not SUI.IsRetail and MinimapBackdrop then
+		if not UsesModernMinimap and MinimapBackdrop then
 			for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 				if child.fadeOutAnim and not isDisabledZoomButton(child) then
 					child.fadeInAnim:Stop()
@@ -1832,7 +1881,7 @@ function module:SetupAddonButtons()
 	end
 
 	-- Process MinimapBackdrop children for Classic
-	if not SUI.IsRetail and MinimapBackdrop then
+	if not UsesModernMinimap and MinimapBackdrop then
 		for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 			-- if child:IsObjectType('Button') then
 			setupButtonFading(child)
@@ -1855,7 +1904,7 @@ function module:SetupAddonButtons()
 				end
 
 				-- Process MinimapBackdrop children for Classic
-				if not SUI.IsRetail and MinimapBackdrop then
+				if not UsesModernMinimap and MinimapBackdrop then
 					for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 						if child:IsObjectType('Button') and not child.fadeInAnim and not isFrameIgnored(child) then
 							setupButtonFading(child)
@@ -1879,7 +1928,7 @@ function module:SetupAddonButtons()
 	SUIMinimap:HookScript('OnLeave', hideAllButtons)
 
 	-- Hook MinimapBackdrop for Classic clients
-	if not SUI.IsRetail and MinimapBackdrop then
+	if not UsesModernMinimap and MinimapBackdrop then
 		MinimapBackdrop:HookScript('OnEnter', showAllButtons)
 		MinimapBackdrop:HookScript('OnLeave', hideAllButtons)
 	end
@@ -1898,7 +1947,7 @@ function module:SetupAddonButtons()
 end
 
 function module:UpdateAddonButtons()
-	local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+	local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 	if not addonSettings then
 		return
 	end
@@ -1928,7 +1977,7 @@ function module:UpdateAddonButtons()
 			end
 		end
 		-- Process MinimapBackdrop children for Classic
-		if not SUI.IsRetail and MinimapBackdrop then
+		if not UsesModernMinimap and MinimapBackdrop then
 			for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 				if child:IsObjectType('Button') and not isFrameIgnored(child) then
 					child:SetAlpha(1)
@@ -1942,7 +1991,7 @@ function module:UpdateAddonButtons()
 			end
 		end
 		-- Process MinimapBackdrop children for Classic
-		if not SUI.IsRetail and MinimapBackdrop then
+		if not UsesModernMinimap and MinimapBackdrop then
 			for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 				if child:IsObjectType('Button') and not isFrameIgnored(child) then
 					child:SetAlpha(0)
@@ -1957,7 +2006,7 @@ function module:UpdateAddonButtons()
 			end
 		end
 		-- Process MinimapBackdrop children for Classic
-		if not SUI.IsRetail and MinimapBackdrop then
+		if not UsesModernMinimap and MinimapBackdrop then
 			for _, child in ipairs({ MinimapBackdrop:GetChildren() }) do
 				if child:IsObjectType('Button') and not isFrameIgnored(child) then
 					child:SetAlpha(0) -- Start hidden
@@ -1972,7 +2021,7 @@ end
 
 -- Button Bag functionality
 function module:SetupButtonBag()
-	local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+	local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 	if not addonSettings then
 		if module.logger then
 			module.logger.debug('ButtonBag: No addonSettings found')
@@ -2214,7 +2263,7 @@ function module:IsButtonHidden(buttonName)
 		return false
 	end
 
-	local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+	local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 	if not addonSettings or not addonSettings.hiddenButtons then
 		return false
 	end
@@ -2230,7 +2279,7 @@ function module:SetButtonHidden(buttonName, hidden)
 		return
 	end
 
-	local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+	local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 	if not addonSettings then
 		return
 	end
@@ -2247,7 +2296,7 @@ function module:SetButtonHidden(buttonName, hidden)
 		module.DB.customSettings[style] = {}
 	end
 
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		if not module.DB.customSettings[style].elements then
 			module.DB.customSettings[style].elements = {}
 		end
@@ -2292,7 +2341,7 @@ function module:ApplyButtonVisibility(buttonName, hidden)
 	else
 		button.SUI_ManuallyHidden = nil
 		-- Only show if not in button bag mode or if bag is open
-		local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+		local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 		local style = addonSettings and addonSettings.style or 'mouseover'
 		if style ~= 'bag' or ButtonBag.isOpen then
 			button:Show()
@@ -2334,7 +2383,7 @@ function module:IsButtonExcluded(buttonName)
 		return true
 	end
 
-	local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+	local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 	if not addonSettings then
 		return false
 	end
@@ -2471,7 +2520,7 @@ function module:OpenButtonBag()
 	end
 
 	-- Get settings for buttons per row
-	local addonSettings = SUI.IsRetail and module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
+	local addonSettings = module.Settings.elements and module.Settings.elements.addonButtons or module.Settings.addonButtons
 	local buttonsPerRow = addonSettings and addonSettings.buttonsPerRow or 6
 
 	-- Determine columns based on setting
@@ -2638,7 +2687,7 @@ function module:RegisterEvents()
 
 		-- Update zone text on zone changes
 		if event == 'ZONE_CHANGED' or event == 'ZONE_CHANGED_INDOORS' or event == 'ZONE_CHANGED_NEW_AREA' then
-			if not SUI.IsRetail then
+			if not UsesModernMinimap then
 				module:UpdateClassicZoneText()
 			end
 			module:UpdateZoneTextColor()
@@ -2650,7 +2699,7 @@ function module:RegisterEvents()
 	MinimapUpdater:RegisterEvent('ZONE_CHANGED_NEW_AREA')
 	MinimapUpdater:RegisterEvent('MINIMAP_UPDATE_TRACKING')
 	MinimapUpdater:RegisterEvent('PLAYER_REGEN_ENABLED')
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		MinimapUpdater:RegisterEvent('EDIT_MODE_LAYOUTS_UPDATED')
 	end
 
@@ -2684,12 +2733,12 @@ function module:Update(fullUpdate)
 	module:SetupZoomButtons()
 
 	-- Classic-specific updates
-	if not SUI.IsRetail then
+	if not UsesModernMinimap then
 		module:UpdateClassicZoneText()
 	end
 
 	-- Retail-only elements
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		module:SetupBorderTop()
 		module:SetupCalendarButton()
 		module:SetupExpansionButton()
@@ -2794,7 +2843,7 @@ local VehicleMover
 
 -- Initialize the vehicle mover
 function module:InitializeVehicleMover()
-	if not SUI.IsRetail then
+	if not UsesModernMinimap then
 		return
 	end -- Vehicle mover is Retail-only
 
@@ -3059,7 +3108,7 @@ function module:OnEnable()
 	module:Update(true)
 
 	-- Retail-only features
-	if SUI.IsRetail then
+	if UsesModernMinimap then
 		module:InitializeVehicleMover()
 
 		SUI:AddChatCommand('vehicleminimap', function()

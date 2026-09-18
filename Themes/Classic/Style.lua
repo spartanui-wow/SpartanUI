@@ -1,7 +1,7 @@
 local SUI, L = SUI, SUI.L
 ---@class SUI.Theme.Classic : SUI.Theme.StyleBase
 local module = SUI:NewModule('Style.Classic')
-local Artwork_Core = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
+local Artwork_Core = SUI:GetModule('Artwork', true) ---@type SUI.Module.Artwork
 local unpack = unpack
 local artFrame = CreateFrame('Frame', 'SUI_Art_Classic', SpartanUI)
 ----------------------------------------------------------------------------------------------------
@@ -1244,7 +1244,7 @@ function module:OnInitialize()
 					image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Classic',
 				},
 			},
-			minimap = SUI.IsRetail and {
+			minimap = SUI.BlizzAPI.HasModernMinimap() and {
 				size = { 155, 155 },
 				position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,-29,38',
 				elements = {
@@ -1294,7 +1294,9 @@ function module:OnInitialize()
 		}
 	end)
 
-	CreateArtwork()
+	if Artwork_Core then
+		CreateArtwork()
+	end
 
 	if SUI.UF then
 		local function StyleChange()

@@ -64,7 +64,7 @@ function module:OnInitialize()
 					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,310,151',
 					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,661,174',
 				},
-				minimap = SUI.IsRetail and {
+				minimap = SUI.BlizzAPI.HasModernMinimap() and {
 					size = { 180, 180 },
 					position = 'CENTER,SUI_Art_Digital,CENTER,-30,86',
 					elements = {

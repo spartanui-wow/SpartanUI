@@ -341,8 +341,16 @@ local function AddMovers()
 		BTMover('BT4BarQueueStatus', 'Queue Status')
 	end
 
-	if not SUI.IsRetail and select(2, UnitClass('player')) == 'SHAMAN' and _G['MultiCastActionBarFrame'] then
-		BTMover('MultiCastActionBarFrame', 'Totem Bar')
+	-- The totem bar is Shaman-only, but its visibility is an EditMode account setting that
+	-- persists across characters. On a non-Shaman it has no buttons to drive and just sits
+	-- on screen, so hide it rather than leaving a stray bar behind.
+	local totemBar = _G['MultiCastActionBarFrame']
+	if totemBar then
+		if select(2, UnitClass('player')) == 'SHAMAN' then
+			BTMover('MultiCastActionBarFrame', 'Totem Bar')
+		elseif not InCombatLockdown() then
+			totemBar:Hide()
+		end
 	end
 end
 

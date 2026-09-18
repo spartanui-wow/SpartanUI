@@ -1,7 +1,7 @@
 local SUI, L = SUI, SUI.L
 ---@class SUI.Theme.Minimal : SUI.Theme.StyleBase
 local module = SUI:NewModule('Style.Minimal')
-local Artwork_Core = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
+local Artwork_Core = SUI:GetModule('Artwork', true) ---@type SUI.Module.Artwork
 local unpack = unpack
 ----------------------------------------------------------------------------------------------------
 
@@ -71,7 +71,7 @@ function module:OnInitialize()
 				['MultiCastActionBarFrame'] = 0.6,
 				['BT4BarMicroMenu'] = 0.6,
 			},
-			minimap = SUI.IsRetail and {
+			minimap = SUI.BlizzAPI.HasModernMinimap() and {
 				UnderVehicleUI = false,
 				scaleWithArt = false,
 				position = 'TOPRIGHT,SpartanUI,TOPRIGHT,-40,-10',
@@ -125,7 +125,9 @@ function module:OnEnable()
 		end
 
 		--Setup Sliding Trays
-		module:SlidingTrays()
+		if SUI.Artwork then
+			module:SlidingTrays()
+		end
 		if BT4BarBagBar and BT4BarPetBar.position then
 			BT4BarPetBar:position('TOPLEFT', 'SlidingTray_left', 'TOPLEFT', 50, -2)
 			BT4BarStanceBar:position('TOPRIGHT', 'SlidingTray_left', 'TOPRIGHT', -50, -2)

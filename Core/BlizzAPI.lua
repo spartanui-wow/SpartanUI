@@ -86,6 +86,27 @@ function BlizzAPI.HasEditMode()
 	return C_EditMode ~= nil
 end
 
+---Check whether restricted closures can be compiled.
+---Blizzard's RestrictedExecution.lua captures loadstring_untainted as a file-scope local,
+---but on some clients (WoW Forever 1.60.x) EnvironmentCleanup clears that global before
+---that capture happens, so the builder can never compile a body. Anything that relies on
+---it - secure group headers, SecureHandler*Template frames - then errors from inside the
+---engine, repeatedly and out of reach of pcall. Blizzard's own UI never exercises these
+---paths, so nothing there trips over it.
+---@return boolean
+function BlizzAPI.HasRestrictedClosures()
+	return loadstring_untainted ~= nil and CallRestrictedClosure ~= nil
+end
+
+---Check whether this client draws the modern MinimapCluster layout.
+---Retail and Forever (Classic content on the modern engine) both use it, and the two will
+---keep drifting apart, so this only reports what this client has - never that the flavors
+---match anywhere else. Themes and the Minimap module both key their layout off this.
+---@return boolean
+function BlizzAPI.HasModernMinimap()
+	return (MinimapCluster and MinimapCluster.IndicatorFrame) and true or false
+end
+
 -- ============================================
 -- SECRET VALUE API (Retail 12.0.0+)
 -- ============================================
@@ -369,3 +390,38 @@ function BlizzAPI.SetFrameStrataSafe(frame, strata, inheritFrom)
 end
 
 SUI.BlizzAPI = BlizzAPI
+
+-- ============================================
+-- ARTWORK ACCESSOR FALLBACKS
+-- ============================================
+-- These three SUI: functions are defined by the Artwork module, but modules and themes
+-- that load before it (or run when it is disabled) still call them. Define no-op
+-- fallbacks here - BlizzAPI loads ahead of every module, and Artwork overwrites all
+-- three unconditionally when it loads, so the real versions always win.
+
+if not SUI.GetActiveStyle then
+	---Get the active artwork style name
+	---@return string
+	function SUI:GetActiveStyle()
+		return (SUI.DB and SUI.DB.Artwork and SUI.DB.Artwork.Style) or 'War'
+	end
+end
+
+if not SUI.SetActiveStyle then
+	---Set the active artwork style
+	---@param style string
+	function SUI:SetActiveStyle(style)
+		if SUI.DB and SUI.DB.Artwork then
+			SUI.DB.Artwork.Style = style
+		end
+	end
+end
+
+if not SUI.GetArtworkSetting then
+	---Get an Artwork module setting (for external modules)
+	---@param key string Dot-notation path like 'VehicleUI' or 'Viewport.enabled'
+	---@return any
+	function SUI:GetArtworkSetting(key)
+		return nil
+	end
+end

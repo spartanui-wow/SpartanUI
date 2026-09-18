@@ -3,7 +3,7 @@ local SUI, L = SUI, SUI.L
 local module = SUI:NewModule('Style.Arcane')
 local unpack = unpack
 module.Settings = {}
-local Artwork_Core = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
+local Artwork_Core = SUI:GetModule('Artwork', true) ---@type SUI.Module.Artwork
 local artFrame = CreateFrame('Frame', 'SUI_Art_Arcane', SpartanUI)
 ----------------------------------------------------------------------------------------------------
 local function Options()
@@ -205,7 +205,7 @@ function module:OnInitialize()
 					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,310,151',
 					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,661,174',
 				},
-				minimap = SUI.IsRetail and {
+				minimap = SUI.BlizzAPI.HasModernMinimap() and {
 					size = { 180, 180 },
 					position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,-30,52',
 					elements = {
@@ -349,7 +349,9 @@ function module:OnInitialize()
 	SUI.opt.args['General'].args['style'].args['OverallStyle'].args['Arcane'].disabled = false
 	SUI.opt.args['General'].args['style'].args['Artwork'].args['Arcane'].disabled = false
 
-	module:CreateArtwork()
+	if Artwork_Core then
+		module:CreateArtwork()
+	end
 end
 
 function module:OnEnable()

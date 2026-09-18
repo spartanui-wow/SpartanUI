@@ -133,7 +133,7 @@ function module:OnEnable()
 
 	-- Handle deferred refresh after combat ends
 	self:RegisterEvent('PLAYER_REGEN_ENABLED', function()
-		if module.refreshPending then
+		if module.refreshPending and module.RefreshTeleportAssist then
 			module:RefreshTeleportAssist()
 		end
 		if module.randomButtonUpdatePending then
@@ -186,7 +186,9 @@ function module:OnTeleportSourceChanged()
 	self.rebuildTimer = self:ScheduleTimer(function()
 		self.rebuildTimer = nil
 		module:BuildAvailableTeleports()
-		module:RefreshTeleportAssist()
+		if module.RefreshTeleportAssist then
+			module:RefreshTeleportAssist()
+		end
 	end, 1)
 end
 

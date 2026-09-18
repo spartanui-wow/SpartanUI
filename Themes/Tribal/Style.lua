@@ -121,7 +121,7 @@ function module:OnInitialize()
 				['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,285,0',
 				['BT4BarBagBar'] = 'TOP,SpartanUI,TOP,595,0',
 			},
-			minimap = SUI.IsRetail and {
+			minimap = SUI.BlizzAPI.HasModernMinimap() and {
 				size = { 180, 180 },
 				position = 'CENTER,SUI_Art_Tribal_Left,RIGHT,-32,28',
 				elements = {
@@ -159,7 +159,9 @@ function module:OnInitialize()
 		}
 	end)
 
-	module:CreateArtwork()
+	if SUI.Artwork then
+		module:CreateArtwork()
+	end
 end
 
 function module:OnEnable()
@@ -167,7 +169,9 @@ function module:OnEnable()
 		module:Disable()
 	else
 		--Setup Sliding Trays
-		module:SlidingTrays()
+		if SUI.Artwork then
+			module:SlidingTrays()
+		end
 
 		-- Classic only: the global, TutorialFrameAlertButton and the legacy
 		-- CastingBarFrame were all removed on Retail.

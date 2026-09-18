@@ -172,7 +172,7 @@ function module:OnInitialize()
 				},
 			},
 			barPositions = barPositions,
-			minimap = SUI.IsRetail and {
+			minimap = SUI.BlizzAPI.HasModernMinimap() and {
 				size = { 180, 180 },
 				position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,-19,22',
 				elements = {

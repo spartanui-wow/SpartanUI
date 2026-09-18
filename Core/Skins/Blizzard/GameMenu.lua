@@ -3,7 +3,11 @@ local SUIGameMenu = SUI:NewModule('Handler.GameMenu', 'AceEvent-3.0')
 local GameMenuFrame = GameMenuFrame
 ---@class SUIMenuSkin : Frame
 local MenuSkin = _G['SUIMenuSkin'] or CreateFrame('Frame', 'SUIMenuSkin', UIParent)
-local ActiveSkin = SUI.IsRetail and 'Midnight' or 'Base' -- Base, Midnight
+-- The game menu skin follows the menu Blizzard actually draws, not the content flavor.
+-- Forever is Classic content on the modern engine, so it gets the modern menu layout.
+-- This says nothing about Retail/Forever parity anywhere else - they will drift.
+local UsesModernGameMenu = (GameMenuFrame and GameMenuFrame.InitButtons) and true or false
+local ActiveSkin = UsesModernGameMenu and 'Midnight' or 'Base' -- Base, Midnight
 
 -- Logger integration - create a hierarchical logger under SpartanUI.Skins.GameMenu
 local logger = {
@@ -79,7 +83,7 @@ local function ReskinGameMenuButtons(frame)
 
 			-- Adjust button size if needed
 			local width, height = 200, 36
-			if not SUI.IsRetail then
+			if not UsesModernGameMenu then
 				width, height = 150, 30
 			end
 			child:SetSize(width, height)
@@ -145,7 +149,7 @@ end
 
 local function CreateMenuSkin()
 	-- Size matches gearUpdate-BG dimensions: 361x596
-	MenuSkin:SetSize(SUI.IsRetail and 361 or 300, SUI.IsRetail and 596 or 500)
+	MenuSkin:SetSize(UsesModernGameMenu and 361 or 300, UsesModernGameMenu and 596 or 500)
 	MenuSkin:SetFrameStrata('BACKGROUND')
 	MenuSkin:SetScale(0.8)
 	MenuSkin:Hide()
@@ -451,7 +455,7 @@ function MenuSkin:InterpolatePoints(center)
 	if SUIGameMenu:IsDisabled() then
 		return
 	end
-	local heightOffset = SUI.IsRetail and 0 or -100
+	local heightOffset = UsesModernGameMenu and 0 or -100
 	if SUI.IsTBC then
 		heightOffset = -50
 	end

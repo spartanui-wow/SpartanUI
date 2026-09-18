@@ -72,21 +72,31 @@ local AceDB3 = LibStub('AceDB-3.0', true)
 local AceDBOptions3 = LibStub('AceDBOptions-3.0', true)
 local AceConfigRegistry3 = LibStub('AceConfigRegistry-3.0', true)
 
-local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local C_SpecInfo = C_SpecializationInfo
+local GetNumSpecsForClassID = (C_SpecInfo and C_SpecInfo.GetNumSpecializationsForClassID) or GetNumSpecializationsForClassID
+local GetSpecInfoForClassID = (C_SpecInfo and C_SpecInfo.GetSpecializationInfoForClassID) or GetSpecializationInfoForClassID
+
+-- Some clients (WoW Forever) report as Mainline but do not ship the spec API.
+local isRetail = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE and GetNumSpecsForClassID and GetSpecInfoForClassID and true or false
 local numSpecs = 2
 local specNames = {TALENT_SPEC_PRIMARY, TALENT_SPEC_SECONDARY}
 if isRetail then
 	-- class id specialization functions don't require player data to be loaded
 	local _, classId = UnitClassBase("player")
-	numSpecs = GetNumSpecializationsForClassID(classId)
+	numSpecs = GetNumSpecsForClassID(classId)
 	for i = 1, numSpecs do
-		local _, name = GetSpecializationInfoForClassID(classId, i)
+		local _, name = GetSpecInfoForClassID(classId, i)
 		specNames[i] = name
 	end
 end
 
-local GetSpecialization = isRetail and GetSpecialization or GetActiveTalentGroup
-local CanPlayerUseTalentSpecUI = isRetail and C_SpecializationInfo.CanPlayerUseTalentSpecUI or function()
+local GetSpecialization = (isRetail and ((C_SpecInfo and C_SpecInfo.GetSpecialization) or GetSpecialization))
+	or (C_SpecInfo and C_SpecInfo.GetActiveSpecGroup)
+	or GetActiveTalentGroup
+	or function()
+		return 1
+	end
+local CanPlayerUseTalentSpecUI = (isRetail and C_SpecInfo and C_SpecInfo.CanPlayerUseTalentSpecUI) or function()
 	return true, HELPFRAME_CHARACTER_BULLET5
 end
 

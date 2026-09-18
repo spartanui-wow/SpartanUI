@@ -1,7 +1,7 @@
 local SUI, L = SUI, SUI.L
 ---@class SUI.Theme.Transparent : SUI.Theme.StyleBase
 local module = SUI:NewModule('Style.Transparent')
-local Artwork_Core = SUI:GetModule('Artwork') ---@type SUI.Module.Artwork
+local Artwork_Core = SUI:GetModule('Artwork', true) ---@type SUI.Module.Artwork
 local artFrame = CreateFrame('Frame', 'SUI_Art_Transparent', SpartanUI)
 local unpack = unpack
 ----------------------------------------------------------------------------------------------------
@@ -142,7 +142,7 @@ function module:OnInitialize()
 					['BT4Bar9'] = SUI.IsRetail and 0.62 or 0.77,
 					['BT4BarMicroMenu'] = SUI.IsRetail and nil or 0.65,
 				},
-				minimap = SUI.IsRetail and {
+				minimap = SUI.BlizzAPI.HasModernMinimap() and {
 					shape = 'square',
 					size = { 140, 140 },
 					position = 'CENTER,SUI_Art_Transparent,CENTER,-38,27',
@@ -192,7 +192,7 @@ function module:OnInitialize()
 end
 
 function module:OnEnable()
-	if SUI:GetActiveStyle() ~= 'Transparent' then
+	if SUI:GetActiveStyle() ~= 'Transparent' or not Artwork_Core then
 		module:Disable()
 	else
 		local plate = CreateFrame('Frame', 'Transparent_ActionBarPlate', SUI_Art_Transparent)

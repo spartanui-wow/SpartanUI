@@ -448,19 +448,28 @@ function module:SetupStyling()
 		ChatFrameTab.Text:ClearAllPoints()
 		ChatFrameTab.Text:SetPoint('CENTER', ChatFrameTab)
 
-		if SUI.IsRetail then
+		-- Tab textures are named per engine, not per flavor: the modern engine uses
+		-- ActiveLeft/HighlightLeft/Left, the legacy one leftSelectedTexture and friends.
+		-- Detect the actual field so clients that mix the two (Forever) work either way.
+		if ChatFrameTab.ActiveLeft then
 			local sides = { 'Left', 'Middle', 'Right' }
 			local modes = { 'Active', 'Highlight', '' }
 			for _, mode in ipairs(modes) do
 				for _, side in ipairs(sides) do
-					ChatFrameTab[mode .. side]:SetTexture(nil)
+					local tex = ChatFrameTab[mode .. side]
+					if tex then
+						tex:SetTexture(nil)
+					end
 				end
 			end
 		else
 			for _, v in ipairs({ 'left', 'middle', 'right' }) do
-				ChatFrameTab[v .. 'HighlightTexture']:SetTexture(nil)
-				ChatFrameTab[v .. 'SelectedTexture']:SetTexture(nil)
-				ChatFrameTab[v .. 'Texture']:SetTexture(nil)
+				for _, suffix in ipairs({ 'HighlightTexture', 'SelectedTexture', 'Texture' }) do
+					local tex = ChatFrameTab[v .. suffix]
+					if tex then
+						tex:SetTexture(nil)
+					end
+				end
 			end
 		end
 

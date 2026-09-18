@@ -7,6 +7,7 @@
 ---@field IsCata boolean
 ---@field IsMOP boolean
 ---@field IsAnyClassic boolean
+---@field IsForever boolean
 ---@field wowVersion string
 local SUI = LibStub('AceAddon-3.0'):NewAddon('SpartanUI', 'AceEvent-3.0', 'AceConsole-3.0', 'AceSerializer-3.0')
 SUI:SetDefaultModuleLibraries('AceEvent-3.0', 'AceTimer-3.0')
@@ -36,6 +37,31 @@ end
 local currentVersion = VERSION_INFO[WOW_PROJECT_ID] or VERSION_INFO[1]
 SUI[currentVersion.flag] = true ---@type boolean
 SUI.wowVersion = currentVersion.name
+
+-- WoW Forever (1.60.x) currently reports WOW_PROJECT_ID as MAINLINE because it runs the
+-- modern engine, but it ships Classic content with only part of the Retail API surface.
+-- Prefer a real project id once Blizzard adds one; fall back to the interface number,
+-- which is the only thing that distinguishes it today.
+SUI.IsForever = false
+if WOW_PROJECT_FOREVER and WOW_PROJECT_ID == WOW_PROJECT_FOREVER then
+	SUI.IsForever = true
+else
+	local _, _, _, interfaceVersion = GetBuildInfo()
+	interfaceVersion = tonumber(interfaceVersion) or 0
+	if SUI.IsRetail and interfaceVersion >= 16000 and interfaceVersion < 20000 then
+		SUI.IsForever = true
+	end
+end
+
+if SUI.IsForever then
+	-- Forever is its own flavor: Classic content, so it is NOT Retail. This matches what
+	-- WOW_PROJECT_FOREVER will report once Blizzard ships it, and keeps every existing
+	-- `if SUI.IsRetail` content check correct without modification.
+	-- Engine-level behavior (secret values, EditMode, modern frame APIs) is shared with
+	-- Retail, so feature-detect those directly rather than branching on flavor.
+	SUI.IsRetail = false
+	SUI.wowVersion = 'Forever'
+end
 SUI.GitHash = '@project-abbreviated-hash@' -- The ZIP packager will replace this with the Git hash.
 --@alpha@
 SUI.releaseType = 'ALPHA ' .. SUI.BuildNum
@@ -398,7 +424,7 @@ function SUI:OnInitialize()
 
 	-- Add dual-spec support
 	local LibDualSpec = LibStub('LibDualSpec-1.0', true)
-	if SUI.IsRetail and LibDualSpec then
+	if SUI.IsRetail and not SUI.IsForever and LibDualSpec and LibDualSpec.EnhanceDatabase then
 		LibDualSpec:EnhanceDatabase(self.SpartanUIDB, 'SpartanUI')
 		LibDualSpec:EnhanceOptions(SUI.opt.args['Profiles'], self.SpartanUIDB)
 	end
