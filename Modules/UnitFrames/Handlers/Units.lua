@@ -165,6 +165,12 @@ function Unit:BuildGroup(groupName)
 		return
 	end
 
+	-- TEMPORARY (WoW Forever 1.60.1): see SpawnFrames.lua
+	if loadstring_untainted == nil then
+		UF:debug('Skipping group ' .. groupName .. ': secure headers broken on this client')
+		return
+	end
+
 	local holder = CreateFrame('Frame', 'SUI_UF_' .. groupName .. '_Holder')
 	holder:Hide()
 	holder:SetSize(Unit:GroupSize(groupName))

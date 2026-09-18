@@ -86,18 +86,6 @@ function BlizzAPI.HasEditMode()
 	return C_EditMode ~= nil
 end
 
----Check whether restricted closures can be compiled.
----Blizzard's RestrictedExecution.lua captures loadstring_untainted as a file-scope local,
----but on some clients (WoW Forever 1.60.x) EnvironmentCleanup clears that global before
----that capture happens, so the builder can never compile a body. Anything that relies on
----it - secure group headers, SecureHandler*Template frames - then errors from inside the
----engine, repeatedly and out of reach of pcall. Blizzard's own UI never exercises these
----paths, so nothing there trips over it.
----@return boolean
-function BlizzAPI.HasRestrictedClosures()
-	return loadstring_untainted ~= nil and CallRestrictedClosure ~= nil
-end
-
 ---Check whether this client draws the modern MinimapCluster layout.
 ---Retail and Forever (Classic content on the modern engine) both use it, and the two will
 ---keep drifting apart, so this only reports what this client has - never that the flavors
