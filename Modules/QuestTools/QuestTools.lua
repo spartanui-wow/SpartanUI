@@ -559,18 +559,21 @@ function module:RegisterSetupWizardPage()
 				},
 			}
 
+			-- Reward selection works on every flavor - quests have had choosable rewards
+			-- since vanilla.
+			definitions.lootreward = {
+				type = 'checkbox',
+				name = L['Auto select quest reward'],
+				order = 5,
+				get = function()
+					return DB.lootreward
+				end,
+				set = function(_, val)
+					DB.lootreward = val
+				end,
+			}
+
 			if SUI.IsRetail then
-				definitions.lootreward = {
-					type = 'checkbox',
-					name = L['Auto select quest reward'],
-					order = 5,
-					get = function()
-						return DB.lootreward
-					end,
-					set = function(_, val)
-						DB.lootreward = val
-					end,
-				}
 				definitions.DoCampainQuests = {
 					type = 'checkbox',
 					name = L['Accept/Complete Campaign Quests'],

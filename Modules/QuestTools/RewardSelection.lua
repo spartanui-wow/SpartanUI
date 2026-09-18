@@ -327,7 +327,9 @@ function module:HandleQuestComplete()
 			module:TurnInQuest(greedID)
 		end
 	else
-		if not DB.lootreward then
+		-- Only gate on lootreward when there is actually a reward to pick. A quest with no
+		-- reward choice needs no selection, so it should still be turned in.
+		if not DB.lootreward and (upgradeID or greedID) then
 			if upgradeID then
 				SUI:Print('Quest rewards upgrade ' .. upgradeLink .. ' (' .. upgradeReason .. ')')
 			elseif greedID then
