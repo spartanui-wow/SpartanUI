@@ -27,6 +27,12 @@ local Images = {
 	},
 }
 local BarTexture = 'Interface\\AddOns\\SpartanUI\\images\\statusbars\\Smoothv2'
+
+-- Forever draws nameplates at the modern engine's dimensions; matches
+-- NamePlateConstants CLASSIC_NAME_PLATE_WIDTH / CLASSIC_HEALTH_BAR_HEIGHT.
+local PlateWidth = SUI.IsForever and 152 or 128
+local HealthHeight = SUI.IsForever and 10 or 8
+local NameTextSize = SUI.IsForever and 10 or 7
 local NameplateList = {}
 local ElementList = {
 	'Auras',
@@ -79,12 +85,38 @@ local ElementDefaults = {
 ---@type table<SUI.UF.Elements.list, SUI.UF.Elements.Settings>
 local CurrentSettings = {}
 
+local function PlateHeight()
+	local elementsDB = module.DB.elements
+	local height = 0
+	for _, name in ipairs({ 'Health', 'Power', 'Castbar' }) do
+		if elementsDB[name].enabled then
+			height = height + elementsDB[name].height
+		end
+	end
+	return height
+end
+
 ---@param frame any
 ---@param obj SUI.UF.Elements.list
 local function BuildElement(frame, obj)
 	--Ensure we have settings
 	if not CurrentSettings[obj] then
 		CurrentSettings[obj] = SUI:CopyData(SUI.UF.Elements:GetConfig(obj), {})
+	end
+
+	-- Size keys only; module.DB.elements has a '**' wildcard that would otherwise overwrite
+	-- the element config.
+	local npSettings = module.DB and module.DB.elements and module.DB.elements[obj]
+	if npSettings then
+		if npSettings.height then
+			CurrentSettings[obj].height = npSettings.height
+		end
+		if npSettings.width then
+			CurrentSettings[obj].width = npSettings.width
+		end
+		if npSettings.size then
+			CurrentSettings[obj].size = npSettings.size
+		end
 	end
 
 	--Build it
@@ -109,29 +141,31 @@ local UpdateElementState = function(frame)
 		return
 	end
 
+	local plateWidth, plateHeight = module.DB.width, PlateHeight()
+
 	for _, elementName in ipairs(ElementList) do
 		local element = frame[elementName]
 		local data = elements[elementName]
+		local config = UF.Elements:GetConfig(elementName)
+		local bulk = element and not (config and config.config and config.config.NoBulkUpdate)
 
-		-- Only process if element exists on this frame
 		if element then
-			-- Setup the Alpha scape and position
 			element:SetAlpha(data.alpha)
 			element:SetScale(data.scale)
+		end
 
-			if UF.Elements:GetConfig(elementName).config.NoBulkUpdate then
-				return
-			end
-			if UF.Elements:GetConfig(elementName).config.type == 'Indicator' and element.SetDrawLayer then
+		if bulk then
+			if config and config.config and config.config.type == 'Indicator' and element.SetDrawLayer then
 				element:SetDrawLayer('BORDER', 7)
 			end
 
-			-- Positioning
-			element:ClearAllPoints()
+			-- Health, Power and Castbar carry no layout here; they are anchored below and by
+			-- their own element code, so their points must be left alone.
 			if data.points then
+				element:ClearAllPoints()
 				if type(data.points) == 'string' then
 					element:SetAllPoints(frame[data.points])
-				elseif data.points and type(data.points) == 'table' then
+				elseif type(data.points) == 'table' then
 					for _, key in pairs(data.points) do
 						if key.relativeTo == 'Frame' then
 							element:SetPoint(key.anchor, frame, key.anchor, key.x, key.y)
@@ -142,32 +176,27 @@ local UpdateElementState = function(frame)
 				else
 					element:SetAllPoints(frame)
 				end
-			elseif data.position.anchor then
-				if data.position.relativeTo == 'Frame' then
+			elseif data.position and data.position.anchor then
+				element:ClearAllPoints()
+				if data.position.relativeTo == 'Frame' or not data.position.relativeTo then
 					element:SetPoint(data.position.anchor, frame, data.position.relativePoint or data.position.anchor, data.position.x, data.position.y)
 				else
 					element:SetPoint(data.position.anchor, frame[data.position.relativeTo], data.position.relativePoint or data.position.anchor, data.position.x, data.position.y)
 				end
 			end
 
-			--Size it if we have a size change function for the element
-			if element and data.enabled then
-				element:ClearAllPoints()
-				element:SetPoint(data.position.anchor, frame, data.position.relativePoint, data.position.x, data.position.y)
-
-				--Size it if we have a size change function for the element
+			if data.enabled then
 				if element.SizeChange then
 					element:SizeChange()
 				elseif data.size then
 					element:SetSize(data.size, data.size)
 				else
-					element:SetSize(data.width or frame:GetWidth(), data.height or frame:GetHeight())
+					element:SetSize(data.width or plateWidth, data.height or plateHeight)
 				end
 			end
 
-			-- Call the elements update function
-			if frame[elementName] and data.enabled and frame[elementName].ForceUpdate then
-				frame[elementName].ForceUpdate(element)
+			if data.enabled and element.ForceUpdate then
+				element.ForceUpdate(element)
 			end
 		end
 	end
@@ -230,23 +259,17 @@ local NamePlateFactory = function(frame, unit)
 		end
 
 		local elementsDB = module.DB.elements
-		local height = 0
-		if elementsDB.Health.enabled then
-			height = height + elementsDB.Health.height
-		end
-		if elementsDB.Power.enabled then
-			height = height + elementsDB.Power.height
-		end
-		if elementsDB.Castbar.enabled then
-			height = height + elementsDB.Castbar.height
-		end
+		local height = PlateHeight()
 
-		frame:SetSize(module.DB.width, height)
-		frame:SetPoint('CENTER', 0, 0)
+		-- The mainline oUF anchors the frame to the nameplate itself.
+		if not SUIUF.AddMetaElement then
+			frame:SetSize(module.DB.width, height)
+			frame:SetPoint('CENTER', 0, 0)
+		end
 
 		frame.raised = CreateFrame('Frame', nil, frame)
-		local level = frame:GetFrameLevel() + 100
-		frame.raised:SetFrameLevel(level)
+		local ok, level = pcall(frame.GetFrameLevel, frame)
+		frame.raised:SetFrameLevel((ok and level or 0) + 100)
 		frame.raised.__owner = frame
 
 		frame.bg = {}
@@ -265,13 +288,11 @@ local NamePlateFactory = function(frame, unit)
 		frame.bg.artwork.Alliance:SetAllPoints()
 		frame.bg.artwork.Alliance:SetTexture(Images.Alliance.bg.Texture)
 		frame.bg.artwork.Alliance:SetTexCoord(unpack(Images.Alliance.bg.Coords))
-		frame.bg.artwork.Alliance:SetSize(frame:GetSize())
 
 		frame.bg.artwork.Horde = frame:CreateTexture(nil, 'BACKGROUND')
 		frame.bg.artwork.Horde:SetAllPoints()
 		frame.bg.artwork.Horde:SetTexture(Images.Horde.bg.Texture)
 		frame.bg.artwork.Horde:SetTexCoord(unpack(Images.Horde.bg.Coords))
-		frame.bg.artwork.Horde:SetSize(frame:GetSize())
 
 		-- Name
 		BuildElement(frame, 'Name')
@@ -455,8 +476,8 @@ local NameplateCallback = function(self, event, unit)
 		return
 	end
 
-	-- UnitNameplateShowsWidgetsOnly is Retail-only
-	self.ShowWidgetOnly = SUI.IsRetail and UnitNameplateShowsWidgetsOnly(unit) or false
+	-- UnitNameplateShowsWidgetsOnly only exists on the modern engine
+	self.ShowWidgetOnly = (UnitNameplateShowsWidgetsOnly and UnitNameplateShowsWidgetsOnly(unit)) or false
 
 	local elementDB = module.DB.elements
 	if event == 'NAME_PLATE_UNIT_ADDED' then
@@ -577,7 +598,7 @@ function module:OnInitialize()
 		onlyShowPlayer = true,
 		showStealableBuffs = false,
 		Scale = 1,
-		width = 128,
+		width = PlateWidth,
 		elements = {
 			['**'] = {
 				enabled = false,
@@ -629,7 +650,7 @@ function module:OnInitialize()
 			RareElite = {},
 			Name = {
 				enabled = true,
-				textSize = 7,
+				textSize = NameTextSize,
 				SetJustifyH = 'LEFT',
 				SetJustifyV = 'MIDDLE',
 				text = '[SUI_ColorClass][name]',
@@ -643,7 +664,7 @@ function module:OnInitialize()
 			},
 			Health = {
 				enabled = true,
-				height = 8,
+				height = HealthHeight,
 				offset = 0,
 				texture = 'SpartanUI Default',
 				colorReaction = true,
@@ -872,9 +893,19 @@ function module:OnEnable()
 		SUI:CopyData(CurrentSettings[v], module.DB.elements[v] or {})
 	end
 
-	if not oUF_NamePlateDriver then
+	if not module.nameplateDriver then
 		SUIUF:SetActiveStyle('Spartan_NamePlates')
-		SUIUF:SpawnNamePlates(nil, NameplateCallback)
+
+		-- oUF_Classic takes the callback as an argument; the mainline oUF returns a driver
+		-- and expects it registered on that.
+		local driver = SUIUF:SpawnNamePlates(nil, NameplateCallback)
+		module.nameplateDriver = driver or true
+		if type(driver) == 'table' and driver.SetAddedCallback then
+			driver:SetAddedCallback(NameplateCallback)
+			driver:SetRemovedCallback(NameplateCallback)
+
+			driver:SetSize(module.DB.width, PlateHeight())
+		end
 
 		-- oUF is not hiding the mana bar. So we need to hide it.
 		if ClassNameplateManaBarFrame then
