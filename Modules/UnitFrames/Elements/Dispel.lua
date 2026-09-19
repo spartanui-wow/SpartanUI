@@ -55,6 +55,11 @@ if not hasPlayerDispellableFilter then
 	hasPlayerDispellableFilter = Enum and Enum.AuraFilter and Enum.AuraFilter.RaidPlayerDispellable ~= nil
 end
 
+-- Reading the aura list throws while auras are secret. That is an engine
+-- behaviour, not a content one: Forever is Classic content but has secret
+-- values, so this cannot key off SUI.IsRetail.
+local hasSecretAuras = issecretvalue ~= nil
+
 -- ============================================================
 -- COLOR CURVES (cached, rebuilt when needed)
 -- ============================================================
@@ -274,12 +279,10 @@ local function FindDispellableDebuff(unit, filterByPlayerDispels)
 		return nil, nil, nil
 	end
 
-	if SUI.IsRetail then
-		if filterByPlayerDispels and hasPlayerDispellableFilter then
-			return FindDispellableDebuff_NewAPI(unit)
-		else
-			return FindDispellableDebuff_Retail_Legacy(unit, filterByPlayerDispels)
-		end
+	if filterByPlayerDispels and hasPlayerDispellableFilter then
+		return FindDispellableDebuff_NewAPI(unit)
+	elseif hasSecretAuras then
+		return FindDispellableDebuff_Retail_Legacy(unit, filterByPlayerDispels)
 	else
 		return FindDispellableDebuff_Classic(unit, filterByPlayerDispels)
 	end
