@@ -1,4 +1,4 @@
-## Interface: 120007, 120100
+## Interface: 120100, 120105, 120007, 16001
 ## Title: oUF
 ## Author: Haste, lightspark, p3lim, Rainrider
 ## Version: @project-version@

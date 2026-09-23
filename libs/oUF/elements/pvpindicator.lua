@@ -53,30 +53,31 @@ local function Update(self, event, unit)
 
 	local status
 	local factionGroup = UnitFactionGroup(unit) or 'Neutral'
-	-- SUI: UnitHonorLevel is a secret for units whose identity is restricted,
-	-- and GetHonorRewardInfo cannot take one.
-	local honorLevel = UnitHonorLevel(unit)
-	local honorRewardInfo = honorLevel and not issecretvalue(honorLevel) and C_PvP.GetHonorRewardInfo(honorLevel)
+	if(unit == 'player' and UnitIsMercenary(unit)) then
+		if(factionGroup == 'Horde') then
+			factionGroup = 'Alliance'
+		elseif(factionGroup == 'Alliance') then
+			factionGroup = 'Horde'
+		end
+	end
 
 	if(UnitIsPVPFreeForAll(unit)) then
 		status = 'FFA'
 	else
 		local isPvP = UnitIsPVP(unit)
 		if(factionGroup ~= 'Neutral' and not issecretvalue(isPvP) and isPvP) then
-			if(unit == 'player' and UnitIsMercenary(unit)) then
-				if(factionGroup == 'Horde') then
-					factionGroup = 'Alliance'
-				elseif(factionGroup == 'Alliance') then
-					factionGroup = 'Horde'
-				end
-			end
-
 			status = factionGroup
 		end
 	end
 
 	if(status) then
 		element:Show()
+
+		local honorRewardInfo
+		local honorLevel = UnitHonorLevel(unit)
+		if(not issecretvalue(honorLevel)) then
+			honorRewardInfo = C_PvP.GetHonorRewardInfo(honorLevel)
+		end
 
 		if(element.Badge and honorRewardInfo) then
 			element:SetTexture(honorRewardInfo.badgeFileDataID)
@@ -135,6 +136,7 @@ local function Enable(self)
 
 		self:RegisterEvent('UNIT_FACTION', Path)
 		self:RegisterEvent('HONOR_LEVEL_UPDATE', Path, true)
+		self:RegisterEvent('PLAYER_REGEN_ENABLED', Path, true)
 
 		return true
 	end
@@ -151,6 +153,7 @@ local function Disable(self)
 
 		self:UnregisterEvent('UNIT_FACTION', Path)
 		self:UnregisterEvent('HONOR_LEVEL_UPDATE', Path)
+		self:UnregisterEvent('PLAYER_REGEN_ENABLED', Path)
 	end
 end
 
