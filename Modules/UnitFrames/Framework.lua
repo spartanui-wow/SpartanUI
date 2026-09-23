@@ -437,36 +437,9 @@ local function LoadDB()
 	SpartanUI.UFCurrentSettings = UF.CurrentSettings
 end
 
-function UF:OnInitialize()
-	if SUI:IsModuleDisabled('UnitFrames') then
-		return
-	end
-
-	if SUI.logger then
-		UF.Log = SUI.logger:RegisterCategory('UnitFrames')
-	end
-
-	-- Setup Database
-	local defaults = {
-		profile = {
-			Style = 'War', -- DEPRECATED: kept for migration detection
-			Presets = {
-				['**'] = 'War', -- AceDB wildcard: default all frame groups to 'War'
-			},
-			UserSettings = {
-				['**'] = { ['**'] = { ['**'] = { ['**'] = { ['**'] = { ['**'] = {} } } } } },
-			},
-			Colors = {
-				powerTypes = {},
-				reactionColors = {},
-			},
-		},
-	}
-	UF.Database = SUI.SpartanUIDB:RegisterNamespace('UnitFrames', defaults)
-	UF.DB = UF.Database.profile
-
-	SUI.DBM:RegisterSequentialProfileRefresh(UF)
-
+---Bring the active profile's unit frame data up to the current format.
+---Every step is guarded, so it is safe to run again on a profile switch.
+local function MigrateProfile()
 	-- Migrate from legacy single-style to per-frame presets
 	MigrateFromLegacy()
 
@@ -539,6 +512,39 @@ function UF:OnInitialize()
 		UF.DB.Presets.raid25 = nil
 		UF.DB.Presets.raid40 = nil
 	end
+end
+
+function UF:OnInitialize()
+	if SUI:IsModuleDisabled('UnitFrames') then
+		return
+	end
+
+	if SUI.logger then
+		UF.Log = SUI.logger:RegisterCategory('UnitFrames')
+	end
+
+	-- Setup Database
+	local defaults = {
+		profile = {
+			Style = 'War', -- DEPRECATED: kept for migration detection
+			Presets = {
+				['**'] = 'War', -- AceDB wildcard: default all frame groups to 'War'
+			},
+			UserSettings = {
+				['**'] = { ['**'] = { ['**'] = { ['**'] = { ['**'] = { ['**'] = {} } } } } },
+			},
+			Colors = {
+				powerTypes = {},
+				reactionColors = {},
+			},
+		},
+	}
+	UF.Database = SUI.SpartanUIDB:RegisterNamespace('UnitFrames', defaults)
+	UF.DB = UF.Database.profile
+
+	SUI.DBM:RegisterSequentialProfileRefresh(UF)
+
+	MigrateProfile()
 
 	-- Only the Classic aura path checks this map; Retail filters auras engine
 	-- side and never reads it. Building it there means a journal lookup per
@@ -1516,6 +1522,8 @@ function UF:RegisterSetupWizardPages()
 end
 
 function UF:ReloadDB()
+	-- A profile switched to or copied mid-session may never have been migrated.
+	MigrateProfile()
 	self:Update()
 end
 

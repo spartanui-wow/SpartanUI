@@ -243,61 +243,67 @@ local ver = SUI.SpartanUIDB.profile.Version
 SUI.DBG = SUI.SpartanUIDB.global
 SUI.DB = SUI.SpartanUIDB.profile
 
-if SUI.DB.DisabledComponents then
-	SUI:CopyData(SUI.DB.DisabledModules, SUI.DB.DisabledComponents)
-	SUI.DB.DisabledComponents = nil
-end
+---Migrate legacy data inside the active profile. Runs at load and again whenever
+---the profile changes, since a profile nobody has logged in on is never migrated.
+function SUI:MigrateProfileData()
+	if SUI.DB.DisabledComponents then
+		SUI:CopyData(SUI.DB.DisabledModules, SUI.DB.DisabledComponents)
+		SUI.DB.DisabledComponents = nil
+	end
 
--- Migrate theme Color/options from old Styles location to ThemeSettings
-if SUI.DB.Styles and not SUI.DB._themeSettingsMigrated then
-	SUI.DB.ThemeSettings = SUI.DB.ThemeSettings or {}
-	for themeName, styleData in pairs(SUI.DB.Styles) do
-		if themeName ~= '**' and type(styleData) == 'table' then
-			SUI.DB.ThemeSettings[themeName] = SUI.DB.ThemeSettings[themeName] or {}
-			if styleData.Color and type(styleData.Color) == 'table' then
-				for colorKey, colorVal in pairs(styleData.Color) do
-					if colorVal ~= false then
-						if not SUI.DB.ThemeSettings[themeName].Color then
-							SUI.DB.ThemeSettings[themeName].Color = {}
+	-- Migrate theme Color/options from old Styles location to ThemeSettings
+	if SUI.DB.Styles and not SUI.DB._themeSettingsMigrated then
+		SUI.DB.ThemeSettings = SUI.DB.ThemeSettings or {}
+		for themeName, styleData in pairs(SUI.DB.Styles) do
+			if themeName ~= '**' and type(styleData) == 'table' then
+				SUI.DB.ThemeSettings[themeName] = SUI.DB.ThemeSettings[themeName] or {}
+				if styleData.Color and type(styleData.Color) == 'table' then
+					for colorKey, colorVal in pairs(styleData.Color) do
+						if colorVal ~= false then
+							if not SUI.DB.ThemeSettings[themeName].Color then
+								SUI.DB.ThemeSettings[themeName].Color = {}
+							end
+							SUI.DB.ThemeSettings[themeName].Color[colorKey] = colorVal
 						end
-						SUI.DB.ThemeSettings[themeName].Color[colorKey] = colorVal
 					end
 				end
-			end
-			local boolKeys = { 'HideCenterGraphic', 'HideTopLeft', 'HideTopRight', 'HideBottomLeft', 'HideBottomRight', 'UseClassColors' }
-			for _, key in ipairs(boolKeys) do
-				if styleData[key] ~= nil then
-					SUI.DB.ThemeSettings[themeName][key] = styleData[key]
+				local boolKeys = { 'HideCenterGraphic', 'HideTopLeft', 'HideTopRight', 'HideBottomLeft', 'HideBottomRight', 'UseClassColors' }
+				for _, key in ipairs(boolKeys) do
+					if styleData[key] ~= nil then
+						SUI.DB.ThemeSettings[themeName][key] = styleData[key]
+					end
 				end
-			end
-			if styleData.SlidingTrays then
-				SUI.DB.ThemeSettings[themeName].SlidingTrays = styleData.SlidingTrays
-			end
-			-- Migrate barBG user customizations to SUI.DB.Artwork.barBG
-			if styleData.Artwork and styleData.Artwork.barBG then
-				local isActiveTheme = SUI.DB.Artwork and SUI.DB.Artwork.Style == themeName
-				if isActiveTheme then
-					for barKey, barSettings in pairs(styleData.Artwork.barBG) do
-						if barKey ~= '**' and type(barSettings) == 'table' and next(barSettings) then
-							SUI.DB.Artwork.barBG[barKey] = SUI.DB.Artwork.barBG[barKey] or {}
-							for opt, val in pairs(barSettings) do
-								SUI.DB.Artwork.barBG[barKey][opt] = val
+				if styleData.SlidingTrays then
+					SUI.DB.ThemeSettings[themeName].SlidingTrays = styleData.SlidingTrays
+				end
+				-- Migrate barBG user customizations to SUI.DB.Artwork.barBG
+				if styleData.Artwork and styleData.Artwork.barBG then
+					local isActiveTheme = SUI.DB.Artwork and SUI.DB.Artwork.Style == themeName
+					if isActiveTheme then
+						for barKey, barSettings in pairs(styleData.Artwork.barBG) do
+							if barKey ~= '**' and type(barSettings) == 'table' and next(barSettings) then
+								SUI.DB.Artwork.barBG[barKey] = SUI.DB.Artwork.barBG[barKey] or {}
+								for opt, val in pairs(barSettings) do
+									SUI.DB.Artwork.barBG[barKey][opt] = val
+								end
 							end
 						end
 					end
 				end
-			end
 
-			-- Remove empty ThemeSettings entries to avoid SavedVariables bloat
-			if not next(SUI.DB.ThemeSettings[themeName]) then
-				SUI.DB.ThemeSettings[themeName] = nil
+				-- Remove empty ThemeSettings entries to avoid SavedVariables bloat
+				if not next(SUI.DB.ThemeSettings[themeName]) then
+					SUI.DB.ThemeSettings[themeName] = nil
+				end
 			end
 		end
+		-- Remove old Styles table entirely
+		SUI.DB.Styles = nil
+		SUI.DB._themeSettingsMigrated = true
 	end
-	-- Remove old Styles table entirely
-	SUI.DB.Styles = nil
-	SUI.DB._themeSettingsMigrated = true
 end
+
+SUI:MigrateProfileData()
 
 local function reloaduiWindow()
 	local UI = LibAT.UI
@@ -1121,6 +1127,11 @@ function SUI:UpdateModuleConfigs()
 
 	-- Initialize profile with required structures
 	SUI:InitializeProfile(SUI.DB)
+
+	-- Migrations normally run at login against the active profile only. A profile
+	-- switched to or copied mid-session may never have been migrated.
+	SUI:MigrateProfileData()
+	SUI:DBUpgrades()
 
 	-- Execute all module profile refresh callbacks SEQUENTIALLY
 	-- This ensures all modules update their DB references before theme application
