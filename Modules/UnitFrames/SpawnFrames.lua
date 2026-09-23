@@ -464,7 +464,9 @@ function UF:SpawnFrames()
 			-- TEMPORARY (WoW Forever 1.60.1): EnvironmentCleanup nils loadstring_untainted
 			-- before RestrictedExecution captures it, so secure group headers throw one error
 			-- per child button. Remove once Blizzard fixes the load order.
-			if config.IsGroup and loadstring_untainted == nil then
+			-- The global itself cannot be tested: cleanup nils it on every flavor, Retail
+			-- included - only the load order differs.
+			if config.IsGroup and SUI.IsForever then
 				UF:debug('Skipping group frame ' .. frameName .. ': secure headers broken on this client')
 			elseif config.IsGroup then
 				local groupElement = UF.Unit:BuildGroup(frameName)

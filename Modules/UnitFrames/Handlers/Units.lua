@@ -166,7 +166,7 @@ function Unit:BuildGroup(groupName)
 	end
 
 	-- TEMPORARY (WoW Forever 1.60.1): see SpawnFrames.lua
-	if loadstring_untainted == nil then
+	if SUI.IsForever then
 		UF:debug('Skipping group ' .. groupName .. ': secure headers broken on this client')
 		return
 	end
