@@ -457,14 +457,12 @@ function module:ModifyMinimapLayout()
 		-- Forever adds a day/night dial around the minimap that overlaps our border.
 		-- Blizzard re-anchors it from SetEditModeScale, so keep it hidden rather than
 		-- hiding it once.
-		local diel = MinimapCluster.DielFrame
-		if diel then
-			diel:Hide()
-			if not diel.suiHideHooked then
-				diel.suiHideHooked = true
-				diel:HookScript('OnShow', function(self)
-					self:Hide()
-				end)
+		-- Forever also re-shows a compass underlay from its minimap skin.
+		for _, region in pairs({ diel = MinimapCluster.DielFrame, underlay = _G.MinimapCompassTextureUnderlay }) do
+			region:Hide()
+			if not region.suiHideHooked then
+				region.suiHideHooked = true
+				hooksecurefunc(region, 'Show', region.Hide)
 			end
 		end
 		module:SetupBorderTop()
