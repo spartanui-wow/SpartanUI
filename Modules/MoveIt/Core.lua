@@ -169,8 +169,11 @@ function MoveIt:UnlockAll()
 			self:LockAll()
 			return
 		end
-		v:Show()
-		shownCount = shownCount + 1
+		-- Movers for frames that are switched off (such as a disabled action bar) stay hidden
+		if not v.IsMoverAvailable or v:IsMoverAvailable() then
+			v:Show()
+			shownCount = shownCount + 1
+		end
 	end
 
 	self.unlockInProgress = false

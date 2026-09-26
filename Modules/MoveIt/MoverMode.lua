@@ -202,6 +202,10 @@ function MoverMode:Enter()
 	for name, mover in pairs(MoveIt.MoverList or {}) do
 		-- Skip movers that cause input capture issues
 		local skipMover = (name == 'VehicleSeatIndicator' or name == 'SUI_CustomMover_VehicleMinimapPosition')
+		-- Frames that are switched off (such as a disabled action bar) keep their mover hidden
+		if mover and mover.IsMoverAvailable and not mover:IsMoverAvailable() then
+			skipMover = true
+		end
 
 		if MoveIt.logger and skipMover then
 			MoveIt.logger.debug(('Skipping problematic mover: %s'):format(name))

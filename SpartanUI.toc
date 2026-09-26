@@ -37,6 +37,12 @@ libs\LibDataBroker\LibDataBroker-1.1.lua
 libs\LibDBIcon-1.0\lib.xml
 libs\LibSimpleSticky-1.0\LibSimpleSticky.lua
 
+# Action bar libraries (glow and keybind must load before LibActionButton)
+libs\LibButtonGlow-1.0\LibButtonGlow-1.0.lua
+libs\LibKeyBound-1.0\lib.xml
+libs\LibClassicSpellActionCount-1.0\LibClassicSpellActionCount-1.0.lua [AllowLoadGameType vanilla]
+libs\LibActionButton-1.0\LibActionButton-1.0.lua
+
 # ============================================
 # LIBRARIES - RETAIL ONLY
 # ============================================

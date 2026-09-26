@@ -39,9 +39,9 @@ SpartanUI is designed to free your screen by moving a majority of the interface 
 - Please submit bugs and feature requests at [GitHub.](https://github.com/spartanui-wow/SpartanUI/issues)
 - For Support please join the [SpartanUI Discord](https://discord.gg/Qc9TRBv) or join one of the SpartanUI [Dev Streams on Twitch](https://www.twitch.tv/wutname1)
 
-**Required Addons**
+**Action Bars**
 
-- [Bartender4](https://www.curseforge.com/wow/addons/bartender4)
+SpartanUI draws its own action bars on every game version. [Bartender4](https://www.curseforge.com/wow/addons/bartender4) is still supported if you prefer it, and your Bartender4, ElvUI or Dominos bar setup can be imported from the Bar System options.
 
 Chat Commands
 

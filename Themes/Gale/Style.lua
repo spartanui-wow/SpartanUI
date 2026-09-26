@@ -112,9 +112,10 @@ function module:OnEnable()
 					TutorialFrameAlertButton:ClearAllPoints()
 					TutorialFrameAlertButton:SetPoint('CENTER', Minimap, 'TOP', -2, 30)
 				end
-				if CastingBarFrame then
+				local bar1 = SUI.Handlers.BarSystem:GetBarFrame('BT4Bar1')
+				if CastingBarFrame and bar1 then
 					CastingBarFrame:ClearAllPoints()
-					CastingBarFrame:SetPoint('BOTTOM', BT4Bar1, 'TOP', 0, 5)
+					CastingBarFrame:SetPoint('BOTTOM', bar1, 'TOP', 0, 5)
 				end
 			end)
 		end
@@ -123,12 +124,11 @@ function module:OnEnable()
 		if SUI.Artwork then
 			module:SlidingTrays()
 		end
-		if BT4BarBagBar and BT4BarPetBar.position then
-			BT4BarPetBar:position('TOPLEFT', 'SlidingTray_left', 'TOPLEFT', 50, -2)
-			BT4BarStanceBar:position('TOPRIGHT', 'SlidingTray_left', 'TOPRIGHT', -50, -2)
-			BT4BarMicroMenu:position('TOPLEFT', 'SlidingTray_right', 'TOPLEFT', 50, -2)
-			BT4BarBagBar:position('TOPRIGHT', 'SlidingTray_right', 'TOPRIGHT', -100, -2)
-		end
+		local BarSystem = SUI.Handlers.BarSystem
+		BarSystem:PositionBar('BT4BarPetBar', 'TOPLEFT', 'SlidingTray_left', 'TOPLEFT', 50, -2)
+		BarSystem:PositionBar('BT4BarStanceBar', 'TOPRIGHT', 'SlidingTray_left', 'TOPRIGHT', -50, -2)
+		BarSystem:PositionBar('BT4BarMicroMenu', 'TOPLEFT', 'SlidingTray_right', 'TOPLEFT', 50, -2)
+		BarSystem:PositionBar('BT4BarBagBar', 'TOPRIGHT', 'SlidingTray_right', 'TOPRIGHT', -100, -2)
 
 		module:SetColor()
 		module:ConfigureUnitFrames()

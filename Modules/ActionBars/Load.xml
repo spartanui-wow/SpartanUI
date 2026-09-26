@@ -1,0 +1,14 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\..\FrameXML\UI.xsd">
+	<Script file="Core.lua" />
+	<Script file="Bar.lua" />
+	<Script file="ActionBar.lua" />
+	<Script file="HideBlizzard.lua" />
+	<Script file="PetStanceBars.lua" />
+	<Script file="MicroBags.lua" />
+	<Script file="Keybinds.lua" />
+	<Script file="Fade.lua" />
+	<Script file="ThemeLayout.lua" />
+	<Script file="Options.lua" />
+</Ui>

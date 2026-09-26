@@ -468,8 +468,13 @@ function SUI:OnInitialize()
 		end
 	end
 
-	local function resetbartender()
-		SUI.opt.args['General'].args['Bartender'].args['ResetActionBars']:func()
+	local function resetbars()
+		local BarSystem = SUI.Handlers.BarSystem
+		if BarSystem and BarSystem:GetActiveSystem() == 'SpartanUI' and SUI.ActionBars then
+			SUI.ActionBars:ResetAll()
+		elseif SUI.opt.args.General.args.Bartender then
+			SUI.opt.args.General.args.Bartender.args.ResetActionBars:func()
+		end
 	end
 
 	local function Version()
@@ -482,7 +487,8 @@ function SUI:OnInitialize()
 
 	SUI:AddChatCommand('version', Version, 'Displays version information to the chat')
 	SUI:AddChatCommand('resetdb', resetdb, 'Reset SpartanUI settings')
-	SUI:AddChatCommand('resetbartender', resetbartender, 'Reset all bartender4 settings')
+	SUI:AddChatCommand('resetbars', resetbars, 'Reset action bar settings and positions')
+	SUI:AddChatCommand('resetbartender', resetbars, 'Reset action bar settings and positions')
 	SUI:AddChatCommand('resetfulldb', resetfulldb, 'Reset bartender4 & SpartanUI settings (This is similar to deleting your WTF folder but will only effect this character)')
 	if _G.SUIErrorDisplay then
 		local function ErrHandler(arg)

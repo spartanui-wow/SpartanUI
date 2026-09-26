@@ -27,6 +27,7 @@
 	<Script file="BarHandlers\Core.lua" />
 	<Script file="BarHandlers\Bartender4.lua" />
 	<Script file="BarHandlers\WoW.lua" />
+	<Include file="ActionBars\Load.xml" />
 
 	<!-- Load Artwork -->
 	<Script file="Artwork\Framework.lua" />

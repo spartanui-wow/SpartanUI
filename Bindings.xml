@@ -1,0 +1,62 @@
+<Bindings>
+	<Binding name="CLICK SUI_ActionBar2Button1:Keybind" header="SUIBAR2" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button2:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button3:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button4:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button5:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button6:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button7:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button8:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button9:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button10:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button11:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar2Button12:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button1:Keybind" header="SUIBAR7" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button2:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button3:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button4:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button5:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button6:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button7:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button8:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button9:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button10:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button11:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar7Button12:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button1:Keybind" header="SUIBAR8" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button2:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button3:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button4:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button5:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button6:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button7:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button8:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button9:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button10:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button11:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar8Button12:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button1:Keybind" header="SUIBAR9" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button2:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button3:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button4:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button5:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button6:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button7:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button8:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button9:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button10:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button11:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar9Button12:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button1:Keybind" header="SUIBAR10" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button2:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button3:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button4:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button5:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button6:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button7:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button8:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button9:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button10:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button11:Keybind" category="ADDONS"/>
+	<Binding name="CLICK SUI_ActionBar10Button12:Keybind" category="ADDONS"/>
+</Bindings>

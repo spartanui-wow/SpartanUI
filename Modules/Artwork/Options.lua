@@ -62,6 +62,10 @@ function module:SetupOptions()
 				Bartender4.db.profile.blizzardVehicle = val
 				Bartender4:UpdateBlizzardVehicle()
 			end
+			if SUI.ActionBars and SUI.ActionBars:IsActive() then
+				SUI.ActionBars:UpdateBlizzardVehicle()
+				SUI.ActionBars:ApplyAll()
+			end
 
 			local activeStyle = module.CurrentSettings.Style
 			if module.CurrentSettings.VehicleUI then

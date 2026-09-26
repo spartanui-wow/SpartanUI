@@ -1387,8 +1387,9 @@ function module:OnEnable()
 
 		module:SetupVehicleUI()
 
-		if BT4BarMicroMenu then
-			BT4BarMicroMenu:SetFrameStrata('LOW')
+		local microMenu = SUI.Handlers.BarSystem:GetBarFrame('BT4BarMicroMenu')
+		if microMenu then
+			microMenu:SetFrameStrata('LOW')
 		end
 		module:ApplyPopupSettings()
 		module:RegisterEvent('PLAYER_ENTERING_WORLD', 'ApplyPopupSettings')

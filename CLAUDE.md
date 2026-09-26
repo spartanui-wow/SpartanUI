@@ -9,6 +9,7 @@ For shared patterns (logging, annotations, StyLua, API lookups, testing, pitfall
 - @.context/module-creation.md — How to create new SpartanUI modules (SUI:NewModule, DBM, options, localization)
 - @.context/Database.md — SUI.DBM Configuration Override Pattern (full API reference)
 - @.context/auras.md — WoW 12.0.5 aura system, all 14 filters, presets, visual customization
+- @.context/actionbars.md — SpartanUI's own action bars, bar system selection, importers
 
 ## Project Overview
 
@@ -64,7 +65,8 @@ Each frame group can use a different UF preset independently. Themes provide 1-c
 
 ## Dependencies
 
-- **Required**: Bartender4 (action bar addon), Libs-AddonTools (UI system and utilities)
+- **Required**: Libs-AddonTools (UI system and utilities)
+- **Optional**: Bartender4 (SpartanUI draws its own action bars when it is not installed)
 - **Optional**: Various other addons for enhanced functionality
 
 ## WoW 12.0 Secret Values System

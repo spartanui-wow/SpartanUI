@@ -315,6 +315,10 @@ local function RegisterSetupWizardPages()
 					set = function(_, val)
 						module.DB.VehicleUI = val
 						SUI.DBM:RefreshSettings(module)
+						if SUI.ActionBars and SUI.ActionBars:IsActive() then
+							SUI.ActionBars:UpdateBlizzardVehicle()
+							SUI.ActionBars:ApplyAll()
+						end
 					end,
 				},
 			}, contentFrame:GetWidth() - 20)

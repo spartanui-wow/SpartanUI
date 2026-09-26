@@ -16,14 +16,41 @@ local trayIDs = {
 	'right',
 }
 
+-- Bars the active bar system places in the trays, by the key themes use for them
+local trayBars = {
+	['BT4BarStanceBar'] = 'left',
+	['BT4BarPetBar'] = 'left',
+	['MultiCastActionBarFrame'] = 'left',
+	['BT4BarBagBar'] = 'right',
+	['BT4BarMicroMenu'] = 'right',
+}
+
+---A tray frame by name: bar keys resolve to the active bar system's frame.
+---@param name string
+---@return Frame|nil
+local function ResolveTrayFrame(name)
+	local BarSystem = SUI.Handlers.BarSystem
+	return (BarSystem and BarSystem:GetBarFrame(name)) or _G[name]
+end
+
+---@param name string
+---@param shown boolean
+local function SetTrayFrameShown(name, shown)
+	local BarSystem = SUI.Handlers.BarSystem
+	if BarSystem and BarSystem:SetBarTrayHidden(name, not shown) then
+		return
+	end
+	local frame = _G[name]
+	if frame then
+		if shown then
+			frame:Show()
+		else
+			frame:Hide()
+		end
+	end
+end
+
 local SetBarVisibility = function(side, state)
-	local bt4Positions = {
-		['BT4BarStanceBar'] = 'left',
-		['BT4BarPetBar'] = 'left',
-		['MultiCastActionBarFrame'] = 'left',
-		['BT4BarBagBar'] = 'right',
-		['BT4BarMicroMenu'] = 'right',
-	}
 	-- A disabled tray still has to release the bars it was managing. Without this, bars
 	-- hidden by the tray stay hidden - or reappear on login and never get hidden again -
 	-- because nothing else drives them. Only 'hide' is blocked while disabled.
@@ -31,20 +58,14 @@ local SetBarVisibility = function(side, state)
 		return
 	end
 
-	-- Handle default BT4 frames (only if Bartender4 is installed and not moved by user)
-	-- Without BT4, these frames aren't positioned in the trays, so don't touch them
-	if SUI:IsAddonEnabled('Bartender4') then
-		for k, v in pairs(bt4Positions) do
-			if _G[k] and v == side then
-				-- Check if frame has been moved by user - if so, don't manage its visibility
-				local isMoved = (_G[k].isMoved and _G[k].isMoved()) or false
-				if not isMoved then
-					if state == 'hide' then
-						_G[k]:Hide()
-					elseif state == 'show' then
-						_G[k]:Show()
-					end
-				end
+	-- Bars the player has moved out of the tray are left alone
+	local BarSystem = SUI.Handlers.BarSystem
+	for key, traySide in pairs(trayBars) do
+		local frame = BarSystem and BarSystem:GetBarFrame(key)
+		if frame and traySide == side then
+			local isMoved = (frame.isMoved and frame.isMoved()) or false
+			if not isMoved then
+				SetTrayFrameShown(key, state == 'show')
 			end
 		end
 	end
@@ -55,12 +76,8 @@ local SetBarVisibility = function(side, state)
 		local frames = { strsplit(',', allFrames) }
 		for _, frameName in ipairs(frames) do
 			local trimmed = strtrim(frameName)
-			if trimmed ~= '' and _G[trimmed] then
-				if state == 'hide' then
-					_G[trimmed]:Hide()
-				elseif state == 'show' then
-					_G[trimmed]:Show()
-				end
+			if trimmed ~= '' and ResolveTrayFrame(trimmed) then
+				SetTrayFrameShown(trimmed, state == 'show')
 			end
 		end
 	end
@@ -425,7 +442,7 @@ function module:Options()
 		local allValid = true
 		for _, frameName in ipairs(frames) do
 			local trimmed = strtrim(frameName)
-			if trimmed ~= '' and not _G[trimmed] then
+			if trimmed ~= '' and not ResolveTrayFrame(trimmed) then
 				allValid = false
 				break
 			end
@@ -1161,33 +1178,17 @@ function module:GetCombinedFrameList(side)
 	-- Get user custom frames from DB
 	userFrames = module:GetTraySettings(side).customFrames or ''
 
-	-- Frames that should only be managed when Bartender4 is installed
-	-- These are BT4 bars or Blizzard frames that BT4 positions
-	local bt4OnlyFrames = {
-		['BT4BarStanceBar'] = true,
-		['BT4BarPetBar'] = true,
-		['BT4BarBagBar'] = true,
-		['BT4BarMicroMenu'] = true,
-		['MultiCastActionBarFrame'] = true,
-	}
-	local hasBT4 = SUI:IsAddonEnabled('Bartender4')
-
-	-- Filter out moved frames from skin frames
+	-- Filter out frames that do not exist and frames the player moved
 	local filteredSkinFrames = {}
 	if skinFrames ~= '' then
 		local frames = { strsplit(',', skinFrames) }
 		for _, frameName in ipairs(frames) do
 			local trimmed = strtrim(frameName)
-			if trimmed ~= '' and _G[trimmed] then
-				-- Skip BT4-only frames when Bartender4 is not installed
-				if bt4OnlyFrames[trimmed] and not hasBT4 then
-					-- Don't include this frame
-				else
-					-- Check if frame has been moved by user
-					local isMoved = (_G[trimmed].isMoved and _G[trimmed].isMoved()) or false
-					if not isMoved then
-						table.insert(filteredSkinFrames, trimmed)
-					end
+			local frame = trimmed ~= '' and ResolveTrayFrame(trimmed)
+			if frame then
+				local isMoved = (frame.isMoved and frame.isMoved()) or false
+				if not isMoved then
+					table.insert(filteredSkinFrames, trimmed)
 				end
 			end
 		end

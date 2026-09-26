@@ -436,12 +436,11 @@ function module:SlidingTrays()
 		right = 'BT4BarMicroMenu,BT4BarBagBar',
 	})
 
-	if BT4BarBagBar and BT4BarPetBar.position then
-		BT4BarPetBar:position('TOPLEFT', 'SlidingTray_left', 'TOPLEFT', 50, -2)
-		BT4BarStanceBar:position('TOPRIGHT', 'SlidingTray_left', 'TOPRIGHT', -50, -2)
-		BT4BarMicroMenu:position('TOPLEFT', 'SlidingTray_right', 'TOPLEFT', 50, -2)
-		BT4BarBagBar:position('TOPRIGHT', 'SlidingTray_right', 'TOPRIGHT', -100, -2)
-	end
+	local BarSystem = SUI.Handlers.BarSystem
+	BarSystem:PositionBar('BT4BarPetBar', 'TOPLEFT', 'SlidingTray_left', 'TOPLEFT', 50, -2)
+	BarSystem:PositionBar('BT4BarStanceBar', 'TOPRIGHT', 'SlidingTray_left', 'TOPRIGHT', -50, -2)
+	BarSystem:PositionBar('BT4BarMicroMenu', 'TOPLEFT', 'SlidingTray_right', 'TOPLEFT', 50, -2)
+	BarSystem:PositionBar('BT4BarBagBar', 'TOPRIGHT', 'SlidingTray_right', 'TOPRIGHT', -100, -2)
 end
 
 -- Minimap
