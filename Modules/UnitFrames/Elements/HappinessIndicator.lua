@@ -1,9 +1,12 @@
 local UF = SUI.UF
 
+-- Forever only ships the namespaced version; older Classic clients have the global.
+local GetPetHappiness = (C_PetInfo and C_PetInfo.GetPetHappiness) or _G.GetPetHappiness
+
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	if not _G['GetPetHappiness'] or not (_G['GetPetHappiness'] and 'HUNTER' == select(2, UnitClass('player')) and frame.unitOnCreate == 'pet') then
+	if not GetPetHappiness or select(2, UnitClass('player')) ~= 'HUNTER' or frame.unitOnCreate ~= 'pet' then
 		return
 	end
 	local HappinessIndicator = frame:CreateTexture(nil, 'OVERLAY')
@@ -43,11 +46,29 @@ local function Build(frame, DB)
 	end)
 	HappinessIndicator.UpdateSUI:Hide()
 	frame.HappinessIndicator = HappinessIndicator
+
+	-- The mainline oUF names this element Happiness and reads the widget from there;
+	-- oUF_Classic uses HappinessIndicator. Register it under both so either one drives it.
+	if UF.IsModernOUF then
+		frame.Happiness = HappinessIndicator
+	end
 end
 
 ---@param frame table
 local function Update(frame)
-	local DB = frame.HappinessIndicator.DB
+	local element = frame.HappinessIndicator
+	local DB = element and element.DB
+
+	-- SpartanUI toggles elements by its own name, which the mainline oUF does not know.
+	-- Skip it during the build: oUF enables every element itself once styling returns,
+	-- and its element state for the frame does not exist before then.
+	if UF.IsModernOUF and frame.Happiness and DB and frame.IsBuilt then
+		if DB.enabled then
+			frame:EnableElement('Happiness')
+		else
+			frame:DisableElement('Happiness')
+		end
+	end
 end
 
 ---@param unitName string
