@@ -461,14 +461,7 @@ function UF:SpawnFrames()
 		-- raid tiers (enable/disable at runtime without reload). Updater controls visibility.
 		local alwaysSpawn = (config.isChild and config.IsGroup) or frameName:match('^raid%d+$')
 		if settings.enabled or alwaysSpawn then
-			-- TEMPORARY (WoW Forever 1.60.1): EnvironmentCleanup nils loadstring_untainted
-			-- before RestrictedExecution captures it, so secure group headers throw one error
-			-- per child button. Remove once Blizzard fixes the load order.
-			-- The global itself cannot be tested: cleanup nils it on every flavor, Retail
-			-- included - only the load order differs.
-			if config.IsGroup and SUI.IsForever then
-				UF:debug('Skipping group frame ' .. frameName .. ': secure headers broken on this client')
-			elseif config.IsGroup then
+			if config.IsGroup then
 				local groupElement = UF.Unit:BuildGroup(frameName)
 
 				-- Collect current active headers dynamically (supports runtime mode switching)
@@ -562,9 +555,7 @@ function UF:SpawnFrames()
 			end
 
 			-- Trigger update
-			if UF.Unit[frameName] then
-				UF.Unit[frameName]:UpdateAll()
-			end
+			UF.Unit[frameName]:UpdateAll()
 		end
 	end
 
