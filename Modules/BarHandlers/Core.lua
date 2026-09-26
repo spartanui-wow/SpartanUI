@@ -233,6 +233,20 @@ function module:OnEnable()
 		SUI:Print(L['SpartanUI bars are selected, but Bartender4 is still enabled. Disable Bartender4 to switch.'])
 	end
 
+	SUI:AddChatCommand('bars', function()
+		local system, why = module:GetEffectiveSystem()
+		SUI:Print(('Action bars: %s (chosen: %s)%s'):format(SYSTEM_NAMES[system] or system, DB.ActiveSystem or 'automatic', why and (' - ' .. why) or ''))
+		if system == 'SpartanUI' and SUI.ActionBars then
+			local shown = 0
+			for _, bar in pairs(SUI.ActionBars.bars) do
+				if bar:IsShown() then
+					shown = shown + 1
+				end
+			end
+			SUI:Print(('SpartanUI bars built: %d, showing: %d'):format(#SUI.ActionBars:GetMoverNames(), shown))
+		end
+	end, 'Show which addon is drawing the action bars', nil, true)
+
 	local entry = module.Registry[effective]
 	if entry then
 		if entry.Initialize then

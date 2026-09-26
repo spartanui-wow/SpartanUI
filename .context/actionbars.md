@@ -79,3 +79,20 @@ Importers only work while the source addon is loaded (its SavedVariables are onl
 
 - Extra action button / zone ability holders: left to Blizzard (EditMode on modern clients), as the previous Bartender4 setup did.
 - Desaturate-on-cooldown and ElvUI export-string import.
+
+## In-game test checklist
+
+Run on each client (Retail, Mists, TBC Anniversary, Classic Era, Forever) with Bartender4, ElvUI and Dominos disabled unless a step says otherwise. `/sui bars` reports the running bar system and why.
+
+1. Fresh profile: bars sit in the theme's slots at the theme's size; Blizzard's bars, bag bar, micro menu and XP strip are gone; no Lua errors after `/rl`.
+2. Spells cast from every bar, by click and by key (bar 1 `ACTIONBUTTON`, bars 3-6 Blizzard multi-bar keys, bar 2 and 7-10 through the SpartanUI entries under Key Bindings > AddOns).
+3. Paging: druid forms/prowl, rogue stealth, warrior stances (Classic), shift+number page swaps, skyriding (Retail).
+4. Vehicle with "Use Blizzard Vehicle UI" on: Blizzard's vehicle bar shows, keys 1-6 drive it, SpartanUI bars hide. With it off: bar 1 shows the vehicle actions.
+5. Pet battle (Retail/Mists): keys 1-6 reach the pet battle UI.
+6. Pet bar appears with a pet; stance bar only for classes with forms; totem bar for Wrath-era shamans.
+7. Micro menu and bags: every button works; micro menu moves into Blizzard's vehicle bar and pet battle UI and comes back afterwards.
+8. `/sui move`: every enabled bar has a mover, disabled bars do not; moving/scaling survives `/rl`.
+9. Options: every per-bar setting applies live out of combat and is deferred (not errored) in combat.
+10. Sliding trays hide/show the pet, stance, micro and bag bars.
+11. Imports: enable each source addon, import its current profile with and without positions, confirm the source addon is turned off and the bars match.
+12. Switch Bar System to Bartender4 and back; the Bartender4 path must behave exactly as before.

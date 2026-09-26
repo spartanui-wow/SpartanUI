@@ -313,14 +313,14 @@ end
 ----------------------------------------------------------------------------------------------------
 
 function Bar:EnsureMover()
-	if self.mover or SUI:IsModuleDisabled('MoveIt') then
-		return
-	end
-	local MoveIt = SUI:GetModule('MoveIt') ---@type MoveIt
 	if not self:GetPoint() then
 		self:ClearAllPoints()
 		self:SetPoint(module:GetFallbackPoint(self.key))
 	end
+	if self.mover or SUI:IsModuleDisabled('MoveIt') then
+		return
+	end
+	local MoveIt = SUI:GetModule('MoveIt') ---@type MoveIt
 	MoveIt:CreateMover(self, self.key, self.displayName, nil, L['Action Bars'])
 	local mover = MoveIt.MoverList[self.key]
 	if mover then

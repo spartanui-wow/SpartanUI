@@ -113,22 +113,44 @@ local MASQUE_TYPES = {
 	BT4BarBagBar = 'Item',
 }
 
+-- Bars holding a single Blizzard frame rather than buttons
+local NO_MASQUE = {
+	BT4BarMicroMenu = true,
+	BT4BarQueueStatus = true,
+	MultiCastActionBarFrame = true,
+}
+
+local masqueAdded = setmetatable({}, { __mode = 'k' })
+
+---Skin any of a bar's buttons Masque has not seen yet. Bag buttons are gathered after the
+---groups exist, so this also runs from the bag bar's layout.
+---@param bar SUI.ActionBars.Bar
+function module:AddMasqueButtons(bar)
+	local group = self.masqueGroups[bar.key]
+	if not group then
+		return
+	end
+	for _, button in ipairs(bar.allButtons or bar.buttons) do
+		if not masqueAdded[button] then
+			masqueAdded[button] = true
+			if button.AddToMasque then
+				button:AddToMasque(group)
+			else
+				group:AddButton(button, nil, MASQUE_TYPES[bar.key])
+			end
+		end
+	end
+end
+
 function module:SetupMasque()
 	local Masque = LibStub('Masque', true)
 	if not Masque or not self.CurrentSettings.masque then
 		return
 	end
 	for key, bar in pairs(self.bars) do
-		if key ~= 'BT4BarMicroMenu' and key ~= 'BT4BarQueueStatus' and not self.masqueGroups[key] then
-			local group = Masque:Group('SpartanUI', bar.displayName, key)
-			self.masqueGroups[key] = group
-			for _, button in ipairs(bar.allButtons or bar.buttons) do
-				if button.AddToMasque then
-					button:AddToMasque(group)
-				else
-					group:AddButton(button, nil, MASQUE_TYPES[key])
-				end
-			end
+		if not NO_MASQUE[key] and not self.masqueGroups[key] then
+			self.masqueGroups[key] = Masque:Group('SpartanUI', bar.displayName, key)
+			self:AddMasqueButtons(bar)
 		end
 	end
 end

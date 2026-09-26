@@ -202,6 +202,7 @@ function BagBar:UpdateButtons()
 	end
 	self.buttons = wanted
 	self:LayoutButtons(#wanted)
+	module:AddMasqueButtons(self)
 end
 
 function module:CreateBagBar()

@@ -95,15 +95,22 @@ function module:ApplyThemeLayout()
 	local uiScale = SUI.DB.scale or 0.92
 
 	for key, bar in pairs(self.bars) do
+		local themeScale = scales[key] or scales.BT4Bar1 or 1
+		local point, anchor, relativePoint, x, y = self:ParsePosition(positions[key])
 		if bar.mover then
 			local moverData = MoveIt and MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers[key]
-			local themeScale = scales[key] or scales.BT4Bar1 or 1
 			if bar.scale and not (moverData and moverData.AdjustedScale) then
 				bar:scale(uiScale * themeScale * SCALE_NORMALIZER, true, true)
 			end
-			local point, anchor, relativePoint, x, y = self:ParsePosition(positions[key])
 			if point and bar.position then
 				bar:position(point, anchor, relativePoint, x, y, false, true)
+			end
+		else
+			-- Without MoveIt there is nothing to remember a player's placement, so the theme decides
+			bar:SetScale(uiScale * themeScale * SCALE_NORMALIZER)
+			if point then
+				bar:ClearAllPoints()
+				bar:SetPoint(point, anchor, relativePoint, x, y)
 			end
 		end
 	end
