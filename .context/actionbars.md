@@ -63,7 +63,7 @@ The actual frames are `SUI_ActionBar<N>` (buttons `SUI_ActionBar<N>Button<i>`), 
 
 **Bars 13-15** exist wherever `MultiBar5` does (every current client, not only Retail): they are Blizzard's Action Bars 6-8 on pages 13-15.
 
-**Leaving vehicles.** Button 12 of every bar with `vehiclePaging` gets LibActionButton's `custom` type on the vehicle/override/temp-shapeshift pages (pages 11-12 on clients without those functions): `VehicleExit()`. Blizzard's `PossessActionBar` is deliberately left alone - it only appears while possessing and carries the cancel button.
+**Leaving vehicles.** The button showing slot 12 of every bar with `vehiclePaging` gets LibActionButton's `custom` type on the vehicle/override/temp-shapeshift pages (pages 11-12 on clients without those functions): `VehicleExit()`. Blizzard's `PossessActionBar` is deliberately left alone - it only appears while possessing and carries the cancel button.
 
 **Micro menu and bag bar fall back to Blizzard.** With either bar turned off, SpartanUI leaves Blizzard's `MicroMenu`/`BagsBar` alone instead of hiding the buttons; toggling it asks for a reload. While Blizzard's vehicle bar or pet battle UI takes the micro menu (`MicroMenu:SetParent` hook), the buttons are lent back and reclaimed afterwards.
 
@@ -87,7 +87,7 @@ Importers only work while the source addon is loaded (its SavedVariables are onl
 
 **Frames SpartanUI takes from Blizzard** (micro menu, bag bar, queue eye, extra action holder) only change hands cleanly at login, so a profile switch or reset that changes their `enabled` state asks for a reload (`CheckOwnershipChange`).
 
-**Extra action / zone ability** holder (`BT4BarExtraActionBar`) is optional and off by default; when off, Blizzard/Edit Mode places them as before.
+**Extra action / zone ability** holder (`BT4BarExtraActionBar`) is optional and off by default; when off, Blizzard/Edit Mode places them as before. While on, the container is kept out of Blizzard's bottom frame manager (`ignoreFramePositionManager`, show/hide handlers cleared) so the buttons stay put in combat; turning it off hands the container back to its original parent and anchor without a reload. Never write into the manager's `showingFrames` table - it taints Blizzard's managed-frame code.
 
 ## Not built yet
 

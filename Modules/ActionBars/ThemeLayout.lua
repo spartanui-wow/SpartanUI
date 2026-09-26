@@ -135,7 +135,10 @@ end
 ---@param y number
 function module:SetThemeOverride(key, point, anchor, relativePoint, x, y)
 	self.themeOverrides = self.themeOverrides or {}
-	local anchorName = type(anchor) == 'table' and anchor:GetName() or anchor or 'UIParent'
+	local anchorName = anchor or 'UIParent'
+	if type(anchor) == 'table' then
+		anchorName = anchor:GetName() or 'UIParent'
+	end
 	self.themeOverrides[key] = ('%s,%s,%s,%s,%s'):format(point, anchorName, relativePoint or point, x or 0, y or 0)
 	self.themeOverrideStyle = SUI:GetActiveStyle()
 	local bar = self.bars[key]

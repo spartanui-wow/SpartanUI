@@ -272,13 +272,17 @@ function Bar:UpdateFade()
 end
 
 ---Click-through bars get no mouse events, so their mouseover fade is driven by polling.
+---The poll runs on a plain child frame: the bar itself is protected, and this can switch on
+---or off in combat.
 function Bar:UpdateHoverPolling()
 	local db = self:GetDB()
 	local poll = db.mouseover and db.clickThrough and db.enabled
-	if poll and not self.hoverPoller then
+	-- Made on the first call, which is out of combat when the bar is first applied
+	if not self.hoverPoller then
 		local bar = self
 		local elapsedTotal = 0
-		self.hoverPoller = function(_, elapsed)
+		local poller = CreateFrame('Frame', nil, self)
+		poller:SetScript('OnUpdate', function(_, elapsed)
 			elapsedTotal = elapsedTotal + elapsed
 			if elapsedTotal < 0.1 then
 				return
@@ -290,12 +294,10 @@ function Bar:UpdateHoverPolling()
 			elseif not inside and bar.mouseInside and not bar.leaveToken then
 				bar:OnLeaveBar()
 			end
-		end
-		self:SetScript('OnUpdate', self.hoverPoller)
-	elseif not poll and self.hoverPoller then
-		self.hoverPoller = nil
-		self:SetScript('OnUpdate', nil)
+		end)
+		self.hoverPoller = poller
 	end
+	self.hoverPoller:SetShown(poll and true or false)
 end
 
 function Bar:OnEnterBar()

@@ -206,7 +206,8 @@ function ActionBar:UpdateButtonStates()
 		end
 		-- State 0 is used before the page driver fires for the first time
 		button:SetState(0, 'action', (self.id - 1) * NUM_BUTTONS + slot)
-		if i == NUM_BUTTONS then
+		-- The leave button takes the vehicle page's 12th slot, wherever the offset puts it
+		if slot == NUM_BUTTONS then
 			for _, page in ipairs(exitPages) do
 				button:SetState(page, 'custom', EXIT_BUTTON)
 			end

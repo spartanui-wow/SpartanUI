@@ -364,13 +364,33 @@ function module:CreateExtraBar()
 	-- Edit Mode replaces the anchoring methods on its frames; the Base versions skip its hooks
 	local clearPoints = content.ClearAllPointsBase or content.ClearAllPoints
 	local setPoint = content.SetPointBase or content.SetPoint
+	local blizzardParent = content:GetParent()
+	local blizzardPoints = {}
+	for i = 1, content:GetNumPoints() do
+		blizzardPoints[i] = { content:GetPoint(i) }
+	end
 	local placing = false
 	bar.UpdateButtons = function(self)
 		if InCombatLockdown() then
 			return
 		end
-		placing = true
 		self:SetSize(128, 128)
+		if not self:GetDB().enabled then
+			-- Turned off without a reload: give the buttons back where Blizzard had them
+			if content:GetParent() == self then
+				placing = true
+				content:SetParent(blizzardParent)
+				clearPoints(content)
+				for _, point in ipairs(blizzardPoints) do
+					setPoint(content, unpack(point))
+				end
+				placing = false
+			end
+			return
+		end
+		-- Edit Mode clears this whenever it re-applies its layout
+		content.ignoreFramePositionManager = true
+		placing = true
 		content:SetParent(self)
 		clearPoints(content)
 		setPoint(content, 'CENTER', self, 'CENTER', 0, 0)
@@ -384,32 +404,21 @@ function module:CreateExtraBar()
 		end
 	end
 	-- Blizzard's bottom frame manager takes the container back every time it is shown, which
-	-- is mid-fight when these buttons appear. Keep it out of that manager for good.
-	local function ReleaseFromManager()
-		content.ignoreFramePositionManager = true
-		local container = (GetBottomManagedFrameContainer and GetBottomManagedFrameContainer()) or _G.UIParentBottomManagedFrameContainer
-		-- Only touch Blizzard's table when the container is actually listed there
-		if container and container.showingFrames and container.showingFrames[content] then
-			container.showingFrames[content] = nil
-		end
-	end
-	ReleaseFromManager()
+	-- is mid-fight when these buttons appear. Its show handler is what signs it up.
+	content.ignoreFramePositionManager = true
 	if _G.ExtraAbilityContainer then
 		content:SetScript('OnShow', nil)
 		content:SetScript('OnHide', nil)
 	end
-	-- Edit Mode re-applies its own anchor (and manager membership) when layouts change
-	if content.ApplySystemAnchor then
-		hooksecurefunc(content, 'ApplySystemAnchor', function()
-			ReleaseFromManager()
-			if module:IsActive() then
-				module:RunOutOfCombat('extra', bar.UpdateButtons, bar)
-			end
-		end)
-	end
-	hooksecurefunc(content, 'SetPoint', function()
+	local function Reclaim()
 		if not placing and module:IsActive() then
 			module:RunOutOfCombat('extra', bar.UpdateButtons, bar)
 		end
-	end)
+	end
+	-- Edit Mode re-applies its own anchor when layouts change
+	if content.ApplySystemAnchor then
+		hooksecurefunc(content, 'ApplySystemAnchor', Reclaim)
+	end
+	hooksecurefunc(content, 'SetPoint', Reclaim)
+	hooksecurefunc(content, 'SetParent', Reclaim)
 end

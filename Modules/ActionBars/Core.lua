@@ -345,6 +345,33 @@ function module:ApplyAll()
 	self:ApplyThemeLayout()
 	self:UpdateGlobalFade()
 	self:UpdateKeybinds()
+	self:SyncButtonLock()
+end
+
+---Pet and stance buttons are Blizzard's and follow the game's own lock setting, so keep that
+---setting and SpartanUI's in step: SpartanUI's wins when bars are applied, and a change made
+---in the game's options is copied back.
+function module:SyncButtonLock()
+	local wanted = self.CurrentSettings.lockButtons and '1' or '0'
+	if GetCVar('lockActionBars') ~= wanted then
+		SetCVar('lockActionBars', wanted)
+	end
+	if self.lockWatcher then
+		return
+	end
+	local watcher = CreateFrame('Frame')
+	watcher:RegisterEvent('CVAR_UPDATE')
+	watcher:SetScript('OnEvent', function(_, _, name)
+		if not module.active or (name ~= 'lockActionBars' and name ~= 'LOCK_ACTIONBAR_TEXT') then
+			return
+		end
+		local locked = GetCVarBool('lockActionBars') and true or false
+		if locked ~= (module.CurrentSettings.lockButtons and true or false) then
+			module:SetSetting({}, 'lockButtons', locked)
+			module:RunOutOfCombat('buttonconfig', module.UpdateButtonConfig, module)
+		end
+	end)
+	self.lockWatcher = watcher
 end
 
 ---Which Blizzard button groups SpartanUI takes over. Changing any of these moves Blizzard's
@@ -352,7 +379,7 @@ end
 ---@return string
 function module:GetBlizzardOwnership()
 	local current = self.CurrentSettings
-	return ('%s:%s:%s:%s'):format(tostring(current.micro.enabled), tostring(current.bags.enabled), tostring(current.extra.enabled), tostring(current.queue.enabled))
+	return ('%s:%s:%s'):format(tostring(current.micro.enabled), tostring(current.bags.enabled), tostring(current.extra.enabled))
 end
 
 ---Ask for a reload when a profile change or reset hands Blizzard frames over differently.

@@ -550,7 +550,7 @@ local function BuildSpecialBarOptions(key, settingsKey, order, extra)
 		args[k] = v
 	end
 	-- These bars take Blizzard's own buttons; handing them back needs a reload
-	if settingsKey == 'micro' or settingsKey == 'bags' or settingsKey == 'queue' then
+	if settingsKey == 'micro' or settingsKey == 'bags' then
 		args.enabled.desc = L['Turning this off gives the buttons back to the standard game layout. Needs a reload.']
 		args.enabled.set = function(_, value)
 			module:SetSetting(path, 'enabled', value)
@@ -642,8 +642,6 @@ local function BuildGeneralOptions()
 				order = 11,
 				set = function(_, value)
 					module:SetSetting({}, 'lockButtons', value)
-					-- Pet and stance buttons are Blizzard's and follow the game's own lock
-					SetCVar('lockActionBars', value and '1' or '0')
 					applyAll()
 				end,
 			},

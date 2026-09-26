@@ -315,6 +315,9 @@ function module:SetBarTrayHidden(key, hidden)
 	end
 	if frame.SetTrayHidden then
 		frame:SetTrayHidden(hidden)
+	elseif InCombatLockdown() and frame:IsProtected() then
+		-- Protected bars cannot be shown or hidden in combat
+		return true
 	elseif hidden then
 		frame:Hide()
 	else
