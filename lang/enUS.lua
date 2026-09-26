@@ -1244,3 +1244,4 @@ L['Totem Bar'] = true
 L['Turning this off gives the buttons back to the standard game layout. Needs a reload.'] = true
 L['Style text for this bar'] = true
 L['Use different fonts on this bar than the ones set in the General tab.'] = true
+L['Bartender4 is still enabled, so it keeps drawing your bars. Disable Bartender4 to switch.'] = true

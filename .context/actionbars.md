@@ -65,13 +65,15 @@ The actual frames are `SUI_ActionBar<N>` (buttons `SUI_ActionBar<N>Button<i>`), 
 
 **Text styling.** `text.hotkey/count/macro` in the module root is the shared style; an action bar with `customText = true` merges its own `bars[id].text` over it. Importers set this for bars whose fonts differ from bar 1 (ElvUI) or were changed (Bartender4).
 
-**Blizzard vehicle UI.** SpartanUI defaults to Blizzard's vehicle bar (`Artwork.VehicleUI = true`). In that mode `OverrideActionBar` stays alive and action/stance bars get `[overridebar][vehicleui] hide;` prepended to their visibility.
+**Blizzard vehicle UI.** SpartanUI defaults to Blizzard's vehicle bar (`Artwork.VehicleUI = true`). In that mode `OverrideActionBar` stays alive, action/stance bars get `[vehicleui] hide;` prepended, and the binding controller follows Bartender4: `[overridebar] override; [vehicleui] vehicle;` - in vehicle mode (or an override bar on a vehicle page, `actionpage > 10`) the ACTIONBUTTON1-6 keys get priority bindings to `OverrideActionBarButton1-6`. Plain override bars with no Blizzard skin are shown by Blizzard on the main bar, so bar 1 stays visible and pages into them.
+
+**Combat rules.** The micro menu and bag bar are secure frames (they need visibility drivers), so their relayouts from Blizzard hooks (`UpdateMicroButtons`, `BagsBar.Layout`) are deferred with `RunOutOfCombat`. Blizzard only returns the micro menu through `MainActionBar`'s OnShow, which never fires while it is hidden, so `PET_BATTLE_CLOSE`, `UNIT_EXITED_VEHICLE` and `ActionBarController_UpdateAll` reclaim it.
 
 ## Importers
 
 Importers only work while the source addon is loaded (its SavedVariables are only in memory then). Each returns a result in SpartanUI's settings shape plus positions, scales and binding migrations; `ActionBars:RunImport` wipes the module DB, writes the result sparsely, stores scales/positions in MoveIt, migrates custom binding commands, optionally disables the source, then switches to SpartanUI bars (reload).
 
-- Imported scales always apply (so imported sizes look the same); positions are optional because most players want bars in their SpartanUI theme's slots.
+- Sizes and placement travel together. With "Also copy bar positions" on, the source's button sizes, scale and positions are copied. With it off (the wizard's default), button sizes are dropped and MoveIt is left alone, so bars keep the theme's size and slots.
 - Bartender4 profiles named `SpartanUI*` were positioned and scaled by SpartanUI itself; those already carry over through shared mover names, so the importer skips positions and scales for them.
 - All three sources store sparse AceDB data; every importer merges the source addon's own live defaults before converting.
 

@@ -59,6 +59,26 @@ function module:CreatePetBar()
 	Mixin(bar, PetBar)
 	bar.cropIcons = true
 	bar.buttons = CollectBlizzardButtons('PetActionButton', NUM_PET_SLOTS, PetActionBar)
+
+	-- Blizzard tints out-of-range pet abilities from its own bar's OnUpdate, which stops
+	-- running once that bar is hidden, so the tint is refreshed here instead
+	if GetPetActionInfo and ActionButton_UpdateRangeIndicator then
+		local canAccess = SUI.BlizzAPI.canaccessvalue
+		local elapsedTotal = 0
+		bar:HookScript('OnUpdate', function(self, elapsed)
+			elapsedTotal = elapsedTotal + elapsed
+			if elapsedTotal < (TOOLTIP_UPDATE_TIME or 0.2) then
+				return
+			end
+			elapsedTotal = 0
+			for i, button in ipairs(self.buttons) do
+				local checksRange, inRange = select(8, GetPetActionInfo(i))
+				if canAccess(checksRange) and canAccess(inRange) then
+					ActionButton_UpdateRangeIndicator(button, checksRange, inRange)
+				end
+			end
+		end)
+	end
 end
 
 ----------------------------------------------------------------------------------------------------

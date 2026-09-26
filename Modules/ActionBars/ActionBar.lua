@@ -75,7 +75,9 @@ local function BuildClassPaging()
 	if not modern and not SUI.IsMOP then
 		paging.WARRIOR = '[bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9;'
 	end
-	if not modern and not SUI.IsClassic and not SUI.IsForever then
+	if SUI.IsClassic or SUI.IsForever then
+		paging.PRIEST = '[form:1] 7;'
+	elseif not modern then
 		paging.PRIEST = '[bonusbar:1] 7;'
 	end
 	if SUI.IsMOP then

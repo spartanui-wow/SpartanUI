@@ -230,6 +230,26 @@ function module:MigrateBindings(bindings)
 	return moved
 end
 
+local SIZE_KEYS = { 'buttonSize', 'buttonHeight', 'keepSizeRatio' }
+
+---Drop button sizes so bars kept in the theme's slots also keep the theme's size.
+---@param settings table
+local function StripSizes(settings)
+	local function strip(section)
+		if type(section) == 'table' then
+			for _, key in ipairs(SIZE_KEYS) do
+				section[key] = nil
+			end
+		end
+	end
+	for _, bar in pairs(settings.bars or {}) do
+		strip(bar)
+	end
+	for _, section in ipairs({ 'pet', 'stance', 'micro', 'bags' }) do
+		strip(settings[section])
+	end
+end
+
 ---@class SUI.ActionBars.ImportOptions
 ---@field positions boolean Also move bars to where the other addon had them
 ---@field keybinds boolean Move key bindings for bars without a Blizzard binding
@@ -262,6 +282,10 @@ function module:RunImport(importerID, profile, options)
 		return false, L['The import failed. Your current settings were not changed.']
 	end
 
+	if not options.positions then
+		StripSizes(result.settings)
+	end
+
 	-- Start from a clean slate so leftovers from an earlier setup do not mix in
 	wipe(self.DB)
 	SUI.DBM:RefreshSettings(self)
@@ -281,22 +305,19 @@ function module:RunImport(importerID, profile, options)
 	end
 	SUI.DBM:RefreshSettings(self)
 
+	-- Sizes and placement travel together: copying the other addon's positions brings its
+	-- button sizes and scale along; otherwise the bars keep the theme's size and slots.
 	local MoveIt = SUI:GetModule('MoveIt', true) ---@type MoveIt
-	if MoveIt and MoveIt.DB then
+	if options.positions and MoveIt and MoveIt.DB then
 		for key, scale in pairs(result.scales) do
 			MoveIt.DB.movers[key].AdjustedScale = scale
-			if not options.positions then
-				MoveIt.DB.movers[key].MovedPoints = nil
-			end
 		end
-		if options.positions then
-			for key, position in pairs(result.positions) do
-				local scale = result.scales[key] or 1
-				local moved = self:ConvertImportPosition(key, position, scale)
-				if moved then
-					MoveIt.DB.movers[key].MovedPoints = moved
-					MoveIt.DB.movers[key].AdjustedScale = scale
-				end
+		for key, position in pairs(result.positions) do
+			local scale = result.scales[key] or 1
+			local moved = self:ConvertImportPosition(key, position, scale)
+			if moved then
+				MoveIt.DB.movers[key].MovedPoints = moved
+				MoveIt.DB.movers[key].AdjustedScale = scale
 			end
 		end
 	end

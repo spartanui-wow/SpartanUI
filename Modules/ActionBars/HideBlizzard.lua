@@ -109,8 +109,10 @@ function module:HideBlizzard()
 	if self.CurrentSettings.micro.enabled then
 		HideBarFrame(MicroMenu, true)
 	end
-	-- SpartanUI draws its own experience and reputation bars
-	HideBarFrame(StatusTrackingBarManager, false)
+	-- SpartanUI draws its own experience and reputation bars; keep Blizzard's if those are off
+	if SUI:IsModuleEnabled('Artwork') and SUI:IsModuleEnabled('Artwork.StatusBars') then
+		HideBarFrame(StatusTrackingBarManager, false)
+	end
 
 	-- The totem bar keeps its events so shaman totem buttons keep working where it exists
 	if MultiCastActionBarFrame and select(2, UnitClass('player')) ~= 'SHAMAN' then
@@ -134,15 +136,29 @@ function module:HideBlizzard()
 
 	if C_AddOns.IsAddOnLoaded('Blizzard_NewPlayerExperience') then
 		self:DisableActionBarTutorials()
-	elseif NPE_LoadUI ~= nil then
-		hooksecurefunc('NPE_LoadUI', function()
-			module:DisableActionBarTutorials()
+	else
+		if NPE_LoadUI ~= nil then
+			hooksecurefunc('NPE_LoadUI', function()
+				module:DisableActionBarTutorials()
+			end)
+		end
+		local watcher = CreateFrame('Frame')
+		watcher:RegisterEvent('ADDON_LOADED')
+		watcher:SetScript('OnEvent', function(frame, _, addon)
+			if addon == 'Blizzard_NewPlayerExperience' then
+				frame:UnregisterAllEvents()
+				module:DisableActionBarTutorials()
+			end
 		end)
 	end
 end
 
 ---New player tutorials look for Blizzard's own buttons and error when they are gone.
 function module:DisableActionBarTutorials()
+	-- Current Retail runs its tutorials through TutorialManager
+	if TutorialManager and TutorialManager.ShutdownTutorial and Class_AddSpellToActionBarService then
+		pcall(TutorialManager.ShutdownTutorial, TutorialManager, Class_AddSpellToActionBarService.name)
+	end
 	if not (Tutorials and Tutorials.AddSpellToActionBar) then
 		return
 	end

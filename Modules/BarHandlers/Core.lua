@@ -107,7 +107,7 @@ function module:GetEffectiveSystem()
 	local external = self:GetExternalBarAddon()
 
 	if chosen == 'WoW' then
-		return 'WoW'
+		return bt4Loaded and 'Bartender4' or 'WoW', bt4Loaded and 'bt4loaded' or nil
 	end
 	if chosen == nil then
 		chosen = bt4Loaded and 'Bartender4' or 'SpartanUI'
@@ -163,7 +163,7 @@ local function Options()
 				name = function()
 					local effective, reason = module:GetEffectiveSystem()
 					if reason == 'bt4loaded' then
-						return L['SpartanUI bars are selected, but Bartender4 is still enabled. Disable Bartender4 to switch.']
+						return L['Bartender4 is still enabled, so it keeps drawing your bars. Disable Bartender4 to switch.']
 					elseif effective == 'None' and reason then
 						return (L['%s is drawing your action bars, so SpartanUI leaves them alone.']):format(reason)
 					end
@@ -185,7 +185,7 @@ end
 function module:SetChosenSystem(system)
 	DB.ActiveSystem = system
 	DB.systemChosen = true
-	if system == 'SpartanUI' and Bartender4 then
+	if (system == 'SpartanUI' or system == 'WoW') and Bartender4 then
 		C_AddOns.DisableAddOn('Bartender4', UnitName('player'))
 	elseif system == 'Bartender4' and not Bartender4 then
 		C_AddOns.EnableAddOn('Bartender4', UnitName('player'))
@@ -230,7 +230,7 @@ function module:OnEnable()
 		module.logger.info(('Bar system: %s%s'):format(effective, reason and (' (' .. reason .. ')') or ''))
 	end
 	if reason == 'bt4loaded' and not InCombatLockdown() then
-		SUI:Print(L['SpartanUI bars are selected, but Bartender4 is still enabled. Disable Bartender4 to switch.'])
+		SUI:Print(L['Bartender4 is still enabled, so it keeps drawing your bars. Disable Bartender4 to switch.'])
 	end
 
 	SUI:AddChatCommand('bars', function()

@@ -204,9 +204,10 @@ function Bar:UpdateVisibility()
 		return
 	end
 	local conditions = SafeConditions(db.visibility)
-	-- Blizzard's vehicle bar takes over in vehicles when the player chose to use it
+	-- Blizzard's vehicle bar takes over in vehicles with their own interface when the player
+	-- chose to use it. Plain override bars have no Blizzard skin and page bar 1 instead.
 	if self.hideInBlizzardVehicle and module:UseBlizzardVehicleUI() then
-		conditions = '[overridebar][vehicleui] hide; ' .. conditions
+		conditions = '[vehicleui] hide; ' .. conditions
 	end
 	RegisterStateDriver(self, 'visibility', conditions)
 end
@@ -358,13 +359,11 @@ function Bar:Apply()
 	end
 
 	self:UpdateBackdrop()
-	-- Empty strata and level zero leave the frame's own layering alone
-	if db.frameStrata and db.frameStrata ~= '' then
-		self:SetFrameStrata(db.frameStrata)
-	end
-	if db.frameLevel and db.frameLevel > 0 then
-		self:SetFrameLevel(db.frameLevel)
-	end
+	-- Empty strata and level zero mean the frame's own layering, captured before any change
+	self.defaultStrata = self.defaultStrata or self:GetFrameStrata()
+	self.defaultLevel = self.defaultLevel or self:GetFrameLevel()
+	self:SetFrameStrata((db.frameStrata and db.frameStrata ~= '') and db.frameStrata or self.defaultStrata)
+	self:SetFrameLevel((db.frameLevel and db.frameLevel > 0) and db.frameLevel or self.defaultLevel)
 	self:EnableMouse(not db.clickThrough and db.mouseover)
 	self:UpdateVisibility()
 	self:UpdateFade()

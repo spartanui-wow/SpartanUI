@@ -15,8 +15,16 @@ local controller
 
 local APPLY_SNIPPET = [[
 	self:ClearBindings()
-	if self:GetAttribute('suspended') or self:GetAttribute('mode') ~= 'bind' then
+	local mode = self:GetAttribute('mode')
+	if self:GetAttribute('suspended') or mode == 'clear' then
 		return
+	end
+	-- An override bar showing a vehicle page counts as a vehicle
+	if mode == 'override' then
+		local overrideBar = self:GetFrameRef('overrideBar')
+		if overrideBar and (overrideBar:GetAttribute('actionpage') or 0) > 10 then
+			mode = 'vehicle'
+		end
 	end
 	local count = self:GetAttribute('bindCount') or 0
 	for i = 1, count do
@@ -24,6 +32,16 @@ local APPLY_SNIPPET = [[
 		local target = self:GetAttribute('bindTarget' .. i)
 		if key and target then
 			self:SetBindingClick(false, key, target, 'Keybind')
+		end
+	end
+	-- Blizzard's vehicle bar is on screen: the first six action keys drive it
+	if mode == 'vehicle' then
+		for i = 1, 6 do
+			local command = 'ACTIONBUTTON' .. i
+			for k = 1, select('#', GetBindingKey(command)) do
+				local key = select(k, GetBindingKey(command))
+				self:SetBindingClick(true, key, 'OverrideActionBarButton' .. i)
+			end
 		end
 	end
 ]]
@@ -41,23 +59,23 @@ local function GetController()
 		self:RunAttribute('ApplyBindings')
 	]]
 	)
+	if OverrideActionBar then
+		controller:SetFrameRef('overrideBar', OverrideActionBar)
+	end
 	return controller
 end
 
 ---Conditions under which SpartanUI's key redirects step aside.
 ---@return string
 function module:GetBindingDriver()
-	local clear = ''
+	local driver = ''
 	if SUI.IsRetail or SUI.IsMOP or SUI.IsCata then
-		clear = clear .. '[petbattle]'
+		driver = '[petbattle] clear; '
 	end
 	if self:UseBlizzardVehicleUI() then
-		clear = clear .. '[overridebar][vehicleui]'
+		driver = driver .. '[overridebar] override; [vehicleui] vehicle; '
 	end
-	if clear == '' then
-		return 'bind'
-	end
-	return clear .. ' clear; bind'
+	return driver .. 'bind'
 end
 
 function module:SetupKeybinds()

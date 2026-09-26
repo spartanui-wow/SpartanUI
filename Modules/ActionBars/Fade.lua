@@ -42,7 +42,8 @@ function module:ShouldShowFadedBars()
 	if self.fadeHover or self.gridShown then
 		return true
 	end
-	if settings.showInCombat and InCombatLockdown() then
+	-- Combat lockdown only starts after PLAYER_REGEN_DISABLED, so ask about the player instead
+	if settings.showInCombat and (self.enteringCombat or UnitAffectingCombat('player')) then
 		return true
 	end
 	if settings.showWithTarget and (UnitExists('target') or UnitExists('focus')) then
@@ -92,6 +93,11 @@ function module:SetupGlobalFade()
 	parent:SetScript('OnEvent', function(_, event, unit)
 		if unit and type(unit) == 'string' and event:find('^UNIT_') and unit ~= 'player' then
 			return
+		end
+		if event == 'PLAYER_REGEN_DISABLED' then
+			module.enteringCombat = true
+		elseif event == 'PLAYER_REGEN_ENABLED' then
+			module.enteringCombat = false
 		end
 		module:UpdateGlobalFade()
 	end)

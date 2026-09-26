@@ -66,6 +66,11 @@ function MicroBar:UpdateButtons()
 	if self.lent or not self:GetDB().enabled then
 		return
 	end
+	-- The bar is a secure frame, so resizing it has to wait for combat to end
+	if InCombatLockdown() then
+		module:RunOutOfCombat('micro', self.UpdateButtons, self)
+		return
+	end
 	local shown = {}
 	for _, button in ipairs(self.allButtons) do
 		button:SetParent(self)
@@ -132,6 +137,28 @@ function module:CreateMicroMenu()
 			end
 		end)
 	end
+
+	-- Blizzard only hands the menu back through the main bar's OnShow, which never fires
+	-- while that bar is hidden, so take the buttons back once the pet battle or vehicle ends
+	local function reclaimIfDone()
+		if not (module:IsActive() and bar.lent) then
+			return
+		end
+		local inPetBattle = C_PetBattles and C_PetBattles.IsInBattle and C_PetBattles.IsInBattle()
+		local overrideShown = OverrideActionBar and OverrideActionBar:IsShown()
+		if not inPetBattle and not overrideShown then
+			bar:Reclaim()
+		end
+	end
+	local watcher = CreateFrame('Frame')
+	if C_PetBattles then
+		watcher:RegisterEvent('PET_BATTLE_CLOSE')
+	end
+	watcher:RegisterUnitEvent('UNIT_EXITED_VEHICLE', 'player')
+	watcher:SetScript('OnEvent', reclaimIfDone)
+	if ActionBarController_UpdateAll then
+		hooksecurefunc('ActionBarController_UpdateAll', reclaimIfDone)
+	end
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -181,6 +208,10 @@ function BagBar:UpdateButtons()
 	if not self:GetDB().enabled then
 		return
 	end
+	if InCombatLockdown() then
+		module:RunOutOfCombat('bags', self.UpdateButtons, self)
+		return
+	end
 	local wanted = self:GetOrderedButtons()
 	local keep = {}
 	for _, button in ipairs(wanted) do
@@ -215,7 +246,11 @@ function module:CreateBagBar()
 	Mixin(bar, BagBar)
 	bar.buttons = {}
 
-	-- Retail collapses the bag slots through an expand toggle; keep them all visible
+	-- Retail collapses the bag slots through an expand toggle; keep them all visible.
+	-- Left alone when Blizzard's own bag bar is in use so its toggle keeps working.
+	if not bar:GetDB().enabled then
+		return
+	end
 	for _, name in ipairs({ 'CharacterReagentBag0Slot', 'CharacterBag0Slot', 'CharacterBag1Slot', 'CharacterBag2Slot', 'CharacterBag3Slot' }) do
 		local slot = _G[name]
 		if slot and slot.SetBarExpanded then

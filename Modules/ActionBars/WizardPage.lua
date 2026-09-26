@@ -156,6 +156,10 @@ function module:BuildImportOptions()
 				end,
 				type = 'toggle',
 				order = 7,
+				-- Bartender4 is always turned off: two bar addons cannot run together
+				hidden = function()
+					return SelectedImporter().DisableSource == nil
+				end,
 				get = function()
 					return importState.disableSource
 				end,
