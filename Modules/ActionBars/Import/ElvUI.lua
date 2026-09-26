@@ -200,6 +200,7 @@ function importer:Build(profile)
 	-- Global button behavior
 	result.settings.lockButtons = ab.lockActionBars ~= false
 	result.settings.rightClickSelfCast = ab.rightClickSelfCast and true or false
+	result.settings.procGlow = ab.handleOverlay ~= false
 	result.settings.checkSelfCast = ab.checkSelfCast ~= false
 	result.settings.checkFocusCast = ab.checkFocusCast ~= false
 	if type(ab.bar1) == 'table' then
@@ -211,6 +212,8 @@ function importer:Build(profile)
 	result.settings.colors = {
 		range = module:ResolveColor(ab.noRangeColor) or module.DBDefaults.colors.range,
 		mana = module:ResolveColor(ab.noPowerColor) or module.DBDefaults.colors.mana,
+		usable = module:ResolveColor(ab.usableColor) or module.DBDefaults.colors.usable,
+		notUsable = module:ResolveColor(ab.notUsableColor) or module.DBDefaults.colors.notUsable,
 	}
 	local fadeAlpha = tonumber(ab.globalFadeAlpha) or 0
 	result.settings.globalFade = {

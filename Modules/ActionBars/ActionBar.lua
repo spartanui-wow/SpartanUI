@@ -391,7 +391,10 @@ function module:UpdateActionBarConfig(bar)
 			colors = {
 				range = global.colors.range,
 				mana = global.colors.mana,
+				usable = global.colors.usable,
+				notUsable = global.colors.notUsable,
 			},
+			handleOverlay = global.procGlow,
 			hideElements = {
 				macro = not db.macroText,
 				hotkey = not db.hotkeyText,

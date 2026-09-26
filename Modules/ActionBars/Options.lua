@@ -703,6 +703,12 @@ local function BuildGeneralOptions()
 					return not SUI.IsRetail
 				end,
 			},
+			procGlow = {
+				name = L['Glow when a spell procs'],
+				desc = L['Show the flashing border on a button when one of your spells becomes ready to use from a proc.'],
+				type = 'toggle',
+				order = 15.25,
+			},
 			assistedHighlight = {
 				name = L['Rotation assistant highlight'],
 				desc = L["Highlight the button the game's rotation assistant suggests."],
@@ -738,6 +744,8 @@ local function BuildGeneralOptions()
 			},
 			rangeColor = colorOption('range', L['Out of range'], 22),
 			manaColor = colorOption('mana', L['Not enough power'], 23),
+			usableColor = colorOption('usable', L['Ready to use'], 23.1),
+			notUsableColor = colorOption('notUsable', L['Cannot be used right now'], 23.2),
 			backdropBackground = {
 				name = L['Backdrop'],
 				type = 'color',

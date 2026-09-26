@@ -425,6 +425,8 @@ function importer:Build(profile)
 		result.settings.colors = {
 			range = module:ResolveColor(core.colors.range) or module.DBDefaults.colors.range,
 			mana = module:ResolveColor(core.colors.mana) or module.DBDefaults.colors.mana,
+			usable = module.DBDefaults.colors.usable,
+			notUsable = module.DBDefaults.colors.notUsable,
 		}
 	end
 

@@ -165,9 +165,12 @@ local DBDefaults = {
 	assistedHighlight = true,
 	checkSelfCast = true,
 	checkFocusCast = true,
+	procGlow = true,
 	colors = {
 		range = { 0.8, 0.1, 0.1 },
 		mana = { 0.5, 0.5, 1.0 },
+		usable = { 1, 1, 1 },
+		notUsable = { 0.4, 0.4, 0.4 },
 	},
 	text = {
 		hotkey = { face = '', size = 12, flags = 'OUTLINE', color = { 0.75, 0.75, 0.75 }, anchor = 'TOPRIGHT', x = -2, y = -4 },

@@ -144,8 +144,12 @@ local DefaultConfig = {
 	showGrid = false,
 	colors = {
 		range = { 0.8, 0.1, 0.1 },
-		mana = { 0.5, 0.5, 1.0 }
+		mana = { 0.5, 0.5, 1.0 },
+		-- SUI: configurable usable/unusable icon tints
+		usable = { 1.0, 1.0, 1.0 },
+		notUsable = { 0.4, 0.4, 0.4 },
 	},
+	handleOverlay = true, -- SUI: false turns off the proc glow on these buttons
 	hideElements = {
 		macro = false,
 		hotkey = false,
@@ -1943,15 +1947,13 @@ function UpdateUsable(self)
 		self.icon:SetVertexColor(unpack(self.config.colors.range))
 	else
 		local isUsable, notEnoughMana = self:IsUsable()
+		-- SUI: usable and unusable tints come from the config
 		if isUsable then
-			self.icon:SetVertexColor(1.0, 1.0, 1.0)
-			--self.NormalTexture:SetVertexColor(1.0, 1.0, 1.0)
+			self.icon:SetVertexColor(unpack(self.config.colors.usable or { 1.0, 1.0, 1.0 }))
 		elseif notEnoughMana then
 			self.icon:SetVertexColor(unpack(self.config.colors.mana))
-			--self.NormalTexture:SetVertexColor(0.5, 0.5, 1.0)
 		else
-			self.icon:SetVertexColor(0.4, 0.4, 0.4)
-			--self.NormalTexture:SetVertexColor(1.0, 1.0, 1.0)
+			self.icon:SetVertexColor(unpack(self.config.colors.notUsable or { 0.4, 0.4, 0.4 }))
 		end
 	end
 
@@ -2157,6 +2159,10 @@ function UpdateHotkeys(self)
 end
 
 function ShowOverlayGlow(self)
+	-- SUI: proc glow can be turned off per button
+	if self.config and self.config.handleOverlay == false then
+		return
+	end
 	if Feat_UseVanillaOverlayGlow then
 		ActionButtonSpellAlertManager:ShowAlert(self)
 	elseif LBG then
@@ -2175,7 +2181,8 @@ end
 local IsSpellOverlayed = C_SpellActivationOverlay and C_SpellActivationOverlay.IsSpellOverlayed or IsSpellOverlayed
 function UpdateOverlayGlow(self)
 	local spellId = self:GetSpellId()
-	if spellId and IsSpellOverlayed(spellId) then
+	-- SUI: turning the proc glow off also clears one already showing
+	if spellId and IsSpellOverlayed(spellId) and not (self.config and self.config.handleOverlay == false) then
 		ShowOverlayGlow(self)
 	else
 		HideOverlayGlow(self)
