@@ -138,8 +138,14 @@ end
 
 ---@param sets table
 ---@return string
+-- Set while a profile is converted: Dominos hides its bars under Blizzard's vehicle bar
+local usingOverrideUI = false
+
 local function ConvertShowStates(sets, hideConditions)
 	local prefix = hideConditions or ''
+	if usingOverrideUI and not sets.showInOverrideUI then
+		prefix = prefix .. '[overridebar] hide; '
+	end
 	if HAS_PETBATTLE and not sets.showInPetBattleUI then
 		prefix = prefix .. '[petbattle] hide; '
 	end
@@ -300,6 +306,7 @@ function importer:Build(profile)
 	local Dominos = GetDominos()
 	local defaults = Dominos and Dominos.db and Dominos.db.defaults and Dominos.db.defaults.profile
 	local data = module:MergeWithDefaults(defaults, _G.DominosDB.profiles[profile])
+	usingOverrideUI = data.useOverrideUI and true or false
 	local frames = type(data.frames) == 'table' and data.frames or {}
 
 	local barCount = tonumber(data.ab and data.ab.count) or 14
@@ -387,6 +394,9 @@ function importer:Build(profile)
 	local petHide = '[nopet][possessbar][overridebar] hide; '
 	if SUI.IsRetail or SUI.IsMOP or SUI.IsCata or SUI.IsWrath or SUI.IsForever then
 		petHide = '[nopet][possessbar][overridebar][vehicleui] hide; '
+	elseif data.possessBar == 'pet' then
+		-- Dominos shows mind control abilities on the pet bar here
+		petHide = '[nopet,nobonusbar:5] hide; '
 	end
 	importFrame('pet', 'BT4BarPetBar', 'pet', 10, { hotkeyText = flag(frames.pet or {}, 'showBindingText') }, petHide)
 	importFrame('class', 'BT4BarStanceBar', 'stance', math.max(GetNumShapeshiftForms() or 0, 1), { hotkeyText = flag(frames.class or {}, 'showBindingText') })
@@ -404,7 +414,7 @@ function importer:Build(profile)
 	if data.useOverrideUI ~= nil then
 		result.vehicleUI = data.useOverrideUI and true or false
 	end
-	if data.possessBar ~= nil and tonumber(data.possessBar) ~= 1 then
+	if data.possessBar ~= nil and data.possessBar ~= 'pet' and tonumber(data.possessBar) ~= 1 then
 		table.insert(result.notes, L['Dominos import: vehicle and possess actions now show on the bar you picked in Dominos only if it maps to a SpartanUI bar.'])
 	end
 
@@ -416,12 +426,20 @@ function importer:Build(profile)
 		result.settings.tooltip = 'nocombat'
 	end
 
-	-- Bars without a Blizzard binding used Dominos' own buttons
+	-- Bars without a Blizzard binding used Dominos' own buttons, and on some game versions
+	-- so did Dominos' last three bars (SpartanUI bars 13-15)
 	if barLength == 12 then
-		for _, page in ipairs({ 2, 7, 8, 9, 10 }) do
+		local pages = { 2, 7, 8, 9, 10 }
+		if module.CurrentSettings.bars[13] and _G.MultiBar5 then
+			for page = 13, 15 do
+				pages[#pages + 1] = page
+			end
+		end
+		for _, page in ipairs(pages) do
+			-- Dominos bars 12-14 hold pages 13-15, one slot block earlier
+			local first = page > 12 and (page - 2) * 12 or (page - 1) * 12
 			for i = 1, 12 do
-				local slot = (page - 1) * 12 + i
-				result.bindings[('CLICK DominosActionButton%d:HOTKEY'):format(slot)] = ('CLICK %s:Keybind'):format(module:GetActionButtonName(page, i))
+				result.bindings[('CLICK DominosActionButton%d:HOTKEY'):format(first + i)] = module:GetActionButtonBinding(page, i)
 			end
 		end
 	end

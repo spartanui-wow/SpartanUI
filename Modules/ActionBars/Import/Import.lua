@@ -262,7 +262,8 @@ function module:MigrateBindings(bindings)
 	local moved = 0
 	for oldCommand, newCommand in pairs(bindings) do
 		for _, key in ipairs({ GetBindingKey(oldCommand) }) do
-			if SetBinding(key, newCommand) then
+			-- Only saved bindings move; other addons can hold temporary ones on the same command
+			if GetBindingAction(key) == oldCommand and SetBinding(key, newCommand) then
 				moved = moved + 1
 			end
 		end
@@ -377,13 +378,6 @@ function module:RunImport(importerID, profile, options)
 			end
 		end
 
-		if result.vehicleUI ~= nil then
-			local artwork = SUI:GetModule('Artwork', true)
-			if artwork then
-				SUI.DBM:Set(artwork, 'VehicleUI', result.vehicleUI)
-			end
-		end
-
 		if options.keybinds and next(result.bindings) then
 			self:MigrateBindings(result.bindings)
 		end
@@ -405,6 +399,14 @@ function module:RunImport(importerID, profile, options)
 			self.logger.error('Applying the import from ' .. importerID .. ' failed: ' .. tostring(applyError))
 		end
 		return false, L['The import failed. Your current settings were not changed.']
+	end
+
+	-- Written only once everything else has worked, so a failed import leaves it alone
+	if result.vehicleUI ~= nil then
+		local artwork = SUI:GetModule('Artwork', true)
+		if artwork then
+			SUI.DBM:Set(artwork, 'VehicleUI', result.vehicleUI)
+		end
 	end
 
 	for _, note in ipairs(result.notes) do

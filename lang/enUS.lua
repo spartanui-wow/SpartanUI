@@ -1227,6 +1227,7 @@ L['Dominos import: your bars use a custom button count, so actions may sit on di
 L['Dominos import: bar %d has no matching SpartanUI bar and was skipped.'] = true
 L['Turn on ElvUI and reload to import its settings. You can turn it off again afterwards.'] = true
 L['ElvUI import: button skins, cooldown text styling and backdrop size multipliers are not carried over.'] = true
+L["ElvUI import: ElvUI's action bars are turned off for this character only. Turn them off in ElvUI on your other characters too."] = true
 L['Unknown import source'] = true
 L['The import failed. Your current settings were not changed.'] = true
 L['Bar System'] = true

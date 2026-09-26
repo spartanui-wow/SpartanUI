@@ -200,6 +200,13 @@ function importer:Build(profile)
 	-- Global button behavior
 	result.settings.lockButtons = ab.lockActionBars ~= false
 	result.settings.rightClickSelfCast = ab.rightClickSelfCast and true or false
+	result.settings.checkSelfCast = ab.checkSelfCast ~= false
+	result.settings.checkFocusCast = ab.checkFocusCast ~= false
+	if type(ab.bar1) == 'table' then
+		result.settings.spellCastVFX = ab.bar1.spellCastVFX ~= false
+	end
+	-- ElvUI hides Blizzard's vehicle bar and pages bar 1 into vehicles instead
+	result.vehicleUI = false
 	result.settings.outOfRangeColoring = ab.useRangeColorText and 'hotkey' or 'button'
 	result.settings.colors = {
 		range = module:ResolveColor(ab.noRangeColor) or module.DBDefaults.colors.range,
@@ -336,6 +343,7 @@ function importer:Build(profile)
 	end
 
 	table.insert(result.notes, L['ElvUI import: button skins, cooldown text styling and backdrop size multipliers are not carried over.'])
+	table.insert(result.notes, L["ElvUI import: ElvUI's action bars are turned off for this character only. Turn them off in ElvUI on your other characters too."])
 	return result
 end
 
