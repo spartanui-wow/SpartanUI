@@ -3,7 +3,7 @@ local SUI = SUI
 ---@class SUI.Module.ActionBars
 local module = SUI:GetModule('ActionBars')
 
-local IS_ERA = WOW_PROJECT_ID == WOW_PROJECT_CLASSIC
+local IS_MAINLINE = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
 -- Every frame name below is looked up at runtime and skipped when missing, so the same
 -- list covers Retail and every Classic client.
@@ -56,8 +56,8 @@ local function HideActionButton(button)
 	button:Hide()
 	button:UnregisterAllEvents()
 	button:SetAttribute('statehidden', true)
-	-- On Classic Era cutting this link makes the client fire extra events and stall
-	if not IS_ERA then
+	-- On Classic clients cutting this link makes the client fire extra events and stall
+	if IS_MAINLINE then
 		button.bar = nil
 	end
 end
@@ -100,14 +100,16 @@ function module:HideBlizzard()
 	-- Blizzard's own code to keep those buttons up to date
 	HideBarFrame(StanceBar or StanceBarFrame, false)
 	HideBarFrame(PetActionBar or PetActionBarFrame, false)
-	HideBarFrame(PossessActionBar, true)
-	HideBarFrame(PossessBarFrame, false)
+	-- Blizzard's possess bar stays: it only appears while mind-controlling and carries the
+	-- button that ends it
 	-- With SpartanUI's bag or menu bar turned off, Blizzard's stays as it is
-	if self.CurrentSettings.bags.enabled then
+	if self:UsesOwnBagBar() then
 		HideBarFrame(BagsBar, true)
 	end
-	if self.CurrentSettings.micro.enabled then
-		HideBarFrame(MicroMenu, true)
+	-- The micro menu is only moved, never hidden: Blizzard never shows it again, and the
+	-- vehicle bar and pet battle UI borrow it
+	if self.CurrentSettings.micro.enabled and MicroMenu then
+		MicroMenu:SetParent(hider)
 	end
 	-- SpartanUI draws its own experience and reputation bars; keep Blizzard's if those are off
 	if SUI:IsModuleEnabled('Artwork') and SUI:IsModuleEnabled('Artwork.StatusBars') then

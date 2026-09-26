@@ -32,6 +32,7 @@ local importState = {
 	profile = nil,
 	positions = false,
 	keybinds = true,
+	-- The other addon is always turned off: two bar addons cannot draw bars at once
 	disableSource = true,
 }
 
@@ -148,23 +149,6 @@ function module:BuildImportOptions()
 				end,
 				set = function(_, value)
 					importState.keybinds = value
-				end,
-			},
-			disableSource = {
-				name = function()
-					return (L['Turn off %s bars afterwards']):format(SelectedImporter().name)
-				end,
-				type = 'toggle',
-				order = 7,
-				-- Bartender4 is always turned off: two bar addons cannot run together
-				hidden = function()
-					return SelectedImporter().DisableSource == nil
-				end,
-				get = function()
-					return importState.disableSource
-				end,
-				set = function(_, value)
-					importState.disableSource = value
 				end,
 			},
 			run = {

@@ -65,8 +65,9 @@ local function GetProfileData(profile)
 end
 
 ---Font settings for one text element, read from an ElvUI bar.
-local function ConvertText(src, prefix, offsetPrefix)
-	local color = src['use' .. prefix:gsub('^%l', string.upper) .. 'Color'] and module:ResolveColor(src[prefix .. 'Color'])
+local function ConvertText(src, prefix, offsetPrefix, fallbackColor)
+	-- Without its own colour, ElvUI draws the text in the shared action bar font colour
+	local color = src['use' .. prefix:gsub('^%l', string.upper) .. 'Color'] and module:ResolveColor(src[prefix .. 'Color']) or fallbackColor
 	local x = src[offsetPrefix .. 'XOffset']
 	local y = src[offsetPrefix .. 'YOffset']
 	local text = {
@@ -86,11 +87,11 @@ end
 ---All three text styles for one ElvUI bar.
 ---@param src table
 ---@return table
-local function ConvertBarText(src)
+local function ConvertBarText(src, fontColor)
 	return {
-		hotkey = ConvertText(src, 'hotkey', 'hotkeyText'),
-		count = ConvertText(src, 'count', src.countTextXOffset and 'countText' or 'countFont'),
-		macro = ConvertText(src, 'macro', 'macroText'),
+		hotkey = ConvertText(src, 'hotkey', 'hotkeyText', fontColor),
+		count = ConvertText(src, 'count', src.countTextXOffset and 'countText' or 'countFont', fontColor),
+		macro = ConvertText(src, 'macro', 'macroText', fontColor),
 	}
 end
 
@@ -145,9 +146,7 @@ end
 function importer:Build(profile)
 	local result = module:NewImportResult()
 	local data, saved = GetProfileData(profile)
-	local _, P = GetElvUI()
 	local ab = data.actionbar or {}
-	local defaults = P and P.actionbar or {}
 	local isCurrent = self:GetCurrentProfile() == profile
 	local movers = {}
 	for moverName, key in pairs(UTILITY_MOVERS) do
@@ -155,16 +154,25 @@ function importer:Build(profile)
 	end
 
 	-- Profiles from before ElvUI renumbered its bars still use the old order
+	-- Older ElvUI kept the "already converted" flag under actionbar
 	local swap = {}
-	if not isCurrent and saved and saved.convertPages == nil and saved.actionbar then
+	local converted = saved and (saved.convertPages ~= nil or (type(saved.actionbar) == 'table' and saved.actionbar.convertPages ~= nil))
+	if not isCurrent and saved and saved.actionbar and not converted then
 		swap = { [2] = 6, [6] = 2, [3] = 5, [5] = 3 }
 	end
+	local savedBars = saved and type(saved.actionbar) == 'table' and saved.actionbar or {}
 
 	for _, id in ipairs(module.ACTION_BAR_IDS) do
 		local sourceID = swap[id] or id
 		local src = ab['bar' .. sourceID]
 		if type(src) == 'table' then
 			local bar = ConvertBarLayout(src)
+			-- Profiles from before ElvUI 12.18 used lowercase size keys
+			local raw = savedBars['bar' .. sourceID]
+			if type(raw) == 'table' then
+				bar.buttonSize = raw.buttonSize or raw.buttonsize or bar.buttonSize
+				bar.buttonSpacing = raw.buttonSpacing or raw.buttonspacing or bar.buttonSpacing
+			end
 			bar.buttons = src.buttons
 			bar.showGrid = src.showGrid and true or false
 			bar.flyoutDirection = src.flyoutDirection
@@ -172,11 +180,16 @@ function importer:Build(profile)
 			bar.macroText = src.macrotext and true or false
 			bar.countText = src.counttext ~= false
 
+			-- Compared with SpartanUI's own default: keeping ElvUI's rules is only skipped when
+			-- they would behave the same as SpartanUI's anyway
 			local paging = type(src.paging) == 'table' and src.paging[playerClass]
-			local defaultPaging = defaults['bar' .. sourceID] and defaults['bar' .. sourceID].paging and defaults['bar' .. sourceID].paging[playerClass]
-			if type(paging) == 'string' and paging:gsub('%s', '') ~= '' and paging ~= defaultPaging then
+			local ourDefault = id == 1 and module.DefaultClassPaging[playerClass] or ''
+			if type(paging) == 'string' and paging:gsub('%s', '') ~= '' and paging ~= ourDefault then
 				bar.paging = { [playerClass] = paging }
 				bar.pagingEnabled = true
+			elseif id == 1 and type(paging) == 'string' and paging:gsub('%s', '') == '' then
+				-- An empty ElvUI rule means no class paging at all
+				bar.defaultClassPaging = false
 			end
 			result.settings.bars[id] = bar
 			result.scales['BT4Bar' .. id] = 1
@@ -201,13 +214,14 @@ function importer:Build(profile)
 	-- ElvUI styles text per bar: bar 1's style becomes the shared one, and any bar that
 	-- differs from it keeps its own
 	local bar1 = ab.bar1
+	local fontColor = module:ResolveColor(ab.fontColor)
 	if type(bar1) == 'table' then
-		local shared = ConvertBarText(bar1)
+		local shared = ConvertBarText(bar1, fontColor)
 		result.settings.text = shared
 		for id, bar in pairs(result.settings.bars) do
 			local src = ab['bar' .. (swap[id] or id)]
 			if id ~= 1 and type(src) == 'table' then
-				local own = ConvertBarText(src)
+				local own = ConvertBarText(src, fontColor)
 				if not SameText(own, shared) then
 					bar.customText = true
 					bar.text = own
@@ -230,8 +244,14 @@ function importer:Build(profile)
 	end
 	if type(ab.microbar) == 'table' then
 		local micro = ConvertBarLayout(ab.microbar)
-		-- ElvUI redraws the micro icons in its own shape; keep Blizzard's shape here
+		-- ElvUI redraws the micro icons in its own shape and spacing; keep Blizzard's here
 		micro.buttonSize, micro.buttonHeight, micro.keepSizeRatio = nil, nil, nil
+		micro.buttonSpacing, micro.backdropSpacing = nil, nil
+		if not ab.microbar.enabled then
+			-- A disabled ElvUI micro bar means no micro menu on screen, not Blizzard's menu
+			micro.enabled = true
+			micro.visibility = 'hide'
+		end
 		result.settings.micro = micro
 		result.scales.BT4BarMicroMenu = 1
 	end
@@ -248,7 +268,8 @@ function importer:Build(profile)
 			backdropSpacing = bagBar.showBackdrop and bagBar.backdropSpacing or 0,
 			mouseover = bagBar.mouseover and true or false,
 			onlyBackpack = bagBar.justBackpack and true or false,
-			reverse = bagBar.sortDirection == 'DESCENDING',
+			-- ElvUI lists the backpack first; SpartanUI lists it last unless reversed
+			reverse = bagBar.sortDirection ~= 'DESCENDING',
 			buttonsPerRow = bagBar.growthDirection == 'VERTICAL' and 1 or 7,
 			visibility = type(bagBar.visibility) == 'string' and bagBar.visibility:gsub('[\n\r]', ' ') or nil,
 		}
@@ -275,6 +296,13 @@ function importer:Build(profile)
 			if not stored and layouts then
 				stored = (data.layoutSet and layouts[data.layoutSet] and layouts[data.layoutSet][moverName]) or (layouts.ALL and layouts.ALL[moverName])
 			end
+			-- Bars ElvUI never lists in its layouts use their built-in starting point
+			local barNumber = not stored and tonumber(moverName:match('^ElvAB_(%d+)$'))
+			if barNumber and E and E.GetModule then
+				local ok, actionBars = pcall(E.GetModule, E, 'ActionBars')
+				local barDefaults = ok and actionBars and actionBars.barDefaults and actionBars.barDefaults['bar' .. barNumber]
+				stored = barDefaults and barDefaults.position
+			end
 			if type(stored) == 'string' then
 				local point, anchorName, relativePoint, x, y = strsplit(stored:find('\031') and '\031' or ',', stored)
 				position = {
@@ -296,6 +324,14 @@ function importer:Build(profile)
 		local sourceID = swap[id] or id
 		for i = 1, 12 do
 			result.bindings[('ELVUIBAR%dBUTTON%d'):format(sourceID, i)] = ('CLICK %s:Keybind'):format(module:GetActionButtonName(id, i))
+		end
+	end
+	-- Off Retail, ElvUI gave bars 13-15 its own names; SpartanUI uses Blizzard's
+	for id = 13, 15 do
+		if module.CurrentSettings.bars[id] then
+			for i = 1, 12 do
+				result.bindings[('ELVUIBAR%dBUTTON%d'):format(id, i)] = module:GetActionButtonBinding(id, i)
+			end
 		end
 	end
 

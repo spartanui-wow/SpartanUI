@@ -65,13 +65,15 @@ function module:CreatePetBar()
 	if GetPetActionInfo and ActionButton_UpdateRangeIndicator then
 		local canAccess = SUI.BlizzAPI.canaccessvalue
 		local elapsedTotal = 0
-		bar:HookScript('OnUpdate', function(self, elapsed)
+		-- A child frame of its own, so the bar's OnUpdate stays free for hover polling
+		local ranger = CreateFrame('Frame', nil, bar)
+		ranger:SetScript('OnUpdate', function(_, elapsed)
 			elapsedTotal = elapsedTotal + elapsed
 			if elapsedTotal < (TOOLTIP_UPDATE_TIME or 0.2) then
 				return
 			end
 			elapsedTotal = 0
-			for i, button in ipairs(self.buttons) do
+			for i, button in ipairs(bar.buttons) do
 				local checksRange, inRange = select(8, GetPetActionInfo(i))
 				if canAccess(checksRange) and canAccess(inRange) then
 					ActionButton_UpdateRangeIndicator(button, checksRange, inRange)
@@ -137,22 +139,30 @@ end
 
 function module:CreateTotemBar()
 	local totems = _G.MultiCastActionBarFrame
-	if self.bars.MultiCastActionBarFrame or SUI.IsRetail or not totems or not HasMultiCastActionBar or select(2, UnitClass('player')) ~= 'SHAMAN' then
+	-- Only Wrath and Cataclysm shamans have a totem bar
+	local hasTotemBar = (SUI.IsWrath or SUI.IsCata) and totems and HasMultiCastActionBar and select(2, UnitClass('player')) == 'SHAMAN'
+	if self.bars.MultiCastActionBarFrame or not hasTotemBar then
 		return
 	end
 	local bar = self:NewBar('MultiCastActionBarFrame', 'SUI_TotemBar', L['Totem Bar'], function()
 		return module.CurrentSettings.totem
 	end)
+	-- Edit Mode replaces the anchoring methods on its frames; the Base versions skip its hooks
+	local clearPoints = totems.ClearAllPointsBase or totems.ClearAllPoints
+	local setPoint = totems.SetPointBase or totems.SetPoint
 	bar.UpdateButtons = function(self)
 		self:SetSize(230, 40)
-		-- Blizzard positions and hides this frame itself; SpartanUI's bar now owns it
-		totems:SetScript('OnShow', nil)
-		totems:SetScript('OnHide', nil)
-		totems:SetScript('OnUpdate', nil)
-		totems.ignoreFramePositionManager = true
+		if not self:GetDB().enabled then
+			return
+		end
+		if not totems.system then
+			totems:SetScript('OnShow', nil)
+			totems:SetScript('OnHide', nil)
+			totems:SetScript('OnUpdate', nil)
+			totems.ignoreFramePositionManager = true
+		end
 		totems:SetParent(self)
-		totems:ClearAllPoints()
-		totems:SetPoint('TOPLEFT', self, 'TOPLEFT', 3, 1)
-		totems:Show()
+		clearPoints(totems)
+		setPoint(totems, 'TOPLEFT', self, 'TOPLEFT', 3, 1)
 	end
 end

@@ -290,6 +290,12 @@ end
 ---Place a bar the way a theme asks, unless the player moved it.
 ---@param key string
 function module:PositionBar(key, point, anchor, relativePoint, x, y)
+	if module:GetActiveSystem() == 'SpartanUI' and SUI.ActionBars then
+		-- SpartanUI bars re-apply theme positions on every loading screen, so the theme's
+		-- choice is remembered rather than applied once
+		SUI.ActionBars:SetThemeOverride(key, point, anchor, relativePoint, x, y)
+		return
+	end
 	local frame = module:GetBarFrame(key)
 	if frame and frame.position then
 		frame:position(point, anchor, relativePoint, x, y)

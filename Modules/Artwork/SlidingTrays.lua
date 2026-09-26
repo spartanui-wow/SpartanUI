@@ -30,7 +30,13 @@ local trayBars = {
 ---@return Frame|nil
 local function ResolveTrayFrame(name)
 	local BarSystem = SUI.Handlers.BarSystem
-	return (BarSystem and BarSystem:GetBarFrame(name)) or _G[name]
+	local frame = BarSystem and BarSystem:GetBarFrame(name)
+	-- Bar keys only ever mean the bar system's frame; falling back to a Blizzard frame of the
+	-- same name (the hidden totem bar) would toggle a secure frame the tray does not own
+	if frame or trayBars[name] or name:find('^BT4Bar') then
+		return frame
+	end
+	return _G[name]
 end
 
 ---@param name string
@@ -40,8 +46,8 @@ local function SetTrayFrameShown(name, shown)
 	if BarSystem and BarSystem:SetBarTrayHidden(name, not shown) then
 		return
 	end
-	local frame = _G[name]
-	if frame then
+	local frame = ResolveTrayFrame(name)
+	if frame and not (InCombatLockdown() and frame:IsProtected()) then
 		if shown then
 			frame:Show()
 		else

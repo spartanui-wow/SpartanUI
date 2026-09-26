@@ -99,6 +99,7 @@ function module:SetupKeybinds()
 			for _, bar in pairs(module.bars) do
 				bar:UpdateFade()
 			end
+			module:UpdateGlobalFade()
 		end)
 		LibKeyBound.RegisterCallback(self, 'LIBKEYBOUND_DISABLED', function()
 			module.keyBoundMode = false
@@ -106,6 +107,7 @@ function module:SetupKeybinds()
 			for _, bar in pairs(module.bars) do
 				bar:UpdateFade()
 			end
+			module:UpdateGlobalFade()
 		end)
 	end
 end

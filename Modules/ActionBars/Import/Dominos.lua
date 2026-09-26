@@ -21,10 +21,10 @@ local MODIFIER_STATES = {
 	{ 'ctrlAlt', '[mod:alt,mod:ctrl]' },
 	{ 'altShift', '[mod:alt,mod:shift]' },
 	{ 'ctrlShift', '[mod:ctrl,mod:shift]' },
-	{ 'meta', '[mod:meta]' },
 	{ 'alt', '[mod:alt]' },
 	{ 'ctrl', '[mod:ctrl]' },
 	{ 'shift', '[mod:shift]' },
+	{ 'meta', '[mod:meta]' },
 }
 
 local TARGET_STATES = {
@@ -60,7 +60,7 @@ local function GetClassConditions()
 		elseif not modern then
 			conditions.shadowform = '[form:1]'
 		end
-	elseif playerClass == 'WARLOCK' and SUI.IsCata then
+	elseif playerClass == 'WARLOCK' and (SUI.IsCata or SUI.IsWrath) then
 		conditions.metamorphosis = '[form:1]'
 	end
 	if modern then
@@ -138,33 +138,37 @@ end
 
 ---@param sets table
 ---@return string
-local function ConvertShowStates(sets)
-	local prefix = ''
+local function ConvertShowStates(sets, hideConditions)
+	local prefix = hideConditions or ''
 	if HAS_PETBATTLE and not sets.showInPetBattleUI then
-		prefix = '[petbattle] hide; '
+		prefix = prefix .. '[petbattle] hide; '
 	end
 	local states = sets.showstates
 	if type(states) ~= 'string' or states:gsub('%s', '') == '' then
 		return prefix .. 'show'
 	end
-	-- Opacity values become show, 0 becomes hide
-	states = states:gsub('%]%s*(%d+)', function(value)
-		return tonumber(value) == 0 and '] hide' or '] show'
-	end)
+	-- Dominos appends show;hide to a rule set ending in a bare condition
 	if states:match('%]%s*$') then
-		states = states .. ' show; hide'
+		states = states .. 'show;hide'
 	end
-	-- Dominos hides the bar when no rule matches; say so explicitly
-	local hasFallback = false
+	-- Each clause ends in show, hide or an opacity from 0 to 100; opacity 0 hides
+	local clauses = {}
 	for clause in states:gmatch('[^;]+') do
-		if not clause:find('%[') and clause:gsub('%s', '') ~= '' then
-			hasFallback = true
+		local conditions, result = clause:match('^%s*(.-)%s*([%w]+)%s*$')
+		if result then
+			local value = tonumber(result)
+			if value then
+				result = value == 0 and 'hide' or 'show'
+			end
+			clauses[#clauses + 1] = (conditions ~= '' and (conditions .. ' ') or '') .. result
 		end
 	end
-	if not hasFallback then
-		states = states:gsub(';?%s*$', '') .. '; hide'
+	-- With nothing matching, Dominos keeps the bar shown
+	local last = clauses[#clauses]
+	if not last or last:find('%[') then
+		clauses[#clauses + 1] = 'show'
 	end
-	return prefix .. states
+	return prefix .. table.concat(clauses, '; ')
 end
 
 ---Layout and fading shared by every Dominos frame.
@@ -173,7 +177,7 @@ end
 ---@return table settings
 ---@return number scale
 ---@return SUI.ActionBars.ImportPosition position
-local function ConvertFrame(sets, buttonCount)
+local function ConvertFrame(sets, buttonCount, hideConditions)
 	local alpha = tonumber(sets.alpha) or 1
 	local fadeAlpha = tonumber(sets.fadeAlpha) or 1
 	local scale = tonumber(sets.scale) or 1
@@ -189,7 +193,7 @@ local function ConvertFrame(sets, buttonCount)
 		clickThrough = sets.clickThrough and true or false,
 		frameStrata = sets.displayLayer,
 		frameLevel = sets.displayLevel,
-		visibility = ConvertShowStates(sets),
+		visibility = ConvertShowStates(sets, hideConditions),
 	}
 	local point = sets.point or 'CENTER'
 	local position = {
@@ -207,6 +211,35 @@ end
 ---@param barIndex number
 ---@param barCount number
 ---@return string rules
+-- Fallback order for class states when Dominos' own list is unavailable: stealthed and
+-- combined states must come before the plain form they share a bonus bar with
+local CLASS_STATE_ORDER = {
+	'dragonriding',
+	'bear',
+	'prowl',
+	'cat',
+	'moonkin',
+	'tree',
+	'travel',
+	'aquatic',
+	'flight',
+	'stag',
+	'treant',
+	'soar',
+	'shadowform',
+	'shadowdance',
+	'stealth',
+	'metamorphosis',
+	'battle',
+	'defensive',
+	'berserker',
+	'ox',
+	'tiger',
+	'serpent',
+}
+
+local STATE_PRECEDENCE = { 'modifier', 'page', 'class', 'race', 'target' }
+
 local function ConvertPages(pages, barIndex, barCount)
 	local function target(offset)
 		local index = ((barIndex + offset - 1) % barCount) + 1
@@ -219,6 +252,26 @@ local function ConvertPages(pages, barIndex, barCount)
 		end
 	end
 
+	-- Dominos is loaded during an import, so its own state list gives the exact conditions
+	-- and order it used for this character (forms resolved, per game version)
+	local Dominos = GetDominos()
+	local BarStates = Dominos and Dominos.BarStates
+	if BarStates and BarStates.GetAll then
+		for _, stateType in ipairs(STATE_PRECEDENCE) do
+			for _, state in BarStates:GetAll(stateType) do
+				local offset = pages[state.id]
+				if offset then
+					local condition = state.value
+					if type(condition) == 'function' then
+						condition = condition(state)
+					end
+					add(condition, offset)
+				end
+			end
+		end
+		return rules
+	end
+
 	for _, pair in ipairs(MODIFIER_STATES) do
 		add(pair[2], pages[pair[1]])
 	end
@@ -226,10 +279,9 @@ local function ConvertPages(pages, barIndex, barCount)
 		add(('[bar:%d]'):format(n), pages['page' .. n])
 	end
 	local classConditions = GetClassConditions()
-	for stateID, offset in pairs(pages) do
-		local condition = classConditions[stateID] or ResolveFormCondition(stateID)
-		if condition then
-			add(condition, offset)
+	for _, stateID in ipairs(CLASS_STATE_ORDER) do
+		if pages[stateID] then
+			add(classConditions[stateID] or ResolveFormCondition(stateID), pages[stateID])
 		end
 	end
 	if playerRace == 'NightElf' then
@@ -254,6 +306,18 @@ function importer:Build(profile)
 	local barLength = math.floor(168 / barCount)
 	if barLength ~= 12 then
 		table.insert(result.notes, L['Dominos import: your bars use a custom button count, so actions may sit on different bars after importing.'])
+	end
+
+	local isCurrent = self:GetCurrentProfile() == profile
+	---Docked bars follow the bar they are stuck to, so their stored position can be stale.
+	---While Dominos is running, its frames show where everything really is.
+	local function LivePosition(frameID, position)
+		local frame = isCurrent and _G['DominosFrame' .. frameID]
+		if frame and frame.GetLeft and frame:GetLeft() then
+			local ratio = frame:GetEffectiveScale() / UIParent:GetEffectiveScale()
+			return { point = 'BOTTOMLEFT', anchor = UIParent, relativePoint = 'BOTTOMLEFT', x = frame:GetLeft() * ratio, y = frame:GetBottom() * ratio }
+		end
+		return position
 	end
 
 	local function flag(sets, key)
@@ -284,45 +348,65 @@ function importer:Build(profile)
 			else
 				settings.flyoutDirection = 'AUTOMATIC'
 			end
+			-- Dominos' page rules include its own Shift+number pages and replace the class
+			-- defaults outright; bar 1 without any stored rules keeps SpartanUI's defaults
 			local pages = type(sets.pages) == 'table' and sets.pages[playerClass]
-			if type(pages) == 'table' and next(pages) then
+			if type(pages) == 'table' then
 				local rules = ConvertPages(pages, index, barCount)
-				settings.pagingEnabled = true
+				settings.pagingEnabled = rules ~= ''
+				settings.manualPaging = false
+				settings.defaultClassPaging = false
 				if rules ~= '' then
 					settings.paging = { [playerClass] = rules }
 				end
 			end
+			settings.vehiclePaging = index == (tonumber(data.possessBar) or 1)
 			result.settings.bars[nativeID] = settings
 			result.scales['BT4Bar' .. nativeID] = scale
-			result.positions['BT4Bar' .. nativeID] = position
+			result.positions['BT4Bar' .. nativeID] = LivePosition(index, position)
 		elseif type(sets) == 'table' and not sets.hidden then
 			table.insert(result.notes, (L['Dominos import: bar %d has no matching SpartanUI bar and was skipped.']):format(index))
 		end
 	end
 
-	local function importFrame(frameID, key, settingsKey, buttonCount, extra)
+	local function importFrame(frameID, key, settingsKey, buttonCount, extra, hideConditions)
 		local sets = frames[frameID]
 		if type(sets) ~= 'table' then
 			return
 		end
-		local settings, scale, position = ConvertFrame(sets, buttonCount)
+		local settings, scale, position = ConvertFrame(sets, buttonCount, hideConditions)
 		for k, v in pairs(extra or {}) do
 			settings[k] = v
 		end
 		result.settings[settingsKey] = settings
 		result.scales[key] = scale
-		result.positions[key] = position
+		result.positions[key] = LivePosition(frameID, position)
 	end
 
-	importFrame('pet', 'BT4BarPetBar', 'pet', 10, { hotkeyText = frames.pet and frames.pet.showBindingText ~= false })
-	importFrame('class', 'BT4BarStanceBar', 'stance', math.max(GetNumShapeshiftForms() or 0, 1))
-	local microBar = module.bars.BT4BarMicroMenu
-	importFrame('menu', 'BT4BarMicroMenu', 'micro', microBar and #microBar.buttons > 0 and #microBar.buttons or 12)
-	local bags = frames.bags
-	importFrame('bags', 'BT4BarBagBar', 'bags', bags and bags.oneBag and 1 or 5, {
-		onlyBackpack = bags and bags.oneBag and true or false,
-		showKeyring = bags and bags.keyRing and true or false,
-	})
+	-- Dominos always adds its own pet condition on top of the player's rules
+	local petHide = '[nopet][possessbar][overridebar] hide; '
+	if SUI.IsRetail or SUI.IsMOP or SUI.IsCata or SUI.IsWrath or SUI.IsForever then
+		petHide = '[nopet][possessbar][overridebar][vehicleui] hide; '
+	end
+	importFrame('pet', 'BT4BarPetBar', 'pet', 10, { hotkeyText = flag(frames.pet or {}, 'showBindingText') }, petHide)
+	importFrame('class', 'BT4BarStanceBar', 'stance', math.max(GetNumShapeshiftForms() or 0, 1), { hotkeyText = flag(frames.class or {}, 'showBindingText') })
+	importFrame('menu', 'BT4BarMicroMenu', 'micro', module:CountMicroButtons())
+	local bags = frames.bags or {}
+	local bagSettings = {
+		onlyBackpack = bags.oneBag and true or false,
+		-- Dominos' one-bag mode shows the backpack alone
+		showReagentBag = not bags.oneBag,
+		showKeyring = bags.keyRing and true or false,
+	}
+	importFrame('bags', 'BT4BarBagBar', 'bags', module:CountBagButtons(bagSettings), bagSettings)
+
+	-- Dominos' override setting decides whether Blizzard's vehicle bar is used
+	if data.useOverrideUI ~= nil then
+		result.vehicleUI = data.useOverrideUI and true or false
+	end
+	if data.possessBar ~= nil and tonumber(data.possessBar) ~= 1 then
+		table.insert(result.notes, L['Dominos import: vehicle and possess actions now show on the bar you picked in Dominos only if it maps to a SpartanUI bar.'])
+	end
 
 	-- Button behavior
 	result.settings.rightClickSelfCast = data.ab and data.ab.rightClickUnit == 'player' or false

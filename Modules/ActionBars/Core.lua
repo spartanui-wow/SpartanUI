@@ -10,7 +10,9 @@ module.HideModule = true
 
 -- Logical bar keys are shared with the Bartender4 handler so theme positions, theme
 -- scales and saved mover positions carry over when switching between the two systems.
-module.ACTION_BAR_IDS = SUI.IsRetail and { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15 } or { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
+-- Bars 13-15 sit on Blizzard's Action Bars 6-8 (pages 13-15), which exist on every client
+-- that has the MultiBar5-7 frames, not only Retail.
+module.ACTION_BAR_IDS = _G.MultiBar5 and { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14, 15 } or { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
 
 -- Theme bar scales were tuned against 45px buttons on Retail and 36px everywhere else,
 -- so the defaults follow the same split to keep every theme's layout intact.
@@ -65,6 +67,11 @@ if CharacterMicroButton then
 	end
 end
 
+-- Themes were tuned against SpartanUI's Bartender4 setup: 32px steps with -7 padding, plus
+-- Bartender4's extra -8 on modern micro menus. Match that step whatever the button width.
+local MICRO_STEP = SUI.IsRetail and 17 or 25
+local MICRO_SPACING = MICRO_STEP - MICRO_WIDTH
+
 local UTILITY_VISIBILITY = HAS_PETBATTLE and '[petbattle] hide; show' or 'show'
 
 ---@param id number
@@ -89,6 +96,7 @@ local function ActionBarDefaults(id)
 		clickThrough = false,
 		frameStrata = '',
 		frameLevel = 0,
+		fadeOutDelay = 0,
 		showGrid = false,
 		flyoutDirection = 'UP',
 		zoom = true,
@@ -99,6 +107,13 @@ local function ActionBarDefaults(id)
 		visibility = DefaultBarVisibility(id),
 		pagingEnabled = id == 1,
 		paging = {},
+		-- Bar 1 swaps into vehicle, possess and skyriding pages, and follows Shift+number paging
+		vehiclePaging = id == 1,
+		manualPaging = id == 1,
+		-- Off when the player's own page rules should replace the class defaults entirely
+		defaultClassPaging = true,
+		buttonOffset = 0,
+		mouseoverCast = true,
 		customText = false,
 		text = { hotkey = {}, count = {}, macro = {} },
 	}
@@ -125,6 +140,7 @@ local function SpecialBarDefaults(buttonsPerRow, extra)
 		clickThrough = false,
 		frameStrata = '',
 		frameLevel = 0,
+		fadeOutDelay = 0,
 		zoom = true,
 		hotkeyText = true,
 		visibility = UTILITY_VISIBILITY,
@@ -144,6 +160,11 @@ local DBDefaults = {
 	outOfRangeColoring = 'button',
 	tooltip = 'enabled',
 	showCooldownText = true,
+	hideBorder = false,
+	spellCastVFX = true,
+	assistedHighlight = true,
+	checkSelfCast = true,
+	checkFocusCast = true,
 	colors = {
 		range = { 0.8, 0.1, 0.1 },
 		mana = { 0.5, 0.5, 1.0 },
@@ -184,7 +205,7 @@ local DBDefaults = {
 		buttonSize = MICRO_WIDTH,
 		buttonHeight = MICRO_HEIGHT,
 		keepSizeRatio = false,
-		buttonSpacing = SUI.IsRetail and 1 or -3,
+		buttonSpacing = MICRO_SPACING,
 		backdropSpacing = 0,
 		visibility = UTILITY_VISIBILITY,
 		zoom = false,
@@ -206,6 +227,12 @@ local DBDefaults = {
 	queue = SpecialBarDefaults(1, {
 		buttonSize = 45,
 		visibility = 'show',
+	}),
+	-- Off by default: Blizzard (Edit Mode on modern clients) keeps placing these buttons
+	extra = SpecialBarDefaults(1, {
+		enabled = false,
+		visibility = 'show',
+		hideArtwork = false,
 	}),
 }
 
@@ -281,6 +308,7 @@ function module:Activate()
 		return
 	end
 	self.active = true
+	self.ownershipAtLogin = self:GetBlizzardOwnership()
 
 	self:HideBlizzard()
 	self:SetupGlobalFade()
@@ -291,6 +319,7 @@ function module:Activate()
 	self:CreateBagBar()
 	self:CreateQueueStatus()
 	self:CreateTotemBar()
+	self:CreateExtraBar()
 	self:SetupKeybinds()
 	self:SetupMasque()
 	self:ApplyAll()
@@ -318,8 +347,24 @@ function module:ApplyAll()
 	self:UpdateKeybinds()
 end
 
+---Which Blizzard button groups SpartanUI takes over. Changing any of these moves Blizzard's
+---own frames around, which only happens cleanly at login.
+---@return string
+function module:GetBlizzardOwnership()
+	local current = self.CurrentSettings
+	return ('%s:%s:%s:%s'):format(tostring(current.micro.enabled), tostring(current.bags.enabled), tostring(current.extra.enabled), tostring(current.queue.enabled))
+end
+
+---Ask for a reload when a profile change or reset hands Blizzard frames over differently.
+function module:CheckOwnershipChange()
+	if self.active and self.ownershipAtLogin and self.ownershipAtLogin ~= self:GetBlizzardOwnership() then
+		SUI:reloadui()
+	end
+end
+
 function module:ReloadDB()
 	self:ApplyAll()
+	self:CheckOwnershipChange()
 end
 
 ---@param key string Logical bar key (BT4Bar1, BT4BarPetBar ...)

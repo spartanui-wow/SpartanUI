@@ -17,13 +17,25 @@ local fadeEvents = {
 	'PLAYER_REGEN_ENABLED',
 	'PLAYER_TARGET_CHANGED',
 	'PLAYER_FOCUS_CHANGED',
+	'PLAYER_ENTERING_WORLD',
+	'UPDATE_POSSESS_BAR',
+	'UPDATE_OVERRIDE_ACTIONBAR',
+	'UPDATE_VEHICLE_ACTIONBAR',
+	'UPDATE_BONUS_ACTIONBAR',
+	'PLAYER_CAN_GLIDE_CHANGED',
+}
+
+-- Only the player's own casts and vehicle changes matter; registering these for every unit
+-- would wake the fade on every cast in a raid
+local playerEvents = {
 	'UNIT_SPELLCAST_START',
 	'UNIT_SPELLCAST_STOP',
 	'UNIT_SPELLCAST_CHANNEL_START',
 	'UNIT_SPELLCAST_CHANNEL_STOP',
+	'UNIT_SPELLCAST_EMPOWER_START',
+	'UNIT_SPELLCAST_EMPOWER_STOP',
 	'UNIT_ENTERED_VEHICLE',
 	'UNIT_EXITED_VEHICLE',
-	'PLAYER_ENTERING_WORLD',
 }
 
 ---@return boolean
@@ -52,8 +64,22 @@ function module:ShouldShowFadedBars()
 	if settings.showWhileCasting and (UnitCastingInfo('player') or UnitChannelInfo('player')) then
 		return true
 	end
-	if settings.showInVehicle and UnitHasVehicleUI and UnitHasVehicleUI('player') then
-		return true
+	if settings.showInVehicle then
+		if UnitHasVehicleUI and UnitHasVehicleUI('player') then
+			return true
+		end
+		-- Possess, override and skyriding pages count as being in a vehicle
+		local possess = (C_ActionBar and C_ActionBar.IsPossessBarVisible) or IsPossessBarVisible
+		local override = (C_ActionBar and C_ActionBar.HasOverrideActionBar) or HasOverrideActionBar
+		if (possess and possess()) or (override and override()) then
+			return true
+		end
+		if C_PlayerInfo and C_PlayerInfo.GetGlidingInfo then
+			local isGliding = C_PlayerInfo.GetGlidingInfo()
+			if isGliding then
+				return true
+			end
+		end
 	end
 	if settings.showWhenHurt and PlayerIsHurt() then
 		return true
@@ -83,7 +109,10 @@ function module:SetupGlobalFade()
 	self.fadeParent = parent
 
 	for _, event in ipairs(fadeEvents) do
-		parent:RegisterEvent(event)
+		pcall(parent.RegisterEvent, parent, event)
+	end
+	for _, event in ipairs(playerEvents) do
+		pcall(parent.RegisterUnitEvent, parent, event, 'player')
 	end
 	-- Health is only watched where it is not a protected value
 	if not SUI.IsRetail then
@@ -116,8 +145,18 @@ end
 local MASQUE_TYPES = {
 	BT4BarPetBar = 'Pet',
 	BT4BarStanceBar = 'Action',
-	BT4BarBagBar = 'Item',
 }
+
+---@param button Button
+---@return string
+local function BagMasqueType(button)
+	if button == _G.CharacterReagentBag0Slot then
+		return 'ReagentBag'
+	elseif button == MainMenuBarBackpackButton then
+		return 'Backpack'
+	end
+	return 'BagSlot'
+end
 
 -- Bars holding a single Blizzard frame rather than buttons
 local NO_MASQUE = {
@@ -142,7 +181,8 @@ function module:AddMasqueButtons(bar)
 			if button.AddToMasque then
 				button:AddToMasque(group)
 			else
-				group:AddButton(button, nil, MASQUE_TYPES[bar.key])
+				local kind = bar.key == 'BT4BarBagBar' and BagMasqueType(button) or MASQUE_TYPES[bar.key]
+				group:AddButton(button, nil, kind)
 			end
 		end
 	end

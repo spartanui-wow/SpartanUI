@@ -66,14 +66,16 @@ function MicroBar:UpdateButtons()
 	if self.lent or not self:GetDB().enabled then
 		return
 	end
-	-- The bar is a secure frame, so resizing it has to wait for combat to end
+	-- The buttons are not protected, so they are placed right away; the bar itself is secure
+	-- and gets resized once combat ends
 	if InCombatLockdown() then
 		module:RunOutOfCombat('micro', self.UpdateButtons, self)
-		return
 	end
 	local shown = {}
 	for _, button in ipairs(self.allButtons) do
-		button:SetParent(self)
+		if button:GetParent() ~= self then
+			button:SetParent(self)
+		end
 		self:RegisterHoverChild(button)
 		if button:IsShown() then
 			shown[#shown + 1] = button
@@ -89,6 +91,8 @@ function MicroBar:LendToBlizzard()
 	for _, button in ipairs(self.allButtons) do
 		module:RestoreButtonSize(button)
 		button:SetParent(MicroMenu)
+		-- Blizzard only lays out buttons that have no anchor of their own
+		button:ClearAllPoints()
 	end
 end
 
@@ -180,7 +184,7 @@ function BagBar:GetOrderedButtons()
 		end
 	end
 
-	if db.showKeyring and KeyRingButton and (not C_ActionBar or not C_ActionBar.ShouldShowKeyring or C_ActionBar.ShouldShowKeyring()) then
+	if db.showKeyring and module:HasKeyring() then
 		add(KeyRingButton)
 	end
 	if db.showReagentBag then
@@ -203,14 +207,39 @@ function BagBar:GetOrderedButtons()
 	return list
 end
 
+---True when this client has a working keyring (Classic Era and TBC, with it switched on).
+---@return boolean
+function module:HasKeyring()
+	if not KeyRingButton or not (SUI.IsClassic or SUI.IsTBC) then
+		return false
+	end
+	if IsKeyRingEnabled and not IsKeyRingEnabled() then
+		return false
+	end
+	return GetCVarBool('showKeyring') ~= false
+end
+
+---SpartanUI's bag bar is on, and no other addon's bag bar (ElvUI's) already holds the buttons.
+---@return boolean
+function module:UsesOwnBagBar()
+	if not self.CurrentSettings.bags.enabled then
+		return false
+	end
+	local E = _G.ElvUI and _G.ElvUI[1]
+	if E and E.private and E.private.bags and E.private.bags.bagBar then
+		return false
+	end
+	return true
+end
+
 function BagBar:UpdateButtons()
 	self.manageButtonVisibility = true
-	if not self:GetDB().enabled then
+	if not module:UsesOwnBagBar() then
 		return
 	end
+	-- Bag buttons are not protected; only resizing the secure bar waits for combat to end
 	if InCombatLockdown() then
 		module:RunOutOfCombat('bags', self.UpdateButtons, self)
-		return
 	end
 	local wanted = self:GetOrderedButtons()
 	local keep = {}
@@ -227,7 +256,9 @@ function BagBar:UpdateButtons()
 	end
 
 	for _, button in ipairs(wanted) do
-		button:SetParent(self)
+		if button:GetParent() ~= self then
+			button:SetParent(self)
+		end
 		button:Show()
 		self:RegisterHoverChild(button)
 	end
@@ -248,8 +279,12 @@ function module:CreateBagBar()
 
 	-- Retail collapses the bag slots through an expand toggle; keep them all visible.
 	-- Left alone when Blizzard's own bag bar is in use so its toggle keeps working.
-	if not bar:GetDB().enabled then
+	if not module:UsesOwnBagBar() then
 		return
+	end
+	-- The keyring asks its parent to lay out when shown, which only Blizzard's bag bar can do
+	if module:HasKeyring() then
+		KeyRingButton:SetScript('OnShow', nil)
 	end
 	for _, name in ipairs({ 'CharacterReagentBag0Slot', 'CharacterBag0Slot', 'CharacterBag1Slot', 'CharacterBag2Slot', 'CharacterBag3Slot' }) do
 		local slot = _G[name]
@@ -274,14 +309,25 @@ end
 ----------------------------------------------------------------------------------------------------
 
 function module:CreateQueueStatus()
-	if self.bars.BT4BarQueueStatus or not QueueStatusButton or not SUI.IsRetail then
+	if self.bars.BT4BarQueueStatus or not QueueStatusButton then
 		return
 	end
 	local bar = self:NewBar('BT4BarQueueStatus', 'SUI_QueueStatus', L['Queue Status'], function()
 		return module.CurrentSettings.queue
 	end)
+	local blizzardParent = QueueStatusButton:GetParent()
 	bar.UpdateButtons = function(self)
 		self:SetSize(45, 45)
+		if not self:GetDB().enabled then
+			-- Hand the eye back to Blizzard's micro menu container, which places it again
+			if QueueStatusButton:GetParent() == self then
+				QueueStatusButton:SetParent(blizzardParent)
+				if MicroMenu and MicroMenu.UpdateQueueStatusAnchors and MicroMenuContainer and MicroMenuContainer.GetPosition then
+					MicroMenu:UpdateQueueStatusAnchors(MicroMenuContainer:GetPosition())
+				end
+			end
+			return
+		end
 		QueueStatusButton:SetParent(self)
 		QueueStatusButton:ClearAllPoints()
 		QueueStatusButton:SetPoint('CENTER', self, 'CENTER')
@@ -292,4 +338,49 @@ function module:CreateQueueStatus()
 			QueueStatusButton:SetPoint('CENTER', bar, 'CENTER')
 		end
 	end)
+end
+
+----------------------------------------------------------------------------------------------------
+-- Extra action and zone ability buttons (optional; Blizzard places them when this is off)
+----------------------------------------------------------------------------------------------------
+
+function module:CreateExtraBar()
+	local content = _G.ExtraAbilityContainer or _G.ExtraActionBarFrame
+	if self.bars.BT4BarExtraActionBar or not content or not self.CurrentSettings.extra.enabled then
+		return
+	end
+	local bar = self:NewBar('BT4BarExtraActionBar', 'SUI_ExtraActionBar', L['Extra Action Button'], function()
+		return module.CurrentSettings.extra
+	end)
+	-- Edit Mode replaces the anchoring methods on its frames; the Base versions skip its hooks
+	local clearPoints = content.ClearAllPointsBase or content.ClearAllPoints
+	local setPoint = content.SetPointBase or content.SetPoint
+	local placing = false
+	bar.UpdateButtons = function(self)
+		if InCombatLockdown() then
+			return
+		end
+		placing = true
+		self:SetSize(128, 128)
+		content:SetParent(self)
+		clearPoints(content)
+		setPoint(content, 'CENTER', self, 'CENTER', 0, 0)
+		placing = false
+		local hide = self:GetDB().hideArtwork
+		if ExtraActionBarFrame and ExtraActionBarFrame.button and ExtraActionBarFrame.button.style then
+			ExtraActionBarFrame.button.style:SetShown(not hide)
+		end
+		if ZoneAbilityFrame and ZoneAbilityFrame.Style then
+			ZoneAbilityFrame.Style:SetShown(not hide)
+		end
+	end
+	-- Edit Mode and the bottom frame manager move the container back; follow them
+	hooksecurefunc(content, 'SetPoint', function()
+		if not placing and module:IsActive() then
+			module:RunOutOfCombat('extra', bar.UpdateButtons, bar)
+		end
+	end)
+	if UIParentBottomManagedFrameContainer and UIParentBottomManagedFrameContainer.showingFrames then
+		UIParentBottomManagedFrameContainer.showingFrames[content] = nil
+	end
 end

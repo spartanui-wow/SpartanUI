@@ -56,6 +56,17 @@ function module:GetFlyoutFrame()
 	return LAB.GetSpellFlyoutFrame and LAB:GetSpellFlyoutFrame() or nil
 end
 
+-- Leaving a spell fly-out counts as leaving the bar it opened from, so mouseover bars fade
+LAB.RegisterCallback(module, 'OnFlyoutButtonCreated', function(_, flyoutButton)
+	flyoutButton:HookScript('OnLeave', function()
+		for _, bar in pairs(module.bars) do
+			if bar.mouseInside and bar.OnLeaveBar then
+				bar:OnLeaveBar()
+			end
+		end
+	end)
+end)
+
 ----------------------------------------------------------------------------------------------------
 -- Paging
 ----------------------------------------------------------------------------------------------------
@@ -66,7 +77,7 @@ local function BuildClassPaging()
 	local modern = SUI.IsRetail
 	local wrathPlus = SUI.IsWrath or SUI.IsCata or SUI.IsMOP
 	local paging = {
-		DRUID = '[bonusbar:1,stealth] 8; [bonusbar:1] 7; [bonusbar:2] 10; [bonusbar:3] 9; [bonusbar:4] 10;',
+		DRUID = '[bonusbar:1,stealth] 8; [bonusbar:1] 7; [bonusbar:2] 8; [bonusbar:3] 9; [bonusbar:4] 10;',
 		ROGUE = wrathPlus and '[bonusbar:1] 7; [bonusbar:2] 8;' or '[bonusbar:1] 7;',
 	}
 	if modern then
@@ -95,26 +106,27 @@ module.DefaultClassPaging = BuildClassPaging()
 local BASE_PAGING = '[overridebar][possessbar][shapeshift] possess; [bonusbar:5] possess; '
 local MANUAL_PAGING = '[bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; '
 
+---Build a bar's page driver. Order matters, the first matching rule wins: vehicle pages,
+---then the player's own rules, then Shift+number paging, then the class defaults.
 ---@param bar SUI.ActionBars.Bar
 ---@return string
 function module:GetPageDriver(bar)
 	local db = bar:GetDB()
-	local driver = ''
-	if bar.id == 1 then
-		driver = BASE_PAGING
-		if db.pagingEnabled then
-			driver = driver .. MANUAL_PAGING
-		end
-	end
+	local driver = db.vehiclePaging and BASE_PAGING or ''
 	if db.pagingEnabled then
 		local custom = db.paging and db.paging[playerClass]
-		if type(custom) == 'string' and custom:gsub('%s', '') ~= '' then
+		local hasCustom = type(custom) == 'string' and custom:gsub('%s', '') ~= ''
+		if hasCustom then
 			driver = driver .. custom:gsub('[\n\r]', ' ')
 			if not driver:match(';%s*$') then
 				driver = driver .. ';'
 			end
 			driver = driver .. ' '
-		elseif bar.id == 1 and self.DefaultClassPaging[playerClass] then
+		end
+		if db.manualPaging then
+			driver = driver .. MANUAL_PAGING
+		end
+		if not hasCustom and db.defaultClassPaging and bar.id == 1 and self.DefaultClassPaging[playerClass] then
 			driver = driver .. self.DefaultClassPaging[playerClass] .. ' '
 		end
 	end
@@ -122,7 +134,7 @@ function module:GetPageDriver(bar)
 end
 
 local PAGE_SNIPPET = [[
-	if newstate == 'possess' or newstate == '11' then
+	if newstate == 'possess' or newstate == 'dragon' or newstate == '11' then
 		if HasVehicleActionBar and HasVehicleActionBar() then
 			newstate = GetVehicleBarIndex()
 		elseif HasOverrideActionBar and HasOverrideActionBar() then
@@ -139,6 +151,40 @@ local PAGE_SNIPPET = [[
 	control:ChildUpdate('state', newstate)
 ]]
 
+-- Button 12 turns into a leave button on vehicle pages, so a vehicle can always be left
+-- even when Blizzard's own vehicle bar is not in use. It also ends mind control.
+local EXIT_BUTTON = {
+	func = function()
+		if UnitExists('vehicle') then
+			VehicleExit()
+		elseif PetDismiss then
+			PetDismiss()
+		end
+	end,
+	texture = 'Interface\\Icons\\Spell_Shadow_SacrificialShield',
+	tooltip = LEAVE_VEHICLE,
+}
+
+---Pages that hold vehicle, override and possess actions on this client.
+---@return number[]
+local function GetExitPages()
+	local pages = {}
+	local seen = {}
+	for _, name in ipairs({ 'GetVehicleBarIndex', 'GetOverrideBarIndex', 'GetTempShapeshiftBarIndex' }) do
+		local fn = (C_ActionBar and C_ActionBar[name]) or _G[name]
+		local page = fn and fn()
+		if page and not seen[page] then
+			seen[page] = true
+			pages[#pages + 1] = page
+		end
+	end
+	-- Older clients page possess and vehicles through bonus bar 5 (pages 11-12)
+	if #pages == 0 then
+		pages = { 11, 12 }
+	end
+	return pages
+end
+
 ----------------------------------------------------------------------------------------------------
 -- Action bar prototype
 ----------------------------------------------------------------------------------------------------
@@ -147,10 +193,39 @@ local PAGE_SNIPPET = [[
 ---@field id number
 local ActionBar = {}
 
+---Assign each button its action slot on every page, shifted by the bar's button offset.
+function ActionBar:UpdateButtonStates()
+	local db = self:GetDB()
+	local offset = math.max(0, math.min(db.buttonOffset or 0, NUM_BUTTONS - 1))
+	local exit = db.vehiclePaging and true or false
+	if self.appliedOffset == offset and self.appliedExit == exit then
+		return
+	end
+	self.appliedOffset, self.appliedExit = offset, exit
+	local exitPages = exit and GetExitPages() or {}
+	for i, button in ipairs(self.buttons) do
+		local slot = (i + offset - 1) % NUM_BUTTONS + 1
+		for state = 1, NUM_STATES do
+			button:SetState(state, 'action', (state - 1) * NUM_BUTTONS + slot)
+		end
+		-- State 0 is used before the page driver fires for the first time
+		button:SetState(0, 'action', (self.id - 1) * NUM_BUTTONS + slot)
+		if i == NUM_BUTTONS then
+			for _, page in ipairs(exitPages) do
+				button:SetState(page, 'custom', EXIT_BUTTON)
+			end
+		end
+	end
+	for _, button in ipairs(self.buttons) do
+		button:UpdateAction(true)
+	end
+end
+
 function ActionBar:UpdateButtons()
 	local db = self:GetDB()
 	local count = math.max(0, math.min(db.buttons or NUM_BUTTONS, NUM_BUTTONS))
 	self.manageButtonVisibility = true
+	self:UpdateButtonStates()
 	self:LayoutButtons(count)
 
 	local enabled = db.enabled and not self.forceHidden
@@ -184,10 +259,13 @@ function ActionBar:GetFlyoutDirection()
 	end
 	local db = self:GetDB()
 	local x, y = self:GetCenter()
-	local screenWidth, screenHeight = UIParent:GetSize()
 	if not x or not y then
 		return 'UP'
 	end
+	-- Compare in screen space: the bar is usually scaled differently from UIParent
+	local ratio = self:GetEffectiveScale() / UIParent:GetEffectiveScale()
+	x, y = x * ratio, y * ratio
+	local screenWidth, screenHeight = UIParent:GetSize()
 	local vertical = (db.buttonsPerRow or NUM_BUTTONS) == 1 and (db.buttons or NUM_BUTTONS) > 1
 	if vertical then
 		return x > screenWidth / 2 and 'LEFT' or 'RIGHT'
@@ -197,6 +275,13 @@ end
 
 function ActionBar:PostApply()
 	module:UpdateActionBarConfig(self)
+end
+
+---Called after the player drops the bar's mover: an automatic fly-out may now face another way.
+function ActionBar:OnMoved()
+	if self:GetDB().flyoutDirection == 'AUTOMATIC' then
+		module:UpdateActionBarConfig(self)
+	end
 end
 
 ---@param id number
@@ -214,14 +299,9 @@ local function CreateActionBar(id)
 	bar:SetAttribute('_onstate-page', PAGE_SNIPPET)
 
 	for i = 1, NUM_BUTTONS do
-		local button = LAB:CreateButton(i, module:GetActionButtonName(id, i), bar, nil)
-		for state = 1, NUM_STATES do
-			button:SetState(state, 'action', (state - 1) * NUM_BUTTONS + i)
-		end
-		-- State 0 is used before the page driver fires for the first time
-		button:SetState(0, 'action', (id - 1) * NUM_BUTTONS + i)
-		bar.buttons[i] = button
+		bar.buttons[i] = LAB:CreateButton(i, module:GetActionButtonName(id, i), bar, nil)
 	end
+	bar:UpdateButtonStates()
 
 	return bar
 end
@@ -250,24 +330,27 @@ end
 -- Button configuration
 ----------------------------------------------------------------------------------------------------
 
+---LibActionButton text settings for one element. Buttons are scaled to their size, which
+---would shrink or grow the text with them, so sizes and offsets are divided by that scale.
 ---@param text table
----@param visible boolean
+---@param scale number The button's scale
+---@param justifyH string
 ---@return table
-local function BuildTextConfig(text, visible, justifyH)
+local function BuildTextConfig(text, scale, justifyH)
 	local color = text.color or { 1, 1, 1 }
 	local face = text.face and text.face ~= '' and SUI.Lib.LSM:Fetch('font', text.face, true) or false
 	return {
 		font = {
 			font = face,
-			size = text.size or 12,
+			size = (text.size or 12) / scale,
 			flags = text.flags or 'OUTLINE',
 		},
-		color = { color[1] or 1, color[2] or 1, color[3] or 1, visible and 1 or 0 },
+		color = { color[1] or 1, color[2] or 1, color[3] or 1 },
 		position = {
 			anchor = text.anchor or 'CENTER',
 			relAnchor = text.anchor or 'CENTER',
-			offsetX = text.x or 0,
-			offsetY = text.y or 0,
+			offsetX = (text.x or 0) / scale,
+			offsetY = (text.y or 0) / scale,
 		},
 		justifyH = justifyH or 'CENTER',
 	}
@@ -300,6 +383,10 @@ function module:UpdateActionBarConfig(bar)
 
 	local flyoutDirection = bar:GetFlyoutDirection()
 	for i, button in ipairs(bar.buttons) do
+		local scale = button:GetScale()
+		if not scale or scale <= 0 then
+			scale = 1
+		end
 		local config = {
 			outOfRangeColoring = global.outOfRangeColoring,
 			tooltip = global.tooltip,
@@ -312,28 +399,38 @@ function module:UpdateActionBarConfig(bar)
 				macro = not db.macroText,
 				hotkey = not db.hotkeyText,
 				equipped = not db.showEquipped,
+				border = global.hideBorder,
 			},
 			keyBoundTarget = self:GetActionButtonBinding(bar.id, i),
 			keyBoundClickButton = 'Keybind',
 			flyoutDirection = flyoutDirection,
 			actionButtonUI = true,
-			assistedHighlight = true,
-			spellCastVFX = true,
+			assistedHighlight = global.assistedHighlight,
+			spellCastVFX = global.spellCastVFX,
 			text = {
-				hotkey = BuildTextConfig(text.hotkey, true, JustifyFor(text.hotkey.anchor)),
-				count = BuildTextConfig(text.count, db.countText, JustifyFor(text.count.anchor)),
-				macro = BuildTextConfig(text.macro, true, JustifyFor(text.macro.anchor)),
+				hotkey = BuildTextConfig(text.hotkey, scale, JustifyFor(text.hotkey.anchor)),
+				count = BuildTextConfig(text.count, scale, JustifyFor(text.count.anchor)),
+				macro = BuildTextConfig(text.macro, scale, JustifyFor(text.macro.anchor)),
 			},
 		}
-		if not global.showCooldownText then
-			config.cooldownCount = false
-		end
 		button:UpdateConfig(config)
 
+		-- LibActionButton only keeps config keys that have a default, and cooldownCount has
+		-- none, so it is set on the stored config (read again on every cooldown update)
+		button.config.cooldownCount = global.showCooldownText and true or false
+		if button.cooldown then
+			button.cooldown:SetHideCountdownNumbers(not global.showCooldownText)
+		end
+		if button.Count then
+			button.Count:SetAlpha(db.countText and 1 or 0)
+		end
+
 		button:SetAttribute('buttonlock', global.lockButtons)
-		button:SetAttribute('checkselfcast', true)
-		button:SetAttribute('checkfocuscast', true)
-		button:SetAttribute('checkmouseovercast', true)
+		-- Unlocked buttons still pick up on a mouse press instead of casting on key-down
+		button:SetAttribute('unlockedpreventdrag', true)
+		button:SetAttribute('checkselfcast', global.checkSelfCast and true or nil)
+		button:SetAttribute('checkfocuscast', global.checkFocusCast and true or nil)
+		button:SetAttribute('checkmouseovercast', db.mouseoverCast and true or nil)
 		button:SetAttribute('*unit2', global.rightClickSelfCast and 'player' or nil)
 	end
 end

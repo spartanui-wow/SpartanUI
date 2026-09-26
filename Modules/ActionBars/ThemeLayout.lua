@@ -76,9 +76,16 @@ function module:GetFallbackPoint(key)
 	if FALLBACK_POSITIONS[key] then
 		return self:ParsePosition(FALLBACK_POSITIONS[key])
 	end
-	-- Extra action bars stack up the right side of the screen
+	-- Bars without a theme slot line up in rows above the screen's bottom centre
+	local order = { 2, 7, 8, 9, 10, 13, 14, 15 }
 	local id = tonumber(key:match('^BT4Bar(%d+)$')) or 1
-	return 'RIGHT', 'UIParent', 'RIGHT', -4 - ((id - 7) % 4) * 50, 0
+	local row = 1
+	for i, barID in ipairs(order) do
+		if barID == id then
+			row = i
+		end
+	end
+	return 'BOTTOM', 'UIParent', 'BOTTOM', 0, 180 + (row - 1) * 50
 end
 
 ---Apply the theme's position and scale to one bar. A bar the player moved or scaled keeps
@@ -91,6 +98,11 @@ function module:ApplyThemeToBar(bar, positions, scales)
 		positions, scales = self:GetThemeLayout()
 	end
 	local key = bar.key
+	-- A theme that placed this bar itself (sliding trays) keeps that placement
+	local override = self.themeOverrides and self.themeOverrides[key]
+	if override then
+		positions = setmetatable({ [key] = override }, { __index = positions })
+	end
 	local MoveIt = SUI:GetModule('MoveIt', true) ---@type MoveIt
 	local uiScale = SUI.DB.scale or 0.92
 	local themeScale = scales[key] or scales.BT4Bar1 or 1
@@ -113,6 +125,25 @@ function module:ApplyThemeToBar(bar, positions, scales)
 	end
 end
 
+---Let a theme place a bar somewhere other than its registered position, for example inside a
+---sliding tray. Kept until the theme changes.
+---@param key string
+---@param point string
+---@param anchor Frame|string
+---@param relativePoint string
+---@param x number
+---@param y number
+function module:SetThemeOverride(key, point, anchor, relativePoint, x, y)
+	self.themeOverrides = self.themeOverrides or {}
+	local anchorName = type(anchor) == 'table' and anchor:GetName() or anchor or 'UIParent'
+	self.themeOverrides[key] = ('%s,%s,%s,%s,%s'):format(point, anchorName, relativePoint or point, x or 0, y or 0)
+	self.themeOverrideStyle = SUI:GetActiveStyle()
+	local bar = self.bars[key]
+	if bar and self.active then
+		self:RunOutOfCombat('themebar:' .. key, self.ApplyThemeToBar, self, bar)
+	end
+end
+
 ---Apply theme positions and scales to every bar.
 function module:ApplyThemeLayout()
 	if not self.active then
@@ -121,6 +152,11 @@ function module:ApplyThemeLayout()
 	if InCombatLockdown() then
 		self:RunOutOfCombat('themelayout', self.ApplyThemeLayout, self)
 		return
+	end
+	-- Overrides belong to the theme that set them
+	if self.themeOverrideStyle and self.themeOverrideStyle ~= SUI:GetActiveStyle() then
+		self.themeOverrides = nil
+		self.themeOverrideStyle = nil
 	end
 	local positions, scales = self:GetThemeLayout()
 	for _, bar in pairs(self.bars) do

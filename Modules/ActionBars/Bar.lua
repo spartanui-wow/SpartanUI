@@ -120,7 +120,10 @@ function Bar:LayoutButtons(count)
 	local spacing = db.buttonSpacing or 0
 	local margin = db.backdropSpacing or 0
 
-	self:SetSize(module:CalculateBarSize(db, count))
+	-- The bar itself is secure; in combat only its (unprotected) buttons may be placed
+	if not InCombatLockdown() then
+		self:SetSize(module:CalculateBarSize(db, count))
+	end
 	if count == 0 then
 		if not self.manageButtonVisibility then
 			for _, button in ipairs(buttons) do
@@ -142,7 +145,10 @@ function Bar:LayoutButtons(count)
 			local scale = height / nativeHeight
 			local col = (i - 1) % perRow
 			local row = floor((i - 1) / perRow)
-			button:SetParent(self.buttonParent or self)
+			local parent = self.buttonParent or self
+			if button:GetParent() ~= parent then
+				button:SetParent(parent)
+			end
 			button:SetScale(scale)
 			button:SetSize(width / scale, nativeHeight)
 			button:ClearAllPoints()
@@ -245,9 +251,49 @@ function Bar:UpdateFade()
 		alpha = db.mouseoverAlpha or 0
 	end
 	self:SetAlpha(alpha)
+	-- Cooldown flashes draw at full strength whatever the bar's alpha, so hide them on a
+	-- bar that is faded out
+	local showBling = alpha > 0.1
+	if self.blingShown ~= showBling then
+		self.blingShown = showBling
+		for _, button in ipairs(self.buttons) do
+			if button.cooldown and button.cooldown.SetDrawBling then
+				button.cooldown:SetDrawBling(showBling)
+			end
+		end
+	end
+	self:UpdateHoverPolling()
+end
+
+---Click-through bars get no mouse events, so their mouseover fade is driven by polling.
+function Bar:UpdateHoverPolling()
+	local db = self:GetDB()
+	local poll = db.mouseover and db.clickThrough and db.enabled
+	if poll and not self.hoverPoller then
+		local bar = self
+		local elapsedTotal = 0
+		self.hoverPoller = function(_, elapsed)
+			elapsedTotal = elapsedTotal + elapsed
+			if elapsedTotal < 0.1 then
+				return
+			end
+			elapsedTotal = 0
+			local inside = bar:IsMouseInside()
+			if inside and not bar.mouseInside then
+				bar:OnEnterBar()
+			elseif not inside and bar.mouseInside then
+				bar:OnLeaveBar()
+			end
+		end
+		self:SetScript('OnUpdate', self.hoverPoller)
+	elseif not poll and self.hoverPoller then
+		self.hoverPoller = nil
+		self:SetScript('OnUpdate', nil)
+	end
 end
 
 function Bar:OnEnterBar()
+	self.leaveToken = nil
 	self.mouseInside = true
 	self:UpdateFade()
 	if self:GetDB().inheritGlobalFade then
@@ -258,6 +304,25 @@ end
 function Bar:OnLeaveBar()
 	-- Moving between buttons fires leave on the old button before enter on the next one,
 	-- so only drop the hover state once the cursor has truly left the bar.
+	if self:IsMouseInside() then
+		return
+	end
+	local delay = self:GetDB().fadeOutDelay or 0
+	if delay > 0 then
+		local token = {}
+		self.leaveToken = token
+		C_Timer.After(delay, function()
+			if self.leaveToken == token then
+				self.leaveToken = nil
+				self:FinishLeave()
+			end
+		end)
+		return
+	end
+	self:FinishLeave()
+end
+
+function Bar:FinishLeave()
 	if self:IsMouseInside() then
 		return
 	end
@@ -322,10 +387,14 @@ function Bar:EnsureMover()
 		return
 	end
 	local MoveIt = SUI:GetModule('MoveIt') ---@type MoveIt
-	MoveIt:CreateMover(self, self.key, self.displayName, nil, L['Action Bars'])
+	local bar = self
+	MoveIt:CreateMover(self, self.key, self.displayName, function()
+		if bar.OnMoved then
+			bar:OnMoved()
+		end
+	end, L['Action Bars'])
 	local mover = MoveIt.MoverList[self.key]
 	if mover then
-		local bar = self
 		-- Disabled bars should not show a mover in move mode
 		mover.IsMoverAvailable = function()
 			local db = bar:GetDB()
@@ -359,11 +428,22 @@ function Bar:Apply()
 	end
 
 	self:UpdateBackdrop()
-	-- Empty strata and level zero mean the frame's own layering, captured before any change
-	self.defaultStrata = self.defaultStrata or self:GetFrameStrata()
-	self.defaultLevel = self.defaultLevel or self:GetFrameLevel()
-	self:SetFrameStrata((db.frameStrata and db.frameStrata ~= '') and db.frameStrata or self.defaultStrata)
-	self:SetFrameLevel((db.frameLevel and db.frameLevel > 0) and db.frameLevel or self.defaultLevel)
+	-- Empty strata and level zero leave the frame's layering to others (themes set some),
+	-- restoring what was there only if SpartanUI changed it earlier
+	if db.frameStrata and db.frameStrata ~= '' then
+		self.savedStrata = self.savedStrata or self:GetFrameStrata()
+		self:SetFrameStrata(db.frameStrata)
+	elseif self.savedStrata then
+		self:SetFrameStrata(self.savedStrata)
+		self.savedStrata = nil
+	end
+	if db.frameLevel and db.frameLevel > 0 then
+		self.savedLevel = self.savedLevel or self:GetFrameLevel()
+		self:SetFrameLevel(db.frameLevel)
+	elseif self.savedLevel then
+		self:SetFrameLevel(self.savedLevel)
+		self.savedLevel = nil
+	end
 	self:EnableMouse(not db.clickThrough and db.mouseover)
 	self:UpdateVisibility()
 	self:UpdateFade()

@@ -40,6 +40,7 @@ local FONT_FLAGS = {
 	THICKOUTLINE = L['Thick outline'],
 	MONOCHROME = L['Monochrome'],
 	['MONOCHROME,OUTLINE'] = L['Monochrome outline'],
+	['MONOCHROME,THICKOUTLINE'] = L['Monochrome thick outline'],
 }
 
 ----------------------------------------------------------------------------------------------------
@@ -144,6 +145,10 @@ local function BuildCommonBarArgs(bar, path, features)
 			type = 'execute',
 			order = 2,
 			func = function()
+				if InCombatLockdown() then
+					SUI:Print(ERR_NOT_IN_COMBAT)
+					return
+				end
 				local target = Walk(module.DB, path)
 				if target then
 					wipe(target)
@@ -290,6 +295,18 @@ local function BuildCommonBarArgs(bar, path, features)
 			type = 'toggle',
 			order = 34,
 		},
+		fadeOutDelay = {
+			name = L['Fade out delay'],
+			desc = L['Seconds to wait after the mouse leaves before the bar fades.'],
+			type = 'range',
+			order = 35,
+			min = 0,
+			max = 3,
+			step = 0.1,
+			disabled = function()
+				return not module:GetSetting(path, 'mouseover')
+			end,
+		},
 		visibilityHeader = { name = L['Visibility'], type = 'header', order = 40 },
 		visibility = {
 			name = L['Show / hide rules'],
@@ -421,7 +438,50 @@ local function BuildActionBarOptions(id, bar)
 	args.countTextStyle = BuildTextOptions('count', L['Item count'], 63, { 'bars', id, 'text', 'count' }, { 'text', 'count' }, applyBar, notCustom)
 	args.macroTextStyle = BuildTextOptions('macro', L['Macro name'], 64, { 'bars', id, 'text', 'macro' }, { 'text', 'macro' }, applyBar, notCustom)
 
+	args.mouseoverCast = {
+		name = L['Mouseover casting'],
+		desc = L["Spells on this bar go to the unit under your mouse, following the game's Mouseover Cast setting."],
+		type = 'toggle',
+		order = 28.5,
+	}
+	args.buttonOffset = {
+		name = L['Button offset'],
+		desc = L['Start this bar at a later slot of its page, for example to show the second half of a split bar.'],
+		type = 'range',
+		order = 11.5,
+		min = 0,
+		max = 11,
+		step = 1,
+	}
+
 	args.pagingHeader = { name = L['Page swapping'], type = 'header', order = 50 }
+	args.vehiclePaging = {
+		name = L['Show vehicle and possess actions'],
+		desc = L['This bar switches to vehicle, possess and skyriding actions when you use them.'],
+		type = 'toggle',
+		order = 50.5,
+	}
+	args.manualPaging = {
+		name = L['Follow Shift+number page swaps'],
+		desc = L['Switching action pages with Shift+number or Shift+mouse wheel changes this bar.'],
+		type = 'toggle',
+		order = 51.5,
+		disabled = function()
+			return not module:GetSetting(path, 'pagingEnabled')
+		end,
+	}
+	args.defaultClassPaging = {
+		name = L['Use class defaults'],
+		desc = L['Swap pages for stances and forms the way the default game does, unless you wrote your own rules below.'],
+		type = 'toggle',
+		order = 51.7,
+		hidden = function()
+			return id ~= 1
+		end,
+		disabled = function()
+			return not module:GetSetting(path, 'pagingEnabled')
+		end,
+	}
 	args.pagingEnabled = {
 		name = id == 1 and L['Swap pages for stances and forms'] or L['Use custom page swapping'],
 		desc = L['Change which actions this bar shows when you change stance, form or press a modifier.'],
@@ -489,7 +549,7 @@ local function BuildSpecialBarOptions(key, settingsKey, order, extra)
 		args[k] = v
 	end
 	-- These bars take Blizzard's own buttons; handing them back needs a reload
-	if settingsKey == 'micro' or settingsKey == 'bags' then
+	if settingsKey == 'micro' or settingsKey == 'bags' or settingsKey == 'queue' then
 		args.enabled.desc = L['Turning this off gives the buttons back to the standard game layout. Needs a reload.']
 		args.enabled.set = function(_, value)
 			module:SetSetting(path, 'enabled', value)
@@ -579,6 +639,24 @@ local function BuildGeneralOptions()
 				desc = L['Stop spells being dragged off the bars by accident. Hold Shift to drag them anyway.'],
 				type = 'toggle',
 				order = 11,
+				set = function(_, value)
+					module:SetSetting({}, 'lockButtons', value)
+					-- Pet and stance buttons are Blizzard's and follow the game's own lock
+					SetCVar('lockActionBars', value and '1' or '0')
+					applyAll()
+				end,
+			},
+			checkSelfCast = {
+				name = L['Self cast key'],
+				desc = L['Holding the self cast key (Alt by default) casts on yourself.'],
+				type = 'toggle',
+				order = 13.1,
+			},
+			checkFocusCast = {
+				name = L['Focus cast key'],
+				desc = L['Holding the focus cast key casts on your focus.'],
+				type = 'toggle',
+				order = 13.2,
 			},
 			keyDown = {
 				name = L['Cast on key press'],
@@ -612,6 +690,28 @@ local function BuildGeneralOptions()
 				name = L['Show cooldown numbers'],
 				type = 'toggle',
 				order = 15,
+			},
+			hideBorder = {
+				name = L['Hide button borders'],
+				type = 'toggle',
+				order = 15.1,
+			},
+			spellCastVFX = {
+				name = L['Spell cast animations'],
+				type = 'toggle',
+				order = 15.2,
+				hidden = function()
+					return not SUI.IsRetail
+				end,
+			},
+			assistedHighlight = {
+				name = L['Rotation assistant highlight'],
+				desc = L["Highlight the button the game's rotation assistant suggests."],
+				type = 'toggle',
+				order = 15.3,
+				hidden = function()
+					return not C_AssistedCombat
+				end,
 			},
 			masque = {
 				name = L['Use Masque skins'],
@@ -761,6 +861,47 @@ function module:BuildOptions()
 		reverse = { name = L['Reverse order'], type = 'toggle', order = 64 },
 	})
 	options.args.queue = BuildSpecialBarOptions('BT4BarQueueStatus', 'queue', 34)
+	options.args.extra = {
+		name = L['Extra Action Button'],
+		type = 'group',
+		order = 36,
+		hidden = function()
+			return not (_G.ExtraAbilityContainer or _G.ExtraActionBarFrame)
+		end,
+		get = function(info)
+			return module:GetSetting({ 'extra' }, info[#info])
+		end,
+		set = function(info, value)
+			module:SetSetting({ 'extra' }, info[#info], value)
+			local extraBar = module.bars.BT4BarExtraActionBar
+			if extraBar then
+				extraBar:Apply()
+			end
+		end,
+		args = {
+			description = {
+				name = L['Boss and quest extra buttons, and zone abilities. Off leaves them where the game puts them (Edit Mode on modern clients).'],
+				type = 'description',
+				order = 0,
+			},
+			enabled = {
+				name = L['Let SpartanUI place these buttons'],
+				desc = L['Needs a reload.'],
+				type = 'toggle',
+				order = 1,
+				set = function(_, value)
+					module:SetSetting({ 'extra' }, 'enabled', value)
+					SUI:reloadui()
+				end,
+			},
+			hideArtwork = {
+				name = L['Hide the button artwork'],
+				type = 'toggle',
+				order = 2,
+			},
+			alpha = { name = L['Opacity'], type = 'range', order = 3, min = 0, max = 1, step = 0.05, isPercent = true },
+		},
+	}
 	options.args.totem = BuildSpecialBarOptions('MultiCastActionBarFrame', 'totem', 35)
 	-- These hold a single Blizzard frame with a fixed shape; only placement options apply
 	for _, groupKey in ipairs({ 'queue', 'totem' }) do
@@ -797,4 +938,5 @@ function module:ResetAll()
 	end
 	SUI.Handlers.BarSystem.DB.custom.scale.BT4 = {}
 	self:ApplyAll()
+	self:CheckOwnershipChange()
 end

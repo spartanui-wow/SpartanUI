@@ -101,6 +101,15 @@ local function GetActionBarConfig(profile, id)
 	local config = CopyDefaults(defaults['**'])
 	config = SUI:MergeData(config, CopyDefaults(defaults[id]), true)
 	config = SUI:MergeData(config, saved, true)
+
+	-- Text elements share a wildcard default (font, flags, justify) that CopyDefaults drops
+	local shared = defaults['**'] and defaults['**'].elements and defaults['**'].elements['**']
+	if type(shared) == 'table' then
+		config.elements = config.elements or {}
+		for _, name in ipairs({ 'hotkey', 'count', 'macro' }) do
+			config.elements[name] = SUI:MergeData(CopyDefaults(shared), config.elements[name], true)
+		end
+	end
 	return config, saved
 end
 
@@ -140,10 +149,18 @@ end
 ---@param states table|nil
 ---@param barID number
 ---@return string|nil rules Nil means use SpartanUI's default for this bar
-local function ConvertStates(states, barID)
-	if type(states) ~= 'table' or not states.enabled then
-		return nil
-	end
+-- Every class token, so a shared profile's page rules carry over for all of them
+local ALL_CLASSES = {}
+for token in pairs(LOCALIZED_CLASS_NAMES_MALE or {}) do
+	ALL_CLASSES[#ALL_CLASSES + 1] = token
+end
+
+---Build page-swap rules for one class from Bartender4's state settings. Vehicle paging and
+---Shift+number paging are separate SpartanUI settings and are not part of the rules.
+---@param states table
+---@param class string
+---@return string rules Empty when the bar has no swaps for this class
+local function ConvertStates(states, class)
 	if states.customEnabled and type(states.custom) == 'string' and states.custom:gsub('%s', '') ~= '' then
 		return states.custom
 	end
@@ -155,20 +172,25 @@ local function ConvertStates(states, barID)
 			rules = rules .. ('[mod:%s] %d; '):format(mod, page)
 		end
 	end
-	if states.actionbar and barID ~= 1 then
-		rules = rules .. '[bar:2] 2; [bar:3] 3; [bar:4] 4; [bar:5] 5; [bar:6] 6; '
-	end
-	local stances = type(states.stance) == 'table' and states.stance[playerClass]
-	local map = STANCE_BONUSBARS[playerClass]
+	local stances = type(states.stance) == 'table' and states.stance[class]
+	local map = STANCE_BONUSBARS[class]
 	if type(stances) == 'table' and map then
+		-- Prowl shares cat form's bonus bar and has to come first to ever match
 		local prowl = tonumber(stances.prowl)
-		if playerClass == 'DRUID' and prowl and prowl > 0 then
+		if class == 'DRUID' and prowl and prowl > 0 then
 			rules = rules .. ('[bonusbar:1,stealth:1] %d; '):format(prowl)
 		end
+		local ordered = {}
 		for stanceID, bonusbar in pairs(map) do
-			local page = tonumber(stances[stanceID])
+			ordered[#ordered + 1] = { stanceID, bonusbar }
+		end
+		table.sort(ordered, function(a, b)
+			return a[2] < b[2]
+		end)
+		for _, entry in ipairs(ordered) do
+			local page = tonumber(stances[entry[1]])
 			if page and page > 0 then
-				rules = rules .. ('[bonusbar:%d] %d; '):format(bonusbar, page)
+				rules = rules .. ('[bonusbar:%d] %d; '):format(entry[2], page)
 			end
 		end
 	end
@@ -249,15 +271,39 @@ local function ConvertText(elements, name)
 	}
 end
 
+---@param a table
+---@param b table|nil
+---@return boolean
+local function SameText(a, b)
+	if not b then
+		return false
+	end
+	for _, element in ipairs({ 'hotkey', 'count', 'macro' }) do
+		local x, y = a[element] or {}, b[element] or {}
+		for _, key in ipairs({ 'face', 'size', 'flags', 'anchor', 'x', 'y' }) do
+			if x[key] ~= y[key] then
+				return false
+			end
+		end
+		local cx, cy = x.color, y.color
+		if (cx == nil) ~= (cy == nil) or (cx and (cx[1] ~= cy[1] or cx[2] ~= cy[2] or cx[3] ~= cy[3])) then
+			return false
+		end
+	end
+	return true
+end
+
 ---@param profile string
 ---@return SUI.ActionBars.ImportResult
 function importer:Build(profile)
 	local result = module:NewImportResult()
 	local core = module:MergeWithDefaults(CopyDefaults(_G.Bartender4.db.defaults and _G.Bartender4.db.defaults.profile), _G.Bartender4DB.profiles[profile])
 
-	-- SpartanUI placed and scaled bars itself on its own Bartender4 profiles, and those
-	-- placements already carry over. Only settings come from these profiles.
-	local spartanProfile = profile:find('^SpartanUI') ~= nil
+	-- While SpartanUI ran Bartender4 it placed and scaled every bar itself, whatever the
+	-- profile was called, and those placements carry over through the shared mover names.
+	-- Bartender4's own stored positions were never what was on screen.
+	local barSystem = SUI.Handlers.BarSystem
+	local spartanProfile = profile:find('^SpartanUI') ~= nil or (barSystem and barSystem.DB and barSystem.DB.BT4Initalized) or false
 
 	local function addBar(key, settingsKey, settings, scale, position)
 		if settingsKey then
@@ -269,8 +315,10 @@ function importer:Build(profile)
 		end
 	end
 
+	local smartTargeting = false
+	local sharedText
 	for _, id in ipairs(module.ACTION_BAR_IDS) do
-		local config, saved = GetActionBarConfig(profile, id)
+		local config = GetActionBarConfig(profile, id)
 		local buttons = math.max(1, math.min(tonumber(config.buttons) or 12, 12))
 		local settings, scale, position = ConvertBar(config, buttons, SUI.IsRetail)
 		settings.buttons = buttons
@@ -279,13 +327,25 @@ function importer:Build(profile)
 		settings.hotkeyText = not config.hidehotkey
 		settings.macroText = not config.hidemacrotext
 		settings.showEquipped = not config.hideequipped
-		-- Untouched page settings keep SpartanUI's own defaults for the class
-		if type(saved) == 'table' and type(saved.states) == 'table' then
-			local paging = ConvertStates(config.states, id)
-			settings.pagingEnabled = type(config.states) == 'table' and config.states.enabled and true or false
-			if paging and paging ~= '' then
-				settings.paging = { [playerClass] = paging }
+		settings.buttonOffset = math.max(0, math.min(tonumber(config.buttonOffset) or 0, 11))
+		local states = type(config.states) == 'table' and config.states or {}
+		settings.vehiclePaging = states.possess and true or false
+		settings.manualPaging = states.actionbar and true or false
+		settings.pagingEnabled = states.enabled and true or false
+		-- Bartender4's own stance pages replace SpartanUI's class defaults exactly
+		settings.defaultClassPaging = false
+		if states.enabled then
+			local paging = {}
+			for _, class in ipairs(ALL_CLASSES) do
+				local rules = ConvertStates(states, class)
+				if rules ~= '' then
+					paging[class] = rules
+				end
 			end
+			settings.paging = paging
+		end
+		if config.mouseover or config.autoassist then
+			smartTargeting = true
 		end
 		result.settings.bars[id] = settings
 		addBar('BT4Bar' .. id, nil, nil, scale, position)
@@ -297,8 +357,9 @@ function importer:Build(profile)
 		}
 		if id == 1 then
 			result.settings.text = text
-		elseif type(saved) == 'table' and type(saved.elements) == 'table' then
-			-- Only bars whose fonts were changed in Bartender4 get their own text style
+			sharedText = text
+		elseif not SameText(text, sharedText) then
+			-- Bars whose fonts differ from bar 1 keep their own text style
 			settings.customText = true
 			settings.text = text
 		end
@@ -320,18 +381,21 @@ function importer:Build(profile)
 
 	local micro = GetModuleData('MicroMenu', profile)
 	if micro then
-		local microBar = module.bars.BT4BarMicroMenu
-		local count = microBar and #microBar.buttons > 0 and #microBar.buttons or 12
-		local settings, scale, position = ConvertBar(micro, count, false)
+		local settings, scale, position = ConvertBar(micro, module:CountMicroButtons(), false)
 		addBar('BT4BarMicroMenu', 'micro', settings, scale, position)
 	end
 
 	local bags = GetModuleData('BagBar', profile)
 	if bags then
-		local settings, scale, position = ConvertBar(bags, bags.onebag and 1 or 5, false)
-		settings.onlyBackpack = bags.onebag and true or false
-		settings.showReagentBag = not bags.onebag or bags.onebagreagents ~= false
-		settings.showKeyring = bags.keyring ~= false
+		local bagSettings = {
+			onlyBackpack = bags.onebag and true or false,
+			showReagentBag = not bags.onebag or bags.onebagreagents ~= false,
+			showKeyring = bags.keyring ~= false,
+		}
+		local settings, scale, position = ConvertBar(bags, module:CountBagButtons(bagSettings), false)
+		for k, v in pairs(bagSettings) do
+			settings[k] = v
+		end
 		addBar('BT4BarBagBar', 'bags', settings, scale, position)
 	end
 
@@ -340,6 +404,11 @@ function importer:Build(profile)
 	result.settings.lockButtons = core.buttonlock ~= false
 	result.settings.outOfRangeColoring = core.outofrange
 	result.settings.rightClickSelfCast = core.selfcastrightclick and true or false
+	result.settings.checkSelfCast = core.selfcastmodifier ~= false
+	result.settings.checkFocusCast = core.focuscastmodifier ~= false
+	if not spartanProfile and core.blizzardVehicle ~= nil then
+		result.vehicleUI = core.blizzardVehicle and true or false
+	end
 	if type(core.colors) == 'table' then
 		result.settings.colors = {
 			range = module:ResolveColor(core.colors.range) or module.DBDefaults.colors.range,
@@ -347,11 +416,23 @@ function importer:Build(profile)
 		}
 	end
 
-	-- Bars without a Blizzard binding used Bartender4's own buttons
-	for _, id in ipairs({ 2, 7, 8, 9, 10 }) do
+	-- Every Bartender4 button has its own click binding, and players bind those directly
+	for _, id in ipairs(module.ACTION_BAR_IDS) do
 		for i = 1, 12 do
-			result.bindings[('CLICK BT4Button%d:Keybind'):format((id - 1) * 12 + i)] = ('CLICK %s:Keybind'):format(module:GetActionButtonName(id, i))
+			local command = module:GetActionButtonBinding(id, i)
+			local abs = (id - 1) * 12 + i
+			result.bindings[('CLICK BT4Button%d:Keybind'):format(abs)] = command
+			result.bindings[('CLICK BT4Button%d:LeftButton'):format(abs)] = command
 		end
+	end
+	-- Pet and stance buttons are Blizzard's own in SpartanUI, bound through Blizzard's names
+	for i = 1, 10 do
+		result.bindings[('CLICK BT4PetButton%d:LeftButton'):format(i)] = ('BONUSACTIONBUTTON%d'):format(i)
+		result.bindings[('CLICK BT4StanceButton%d:LeftButton'):format(i)] = ('SHAPESHIFTBUTTON%d'):format(i)
+	end
+
+	if smartTargeting then
+		table.insert(result.notes, L["Bartender4 import: per-bar mouseover and auto-assist targeting are not carried over. Turn on the game's Mouseover Cast setting instead."])
 	end
 
 	if spartanProfile then

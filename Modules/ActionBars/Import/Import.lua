@@ -149,6 +149,41 @@ local function WriteSection(path, values)
 	end
 end
 
+---How many micro buttons are showing, whether or not SpartanUI's bar is running yet.
+---@return number
+function module:CountMicroButtons()
+	local bar = self.bars.BT4BarMicroMenu
+	if bar and #bar.buttons > 0 then
+		return #bar.buttons
+	end
+	local count = 0
+	if MicroMenu and MicroMenu.GetChildren then
+		for _, child in ipairs({ MicroMenu:GetChildren() }) do
+			if child.layoutIndex and child:IsShown() then
+				count = count + 1
+			end
+		end
+	end
+	return count > 0 and count or 12
+end
+
+---How many buttons the bag bar shows with these settings.
+---@param db table
+---@return number
+function module:CountBagButtons(db)
+	local count = 1
+	if db.showKeyring and self:HasKeyring() then
+		count = count + 1
+	end
+	if db.showReagentBag and _G.CharacterReagentBag0Slot then
+		count = count + 1
+	end
+	if not db.onlyBackpack then
+		count = count + 4
+	end
+	return count
+end
+
 ---Work out the settings section and button count that decide a bar's size.
 ---@param key string
 ---@return table|nil db
@@ -164,10 +199,9 @@ local function GetBarSizing(key)
 	elseif key == 'BT4BarStanceBar' then
 		return current.stance, math.max(GetNumShapeshiftForms() or 0, 1)
 	elseif key == 'BT4BarMicroMenu' then
-		local bar = module.bars[key]
-		return current.micro, bar and #bar.buttons > 0 and #bar.buttons or 12
+		return current.micro, module:CountMicroButtons()
 	elseif key == 'BT4BarBagBar' then
-		return current.bags, current.bags.onlyBackpack and 1 or 5
+		return current.bags, module:CountBagButtons(current.bags)
 	end
 	return nil, 0
 end
@@ -286,51 +320,88 @@ function module:RunImport(importerID, profile, options)
 		StripSizes(result.settings)
 	end
 
-	-- Start from a clean slate so leftovers from an earlier setup do not mix in
-	wipe(self.DB)
-	SUI.DBM:RefreshSettings(self)
+	-- Keep a copy so a failure part way through puts everything back
+	local function copy(tbl)
+		local out = {}
+		for k, v in pairs(tbl) do
+			out[k] = type(v) == 'table' and copy(v) or v
+		end
+		return out
+	end
+	local snapshot = copy(self.DB)
+	local MoveIt = SUI:GetModule('MoveIt', true) ---@type MoveIt
+	local moverSnapshot = MoveIt and MoveIt.DB and copy(MoveIt.DB.movers)
 
-	for section, values in pairs(result.settings) do
-		if section == 'bars' then
-			for id, barValues in pairs(values) do
-				if self.CurrentSettings.bars[id] then
-					WriteSection({ 'bars', id }, barValues)
+	local applied, applyError = pcall(function()
+		-- Start from a clean slate so leftovers from an earlier setup do not mix in
+		wipe(self.DB)
+		SUI.DBM:RefreshSettings(self)
+
+		for section, values in pairs(result.settings) do
+			if section == 'bars' then
+				for id, barValues in pairs(values) do
+					if self.CurrentSettings.bars[id] then
+						WriteSection({ 'bars', id }, barValues)
+					end
+				end
+			elseif type(values) == 'table' and type(self.CurrentSettings[section]) == 'table' then
+				WriteSection({ section }, values)
+			else
+				self:SetSetting({}, section, values)
+			end
+		end
+		SUI.DBM:RefreshSettings(self)
+
+		-- Sizes and placement travel together: copying the other addon's positions brings its
+		-- button sizes and scale along; otherwise the bars keep the theme's size and slots.
+		-- A bar only takes a scale when it also got a position, or it would sit in the
+		-- theme's slot at the wrong size.
+		if options.positions and MoveIt and MoveIt.DB then
+			for key, position in pairs(result.positions) do
+				local scale = result.scales[key] or 1
+				local moved = self:ConvertImportPosition(key, position, scale)
+				if moved then
+					MoveIt.DB.movers[key].MovedPoints = moved
+					MoveIt.DB.movers[key].AdjustedScale = scale
 				end
 			end
-		elseif type(values) == 'table' and type(self.CurrentSettings[section]) == 'table' then
-			WriteSection({ section }, values)
-		else
-			self:SetSetting({}, section, values)
 		end
-	end
-	SUI.DBM:RefreshSettings(self)
 
-	-- Sizes and placement travel together: copying the other addon's positions brings its
-	-- button sizes and scale along; otherwise the bars keep the theme's size and slots.
-	local MoveIt = SUI:GetModule('MoveIt', true) ---@type MoveIt
-	if options.positions and MoveIt and MoveIt.DB then
-		for key, scale in pairs(result.scales) do
-			MoveIt.DB.movers[key].AdjustedScale = scale
-		end
-		for key, position in pairs(result.positions) do
-			local scale = result.scales[key] or 1
-			local moved = self:ConvertImportPosition(key, position, scale)
-			if moved then
-				MoveIt.DB.movers[key].MovedPoints = moved
-				MoveIt.DB.movers[key].AdjustedScale = scale
+		if result.vehicleUI ~= nil then
+			local artwork = SUI:GetModule('Artwork', true)
+			if artwork then
+				SUI.DBM:Set(artwork, 'VehicleUI', result.vehicleUI)
 			end
 		end
-	end
 
-	if options.keybinds and next(result.bindings) then
-		self:MigrateBindings(result.bindings)
+		if options.keybinds and next(result.bindings) then
+			self:MigrateBindings(result.bindings)
+		end
+	end)
+
+	if not applied then
+		wipe(self.DB)
+		for k, v in pairs(snapshot) do
+			self.DB[k] = v
+		end
+		SUI.DBM:RefreshSettings(self)
+		if MoveIt and MoveIt.DB and moverSnapshot then
+			wipe(MoveIt.DB.movers)
+			for k, v in pairs(moverSnapshot) do
+				MoveIt.DB.movers[k] = v
+			end
+		end
+		if self.logger then
+			self.logger.error('Applying the import from ' .. importerID .. ' failed: ' .. tostring(applyError))
+		end
+		return false, L['The import failed. Your current settings were not changed.']
 	end
 
 	for _, note in ipairs(result.notes) do
 		SUI:Print(note)
 	end
 
-	if options.disableSource and importer.DisableSource then
+	if importer.DisableSource then
 		importer:DisableSource()
 	end
 
