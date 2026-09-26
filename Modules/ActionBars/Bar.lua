@@ -331,6 +331,8 @@ function Bar:EnsureMover()
 			return db and db.enabled and not bar.forceHidden
 		end
 		MoveIt:UpdateMover(self.key, self, true)
+		-- Bars can gain a mover after login (a stance bar once forms load); size them now
+		module:ApplyThemeToBar(self)
 	end
 end
 

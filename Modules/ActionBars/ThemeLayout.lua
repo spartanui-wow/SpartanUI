@@ -81,7 +81,39 @@ function module:GetFallbackPoint(key)
 	return 'RIGHT', 'UIParent', 'RIGHT', -4 - ((id - 7) % 4) * 50, 0
 end
 
----Apply theme positions and scales. Bars the player moved or scaled keep their placement.
+---Apply the theme's position and scale to one bar. A bar the player moved or scaled keeps
+---their placement.
+---@param bar SUI.ActionBars.Bar
+---@param positions? table<string, string>
+---@param scales? table<string, number>
+function module:ApplyThemeToBar(bar, positions, scales)
+	if not positions or not scales then
+		positions, scales = self:GetThemeLayout()
+	end
+	local key = bar.key
+	local MoveIt = SUI:GetModule('MoveIt', true) ---@type MoveIt
+	local uiScale = SUI.DB.scale or 0.92
+	local themeScale = scales[key] or scales.BT4Bar1 or 1
+	local point, anchor, relativePoint, x, y = self:ParsePosition(positions[key])
+	if bar.mover then
+		local moverData = MoveIt and MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers[key]
+		if bar.scale and not (moverData and moverData.AdjustedScale) then
+			bar:scale(uiScale * themeScale * SCALE_NORMALIZER, true, true)
+		end
+		if point and bar.position then
+			bar:position(point, anchor, relativePoint, x, y, false, true)
+		end
+	else
+		-- Without MoveIt there is nothing to remember a player's placement, so the theme decides
+		bar:SetScale(uiScale * themeScale * SCALE_NORMALIZER)
+		if point then
+			bar:ClearAllPoints()
+			bar:SetPoint(point, anchor, relativePoint, x, y)
+		end
+	end
+end
+
+---Apply theme positions and scales to every bar.
 function module:ApplyThemeLayout()
 	if not self.active then
 		return
@@ -91,28 +123,8 @@ function module:ApplyThemeLayout()
 		return
 	end
 	local positions, scales = self:GetThemeLayout()
-	local MoveIt = SUI:GetModule('MoveIt', true) ---@type MoveIt
-	local uiScale = SUI.DB.scale or 0.92
-
-	for key, bar in pairs(self.bars) do
-		local themeScale = scales[key] or scales.BT4Bar1 or 1
-		local point, anchor, relativePoint, x, y = self:ParsePosition(positions[key])
-		if bar.mover then
-			local moverData = MoveIt and MoveIt.DB and MoveIt.DB.movers and MoveIt.DB.movers[key]
-			if bar.scale and not (moverData and moverData.AdjustedScale) then
-				bar:scale(uiScale * themeScale * SCALE_NORMALIZER, true, true)
-			end
-			if point and bar.position then
-				bar:position(point, anchor, relativePoint, x, y, false, true)
-			end
-		else
-			-- Without MoveIt there is nothing to remember a player's placement, so the theme decides
-			bar:SetScale(uiScale * themeScale * SCALE_NORMALIZER)
-			if point then
-				bar:ClearAllPoints()
-				bar:SetPoint(point, anchor, relativePoint, x, y)
-			end
-		end
+	for _, bar in pairs(self.bars) do
+		self:ApplyThemeToBar(bar, positions, scales)
 	end
 end
 
