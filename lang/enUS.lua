@@ -1273,3 +1273,5 @@ L['Needs a reload.'] = true
 L['Hide the button artwork'] = true
 L["Bartender4 import: per-bar mouseover and auto-assist targeting are not carried over. Turn on the game's Mouseover Cast setting instead."] = true
 L['Dominos import: vehicle and possess actions now show on the bar you picked in Dominos only if it maps to a SpartanUI bar.'] = true
+L["Trim the edge off spell icons and drop the game's rounded button frame."] = true
+L['Moved %d key bindings from Bartender4 to SpartanUI action bars.'] = true

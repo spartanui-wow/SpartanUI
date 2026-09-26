@@ -78,11 +78,61 @@ function module:GetBindingDriver()
 	return driver .. 'bind'
 end
 
+---Keys bound to Bartender4's own buttons do nothing once Bartender4 is gone. Move them to
+---the matching SpartanUI buttons: bars on Blizzard pages go to Blizzard's binding names,
+---so the keys still work if the player switches back to Bartender4.
+---Bartender4 binding commands and the SpartanUI command each one moves to.
+---@return table<string, string>
+function module:GetBartender4BindingMap()
+	local map = {}
+	for _, id in ipairs(self.ACTION_BAR_IDS) do
+		for i = 1, 12 do
+			local command = self:GetActionButtonBinding(id, i)
+			local abs = (id - 1) * 12 + i
+			map[('CLICK BT4Button%d:Keybind'):format(abs)] = command
+			map[('CLICK BT4Button%d:LeftButton'):format(abs)] = command
+		end
+	end
+	for i = 1, 10 do
+		map[('CLICK BT4PetButton%d:LeftButton'):format(i)] = ('BONUSACTIONBUTTON%d'):format(i)
+		map[('CLICK BT4StanceButton%d:LeftButton'):format(i)] = ('SHAPESHIFTBUTTON%d'):format(i)
+	end
+	return map
+end
+
+---How many keys are still bound to Bartender4's buttons.
+---@return number
+function module:CountBartender4Bindings()
+	local count = 0
+	for command in pairs(self:GetBartender4BindingMap()) do
+		count = count + select('#', GetBindingKey(command))
+	end
+	return count
+end
+
+function module:MigrateBartender4Bindings()
+	if _G.Bartender4 or InCombatLockdown() then
+		return
+	end
+	local moved = self:MigrateBindings(self:GetBartender4BindingMap())
+	if moved > 0 then
+		SUI:Print((L['Moved %d key bindings from Bartender4 to SpartanUI action bars.']):format(moved))
+	end
+end
+
 function module:SetupKeybinds()
 	GetController()
 
+	-- Key bindings are not loaded yet when the bars are built at login, so the Bartender4
+	-- move waits for the first binding update and for entering the world
 	self:RegisterEvent('UPDATE_BINDINGS', function()
+		module:RunOutOfCombat('bt4bindings', module.MigrateBartender4Bindings, module)
 		module:RunOutOfCombat('keybinds', module.UpdateKeybinds, module)
+	end)
+	local migrateWatcher = CreateFrame('Frame')
+	migrateWatcher:RegisterEvent('PLAYER_ENTERING_WORLD')
+	migrateWatcher:SetScript('OnEvent', function()
+		module:RunOutOfCombat('bt4bindings', module.MigrateBartender4Bindings, module)
 	end)
 
 	-- The housing editor uses the number keys for its own tools

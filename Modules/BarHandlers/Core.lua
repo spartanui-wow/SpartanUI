@@ -244,6 +244,7 @@ function module:OnEnable()
 				end
 			end
 			SUI:Print(('SpartanUI bars built: %d, showing: %d'):format(#SUI.ActionBars:GetMoverNames(), shown))
+			SUI:Print(('Keys still bound to Bartender4 buttons: %d'):format(SUI.ActionBars:CountBartender4Bindings()))
 		end
 	end, 'Show which addon is drawing the action bars', nil, true)
 
