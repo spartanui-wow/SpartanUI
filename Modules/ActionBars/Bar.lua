@@ -141,7 +141,7 @@ function Bar:LayoutButtons(count)
 
 	for i, button in ipairs(buttons) do
 		if i <= count then
-			local _, nativeHeight = GetNativeSize(button)
+			local nativeWidth, nativeHeight = GetNativeSize(button)
 			local scale = height / nativeHeight
 			local col = (i - 1) % perRow
 			local row = floor((i - 1) / perRow)
@@ -149,10 +149,16 @@ function Bar:LayoutButtons(count)
 			if button:GetParent() ~= parent then
 				button:SetParent(parent)
 			end
+			-- The keyring is a narrow button; stretching it to a square cell distorts its art
+			local buttonWidth, inset = width / scale, 0
+			if button == _G.KeyRingButton then
+				buttonWidth = nativeWidth
+				inset = max(0, width - nativeWidth * scale) / 2
+			end
 			button:SetScale(scale)
-			button:SetSize(width / scale, nativeHeight)
+			button:SetSize(buttonWidth, nativeHeight)
 			button:ClearAllPoints()
-			button:SetPoint(point, self, point, xDir * (margin + col * (width + spacing)) / scale, yDir * (margin + row * (height + spacing)) / scale)
+			button:SetPoint(point, self, point, xDir * (margin + col * (width + spacing) + inset) / scale, yDir * (margin + row * (height + spacing)) / scale)
 			if not self.manageButtonVisibility then
 				button:Show()
 			end
@@ -281,7 +287,7 @@ function Bar:UpdateHoverPolling()
 			local inside = bar:IsMouseInside()
 			if inside and not bar.mouseInside then
 				bar:OnEnterBar()
-			elseif not inside and bar.mouseInside then
+			elseif not inside and bar.mouseInside and not bar.leaveToken then
 				bar:OnLeaveBar()
 			end
 		end

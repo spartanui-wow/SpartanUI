@@ -164,6 +164,15 @@ function module:CountMicroButtons()
 			end
 		end
 	end
+	-- Another bar addon clears Blizzard's layout order when it takes the buttons over
+	if count == 0 then
+		for _, name in ipairs(self.FALLBACK_MICRO_BUTTONS or {}) do
+			local button = _G[name]
+			if button and button:IsShown() then
+				count = count + 1
+			end
+		end
+	end
 	return count > 0 and count or 12
 end
 
@@ -264,14 +273,15 @@ function module:MigrateBindings(bindings)
 	return moved
 end
 
-local SIZE_KEYS = { 'buttonSize', 'buttonHeight', 'keepSizeRatio' }
+-- Everything that decides a bar's footprint and layering on screen
+local LAYOUT_KEYS = { 'buttonSize', 'buttonHeight', 'keepSizeRatio', 'buttonsPerRow', 'point', 'buttonSpacing', 'backdropSpacing', 'frameStrata', 'frameLevel' }
 
----Drop button sizes so bars kept in the theme's slots also keep the theme's size.
+---Drop sizes and shapes so bars kept in the theme's slots also keep the theme's layout.
 ---@param settings table
-local function StripSizes(settings)
+local function StripLayout(settings)
 	local function strip(section)
 		if type(section) == 'table' then
-			for _, key in ipairs(SIZE_KEYS) do
+			for _, key in ipairs(LAYOUT_KEYS) do
 				section[key] = nil
 			end
 		end
@@ -317,7 +327,7 @@ function module:RunImport(importerID, profile, options)
 	end
 
 	if not options.positions then
-		StripSizes(result.settings)
+		StripLayout(result.settings)
 	end
 
 	-- Keep a copy so a failure part way through puts everything back

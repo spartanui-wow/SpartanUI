@@ -63,7 +63,7 @@ The actual frames are `SUI_ActionBar<N>` (buttons `SUI_ActionBar<N>Button<i>`), 
 
 **Bars 13-15** exist wherever `MultiBar5` does (every current client, not only Retail): they are Blizzard's Action Bars 6-8 on pages 13-15.
 
-**Leaving vehicles.** Button 12 of every bar with `vehiclePaging` gets LibActionButton's `custom` type on the vehicle/override/temp-shapeshift pages (pages 11-12 on clients without those functions): `VehicleExit()`, or `PetDismiss()` to end mind control. Blizzard's `PossessActionBar` is deliberately left alone - it only appears while possessing and carries the cancel button.
+**Leaving vehicles.** Button 12 of every bar with `vehiclePaging` gets LibActionButton's `custom` type on the vehicle/override/temp-shapeshift pages (pages 11-12 on clients without those functions): `VehicleExit()`. Blizzard's `PossessActionBar` is deliberately left alone - it only appears while possessing and carries the cancel button.
 
 **Micro menu and bag bar fall back to Blizzard.** With either bar turned off, SpartanUI leaves Blizzard's `MicroMenu`/`BagsBar` alone instead of hiding the buttons; toggling it asks for a reload. While Blizzard's vehicle bar or pet battle UI takes the micro menu (`MicroMenu:SetParent` hook), the buttons are lent back and reclaimed afterwards.
 
@@ -79,7 +79,7 @@ Importers only work while the source addon is loaded (its SavedVariables are onl
 
 - Everything is converted before anything is written, and the apply step runs in a pcall that restores the previous settings and movers on failure. The source addon is always turned off afterwards (two bar addons cannot run together).
 - Dominos paging uses Dominos' own live `BarStates` registry (exact order and resolved `[form:N]` for the player's class); Bartender4 paging is converted for every class in the profile; ElvUI rules are kept whenever they differ from SpartanUI's default.
-- Sizes and placement travel together. With "Also copy bar positions" on, the source's button sizes, scale and positions are copied. With it off (the wizard's default), button sizes are dropped and MoveIt is left alone, so bars keep the theme's size and slots.
+- Sizes and placement travel together. With "Also copy bar positions" on, the source's button sizes, scale and positions are copied. With it off (the wizard's default), everything that shapes a bar on screen (button size, buttons per row, growth corner, spacing, layering) is dropped and MoveIt is left alone, so bars keep the theme's size and slots.
 - Bartender4 profiles named `SpartanUI*` were positioned and scaled by SpartanUI itself; those already carry over through shared mover names, so the importer skips positions and scales for them.
 - All three sources store sparse AceDB data; every importer merges the source addon's own live defaults before converting.
 

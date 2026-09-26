@@ -11,7 +11,7 @@ local module = SUI:GetModule('ActionBars')
 -- Micro menu
 ----------------------------------------------------------------------------------------------------
 
--- Used only on clients without Blizzard's unified MicroMenu frame
+-- Used on clients without Blizzard's unified MicroMenu frame, and while another addon holds the buttons
 local FALLBACK_MICRO_BUTTONS = {
 	'CharacterMicroButton',
 	'ProfessionMicroButton',
@@ -57,6 +57,8 @@ local function CollectMicroButtons()
 	end
 	return list
 end
+
+module.FALLBACK_MICRO_BUTTONS = FALLBACK_MICRO_BUTTONS
 
 ---@class SUI.ActionBars.MicroMenu : SUI.ActionBars.Bar
 local MicroBar = {}
@@ -207,16 +209,16 @@ function BagBar:GetOrderedButtons()
 	return list
 end
 
----True when this client has a working keyring (Classic Era and TBC, with it switched on).
+---True when this client supports a keyring, whether or not it is currently shown.
+---@return boolean
+function module:SupportsKeyring()
+	return KeyRingButton ~= nil and IsKeyRingEnabled ~= nil and IsKeyRingEnabled() and true or false
+end
+
+---True when this client has a working keyring and the game shows it.
 ---@return boolean
 function module:HasKeyring()
-	if not KeyRingButton or not (SUI.IsClassic or SUI.IsTBC) then
-		return false
-	end
-	if IsKeyRingEnabled and not IsKeyRingEnabled() then
-		return false
-	end
-	return GetCVarBool('showKeyring') ~= false
+	return self:SupportsKeyring() and GetCVarBool('showKeyring') ~= false
 end
 
 ---SpartanUI's bag bar is on, and no other addon's bag bar (ElvUI's) already holds the buttons.
@@ -282,8 +284,9 @@ function module:CreateBagBar()
 	if not module:UsesOwnBagBar() then
 		return
 	end
-	-- The keyring asks its parent to lay out when shown, which only Blizzard's bag bar can do
-	if module:HasKeyring() then
+	-- The keyring asks its parent to lay out when shown, which only Blizzard's bag bar can do.
+	-- The game can switch the keyring on later in the session, so this does not wait for that.
+	if module:SupportsKeyring() then
 		KeyRingButton:SetScript('OnShow', nil)
 	end
 	for _, name in ipairs({ 'CharacterReagentBag0Slot', 'CharacterBag0Slot', 'CharacterBag1Slot', 'CharacterBag2Slot', 'CharacterBag3Slot' }) do
@@ -332,12 +335,18 @@ function module:CreateQueueStatus()
 		QueueStatusButton:ClearAllPoints()
 		QueueStatusButton:SetPoint('CENTER', self, 'CENTER')
 	end
-	hooksecurefunc(QueueStatusButton, 'UpdatePosition', function()
+	local function KeepOnBar()
 		if module:IsActive() and QueueStatusButton:GetParent() == bar then
 			QueueStatusButton:ClearAllPoints()
 			QueueStatusButton:SetPoint('CENTER', bar, 'CENTER')
 		end
-	end)
+	end
+	-- Retail re-anchors the eye in UpdatePosition; WoW Forever does it in UpdateDefaultAnchor.
+	for _, method in ipairs({ 'UpdatePosition', 'UpdateDefaultAnchor' }) do
+		if type(QueueStatusButton[method]) == 'function' then
+			hooksecurefunc(QueueStatusButton, method, KeepOnBar)
+		end
+	end
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -374,13 +383,33 @@ function module:CreateExtraBar()
 			ZoneAbilityFrame.Style:SetShown(not hide)
 		end
 	end
-	-- Edit Mode and the bottom frame manager move the container back; follow them
+	-- Blizzard's bottom frame manager takes the container back every time it is shown, which
+	-- is mid-fight when these buttons appear. Keep it out of that manager for good.
+	local function ReleaseFromManager()
+		content.ignoreFramePositionManager = true
+		local container = (GetBottomManagedFrameContainer and GetBottomManagedFrameContainer()) or _G.UIParentBottomManagedFrameContainer
+		-- Only touch Blizzard's table when the container is actually listed there
+		if container and container.showingFrames and container.showingFrames[content] then
+			container.showingFrames[content] = nil
+		end
+	end
+	ReleaseFromManager()
+	if _G.ExtraAbilityContainer then
+		content:SetScript('OnShow', nil)
+		content:SetScript('OnHide', nil)
+	end
+	-- Edit Mode re-applies its own anchor (and manager membership) when layouts change
+	if content.ApplySystemAnchor then
+		hooksecurefunc(content, 'ApplySystemAnchor', function()
+			ReleaseFromManager()
+			if module:IsActive() then
+				module:RunOutOfCombat('extra', bar.UpdateButtons, bar)
+			end
+		end)
+	end
 	hooksecurefunc(content, 'SetPoint', function()
 		if not placing and module:IsActive() then
 			module:RunOutOfCombat('extra', bar.UpdateButtons, bar)
 		end
 	end)
-	if UIParentBottomManagedFrameContainer and UIParentBottomManagedFrameContainer.showingFrames then
-		UIParentBottomManagedFrameContainer.showingFrames[content] = nil
-	end
 end

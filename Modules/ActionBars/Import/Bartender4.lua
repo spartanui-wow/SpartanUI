@@ -145,18 +145,14 @@ local function ConvertVisibility(visibility)
 	return prefix .. 'show'
 end
 
----Build page-swap rules from Bartender4's state settings.
----@param states table|nil
----@param barID number
----@return string|nil rules Nil means use SpartanUI's default for this bar
 -- Every class token, so a shared profile's page rules carry over for all of them
 local ALL_CLASSES = {}
 for token in pairs(LOCALIZED_CLASS_NAMES_MALE or {}) do
 	ALL_CLASSES[#ALL_CLASSES + 1] = token
 end
 
----Build page-swap rules for one class from Bartender4's state settings. Vehicle paging and
----Shift+number paging are separate SpartanUI settings and are not part of the rules.
+---Build page-swap rules for one class from Bartender4's state settings, in Bartender4's order.
+---Vehicle paging is a separate SpartanUI setting and is not part of the rules.
 ---@param states table
 ---@param class string
 ---@return string rules Empty when the bar has no swaps for this class
@@ -170,6 +166,12 @@ local function ConvertStates(states, class)
 		local page = tonumber(states[mod])
 		if page and page > 0 then
 			rules = rules .. ('[mod:%s] %d; '):format(mod, page)
+		end
+	end
+	-- Shift+number pages come after modifiers and before forms, as in Bartender4
+	if states.actionbar then
+		for page = 2, 6 do
+			rules = rules .. ('[bar:%d] %d; '):format(page, page)
 		end
 	end
 	local stances = type(states.stance) == 'table' and states.stance[class]
@@ -232,6 +234,7 @@ local function ConvertBar(config, buttonCount, migrateWoW10)
 		alpha = tonumber(config.alpha) or 1,
 		mouseover = config.fadeout and true or false,
 		mouseoverAlpha = tonumber(config.fadeoutalpha) or 0.1,
+		fadeOutDelay = config.fadeout and (tonumber(config.fadeoutdelay) or 0.2) or nil,
 		clickThrough = config.clickthrough and true or false,
 		zoom = config.skin and config.skin.Zoom and true or false,
 		visibility = ConvertVisibility(config.visibility),
@@ -330,7 +333,8 @@ function importer:Build(profile)
 		settings.buttonOffset = math.max(0, math.min(tonumber(config.buttonOffset) or 0, 11))
 		local states = type(config.states) == 'table' and config.states or {}
 		settings.vehiclePaging = states.possess and true or false
-		settings.manualPaging = states.actionbar and true or false
+		-- Shift+number pages are part of the converted rules, where Bartender4 checks them
+		settings.manualPaging = false
 		settings.pagingEnabled = states.enabled and true or false
 		-- Bartender4's own stance pages replace SpartanUI's class defaults exactly
 		settings.defaultClassPaging = false
@@ -382,6 +386,11 @@ function importer:Build(profile)
 	local micro = GetModuleData('MicroMenu', profile)
 	if micro then
 		local settings, scale, position = ConvertBar(micro, module:CountMicroButtons(), false)
+		-- Bartender4 steps micro buttons 32px apart (8px closer on modern clients) whatever
+		-- their real width; SpartanUI spaces them from their real width
+		local nativeWidth = CharacterMicroButton and CharacterMicroButton:GetWidth() or 32
+		settings.buttonSpacing = math.floor(32 + (tonumber(micro.padding) or 1) + (SUI.IsRetail and -8 or 0) - nativeWidth + 0.5)
+		settings.backdropSpacing = nil
 		addBar('BT4BarMicroMenu', 'micro', settings, scale, position)
 	end
 
@@ -396,6 +405,7 @@ function importer:Build(profile)
 		for k, v in pairs(bagSettings) do
 			settings[k] = v
 		end
+		settings.backdropSpacing = nil
 		addBar('BT4BarBagBar', 'bags', settings, scale, position)
 	end
 
@@ -406,6 +416,8 @@ function importer:Build(profile)
 	result.settings.rightClickSelfCast = core.selfcastrightclick and true or false
 	result.settings.checkSelfCast = core.selfcastmodifier ~= false
 	result.settings.checkFocusCast = core.focuscastmodifier ~= false
+	result.settings.spellCastVFX = core.spellCastVFX ~= false
+	result.settings.hideBorder = GetActionBarConfig(profile, 1).hideborder and true or false
 	if not spartanProfile and core.blizzardVehicle ~= nil then
 		result.vehicleUI = core.blizzardVehicle and true or false
 	end

@@ -23,6 +23,7 @@ local fadeEvents = {
 	'UPDATE_VEHICLE_ACTIONBAR',
 	'UPDATE_BONUS_ACTIONBAR',
 	'PLAYER_CAN_GLIDE_CHANGED',
+	'PLAYER_IS_GLIDING_CHANGED',
 }
 
 -- Only the player's own casts and vehicle changes matter; registering these for every unit
@@ -75,13 +76,15 @@ function module:ShouldShowFadedBars()
 			return true
 		end
 		if C_PlayerInfo and C_PlayerInfo.GetGlidingInfo then
-			local isGliding = C_PlayerInfo.GetGlidingInfo()
-			if isGliding then
+			-- Mounting up for skyriding only makes gliding possible; taking off is a separate event
+			local isGliding, canGlide = C_PlayerInfo.GetGlidingInfo()
+			if isGliding or canGlide then
 				return true
 			end
 		end
 	end
-	if settings.showWhenHurt and PlayerIsHurt() then
+	-- Health is protected on Retail, where this rule is not offered
+	if settings.showWhenHurt and not SUI.IsRetail and PlayerIsHurt() then
 		return true
 	end
 	return false
@@ -134,6 +137,15 @@ end
 
 ---@param hovering boolean
 function module:SetFadeHover(hovering)
+	-- Leaving one faded bar must not undo the hover of another faded bar the cursor is on
+	if not hovering then
+		for _, bar in pairs(self.bars) do
+			if bar.mouseInside and bar.GetDB and bar:GetDB().inheritGlobalFade then
+				hovering = true
+				break
+			end
+		end
+	end
 	self.fadeHover = hovering
 	self:UpdateGlobalFade()
 end

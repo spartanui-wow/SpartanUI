@@ -152,14 +152,10 @@ local PAGE_SNIPPET = [[
 ]]
 
 -- Button 12 turns into a leave button on vehicle pages, so a vehicle can always be left
--- even when Blizzard's own vehicle bar is not in use. It also ends mind control.
+-- even when Blizzard's own vehicle bar is not in use
 local EXIT_BUTTON = {
 	func = function()
-		if UnitExists('vehicle') then
-			VehicleExit()
-		elseif PetDismiss then
-			PetDismiss()
-		end
+		VehicleExit()
 	end,
 	texture = 'Interface\\Icons\\Spell_Shadow_SacrificialShield',
 	tooltip = LEAVE_VEHICLE,

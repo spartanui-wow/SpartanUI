@@ -150,9 +150,22 @@ function module:CreateTotemBar()
 	-- Edit Mode replaces the anchoring methods on its frames; the Base versions skip its hooks
 	local clearPoints = totems.ClearAllPointsBase or totems.ClearAllPoints
 	local setPoint = totems.SetPointBase or totems.SetPoint
+	local blizzardParent = totems:GetParent()
+	local blizzardPoints = {}
+	for i = 1, totems:GetNumPoints() do
+		blizzardPoints[i] = { totems:GetPoint(i) }
+	end
 	bar.UpdateButtons = function(self)
 		self:SetSize(230, 40)
 		if not self:GetDB().enabled then
+			-- Hand the totem bar back to Blizzard where it was
+			if totems:GetParent() == self then
+				totems:SetParent(blizzardParent)
+				clearPoints(totems)
+				for _, point in ipairs(blizzardPoints) do
+					setPoint(totems, unpack(point))
+				end
+			end
 			return
 		end
 		if not totems.system then
