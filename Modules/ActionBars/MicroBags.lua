@@ -63,7 +63,7 @@ local MicroBar = {}
 
 function MicroBar:UpdateButtons()
 	self.manageButtonVisibility = true
-	if self.lent then
+	if self.lent or not self:GetDB().enabled then
 		return
 	end
 	local shown = {}
@@ -127,7 +127,7 @@ function module:CreateMicroMenu()
 
 	if MicroMenu then
 		hooksecurefunc(MicroMenu, 'SetParent', function(_, parent)
-			if module:IsActive() then
+			if module:IsActive() and bar:GetDB().enabled then
 				bar:OnBlizzardReparent(parent)
 			end
 		end)
@@ -178,6 +178,9 @@ end
 
 function BagBar:UpdateButtons()
 	self.manageButtonVisibility = true
+	if not self:GetDB().enabled then
+		return
+	end
 	local wanted = self:GetOrderedButtons()
 	local keep = {}
 	for _, button in ipairs(wanted) do

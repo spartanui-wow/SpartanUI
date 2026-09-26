@@ -1241,3 +1241,6 @@ L['Order within the layer. 0 keeps the default.'] = true
 L['Backdrop'] = true
 L['Backdrop border'] = true
 L['Totem Bar'] = true
+L['Turning this off gives the buttons back to the standard game layout. Needs a reload.'] = true
+L['Style text for this bar'] = true
+L['Use different fonts on this bar than the ones set in the General tab.'] = true

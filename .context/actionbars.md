@@ -61,6 +61,10 @@ The actual frames are `SUI_ActionBar<N>` (buttons `SUI_ActionBar<N>Button<i>`), 
 
 **Paging.** Bar 1's driver is `[overridebar][possessbar][shapeshift] possess; [bonusbar:5] possess;` + (paging enabled: `[bar:2] 2 ... [bar:6] 6;` + class rules) + `1`. `possess` is resolved inside the secure `_onstate-page` snippet (vehicle, override, temp shapeshift, bonus bar index), which works on every client. `paging[CLASS]` holds a player's custom rules; empty means the per-version default in `DefaultClassPaging`.
 
+**Micro menu and bag bar fall back to Blizzard.** With either bar turned off, SpartanUI leaves Blizzard's `MicroMenu`/`BagsBar` alone instead of hiding the buttons; toggling it asks for a reload. While Blizzard's vehicle bar or pet battle UI takes the micro menu (`MicroMenu:SetParent` hook), the buttons are lent back and reclaimed afterwards.
+
+**Text styling.** `text.hotkey/count/macro` in the module root is the shared style; an action bar with `customText = true` merges its own `bars[id].text` over it. Importers set this for bars whose fonts differ from bar 1 (ElvUI) or were changed (Bartender4).
+
 **Blizzard vehicle UI.** SpartanUI defaults to Blizzard's vehicle bar (`Artwork.VehicleUI = true`). In that mode `OverrideActionBar` stays alive and action/stance bars get `[overridebar][vehicleui] hide;` prepended to their visibility.
 
 ## Importers
@@ -74,4 +78,4 @@ Importers only work while the source addon is loaded (its SavedVariables are onl
 ## Not built yet
 
 - Extra action button / zone ability holders: left to Blizzard (EditMode on modern clients), as the previous Bartender4 setup did.
-- Desaturate-on-cooldown, per-bar fonts, backdrop colour options, ElvUI export-string import.
+- Desaturate-on-cooldown and ElvUI export-string import.

@@ -290,12 +290,17 @@ function importer:Build(profile)
 		result.settings.bars[id] = settings
 		addBar('BT4Bar' .. id, nil, nil, scale, position)
 
+		local text = {
+			hotkey = ConvertText(config.elements, 'hotkey'),
+			count = ConvertText(config.elements, 'count'),
+			macro = ConvertText(config.elements, 'macro'),
+		}
 		if id == 1 then
-			result.settings.text = {
-				hotkey = ConvertText(config.elements, 'hotkey'),
-				count = ConvertText(config.elements, 'count'),
-				macro = ConvertText(config.elements, 'macro'),
-			}
+			result.settings.text = text
+		elseif type(saved) == 'table' and type(saved.elements) == 'table' then
+			-- Only bars whose fonts were changed in Bartender4 get their own text style
+			settings.customText = true
+			settings.text = text
 		end
 	end
 

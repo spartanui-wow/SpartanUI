@@ -292,6 +292,9 @@ function module:UpdateActionBarConfig(bar)
 	local global = self.CurrentSettings
 	local db = bar:GetDB()
 	local text = global.text
+	if db.customText and type(db.text) == 'table' then
+		text = SUI:MergeData(SUI:CopyData({}, global.text), db.text, true)
+	end
 
 	local flyoutDirection = bar:GetFlyoutDirection()
 	for i, button in ipairs(bar.buttons) do

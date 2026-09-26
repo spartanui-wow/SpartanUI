@@ -83,6 +83,36 @@ local function ConvertText(src, prefix, offsetPrefix)
 	return text
 end
 
+---All three text styles for one ElvUI bar.
+---@param src table
+---@return table
+local function ConvertBarText(src)
+	return {
+		hotkey = ConvertText(src, 'hotkey', 'hotkeyText'),
+		count = ConvertText(src, 'count', src.countTextXOffset and 'countText' or 'countFont'),
+		macro = ConvertText(src, 'macro', 'macroText'),
+	}
+end
+
+---@param a table
+---@param b table
+---@return boolean
+local function SameText(a, b)
+	for _, element in ipairs({ 'hotkey', 'count', 'macro' }) do
+		local x, y = a[element], b[element]
+		for _, key in ipairs({ 'face', 'size', 'flags', 'anchor', 'x', 'y' }) do
+			if x[key] ~= y[key] then
+				return false
+			end
+		end
+		local cx, cy = x.color, y.color
+		if (cx == nil) ~= (cy == nil) or (cx and (cx[1] ~= cy[1] or cx[2] ~= cy[2] or cx[3] ~= cy[3])) then
+			return false
+		end
+	end
+	return true
+end
+
 ---Layout, fading and visibility shared by every ElvUI bar type.
 ---@param src table
 ---@return table
@@ -168,14 +198,22 @@ function importer:Build(profile)
 		alpha = 1 - fadeAlpha,
 	}
 
-	-- ElvUI styles text per bar; bar 1's text becomes SpartanUI's shared style
+	-- ElvUI styles text per bar: bar 1's style becomes the shared one, and any bar that
+	-- differs from it keeps its own
 	local bar1 = ab.bar1
 	if type(bar1) == 'table' then
-		result.settings.text = {
-			hotkey = ConvertText(bar1, 'hotkey', 'hotkeyText'),
-			count = ConvertText(bar1, 'count', bar1.countTextXOffset and 'countText' or 'countFont'),
-			macro = ConvertText(bar1, 'macro', 'macroText'),
-		}
+		local shared = ConvertBarText(bar1)
+		result.settings.text = shared
+		for id, bar in pairs(result.settings.bars) do
+			local src = ab['bar' .. (swap[id] or id)]
+			if id ~= 1 and type(src) == 'table' then
+				local own = ConvertBarText(src)
+				if not SameText(own, shared) then
+					bar.customText = true
+					bar.text = own
+				end
+			end
+		end
 	end
 
 	if type(ab.barPet) == 'table' then

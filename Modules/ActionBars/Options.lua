@@ -307,6 +307,71 @@ local function BuildCommonBarArgs(bar, path, features)
 	return args
 end
 
+---Font controls for one button text element.
+---@param element string hotkey, count or macro
+---@param name string
+---@param order number
+---@param path any[] Where the values are stored
+---@param fallbackPath? any[] Values shown until this element is customized
+---@param apply fun()
+---@param disabled? fun(): boolean
+---@return table
+local function BuildTextOptions(element, name, order, path, fallbackPath, apply, disabled)
+	local function read(key)
+		local value = module:GetSetting(path, key)
+		if value == nil and fallbackPath then
+			value = module:GetSetting(fallbackPath, key)
+		end
+		return value
+	end
+	return {
+		name = name,
+		type = 'group',
+		inline = true,
+		order = order,
+		disabled = disabled,
+		get = function(info)
+			return read(info[#info])
+		end,
+		set = function(info, value)
+			module:SetSetting(path, info[#info], value)
+			apply()
+		end,
+		args = {
+			face = {
+				name = L['Font'],
+				type = 'select',
+				order = 1,
+				values = function()
+					local fonts = { [''] = L['Default'] }
+					for fontName in pairs(SUI.Lib.LSM:HashTable('font')) do
+						fonts[fontName] = fontName
+					end
+					return fonts
+				end,
+			},
+			size = { name = L['Size'], type = 'range', order = 2, min = 4, max = 40, step = 1 },
+			flags = { name = L['Outline'], type = 'select', order = 3, values = FONT_FLAGS },
+			anchor = { name = L['Position'], type = 'select', order = 4, values = TEXT_ANCHORS },
+			x = { name = L['X offset'], type = 'range', order = 5, min = -30, max = 30, step = 1 },
+			y = { name = L['Y offset'], type = 'range', order = 6, min = -30, max = 30, step = 1 },
+			color = {
+				name = L['Color'],
+				type = 'color',
+				order = 7,
+				get = function()
+					local c = read('color') or { 1, 1, 1 }
+					return c[1], c[2], c[3]
+				end,
+				set = function(_, r, g, b)
+					module:SetSetting(path, 'color', { r, g, b })
+					apply()
+				end,
+			},
+		},
+	}
+end
+
 ---@param id number
 ---@param bar SUI.ActionBars.ActionBar
 ---@return table
@@ -338,6 +403,23 @@ local function BuildActionBarOptions(id, bar)
 		order = 27,
 		values = FLYOUT_DIRECTIONS,
 	}
+
+	args.textHeader = { name = L['Button text'], type = 'header', order = 60 }
+	args.customText = {
+		name = L['Style text for this bar'],
+		desc = L['Use different fonts on this bar than the ones set in the General tab.'],
+		type = 'toggle',
+		order = 61,
+	}
+	local function applyBar()
+		module:UpdateActionBarConfig(bar)
+	end
+	local function notCustom()
+		return not module:GetSetting(path, 'customText')
+	end
+	args.hotkeyTextStyle = BuildTextOptions('hotkey', L['Key binding'], 62, { 'bars', id, 'text', 'hotkey' }, { 'text', 'hotkey' }, applyBar, notCustom)
+	args.countTextStyle = BuildTextOptions('count', L['Item count'], 63, { 'bars', id, 'text', 'count' }, { 'text', 'count' }, applyBar, notCustom)
+	args.macroTextStyle = BuildTextOptions('macro', L['Macro name'], 64, { 'bars', id, 'text', 'macro' }, { 'text', 'macro' }, applyBar, notCustom)
 
 	args.pagingHeader = { name = L['Page swapping'], type = 'header', order = 50 }
 	args.pagingEnabled = {
@@ -406,6 +488,14 @@ local function BuildSpecialBarOptions(key, settingsKey, order, extra)
 	for k, v in pairs(extra or {}) do
 		args[k] = v
 	end
+	-- These bars take Blizzard's own buttons; handing them back needs a reload
+	if settingsKey == 'micro' or settingsKey == 'bags' then
+		args.enabled.desc = L['Turning this off gives the buttons back to the standard game layout. Needs a reload.']
+		args.enabled.set = function(_, value)
+			module:SetSetting(path, 'enabled', value)
+			SUI:reloadui()
+		end
+	end
 	return {
 		name = bar.displayName,
 		type = 'group',
@@ -420,65 +510,13 @@ end
 -- General tab
 ----------------------------------------------------------------------------------------------------
 
----@param element string
----@param order number
----@return table
-local function BuildTextOptions(element, name, order)
-	local path = { 'text', element }
-	local function apply()
-		module:UpdateButtonConfig()
-	end
-	return {
-		name = name,
-		type = 'group',
-		inline = true,
-		order = order,
-		get = function(info)
-			return module:GetSetting(path, info[#info])
-		end,
-		set = function(info, value)
-			module:SetSetting(path, info[#info], value)
-			apply()
-		end,
-		args = {
-			face = {
-				name = L['Font'],
-				type = 'select',
-				order = 1,
-				values = function()
-					local fonts = { [''] = L['Default'] }
-					for fontName in pairs(SUI.Lib.LSM:HashTable('font')) do
-						fonts[fontName] = fontName
-					end
-					return fonts
-				end,
-			},
-			size = { name = L['Size'], type = 'range', order = 2, min = 4, max = 40, step = 1 },
-			flags = { name = L['Outline'], type = 'select', order = 3, values = FONT_FLAGS },
-			anchor = { name = L['Position'], type = 'select', order = 4, values = TEXT_ANCHORS },
-			x = { name = L['X offset'], type = 'range', order = 5, min = -30, max = 30, step = 1 },
-			y = { name = L['Y offset'], type = 'range', order = 6, min = -30, max = 30, step = 1 },
-			color = {
-				name = L['Color'],
-				type = 'color',
-				order = 7,
-				get = function()
-					local c = module:GetSetting(path, 'color') or { 1, 1, 1 }
-					return c[1], c[2], c[3]
-				end,
-				set = function(_, r, g, b)
-					module:SetSetting(path, 'color', { r, g, b })
-					apply()
-				end,
-			},
-		},
-	}
-end
-
 ---@return table
 local function BuildGeneralOptions()
 	local function applyAll()
 		module:ApplyAll()
+	end
+	local function updateButtons()
+		module:UpdateButtonConfig()
 	end
 	local function colorOption(key, name, order)
 		return {
@@ -665,9 +703,9 @@ local function BuildGeneralOptions()
 				},
 			},
 			textHeader = { name = L['Button text'], type = 'header', order = 40 },
-			hotkeyText = BuildTextOptions('hotkey', L['Key binding'], 41),
-			countText = BuildTextOptions('count', L['Item count'], 42),
-			macroText = BuildTextOptions('macro', L['Macro name'], 43),
+			hotkeyText = BuildTextOptions('hotkey', L['Key binding'], 41, { 'text', 'hotkey' }, nil, updateButtons),
+			countText = BuildTextOptions('count', L['Item count'], 42, { 'text', 'count' }, nil, updateButtons),
+			macroText = BuildTextOptions('macro', L['Macro name'], 43, { 'text', 'macro' }, nil, updateButtons),
 		},
 	}
 end

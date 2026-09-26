@@ -99,6 +99,8 @@ local function ActionBarDefaults(id)
 		visibility = DefaultBarVisibility(id),
 		pagingEnabled = id == 1,
 		paging = {},
+		customText = false,
+		text = { hotkey = {}, count = {}, macro = {} },
 	}
 end
 

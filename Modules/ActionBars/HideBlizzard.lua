@@ -102,8 +102,15 @@ function module:HideBlizzard()
 	HideBarFrame(PetActionBar or PetActionBarFrame, false)
 	HideBarFrame(PossessActionBar, true)
 	HideBarFrame(PossessBarFrame, false)
-	HideBarFrame(BagsBar, true)
-	HideBarFrame(MicroMenu, true)
+	-- With SpartanUI's bag or menu bar turned off, Blizzard's stays as it is
+	if self.CurrentSettings.bags.enabled then
+		HideBarFrame(BagsBar, true)
+	end
+	if self.CurrentSettings.micro.enabled then
+		HideBarFrame(MicroMenu, true)
+	end
+	-- SpartanUI draws its own experience and reputation bars
+	HideBarFrame(StatusTrackingBarManager, false)
 
 	-- The totem bar keeps its events so shaman totem buttons keep working where it exists
 	if MultiCastActionBarFrame and select(2, UnitClass('player')) ~= 'SHAMAN' then
@@ -116,6 +123,11 @@ function module:HideBlizzard()
 		MainMenuBar:UnregisterEvent('PLAYER_REGEN_DISABLED')
 		MainMenuBar:UnregisterEvent('ACTIONBAR_SHOWGRID')
 		MainMenuBar:UnregisterEvent('ACTIONBAR_HIDEGRID')
+	end
+
+	-- The vehicle exit button is a child of the main bar that was just hidden
+	if MainMenuBarVehicleLeaveButton and MainMenuBarVehicleLeaveButton:GetParent() ~= UIParent then
+		MainMenuBarVehicleLeaveButton:SetParent(UIParent)
 	end
 
 	self:UpdateBlizzardVehicle()
