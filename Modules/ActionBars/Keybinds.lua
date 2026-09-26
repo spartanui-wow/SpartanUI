@@ -105,14 +105,22 @@ end
 function module:CountBartender4Bindings()
 	local count = 0
 	for command in pairs(self:GetBartender4BindingMap()) do
-		count = count + select('#', GetBindingKey(command))
+		for _, key in ipairs({ GetBindingKey(command) }) do
+			if GetBindingAction(key) == command then
+				count = count + 1
+			end
+		end
 	end
 	return count
 end
 
-function module:MigrateBartender4Bindings()
-	if _G.Bartender4 or InCombatLockdown() then
+---@param final? boolean Bindings are surely loaded, so this is the last pass this session
+function module:MigrateBartender4Bindings(final)
+	if self.bt4BindingsMigrated or _G.Bartender4 or InCombatLockdown() then
 		return
+	end
+	if final then
+		self.bt4BindingsMigrated = true
 	end
 	local moved = self:MigrateBindings(self:GetBartender4BindingMap())
 	if moved > 0 then
@@ -132,7 +140,7 @@ function module:SetupKeybinds()
 	local migrateWatcher = CreateFrame('Frame')
 	migrateWatcher:RegisterEvent('PLAYER_ENTERING_WORLD')
 	migrateWatcher:SetScript('OnEvent', function()
-		module:RunOutOfCombat('bt4bindings', module.MigrateBartender4Bindings, module)
+		module:RunOutOfCombat('bt4bindings', module.MigrateBartender4Bindings, module, true)
 	end)
 
 	-- The housing editor uses the number keys for its own tools
