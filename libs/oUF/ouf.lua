@@ -1050,6 +1050,11 @@ do
 			if(self.removedCallback) then
 				self.removedCallback(nameplate.unitFrame, event, unit)
 			end
+		elseif(event == 'CVAR_UPDATE' and unit == 'nameplateShowFriendlyNpcs') then
+			-- BUG: when toggling this cvar friendly nameplates sometimes doesn't show
+			for _, nameplate in next, C_NamePlate.GetNamePlates() do
+				driverEventHandler(self, 'NAME_PLATE_UNIT_ADDED', nameplate.unitToken)
+			end
 		end
 	end
 
@@ -1076,6 +1081,7 @@ do
 		nameplateDriver:RegisterEvent('NAME_PLATE_UNIT_ADDED')
 		nameplateDriver:RegisterEvent('NAME_PLATE_UNIT_REMOVED')
 		nameplateDriver:RegisterEvent('PLAYER_TARGET_CHANGED')
+		nameplateDriver:RegisterEvent('CVAR_UPDATE')
 
 		-- we'd prefer to straight up disable blizzard's nameplate driver, but nameplates contain
 		-- widgets and soft target icons we can't recreate due to protections, and it handles the
@@ -1139,6 +1145,19 @@ function oUF:AddMetaElement(name, create, update, enable, disable)
 		disable = disable,
 	}
 	self:RegisterMetaFunction('Create' .. name, create)
+end
+
+--[[ oUF:GetUnitFrame(unit)
+Query oUF for a frame attached to the unit.  
+
+Layouts can opt out of this by defining `.dontExpose` on each frame.
+--]]
+function oUF:GetUnitFrame(unit)
+	for _, object in next, self.objects do
+		if(object.__unit == unit and not object.dontExpose) then
+			return object
+		end
+	end
 end
 
 oUF.version = _VERSION

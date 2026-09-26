@@ -21,10 +21,10 @@ read_globals = {
 
 	-- FrameXML
 	'AnchorUtil',
-	'AuraUtil',
 	'ArenaEnemyMatchFramesContainer',
 	'AuraContainerSortDirection',
 	'AuraContainerSortMethod',
+	'AuraUtil',
 	'BossTargetFrameContainer',
 	'Clamp',
 	'ColorMixin',
@@ -51,7 +51,9 @@ read_globals = {
 	'TargetFrameToT',
 	'TargetofFocusFrame',
 	'TotemFrame',
+	'UnitFrameUtil',
 	'UIParent',
+	'UnitFrameUtil',
 
 	-- namespaces
 	'C_AddOns',
@@ -64,6 +66,8 @@ read_globals = {
 	'C_IncomingSummon',
 	'C_NamePlate',
 	'C_NamePlateManager',
+	'C_PetInfo',
+	'C_PartyInfo',
 	'C_PvP',
 	'C_Secrets',
 	'C_SpecializationInfo',
@@ -148,9 +152,11 @@ read_globals = {
 	'UnitInRaid',
 	'UnitInRange',
 	'UnitIsConnected',
+	'UnitIsEnemy',
 	'UnitIsGameObject',
 	'UnitIsGroupAssistant',
 	'UnitIsGroupLeader',
+	'UnitIsHumanPlayer',
 	'UnitIsMercenary',
 	'UnitIsOwnerOrControllerOfUnit',
 	'UnitIsPVP',
@@ -182,4 +188,5 @@ read_globals = {
 	'geterrorhandler',
 	'hooksecurefunc',
 	'issecretvalue',
+	'scrubsecretvalues',
 }
