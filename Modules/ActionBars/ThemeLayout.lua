@@ -208,9 +208,10 @@ BarSystem:AddBarSystem(
 	end,
 	nil,
 	function()
+		-- The standard move mode: clicking again, Escape or its toolbar all leave it
 		local MoveIt = SUI:GetModule('MoveIt', true) ---@type MoveIt
-		if MoveIt then
-			MoveIt:MoveIt(module:GetMoverNames())
+		if MoveIt and MoveIt.MoverMode then
+			MoveIt.MoverMode:Toggle()
 		end
 	end,
 	function()

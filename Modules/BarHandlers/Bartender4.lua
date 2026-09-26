@@ -212,8 +212,12 @@ local function SetupProfile()
 end
 
 local function Unlock()
-	-- Move them!
-	MoveIt:MoveIt(FrameList)
+	-- The standard move mode: clicking again, Escape or its toolbar all leave it
+	if MoveIt.MoverMode then
+		MoveIt.MoverMode:Toggle()
+	else
+		MoveIt:MoveIt(FrameList)
+	end
 end
 
 -- Returns True if the Inputed profileName is in BT4
