@@ -208,8 +208,8 @@ AuraPresets.Presets = {
 	},
 }
 
--- Retail-only presets (hidden on Classic where the full filter system covers these use cases)
-if SUI.IsRetail then
+-- Container-only presets (hidden on Classic where the full filter system covers these use cases)
+if UF.IsModernOUF then
 	AuraPresets.Presets.show_all = {
 		name = 'Show All',
 		description = 'Shows every buff and debuff with no filtering.',
@@ -344,11 +344,11 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 		return
 	end
 
-	local branch = SUI.IsRetail and 'retail' or 'classic'
+	local branch = UF.IsModernOUF and 'retail' or 'classic'
 
 	-- Retail gives buffs and debuffs their own containers, where the preset's
 	-- Debuffs entries map onto groups 1 and 2.
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		self:ApplyPresetToGroupElement(unitName, preset)
 		SUI:Print(string.format('Applied "%s" aura preset to %s', preset.name, unitName))
 		return

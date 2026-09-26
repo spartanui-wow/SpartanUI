@@ -12,7 +12,7 @@ local function Builder(frame)
 	UF.Elements:Build(frame, 'Portrait', elementDB['Portrait'])
 	UF.Elements:Build(frame, 'Dispel', elementDB['Dispel'])
 	UF.Elements:Build(frame, 'SpartanArt', elementDB['SpartanArt'])
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		UF.Elements:Build(frame, 'BuffContainer', elementDB['BuffContainer'])
 		UF.Elements:Build(frame, 'DebuffContainer', elementDB['DebuffContainer'])
 		UF.Elements:Build(frame, 'CustomAuras', elementDB['CustomAuras'])
@@ -43,11 +43,11 @@ local function Builder(frame)
 	UF.Elements:Build(frame, 'RareElite', elementDB['RareElite'])
 	UF.Elements:Build(frame, 'AuraBars', elementDB['AuraBars'])
 
-	if not SUI.IsRetail then
+	if not UF.IsModernOUF then
 		UF.Elements:Build(frame, 'AuraWatch', elementDB['AuraWatch'])
 	end
 	UF.Elements:Build(frame, 'CustomText', elementDB['CustomText'])
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		UF.Elements:Build(frame, 'AuraTracker', elementDB['AuraTracker'])
 	else
 		UF.Elements:Build(frame, 'AuraDesigner', elementDB['AuraDesigner'])

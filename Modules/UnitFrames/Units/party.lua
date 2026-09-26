@@ -9,11 +9,11 @@ local elementList = {
 	'Portrait',
 	'Dispel',
 	'SpartanArt',
-	not SUI.IsRetail and 'Buffs',
-	not SUI.IsRetail and 'Debuffs',
-	SUI.IsRetail and 'BuffContainer',
-	SUI.IsRetail and 'DebuffContainer',
-	SUI.IsRetail and 'CustomAuras',
+	not UF.IsModernOUF and 'Buffs',
+	not UF.IsModernOUF and 'Debuffs',
+	UF.IsModernOUF and 'BuffContainer',
+	UF.IsModernOUF and 'DebuffContainer',
+	UF.IsModernOUF and 'CustomAuras',
 	'ClassIcon',
 	'RaidTargetIndicator',
 	'TargetIndicator',
@@ -34,12 +34,12 @@ local elementList = {
 	'SUI_RaidGroup',
 	'AuraWatch',
 	'DefensiveIndicator',
-	not SUI.IsRetail and 'RaidDebuffs',
+	not UF.IsModernOUF and 'RaidDebuffs',
 	'CornerIndicators',
 	'PrivateAuras',
 	'CustomText',
-	not SUI.IsRetail and 'AuraDesigner',
-	SUI.IsRetail and 'AuraTracker',
+	not UF.IsModernOUF and 'AuraDesigner',
+	UF.IsModernOUF and 'AuraTracker',
 }
 
 local function groupingOrder()
@@ -54,7 +54,7 @@ local function GroupBuilder(holder)
 	local settings = UF.CurrentSettings.party
 	local growthMap = UF.Options.GrowthDirectionMap[settings.growthDirection] or UF.Options.GrowthDirectionMap['DOWN_RIGHT']
 
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		-- Retail uses templateType
 		holder.header = SUIUF:SpawnHeader(
 			'SUI_UF_party_Header',

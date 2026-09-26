@@ -117,7 +117,7 @@ Auras.GROUP_DEFAULTS = {
 ---Whether the client provides the native aura container objects.
 ---@return boolean
 function Auras:HasNativeContainers()
-	return SUI.IsRetail and C_UnitAuras ~= nil and AuraContainerSortMethod ~= nil
+	return UF.IsModernOUF and C_UnitAuras ~= nil and AuraContainerSortMethod ~= nil
 end
 
 ---Storage key for a group or tracked spell.

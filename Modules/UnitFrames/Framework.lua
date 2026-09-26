@@ -9,6 +9,12 @@ UF.Core = true
 UF.CurrentSettings = {}
 UF.BuildDebug = false -- Set to true to enable verbose build logging
 
+-- Which oUF build is loaded, not which game flavor. Retail and WoW Forever both load
+-- the mainline oUF (12.1 aura containers, SpawnHeader without a visibility argument);
+-- the Classic flavors load oUF_Classic. Gate anything that depends on the oUF contract
+-- on this rather than SUI.IsRetail, which answers the content question instead.
+UF.IsModernOUF = SUIUF and SUIUF.AddMetaElement ~= nil or false
+
 ---@class SUI.UF.FramePositions
 local UFPositionDefaults = {
 	['player'] = 'BOTTOMRIGHT,UIParent,BOTTOM,-60,250',
@@ -238,7 +244,7 @@ end
 ---and whitelist/blacklist have no counterpart now that Blizzard does the
 ---filtering.
 local function MigrateAuraContainers()
-	if not SUI.IsRetail or UF.DB._auraContainersMigrated then
+	if not UF.IsModernOUF or UF.DB._auraContainersMigrated then
 		return
 	end
 
@@ -549,7 +555,7 @@ function UF:OnInitialize()
 	-- Only the Classic aura path checks this map; Retail filters auras engine
 	-- side and never reads it. Building it there means a journal lookup per
 	-- collected mount at every login for nothing.
-	if not SUI.IsRetail then
+	if not UF.IsModernOUF then
 		UF:BuildMountList()
 	end
 end
@@ -1397,7 +1403,7 @@ function UF:RegisterSetupWizardPages()
 		-- Only add aura preset selector if system is loaded and frame has auras.
 		-- Both flavors keep buffs and debuffs in their own element now; only
 		-- the names differ.
-		local auraHost = SUI.IsRetail and 'BuffContainer' or 'Buffs'
+		local auraHost = UF.IsModernOUF and 'BuffContainer' or 'Buffs'
 		if UF.AuraPresets and getElemCS(auraHost) then
 			defs.buffFilter = {
 				type = 'dropdown',
@@ -1407,7 +1413,7 @@ function UF:RegisterSetupWizardPages()
 				get = function()
 					local buffsMode, debuffsMode
 
-					if SUI.IsRetail then
+					if UF.IsModernOUF then
 						local buffsCS = getElemCS('BuffContainer')
 						local debuffsCS = getElemCS('DebuffContainer')
 						if not buffsCS or not debuffsCS then
@@ -1425,7 +1431,7 @@ function UF:RegisterSetupWizardPages()
 						debuffsMode = debuffsCS.classic and debuffsCS.classic.filterMode
 					end
 
-					local branch = SUI.IsRetail and 'retail' or 'classic'
+					local branch = UF.IsModernOUF and 'retail' or 'classic'
 					for key, preset in pairs(UF.AuraPresets.Presets) do
 						local pb = preset.Buffs and preset.Buffs[branch] and preset.Buffs[branch].filterMode
 						local pd = preset.Debuffs and preset.Debuffs[branch] and preset.Debuffs[branch].filterMode

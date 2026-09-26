@@ -128,7 +128,7 @@ local function EnsureLoaded(themeName)
 
 	-- Themes still describe auras as Buffs/Debuffs. Retail draws them through
 	-- their own containers, so translate once here rather than in every theme.
-	if SUI.IsRetail and type(dataCache[themeName]) == 'table' and type(dataCache[themeName].frames) == 'table' then
+	if SUI.UF and SUI.UF.IsModernOUF and type(dataCache[themeName]) == 'table' and type(dataCache[themeName].frames) == 'table' then
 		TranslateThemeAuras(dataCache[themeName].frames)
 	end
 

@@ -11,11 +11,11 @@ local elementList = {
 	'Portrait',
 	'Dispel',
 	'SpartanArt',
-	not SUI.IsRetail and 'Buffs',
-	not SUI.IsRetail and 'Debuffs',
-	SUI.IsRetail and 'BuffContainer',
-	SUI.IsRetail and 'DebuffContainer',
-	SUI.IsRetail and 'CustomAuras',
+	not UF.IsModernOUF and 'Buffs',
+	not UF.IsModernOUF and 'Debuffs',
+	UF.IsModernOUF and 'BuffContainer',
+	UF.IsModernOUF and 'DebuffContainer',
+	UF.IsModernOUF and 'CustomAuras',
 	'ClassIcon',
 	'RaidTargetIndicator',
 	'TargetIndicator',
@@ -36,12 +36,12 @@ local elementList = {
 	'SUI_RaidGroup',
 	'AuraWatch',
 	'DefensiveIndicator',
-	not SUI.IsRetail and 'RaidDebuffs',
+	not UF.IsModernOUF and 'RaidDebuffs',
 	'CornerIndicators',
 	'PrivateAuras',
 	'CustomText',
-	not SUI.IsRetail and 'AuraDesigner',
-	SUI.IsRetail and 'AuraTracker',
+	not UF.IsModernOUF and 'AuraDesigner',
+	UF.IsModernOUF and 'AuraTracker',
 }
 
 -- Tier definitions: 3 independent raid frame types
@@ -268,7 +268,7 @@ local function SpawnSingleHeader(holder, tierName, headerName, settings, configF
 	end
 
 	local header
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		local args = {
 			headerName,
 			nil,

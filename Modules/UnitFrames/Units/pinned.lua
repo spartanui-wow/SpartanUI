@@ -7,11 +7,11 @@ local elementList = {
 	'Power',
 	'Dispel',
 	'SpartanArt',
-	not SUI.IsRetail and 'Buffs',
-	not SUI.IsRetail and 'Debuffs',
-	SUI.IsRetail and 'BuffContainer',
-	SUI.IsRetail and 'DebuffContainer',
-	SUI.IsRetail and 'CustomAuras',
+	not UF.IsModernOUF and 'Buffs',
+	not UF.IsModernOUF and 'Debuffs',
+	UF.IsModernOUF and 'BuffContainer',
+	UF.IsModernOUF and 'DebuffContainer',
+	UF.IsModernOUF and 'CustomAuras',
 	'RaidTargetIndicator',
 	'ThreatIndicator',
 	'Range',
@@ -21,8 +21,8 @@ local elementList = {
 	'DefensiveIndicator',
 	'CornerIndicators',
 	'CustomText',
-	not SUI.IsRetail and 'AuraDesigner',
-	SUI.IsRetail and 'AuraTracker',
+	not UF.IsModernOUF and 'AuraDesigner',
+	UF.IsModernOUF and 'AuraTracker',
 }
 
 -- Build the nameList string from settings
@@ -79,7 +79,7 @@ local function GroupBuilder(holder)
 	local growthMap = UF.Options.GrowthDirectionMap[settings.growthDirection] or UF.Options.GrowthDirectionMap['DOWN_RIGHT']
 	local nameList = BuildNameList(settings)
 
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		holder.header = SUIUF:SpawnHeader(
 			'SUI_UF_pinned_Header',
 			nil,

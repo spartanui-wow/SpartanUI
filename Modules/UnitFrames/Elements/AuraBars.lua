@@ -165,7 +165,7 @@ local function Build(frame, DB)
 		-- Retail vs Classic filtering approach
 		-- Retail: Cannot access spellId due to secret values - use boolean properties only
 		-- Classic: Full access to spellId for spell-specific filtering
-		if SUI.IsRetail then
+		if UF.IsModernOUF then
 			return self:RetailAuraFilter(unit, data)
 		else
 			return self:ClassicAuraFilter(unit, data)
@@ -311,7 +311,7 @@ local function Build(frame, DB)
 	-- Plugin calls: CustomFilter(element, unit, bar, auraData, name)
 	-- auraData is the full AuraData struct on Retail, nil on Classic
 	element.CustomFilter = function(element, unit, bar, auraData, name)
-		if SUI.IsRetail then
+		if UF.IsModernOUF then
 			return element:RetailAuraFilter(unit, auraData)
 		end
 
@@ -357,7 +357,7 @@ local function Update(frame, settings)
 	element.maxBars = DB.maxBars or 32
 	element.barSpacing = DB.barSpacing or 2
 
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		local filterMode = DB.filterMode or 'healer'
 		if filterMode == 'healer' then
 			element.friendlyAuraType = 'HELPFUL|PLAYER|RAID_IN_COMBAT'
@@ -432,15 +432,15 @@ local function Options(unitName, OptionSet)
 		args = {
 			filterMode = {
 				name = L['Filtering Mode'],
-				desc = SUI.IsRetail and L['Choose how aura bars are filtered. Healer shows your helpful auras, DPS shows your harmful auras, Tank shows your defensive auras.']
+				desc = UF.IsModernOUF and L['Choose how aura bars are filtered. Healer shows your helpful auras, DPS shows your harmful auras, Tank shows your defensive auras.']
 					or L['Choose how aura bars are filtered. Healer mode shows HoTs, DPS mode shows DoTs, Tank mode shows defensive buffs.'],
 				type = 'select',
 				order = 1,
 				values = {
-					healer = SUI.IsRetail and L['Healer (Your Helpful Auras)'] or L['Healer (HoTs & Defensive)'],
-					dps = SUI.IsRetail and L['DPS (Your Harmful Auras)'] or L['DPS (DoTs & Offensive)'],
-					tank = SUI.IsRetail and L['Tank (Your Defensive Auras)'] or L['Tank (Defensive & Short Buffs)'],
-					custom = SUI.IsRetail and L['Custom (Your Auras + Boss)'] or L['Custom (Use Advanced Filters)'],
+					healer = UF.IsModernOUF and L['Healer (Your Helpful Auras)'] or L['Healer (HoTs & Defensive)'],
+					dps = UF.IsModernOUF and L['DPS (Your Harmful Auras)'] or L['DPS (DoTs & Offensive)'],
+					tank = UF.IsModernOUF and L['Tank (Your Defensive Auras)'] or L['Tank (Defensive & Short Buffs)'],
+					custom = UF.IsModernOUF and L['Custom (Your Auras + Boss)'] or L['Custom (Use Advanced Filters)'],
 				},
 				get = function()
 					return ElementSettings.filterMode
@@ -467,7 +467,7 @@ local function Options(unitName, OptionSet)
 				type = 'toggle',
 				order = 3,
 				hidden = function()
-					return SUI.IsRetail
+					return UF.IsModernOUF
 				end, -- Hidden in Retail - legacy filter uses duration which is unavailable
 				get = function()
 					return ElementSettings.useLegacyFilter
@@ -482,7 +482,7 @@ local function Options(unitName, OptionSet)
 				type = 'range',
 				order = 4,
 				hidden = function()
-					return SUI.IsRetail
+					return UF.IsModernOUF
 				end, -- Hidden in Retail - duration access unavailable
 				min = 30,
 				max = 3600,
@@ -499,7 +499,7 @@ local function Options(unitName, OptionSet)
 
 	-- Add standard filtering options using the shared system
 	local FilterGet, FilterSet
-	if SUI.IsRetail then
+	if UF.IsModernOUF then
 		FilterGet = function()
 			return false
 		end

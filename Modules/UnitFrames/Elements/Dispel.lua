@@ -318,7 +318,7 @@ end
 ---@param element table
 ---@param DB table
 local function AttachRetailWatcher(frame, element, DB)
-	if not SUI.IsRetail or not UF.Auras.CreateWatcher then
+	if not UF.IsModernOUF or not UF.Auras.CreateWatcher then
 		return
 	end
 
