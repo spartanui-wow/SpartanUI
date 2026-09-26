@@ -227,6 +227,7 @@ local function BuildCommonBarArgs(bar, path, features)
 		},
 		zoom = {
 			name = L['Crop icon borders'],
+			desc = L["Trim the edge off spell icons and drop the game's rounded button frame."],
 			type = 'toggle',
 			order = 20,
 			hidden = function()

@@ -399,7 +399,8 @@ function module:UpdateActionBarConfig(bar)
 				macro = not db.macroText,
 				hotkey = not db.hotkeyText,
 				equipped = not db.showEquipped,
-				border = global.hideBorder,
+				-- Cropped icons drop Blizzard's rounded frame, as Bartender4's zoom does
+				border = global.hideBorder or db.zoom,
 			},
 			keyBoundTarget = self:GetActionButtonBinding(bar.id, i),
 			keyBoundClickButton = 'Keybind',
