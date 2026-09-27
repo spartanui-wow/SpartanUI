@@ -91,8 +91,22 @@ local function Update(frame)
 		frame.Portrait2D:SetPoint('LEFT', frame, 'RIGHT')
 	end
 
+	-- oUF keeps the portrait's state per widget and only creates it when the element is
+	-- enabled, so swapping the widget on a live frame leaves the new one without state.
+	-- Cycle the element around the swap so oUF sets the new widget up.
+	local target = DB.type == '3D' and frame.Portrait3D or frame.Portrait2D
+	if frame.Portrait ~= target then
+		local cycle = frame.IsBuilt and frame:IsElementEnabled('Portrait')
+		if cycle then
+			frame:DisableElement('Portrait')
+		end
+		frame.Portrait = target
+		if cycle then
+			frame:EnableElement('Portrait')
+		end
+	end
+
 	if DB.type == '3D' then
-		frame.Portrait = frame.Portrait3D
 		frame.Portrait3D:Show()
 		frame.Portrait:SetAlpha(DB.alpha)
 
@@ -109,7 +123,6 @@ local function Update(frame)
 		frame.Portrait:ClearModel()
 		frame.Portrait:SetUnit(frame.unitOnCreate)
 	else
-		frame.Portrait = frame.Portrait2D
 		frame.Portrait2D:Show()
 	end
 
