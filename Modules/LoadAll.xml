@@ -14,6 +14,7 @@
 	<Script file="ImprovedCharacterScreen.lua" />
 	<!-- <Script file="ImprovedLFG.lua" /> -->
 	<Include file="Chatbox\Load.xml" />
+	<Include file="Messenger\Load.xml" />
 	<Script file="AFKEffects.lua" />
 	<Include file="UICleanup\Load.xml" />
 	<Include file="UIEnhancements\Load.xml" />

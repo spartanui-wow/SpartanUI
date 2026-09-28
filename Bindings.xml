@@ -59,4 +59,7 @@
 	<Binding name="CLICK SUI_ActionBar10Button10:Keybind" category="ADDONS"/>
 	<Binding name="CLICK SUI_ActionBar10Button11:Keybind" category="ADDONS"/>
 	<Binding name="CLICK SUI_ActionBar10Button12:Keybind" category="ADDONS"/>
+	<Binding name="SUIMESSENGER_TOGGLE" header="SUIMESSENGER" category="ADDONS" default="CTRL-O">SUIMessenger_Toggle()</Binding>
+	<Binding name="SUIMESSENGER_REPLY" category="ADDONS">SUIMessenger_Reply()</Binding>
+	<Binding name="SUIMESSENGER_UNREAD" category="ADDONS">SUIMessenger_Unread()</Binding>
 </Bindings>

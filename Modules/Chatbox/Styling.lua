@@ -592,6 +592,29 @@ local HEADER_BUTTON_DEFS = {
 	},
 }
 
+---Adds a button to the chat header bar from another module. Left-side buttons are placed
+---right after the social button.
+---@param def table { key: string, icon: string (file in images/chatbox), side: 'left'|'right', tooltip: string, action: fun(btn: Button), onCreate?: fun(btn: Button) }
+function module:AddHeaderButton(def)
+	for _, existing in ipairs(HEADER_BUTTON_DEFS) do
+		if existing.key == def.key then
+			return
+		end
+	end
+	local index = #HEADER_BUTTON_DEFS + 1
+	if def.side == 'left' then
+		for i, existing in ipairs(HEADER_BUTTON_DEFS) do
+			if existing.key == 'social' then
+				index = i + 1
+			end
+		end
+	end
+	table.insert(HEADER_BUTTON_DEFS, index, def)
+	if _G['SUI_ChatHeaderButtons'] then
+		module:RefreshHeaderButtons()
+	end
+end
+
 local function CreateHeaderIconButton(parent, iconFile, tooltipText, action)
 	local btn = CreateFrame('Button', nil, parent)
 	btn:SetSize(HEADER_ICON_SIZE, HEADER_ICON_SIZE)
@@ -1218,6 +1241,10 @@ function module:RefreshHeaderButtons()
 				friendCount:SetFont(friendCount:GetFont(), 9, 'OUTLINE')
 				btn.friendCount = friendCount
 				btn:SetWidth(HEADER_ICON_SIZE + 14)
+			end
+
+			if def.onCreate then
+				def.onCreate(btn)
 			end
 
 			-- Errors button: hidden by default, anchored after layout

@@ -11,7 +11,7 @@
 ## X-Github: https://github.com/spartanui-wow/SpartanUI
 ## X-oUF: SUIUF
 ## OptionalDeps: LibsAddonTools, Bartender4
-## SavedVariables: SpartanUIDB, SUIErrorHandler
+## SavedVariables: SpartanUIDB, SUIErrorHandler, SpartanUIMessengerDB
 ## SavedVariablesPerCharacter: SpartanUICharDB
 ## X-BugGrabber-Display: SUIErrorDisplay
 ## Category: User Interface

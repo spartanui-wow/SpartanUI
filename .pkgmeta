@@ -8,6 +8,7 @@ ignore:
   # added later does not start shipping by accident.
   - "openspec"
   - ".context"
+  - "Modules/Messenger/Media/source"
 
 manual-changelog:
   filename: CHANGELOG.md

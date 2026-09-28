@@ -10,6 +10,7 @@ For shared patterns (logging, annotations, StyLua, API lookups, testing, pitfall
 - @.context/Database.md — SUI.DBM Configuration Override Pattern (full API reference)
 - @.context/auras.md — WoW 12.0.5 aura system, all 14 filters, presets, visual customization
 - @.context/actionbars.md — SpartanUI's own action bars, bar system selection, importers
+- @.context/messenger.md — Messenger (IM-style whispers/chats), portable core + host adapter, extraction plan
 
 ## Project Overview
 
