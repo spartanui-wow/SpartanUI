@@ -32,7 +32,7 @@ function module:RegisterSetupWizardPage()
 					get = function()
 						return GetCVar('nameplateShowSelf') == '0'
 					end,
-					set = function(val)
+					set = function(_, val)
 						SetCVar('nameplateShowSelf', val and '0' or '1')
 					end,
 				},
@@ -44,7 +44,7 @@ function module:RegisterSetupWizardPage()
 					get = function()
 						return GetCVar('nameplateShowAll') == '1'
 					end,
-					set = function(val)
+					set = function(_, val)
 						SetCVar('nameplateShowAll', val and '1' or '0')
 					end,
 				},
@@ -56,7 +56,7 @@ function module:RegisterSetupWizardPage()
 					get = function()
 						return GetCVar('showTutorials') == '0'
 					end,
-					set = function(val)
+					set = function(_, val)
 						if val then
 							SetCVar('showTutorials', 0)
 						else
@@ -77,7 +77,7 @@ function module:RegisterSetupWizardPage()
 					get = function()
 						return DB.autoAcceptSummon
 					end,
-					set = function(val)
+					set = function(_, val)
 						DB.autoAcceptSummon = val
 					end,
 				},
@@ -89,7 +89,7 @@ function module:RegisterSetupWizardPage()
 					get = function()
 						return DB.autoAcceptResurrection
 					end,
-					set = function(val)
+					set = function(_, val)
 						DB.autoAcceptResurrection = val
 					end,
 				},
@@ -101,13 +101,13 @@ function module:RegisterSetupWizardPage()
 					get = function()
 						return DB.autoReleaseInPvP
 					end,
-					set = function(val)
+					set = function(_, val)
 						DB.autoReleaseInPvP = val
 					end,
 				},
 			}, contentFrame:GetWidth())
 
-			contentFrame.totalHeight = totalHeight
+			contentFrame:SetHeight(totalHeight)
 		end,
 	})
 end

@@ -71,28 +71,29 @@ function module:OnEnable()
 		end
 	end
 
-	-- Fresh/reset profile: clear previous wizard completion state so wizard reopens fully
-	if SUI.DB.SetupWizard.FirstLaunch and LibAT.Database and LibAT.Database.global and LibAT.Database.global.setupWizardCompleted then
-		local completed = LibAT.Database.global.setupWizardCompleted
-		local prefix = ADDON_ID .. '.'
-		for key in pairs(completed) do
-			if key:sub(1, #prefix) == prefix then
-				completed[key] = nil
-			end
-		end
-	end
-
-	-- Auto-open wizard on first launch
+	-- Auto-open wizard on first launch. Completion is account-wide, so a fresh profile opens the
+	-- wizard without clearing progress that other characters' profiles rely on.
 	if SUI.DB.SetupWizard.FirstLaunch then
-		local LoadWatcher = CreateFrame('Frame')
-		LoadWatcher:SetScript('OnEvent', function()
-			LoadWatcher:UnregisterAllEvents()
-			LoadWatcher:SetScript('OnEvent', nil)
+		local function OpenOnFirstLaunch()
+			if InCombatLockdown() then
+				return
+			end
 			if not LibAT.SetupWizard.window or not LibAT.SetupWizard.window:IsShown() then
 				LibAT.SetupWizard:OpenWindow()
 			end
-		end)
-		LoadWatcher:RegisterEvent('PLAYER_LOGIN')
+		end
+		-- AceAddon enables modules while PLAYER_LOGIN is being dispatched, so that event has already fired here
+		if IsLoggedIn() then
+			C_Timer.After(1, OpenOnFirstLaunch)
+		else
+			local LoadWatcher = CreateFrame('Frame')
+			LoadWatcher:SetScript('OnEvent', function()
+				LoadWatcher:UnregisterAllEvents()
+				LoadWatcher:SetScript('OnEvent', nil)
+				C_Timer.After(1, OpenOnFirstLaunch)
+			end)
+			LoadWatcher:RegisterEvent('PLAYER_LOGIN')
+		end
 	end
 
 	SUI:AddChatCommand('setup', function()
