@@ -935,6 +935,13 @@ end
 ---@param parent Frame
 ---@return table[] frames The drawn frames, left to right
 function PreviewFrame:RenderStage(frameName, parent)
+	for otherName, otherList in pairs(stageFrames) do
+		if otherName ~= frameName then
+			for _, other in ipairs(otherList) do
+				other:Hide()
+			end
+		end
+	end
 	local list = stageFrames[frameName]
 	if not list then
 		list = {}

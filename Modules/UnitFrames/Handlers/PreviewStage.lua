@@ -49,7 +49,12 @@ function provider:GetHeight(ctx)
 		return 0
 	end
 	local height = UF:CalculateHeight(frameName) or 40
-	local elements = UF.CurrentSettings[frameName].elements or {}
+	local settings = UF.CurrentSettings[frameName]
+	local count = UF.PreviewFrame:GetStageCount(frameName)
+	if count > 1 and (settings.point == 'TOP' or settings.point == 'BOTTOM') then
+		height = height * count + math.abs(settings.yOffset or 1) * (count - 1)
+	end
+	local elements = settings.elements or {}
 	for _, auraElement in ipairs(AURA_PARTS) do
 		local db = elements[auraElement]
 		if db and db.enabled then
@@ -58,7 +63,7 @@ function provider:GetHeight(ctx)
 			height = height + rows * ((db.size or 24) + (db.spacing or 2))
 		end
 	end
-	return math.max(80, math.min(220, height * 1.2 + 24))
+	return math.max(80, math.min(260, height * 1.2 + 24))
 end
 
 ---Union of the preview frames and their sample aura rows, relative to the canvas center, in canvas units
@@ -105,15 +110,25 @@ function provider:Render(ctx)
 	end
 	local canvas = ctx.canvas
 	local frames = UF.PreviewFrame:RenderStage(frameName, canvas)
-	local frameWidth = UF.CurrentSettings[frameName].width or 180
+	local settings = UF.CurrentSettings[frameName]
+	local frameWidth = settings.width or 180
+	local frameHeight = UF:CalculateHeight(frameName) or 40
 	local offsets = {}
+
+	-- Group frames stack the way the real group grows: TOP/BOTTOM in a column, LEFT/RIGHT in a row
+	local point = settings.point
+	local vertical = #frames > 1 and (point == 'TOP' or point == 'BOTTOM')
+	local stepX = vertical and 0 or (frameWidth + (point and math.abs(settings.xOffset or 0) or GAP))
+	local stepY = vertical and (frameHeight + math.abs(settings.yOffset or 1)) or 0
+	local direction = (point == 'BOTTOM' or point == 'RIGHT') and -1 or 1
 
 	-- Lay out at scale 1, measure everything that will be drawn, then scale and center it
 	for i, preview in ipairs(frames) do
-		offsets[i] = (i - 1 - (#frames - 1) / 2) * (frameWidth + GAP)
+		local index = i - 1 - (#frames - 1) / 2
+		offsets[i] = { index * stepX * direction, -index * stepY * direction }
 		preview:SetScale(1)
 		preview:ClearAllPoints()
-		preview:SetPoint('CENTER', canvas, 'CENTER', offsets[i], 0)
+		preview:SetPoint('CENTER', canvas, 'CENTER', offsets[i][1], offsets[i][2])
 	end
 	local left, bottom, right, top = MeasureBounds(canvas, frames)
 	local canvasWidth, canvasHeight = canvas:GetSize()
@@ -124,7 +139,7 @@ function provider:Render(ctx)
 	for i, preview in ipairs(frames) do
 		preview:SetScale(scale)
 		preview:ClearAllPoints()
-		preview:SetPoint('CENTER', canvas, 'CENTER', offsets[i] - shiftX, -shiftY)
+		preview:SetPoint('CENTER', canvas, 'CENTER', offsets[i][1] - shiftX, offsets[i][2] - shiftY)
 
 		for _, part in ipairs(PARTS) do
 			local element = preview[part]
