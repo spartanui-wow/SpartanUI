@@ -3,27 +3,30 @@
 > **Retail (12.1+) uses a completely different system from Classic.** See "Retail: Groups and Slots" below.
 > The Classic sections that follow describe the legacy `Buffs`/`Debuffs` path, which is now Classic-only.
 
-## Retail: Groups and Slots (12.1+)
+## Retail: Aura Containers (12.1+)
 
 Blizzard owns aura creation, filtering, sorting and anchoring through `AuraContainer` / `AuraGroup` / `AuraSlot`. SpartanUI describes what it wants and never inspects an aura, so nothing on this path can trip secret-value restrictions.
 
-Two elements, matching the two shapes the API offers:
+Retail frames get up to three independent containers plus per-spell slots. Each container has its own anchor, growth direction, icon size and filters - one container cannot grow buffs up and debuffs down, because the flow layout belongs to the container.
 
-| Element | Built on | Answers | Replaces |
+| Element | File | Answers | Replaces |
 |---|---|---|---|
-| `AuraGroups` | `AddGroup` | "what is on this unit" | Buffs, Debuffs, RaidDebuffs |
-| `AuraTracker` | `AddSlot` | "is this specific spell up" | AuraDesigner, AuraWatch, HotsListing |
+| `BuffContainer` | `Elements/Buffs.Retail.lua` | "what helpful auras are on this unit" | Buffs |
+| `DebuffContainer` | `Elements/Debuffs.Retail.lua` | "what harmful auras are on this unit" | Debuffs, RaidDebuffs |
+| `CustomAuras` | `Elements/CustomAuras.lua` | a third row: a tracked spell list or a specific filter (off by default) | - |
+| `AuraTracker` | `Elements/AuraTracker.lua` (`AddSlot`) | "is this specific spell up", anchored anywhere | AuraDesigner, AuraWatch, HotsListing |
 
-**AuraGroups** gives each frame up to 5 groups (`UF.Auras.MAX_GROUPS`), each with its own filter, icon cap, size, spacing and spell-ID include/exclude lists. Groups flow inside one self-sizing container.
+All three containers share `Elements/AuraContainer.lua` (`UF.AuraContainer:Build/Update/Settings`). Inside one container, groups are filter variants of the same aura type (yours and everyone else's), drawn at the same size and flowing together. `UF.Auras.MAX_GROUPS` (5) and `UF.Auras.MAX_TRACKER_SLOTS` (12) live in `Handlers/AurasRetail.lua`.
 
-**AuraTracker** gives each frame up to 12 slots (`UF.Auras.MAX_TRACKER_SLOTS`), each pinned to one spell ID and anchored wherever the user puts it.
+The earlier single `AuraGroups` element was replaced by these containers; `MigrateAuraContainers` in `Framework.lua` carries its settings over once per profile behind `UF.DB._auraContainersMigrated`.
 
 ### Key files (Retail)
 
 | File | Purpose |
 |------|---------|
-| `Modules/UnitFrames/Elements/Auras.lua` | AuraGroups element |
-| `Modules/UnitFrames/Elements/AuraTracker.lua` | AuraTracker element |
+| `Modules/UnitFrames/Elements/AuraContainer.lua` | Shared container implementation |
+| `Modules/UnitFrames/Elements/Buffs.Retail.lua`, `Debuffs.Retail.lua`, `CustomAuras.lua` | The three containers |
+| `Modules/UnitFrames/Elements/AuraTracker.lua` | Per-spell slots |
 | `Modules/UnitFrames/Handlers/AurasRetail.lua` | Filters, sorting, defaults, lifecycle, options |
 
 ### Constraints that shaped the design
