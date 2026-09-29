@@ -143,149 +143,155 @@ function module:OnInitialize()
 		order = 900,
 		childGroups = 'tab',
 		args = {
-			intro = {
-				name = L['Stuck, or something looks wrong? Start here.'],
-				type = 'description',
-				order = 1,
-				fontSize = 'medium',
-			},
-			GetHelp = {
+			Overview = {
 				name = L['Get help'],
 				type = 'group',
-				inline = true,
-				order = 10,
+				order = 1,
 				args = {
-					discordText = {
-						name = L['Ask questions and chat with other players and the author on Discord. Click the link, then press Ctrl+C to copy it.'],
+					intro = {
+						name = L['Stuck, or something looks wrong? Start here.'],
 						type = 'description',
 						order = 1,
 						fontSize = 'medium',
 					},
-					discord = {
-						name = L['Discord'],
-						type = 'input',
-						order = 2,
-						width = 'full',
-						get = function()
-							return 'https://discord.gg/Qc9TRBv'
-						end,
-						set = function() end,
+					GetHelp = {
+						name = L['Ask for help'],
+						type = 'group',
+						inline = true,
+						order = 10,
+						args = {
+							discordText = {
+								name = L['Ask questions and chat with other players and the author on Discord. Click the link, then press Ctrl+C to copy it.'],
+								type = 'description',
+								order = 1,
+								fontSize = 'medium',
+							},
+							discord = {
+								name = L['Discord'],
+								type = 'input',
+								order = 2,
+								width = 'full',
+								get = function()
+									return 'https://discord.gg/Qc9TRBv'
+								end,
+								set = function() end,
+							},
+							bugsText = {
+								name = L['Found a bug, or have an idea? Tell us here.'],
+								type = 'description',
+								order = 3,
+								fontSize = 'medium',
+							},
+							bugs = {
+								name = L['Bugs and ideas'],
+								type = 'input',
+								order = 4,
+								width = 'full',
+								get = function()
+									return 'http://bugs.spartanui.net/'
+								end,
+								set = function() end,
+							},
+						},
 					},
-					bugsText = {
-						name = L['Found a bug, or have an idea? Tell us here.'],
-						type = 'description',
-						order = 3,
-						fontSize = 'medium',
+					About = {
+						name = L['About this version'],
+						type = 'group',
+						inline = true,
+						order = 20,
+						args = {
+							info = {
+								name = function()
+									return module:GetVersionSummary()
+								end,
+								type = 'description',
+								order = 1,
+								fontSize = 'medium',
+							},
+						},
 					},
-					bugs = {
-						name = L['Bugs and ideas'],
-						type = 'input',
-						order = 4,
-						width = 'full',
-						get = function()
-							return 'http://bugs.spartanui.net/'
-						end,
-						set = function() end,
+					SUICoreReset = {
+						name = L['Fix a problem'],
+						type = 'group',
+						inline = true,
+						order = 30,
+						args = {
+							explain = {
+								name = L['These put things back the way SpartanUI sets them up. The bigger ones ask first.'],
+								type = 'description',
+								order = 0,
+							},
+							ReRunSetupWizard = {
+								name = L['Run setup again'],
+								desc = L['Walk through the first-time setup again. Nothing changes until you pick something.'],
+								type = 'execute',
+								order = 1,
+								func = function()
+									if LibAT and LibAT.SetupWizard then
+										LibAT.SetupWizard:OpenWindow()
+									end
+								end,
+							},
+							ResetProfileDB = {
+								name = L['Reset this profile'],
+								desc = L['Start this profile fresh. Your other profiles are not touched. Your screen reloads.'],
+								type = 'execute',
+								order = 2,
+								confirm = true,
+								confirmText = L['Reset this profile to SpartanUI defaults? Your screen will reload.'],
+								func = function()
+									SUI.SpartanUIDB:ResetProfile()
+									SUI:SafeReloadUI()
+								end,
+							},
+							ResetDB = {
+								name = L['Reset everything'],
+								desc = L['Remove every SpartanUI setting for all characters and profiles. Only use this if nothing else works.'],
+								type = 'execute',
+								order = 3,
+								confirm = true,
+								confirmText = L['Remove ALL SpartanUI settings on every character? This cannot be undone. Your screen will reload.'],
+								func = function()
+									SUI.SpartanUIDB:ResetDB()
+									SUI:SafeReloadUI()
+								end,
+							},
+						},
 					},
-				},
-			},
-			About = {
-				name = L['About this version'],
-				type = 'group',
-				inline = true,
-				order = 20,
-				args = {
-					info = {
-						name = function()
-							return module:GetVersionSummary()
-						end,
-						type = 'description',
-						order = 1,
-						fontSize = 'medium',
-					},
-				},
-			},
-			SUICoreReset = {
-				name = L['Fix a problem'],
-				type = 'group',
-				inline = true,
-				order = 30,
-				args = {
-					explain = {
-						name = L['These put things back the way SpartanUI sets them up. The bigger ones ask first.'],
-						type = 'description',
-						order = 0,
-					},
-					ReRunSetupWizard = {
-						name = L['Run setup again'],
-						desc = L['Walk through the first-time setup again. Nothing changes until you pick something.'],
-						type = 'execute',
-						order = 1,
-						func = function()
-							if LibAT and LibAT.SetupWizard then
-								LibAT.SetupWizard:OpenWindow()
-							end
-						end,
-					},
-					ResetProfileDB = {
-						name = L['Reset this profile'],
-						desc = L['Start this profile fresh. Your other profiles are not touched. Your screen reloads.'],
-						type = 'execute',
-						order = 2,
-						confirm = true,
-						confirmText = L['Reset this profile to SpartanUI defaults? Your screen will reload.'],
-						func = function()
-							SUI.SpartanUIDB:ResetProfile()
-							SUI:SafeReloadUI()
-						end,
-					},
-					ResetDB = {
-						name = L['Reset everything'],
-						desc = L['Remove every SpartanUI setting for all characters and profiles. Only use this if nothing else works.'],
-						type = 'execute',
-						order = 3,
-						confirm = true,
-						confirmText = L['Remove ALL SpartanUI settings on every character? This cannot be undone. Your screen will reload.'],
-						func = function()
-							SUI.SpartanUIDB:ResetDB()
-							SUI:SafeReloadUI()
-						end,
-					},
-				},
-			},
-			SUIModuleHelp = {
-				name = L['Reset one part'],
-				type = 'group',
-				inline = true,
-				order = 40,
-				args = {
-					ResetMovedFrames = {
-						name = L['Reset frame positions'],
-						desc = L['Put every frame you moved back in its default place.'],
-						type = 'execute',
-						order = 3,
-						confirm = true,
-						func = function()
-							SUI.MoveIt:Reset()
-						end,
+					SUIModuleHelp = {
+						name = L['Reset one part'],
+						type = 'group',
+						inline = true,
+						order = 40,
+						args = {
+							ResetMovedFrames = {
+								name = L['Reset frame positions'],
+								desc = L['Put every frame you moved back in its default place.'],
+								type = 'execute',
+								order = 3,
+								confirm = true,
+								func = function()
+									SUI.MoveIt:Reset()
+								end,
+							},
+						},
 					},
 				},
 			},
 		},
 	}
 
+	local ModuleListing = {
+		name = L['Turn modules on or off'],
+		type = 'group',
+		inline = true,
+		args = {},
+	}
 	SUI.opt.args.Modules = {
 		name = L['Modules'],
 		type = 'group',
 		order = 4,
-		args = {
-			ModuleListing = {
-				name = L['Enabled modules'],
-				type = 'group',
-				inline = true,
-				args = {},
-			},
-		},
+		args = {},
 	}
 
 	-- List Modules
@@ -296,7 +302,7 @@ function module:OnInitialize()
 				Displayname = submodule.DisplayName
 			end
 
-			SUI.opt.args.Modules.args.ModuleListing.args[name] = {
+			ModuleListing.args[name] = {
 				name = Displayname,
 				type = 'toggle',
 				disabled = submodule.Override or false,
@@ -322,7 +328,7 @@ function module:OnInitialize()
 		type = 'group',
 		order = 0.1,
 		args = {
-			Modules = SUI.opt.args.Modules.args.ModuleListing,
+			Modules = ModuleListing,
 		},
 	}
 end

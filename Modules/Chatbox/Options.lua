@@ -1511,6 +1511,6 @@ function module:BuildOptions()
 
 	buildBlacklistOptions()
 
-	SUI.opt.args.Help.args.SUIModuleHelp.args.clearAllLogs = optTable.args.chatLog.args.clearAllLogs
+	SUI.opt.args.Help.args.Overview.args.SUIModuleHelp.args.clearAllLogs = optTable.args.chatLog.args.clearAllLogs
 	SUI.Options:AddOptions(optTable, 'Chatbox')
 end

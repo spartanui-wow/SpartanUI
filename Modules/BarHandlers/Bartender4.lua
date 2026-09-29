@@ -493,7 +493,7 @@ local function Options()
 	end
 
 	-- Add to help screen
-	SUI.opt.args.Help.args.SUIModuleHelp.args.ResetActionBars = SUI.opt.args.General.args.Bartender.args.ResetActionBars
+	SUI.opt.args.Help.args.Overview.args.SUIModuleHelp.args.ResetActionBars = SUI.opt.args.General.args.Bartender.args.ResetActionBars
 end
 
 local function OnCombatEnd()

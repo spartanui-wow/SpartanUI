@@ -922,8 +922,8 @@ function module:BuildOptions()
 
 	SUI.opt.args.ActionBars = options
 
-	if SUI.opt.args.Help and SUI.opt.args.Help.args.SUIModuleHelp then
-		SUI.opt.args.Help.args.SUIModuleHelp.args.ResetActionBars = options.args.General.args.resetAll
+	if SUI.opt.args.Help and SUI.opt.args.Help.args.Overview and SUI.opt.args.Help.args.Overview.args.SUIModuleHelp then
+		SUI.opt.args.Help.args.Overview.args.SUIModuleHelp.args.ResetActionBars = options.args.General.args.resetAll
 	end
 end
 
