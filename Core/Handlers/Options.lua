@@ -101,13 +101,23 @@ function module:OnInitialize()
 		'Arcane',
 		'Transparent',
 		'Minimal',
+		'ModernFlat',
+		'HealerGrid',
+		'ClassicDark',
 	}
+
+	local function DisplayName(skin)
+		local entry = SUI.ThemeRegistry and SUI.ThemeRegistry:Get(skin)
+		return entry and entry.displayName or skin
+	end
 
 	-- Setup Buttons
 	for _, skin in pairs(Skins) do
 		-- Create overall skin button
 		SUI.opt.args.General.args.style.args.OverallStyle.args[skin] = {
-			name = skin,
+			name = function()
+				return DisplayName(skin)
+			end,
 			type = 'execute',
 			image = function()
 				return 'interface\\addons\\SpartanUI\\images\\setup\\Style_' .. skin, 120, 60
@@ -121,10 +131,12 @@ function module:OnInitialize()
 		}
 		-- Setup artwork card
 		SUI.opt.args.General.args.style.args.Artwork.args[skin] = {
-			name = skin,
+			name = function()
+				return DisplayName(skin)
+			end,
 			type = 'select',
 			dialogControl = 'ThemeVariantCard',
-			values = { [skin] = skin },
+			values = { [skin] = DisplayName(skin) },
 			sorting = { skin },
 			get = function()
 				return skin

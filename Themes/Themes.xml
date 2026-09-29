@@ -10,4 +10,8 @@
 	<Include file="Tribal\Style.xml"/>
 	<Script file="Grid\Style.lua"/>
 	<Script file="Midnight\Style.lua"/>
+	<Script file="Flat.lua"/>
+	<Script file="ModernFlat\Style.lua"/>
+	<Script file="HealerGrid\Style.lua"/>
+	<Script file="ClassicDark\Style.lua"/>
 </Ui>

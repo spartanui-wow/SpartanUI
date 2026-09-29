@@ -192,7 +192,7 @@ local function SetLabel(self, text)
 	self.label:SetText(text or '')
 	-- Auto-set theme image from label text (matches setup image naming convention)
 	if text and text ~= '' then
-		self.imageBtn:SetNormalTexture('interface\\addons\\SpartanUI\\images\\setup\\Style_' .. text)
+		self.imageBtn:SetNormalTexture('interface\\addons\\SpartanUI\\images\\setup\\Style_' .. (text:gsub(' ', '')))
 	end
 end
 
