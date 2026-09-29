@@ -1375,3 +1375,4 @@ L['Game menu buttons'] = true
 L['Loot window'] = true
 L['Quest tracker'] = true
 L['Tooltip'] = true
+L["This is placed by the game's Edit Mode. To move it, close frame moving, press Escape and choose Edit Mode."] = true
