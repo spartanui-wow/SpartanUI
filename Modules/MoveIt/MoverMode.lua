@@ -161,9 +161,11 @@ function MoverMode:ShowMovers(fade)
 		end
 	end
 	self:SortLevels()
+	MoveIt.BlizzardFrames:Show()
 end
 
 function MoverMode:HideMovers()
+	MoveIt.BlizzardFrames:Hide()
 	for _, mover in pairs(MoveIt.MoverList) do
 		if mover.parent then
 			Style:Stop(mover)

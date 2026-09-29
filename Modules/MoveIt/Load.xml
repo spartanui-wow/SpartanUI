@@ -14,6 +14,7 @@
 	<Script file="Anchors.lua"/>
 	<Script file="ControlToolbar.lua"/>
 	<Script file="Inspector.lua"/>
+	<Script file="BlizzardFrames.lua"/>
 	<Script file="MoverMode.lua"/>
 	<Script file="EditModeProfileSync.lua"/>
 	<Script file="Migration.lua"/>
