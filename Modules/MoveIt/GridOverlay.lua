@@ -2,169 +2,170 @@
 local SUI = SUI
 ---@class MoveIt
 local MoveIt = SUI.MoveIt
+local Style = SUI.UI.Style
+
+-- Screen dim and alignment grid shown behind the movers while moving frames. Lines are plain
+-- textures one physical pixel wide, drawn outward from the screen center so the center lines
+-- always exist.
 
 ---@class SUI.MoveIt.GridOverlay
----@field container Frame|nil Container frame for grid lines
----@field lines table Array of line textures
----@field isShown boolean Whether the grid is currently visible
 local GridOverlay = {}
 MoveIt.GridOverlay = GridOverlay
 
--- Visual configuration
-local LINE_COLOR = { 1, 1, 1, 0.08 } -- Subtle white grid lines
-local CENTER_LINE_COLOR = { 1, 0.82, 0, 0.15 } -- Slightly brighter gold for center crosshair
-local LINE_THICKNESS = 1
+local DIM_ALPHA = 0.25
+local PICK_DIM_ALPHA = 0.5
+local LINE_ALPHA = { dim = 0.10, bright = 0.24 }
+local CENTER_ALPHA = { dim = 0.35, bright = 0.6 }
 
--- State
-GridOverlay.container = nil
 GridOverlay.lines = {}
 GridOverlay.isShown = false
 
----Create the grid overlay container frame
+local function GetMode()
+	local mode = MoveIt.DB and MoveIt.DB.GridMode
+	if mode ~= 'off' and mode ~= 'bright' then
+		mode = 'dim'
+	end
+	return mode
+end
+
 function GridOverlay:Initialize()
 	if self.container then
 		return
 	end
+	local container = _G['SUI_MoveIt_Backdrop'] or CreateFrame('Frame', 'SUI_MoveIt_Backdrop', UIParent)
+	container:SetAllPoints(UIParent)
+	container:SetFrameStrata('HIGH')
+	container:SetFrameLevel(1)
+	container:EnableMouse(false)
+	container:Hide()
 
-	-- CreateLine API required (Retail only)
-	if not UIParent.CreateLine then
-		if MoveIt.logger then
-			MoveIt.logger.debug('GridOverlay: CreateLine API not available')
-		end
-		return
-	end
+	local dim = container:CreateTexture(nil, 'BACKGROUND')
+	dim:SetTexture(Style.WHITE)
+	dim:SetAllPoints()
+	dim:SetVertexColor(Style.color.dim[1], Style.color.dim[2], Style.color.dim[3], 1)
+	dim:SetAlpha(0)
+	container.dim = dim
 
-	-- Recover existing named frame after /rl to prevent orphaned visible grids
-	local existing = _G['SUI_MoveIt_GridOverlay']
-	if existing then
-		self.container = existing
-		self.container:Hide()
-		return
-	end
-
-	self.container = CreateFrame('Frame', 'SUI_MoveIt_GridOverlay', UIParent)
-	self.container:SetAllPoints()
-	self.container:SetFrameStrata('BACKGROUND')
-	self.container:SetFrameLevel(0)
-	self.container:Hide()
-
-	-- Redraw grid on resolution/scale changes
-	self.container:SetScript('OnSizeChanged', function()
-		if self.isShown then
-			self:DrawGrid()
+	container:SetScript('OnSizeChanged', function()
+		if GridOverlay.isShown then
+			GridOverlay:DrawGrid()
 		end
 	end)
+	self.container = container
 
-	if MoveIt.logger then
-		MoveIt.logger.info('Grid overlay initialized')
-	end
+	Style:OnAccentChanged(self, function()
+		if GridOverlay.isShown then
+			GridOverlay:DrawGrid()
+		end
+	end)
 end
 
----Draw the grid lines based on current spacing
+---@param index number
+---@return Texture
+function GridOverlay:GetLine(index)
+	local line = self.lines[index]
+	if not line then
+		line = self.container:CreateTexture(nil, 'ARTWORK')
+		line:SetTexture(Style.WHITE)
+		self.lines[index] = line
+	end
+	return line
+end
+
 function GridOverlay:DrawGrid()
 	if not self.container then
 		return
 	end
+	local mode = GetMode()
+	local used = 0
+	if mode ~= 'off' then
+		local spacing = (MoveIt.DB and MoveIt.DB.GridSpacing) or 32
+		local width, height = UIParent:GetSize()
+		local px = Style:PixelSize(self.container)
+		local r, g, b = Style:GetAccent()
+		local halfW, halfH = width / 2, height / 2
 
-	-- Hide existing lines
-	for _, line in ipairs(self.lines) do
-		line:Hide()
+		local function Vertical(x, alpha)
+			used = used + 1
+			local line = self:GetLine(used)
+			line:ClearAllPoints()
+			line:SetPoint('TOP', self.container, 'TOPLEFT', x, 0)
+			line:SetPoint('BOTTOM', self.container, 'BOTTOMLEFT', x, 0)
+			line:SetWidth(px)
+			line:SetVertexColor(r, g, b, alpha)
+			line:Show()
+		end
+		local function Horizontal(y, alpha)
+			used = used + 1
+			local line = self:GetLine(used)
+			line:ClearAllPoints()
+			line:SetPoint('LEFT', self.container, 'BOTTOMLEFT', 0, y)
+			line:SetPoint('RIGHT', self.container, 'BOTTOMRIGHT', 0, y)
+			line:SetHeight(px)
+			line:SetVertexColor(r, g, b, alpha)
+			line:Show()
+		end
+
+		for i = 1, math.floor(halfW / spacing) do
+			Vertical(halfW + i * spacing, LINE_ALPHA[mode])
+			Vertical(halfW - i * spacing, LINE_ALPHA[mode])
+		end
+		for i = 1, math.floor(halfH / spacing) do
+			Horizontal(halfH + i * spacing, LINE_ALPHA[mode])
+			Horizontal(halfH - i * spacing, LINE_ALPHA[mode])
+		end
+		Vertical(halfW, CENTER_ALPHA[mode])
+		Horizontal(halfH, CENTER_ALPHA[mode])
 	end
-
-	local spacing = MoveIt.DB and MoveIt.DB.GridSpacing or 32
-	local screenWidth = UIParent:GetWidth()
-	local screenHeight = UIParent:GetHeight()
-	local centerX, centerY = UIParent:GetCenter()
-
-	local halfNumVertical = math.floor((screenWidth / spacing) / 2)
-	local halfNumHorizontal = math.floor((screenHeight / spacing) / 2)
-
-	local lineIndex = 0
-
-	-- Draw vertical lines (from center outward)
-	for i = -halfNumVertical, halfNumVertical do
-		lineIndex = lineIndex + 1
-		local xPos = centerX + (i * spacing)
-
-		-- Reuse existing line or create new one
-		local line = self.lines[lineIndex]
-		if not line then
-			line = self.container:CreateLine(nil, 'BACKGROUND')
-			line:SetThickness(LINE_THICKNESS)
-			self.lines[lineIndex] = line
-		end
-
-		if i == 0 then
-			line:SetColorTexture(unpack(CENTER_LINE_COLOR))
-		else
-			line:SetColorTexture(unpack(LINE_COLOR))
-		end
-
-		line:ClearAllPoints()
-		line:SetStartPoint('BOTTOMLEFT', UIParent, xPos, 0)
-		line:SetEndPoint('TOPLEFT', UIParent, xPos, 0)
-		line:Show()
-	end
-
-	-- Draw horizontal lines (from center outward)
-	for i = -halfNumHorizontal, halfNumHorizontal do
-		lineIndex = lineIndex + 1
-		local yPos = centerY + (i * spacing)
-
-		local line = self.lines[lineIndex]
-		if not line then
-			line = self.container:CreateLine(nil, 'BACKGROUND')
-			line:SetThickness(LINE_THICKNESS)
-			self.lines[lineIndex] = line
-		end
-
-		if i == 0 then
-			line:SetColorTexture(unpack(CENTER_LINE_COLOR))
-		else
-			line:SetColorTexture(unpack(LINE_COLOR))
-		end
-
-		line:ClearAllPoints()
-		line:SetStartPoint('BOTTOMLEFT', UIParent, 0, yPos)
-		line:SetEndPoint('BOTTOMRIGHT', UIParent, 0, yPos)
-		line:Show()
-	end
-
-	-- Hide any extra lines from previous draw (e.g. spacing changed to larger value)
-	for i = lineIndex + 1, #self.lines do
+	for i = used + 1, #self.lines do
 		self.lines[i]:Hide()
-	end
-
-	if MoveIt.logger then
-		MoveIt.logger.debug(('GridOverlay: Drew %d lines (spacing=%d)'):format(lineIndex, spacing))
 	end
 end
 
----Show the grid overlay
 function GridOverlay:Show()
-	if not self.container then
-		self:Initialize()
-	end
-	if not self.container then
-		return
-	end
-
+	self:Initialize()
 	self:DrawGrid()
 	self.container:Show()
 	self.isShown = true
+	self:SetPickDim(false)
 end
 
----Hide the grid overlay
 function GridOverlay:Hide()
 	if self.container then
+		Style:Stop(self.container.dim)
+		self.container.dim:SetAlpha(0)
 		self.container:Hide()
 	end
 	self.isShown = false
 end
 
----Refresh the grid (e.g., when spacing changes while visible)
 function GridOverlay:Refresh()
 	if self.isShown then
 		self:DrawGrid()
 	end
+end
+
+---Deepen the dim while the player is choosing a frame to attach to
+---@param picking boolean
+function GridOverlay:SetPickDim(picking)
+	if not self.container then
+		return
+	end
+	local dim = self.container.dim
+	Style:Tween(dim, picking and 0.2 or 0.6, dim:GetAlpha(), picking and PICK_DIM_ALPHA or DIM_ALPHA, function(value)
+		dim:SetAlpha(value)
+	end)
+end
+
+---Cycle off -> dim -> bright
+function GridOverlay:CycleMode()
+	local order = { off = 'dim', dim = 'bright', bright = 'off' }
+	MoveIt.DB.GridMode = order[GetMode()]
+	self:Refresh()
+	return MoveIt.DB.GridMode
+end
+
+---@return 'off'|'dim'|'bright'
+function GridOverlay:GetMode()
+	return GetMode()
 end

@@ -280,66 +280,21 @@ function MoveIt:Options()
 				end,
 			},
 			line1 = { name = '', type = 'header', order = 49 },
-			line2 = {
-				name = L['Movement can also be initated with the chat command:'],
+			howTo = {
+				name = L['Open frame moving with /sui move or the Toggle movers button. While it is open you can:'],
 				type = 'description',
 				order = 50,
-				fontSize = 'large',
-			},
-			line3 = { name = '/sui move', type = 'description', order = 51, fontSize = 'medium' },
-			line22 = { name = '', type = 'header', order = 51.1 },
-			line4 = {
-				name = '',
-				type = 'description',
-				order = 52,
-				fontSize = 'large',
-			},
-			line5 = {
-				name = L['When the movement system is enabled you can:'],
-				type = 'description',
-				order = 53,
-				fontSize = 'large',
-			},
-			line6 = { name = '- ' .. L['Alt+Click a mover to reset it'], type = 'description', order = 53.5, fontSize = 'medium' },
-			line7 = {
-				name = '- ' .. L['Shift+Click a mover to temporarily hide it'],
-				type = 'description',
-				order = 54,
 				fontSize = 'medium',
 			},
-			line7a = {
-				name = "- Control+Click a mover to reset it's scale",
-				type = 'description',
-				order = 54.2,
-				fontSize = 'medium',
-			},
-			line7b = { name = '', type = 'description', order = 54.99, fontSize = 'medium' },
-			line8 = {
-				name = '- ' .. L['Use the scroll wheel to move left and right 1 coord at a time'],
-				type = 'description',
-				order = 55,
-				fontSize = 'medium',
-			},
-			line9 = {
-				name = '- ' .. L['Hold Shift + use the scroll wheel to move up and down 1 coord at a time'],
-				type = 'description',
-				order = 56,
-				fontSize = 'medium',
-			},
-			line9a = {
-				name = '- ' .. L['Hold Alt + use the scroll wheel to scale the frame'],
-				type = 'description',
-				order = 56.5,
-				fontSize = 'medium',
-			},
-			line10 = {
-				name = '- ' .. L['Press ESCAPE to exit the movement system quickly.'],
-				type = 'description',
-				order = 57,
-				fontSize = 'medium',
-			},
+			howTo1 = { name = '- ' .. L['Drag a frame to move it. It lines up with other frames and the middle of your screen.'], type = 'description', order = 51, fontSize = 'medium' },
+			howTo2 = { name = '- ' .. L['Click a frame to select it, then use the arrow keys to nudge it (hold Shift for bigger steps).'], type = 'description', order = 52, fontSize = 'medium' },
+			howTo3 = { name = '- ' .. L['Right-click a frame for exact position, size, attaching and reset.'], type = 'description', order = 53, fontSize = 'medium' },
+			howTo4 = { name = '- ' .. L['Hold Shift while dragging to keep a straight line, or Ctrl to stop snapping.'], type = 'description', order = 54, fontSize = 'medium' },
+			howTo5 = { name = '- ' .. L['Scroll to nudge (Shift for up and down), Alt+scroll to change size.'], type = 'description', order = 55, fontSize = 'medium' },
+			howTo6 = { name = '- ' .. L['Alt+click resets a frame, Ctrl+click resets its size, Shift+right-click hides its box.'], type = 'description', order = 56, fontSize = 'medium' },
+			howTo7 = { name = '- ' .. L['Save and exit keeps your changes. Exit without saving puts everything back.'], type = 'description', order = 57, fontSize = 'medium' },
 			tips = {
-				name = L['Display tips when using /sui move'],
+				name = L['Show the help line while moving frames'],
 				type = 'toggle',
 				width = 'double',
 				order = 70,
@@ -377,34 +332,26 @@ function MoveIt:Options()
 					MoveIt.DB.anchorMode = val
 				end,
 			},
-			GridSnapEnabled = {
-				name = 'Show Grid',
-				desc = 'Show a visible grid overlay and snap frames to grid lines when dragging.',
-				type = 'toggle',
+			GridMode = {
+				name = L['Grid'],
+				desc = L['Show a grid behind your frames while moving them.'],
+				type = 'select',
 				order = 101,
+				values = { off = L['Off'], dim = L['Faint'], bright = L['Bright'] },
 				get = function()
-					return MoveIt.DB.GridSnapEnabled ~= false
+					return MoveIt.GridOverlay:GetMode()
 				end,
 				set = function(_, val)
-					MoveIt.DB.GridSnapEnabled = val
-					if MoveIt.MagnetismManager then
-						MoveIt.MagnetismManager:UpdateGridLines()
-					end
-					if MoveIt.GridOverlay then
-						if val and MoveIt.MoverMode and MoveIt.MoverMode:IsActive() then
-							MoveIt.GridOverlay:Show()
-						else
-							MoveIt.GridOverlay:Hide()
-						end
-					end
+					MoveIt.DB.GridMode = val
+					MoveIt.GridOverlay:Refresh()
 				end,
 			},
 			GridSpacing = {
-				name = 'Grid Spacing',
-				desc = 'Size of the snap grid in pixels. Movers will snap to multiples of this value.',
+				name = L['Grid spacing'],
+				desc = L['Distance between grid lines.'],
 				type = 'range',
-				min = 16,
-				max = 64,
+				min = 8,
+				max = 128,
 				step = 4,
 				order = 102,
 				get = function()
@@ -412,24 +359,55 @@ function MoveIt:Options()
 				end,
 				set = function(_, val)
 					MoveIt.DB.GridSpacing = val
-					if MoveIt.MagnetismManager then
-						MoveIt.MagnetismManager:UpdateGridLines()
-					end
-					if MoveIt.GridOverlay then
-						MoveIt.GridOverlay:Refresh()
-					end
+					MoveIt.GridOverlay:Refresh()
+				end,
+			},
+			GridSnapEnabled = {
+				name = L['Snap to grid'],
+				desc = L['Frames jump to the nearest grid line while you drag them.'],
+				type = 'toggle',
+				order = 103,
+				get = function()
+					return MoveIt.DB.GridSnapEnabled
+				end,
+				set = function(_, val)
+					MoveIt.DB.GridSnapEnabled = val
 				end,
 			},
 			ElementSnapEnabled = {
-				name = 'Snap to Elements',
-				desc = 'Snap frames to other visible frame edges and corners when dragging.',
+				name = L['Snap to frames'],
+				desc = L['Line frames up with other frames and the middle and edges of your screen.'],
 				type = 'toggle',
-				order = 103,
+				order = 104,
 				get = function()
 					return MoveIt.DB.ElementSnapEnabled ~= false
 				end,
 				set = function(_, val)
 					MoveIt.DB.ElementSnapEnabled = val
+				end,
+			},
+			ShowCoordinates = {
+				name = L['Show position'],
+				desc = L["Show a frame's position on its box while you drag or select it."],
+				type = 'toggle',
+				order = 105,
+				get = function()
+					return MoveIt.DB.ShowCoordinates
+				end,
+				set = function(_, val)
+					MoveIt.DB.ShowCoordinates = val
+				end,
+			},
+			SeeThrough = {
+				name = L['See-through'],
+				desc = L['Make the frame boxes see-through so you can see the frames under them.'],
+				type = 'toggle',
+				order = 106,
+				get = function()
+					return MoveIt.DB.SeeThrough
+				end,
+				set = function(_, val)
+					MoveIt.DB.SeeThrough = val
 				end,
 			},
 			-- EditMode Profile Sync (Optional Feature)

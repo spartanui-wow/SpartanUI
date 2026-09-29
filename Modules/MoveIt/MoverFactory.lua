@@ -1,44 +1,233 @@
 ---@type SUI
 local SUI = SUI
 local L = SUI.L
-local print = SUI.print
 ---@class MoveIt
 local MoveIt = SUI.MoveIt
+local Style = SUI.UI.Style
 
--- Colors for mover frames
-local colors = {
-	bg = { 0.0588, 0.0588, 0, 0.85 },
-	active = { 0.1, 0.1, 0.1, 0.7 },
-	border = { 0.00, 0.00, 0.00, 1 },
-	text = { 1, 1, 1, 1 },
-	disabled = { 0.55, 0.55, 0.55, 1 },
-}
-
+---@param obj Frame
+---@return string
 local function GetPoints(obj)
 	local point, anchor, secondaryPoint, x, y = obj:GetPoint()
 	if not point then
-		return format('%s,%s,%s,%d,%d', 'CENTER', 'UIParent', 'CENTER', 0, 0)
+		return 'CENTER,UIParent,CENTER,0,0'
 	end
-	if not anchor then
-		anchor = UIParent
-	end
+	local anchorName = (anchor and anchor.GetName and anchor:GetName()) or 'UIParent'
+	return format('%s,%s,%s,%d,%d', point, anchorName, secondaryPoint or point, Round(x or 0), Round(y or 0))
+end
+MoveIt.GetPoints = GetPoints
 
-	return format('%s,%s,%s,%d,%d', point, anchor:GetName(), secondaryPoint or point, Round(x or 0), Round(y or 0))
+-- Where each mover's "Settings" button leads when the owning module did not say
+local OPTION_PATHS = {
+	BT4BarPetBar = { 'ActionBars', 'pet' },
+	BT4BarStanceBar = { 'ActionBars', 'stance' },
+	BT4BarMicroMenu = { 'ActionBars', 'micro' },
+	BT4BarBagBar = { 'ActionBars', 'bags' },
+	BT4BarQueueStatus = { 'ActionBars', 'queue' },
+	BT4BarExtraActionBar = { 'ActionBars', 'extra' },
+	Minimap = { 'Modules', 'Minimap' },
+	StatusBar_Left = { 'Artwork', 'StatusBars' },
+	StatusBar_Right = { 'Artwork', 'StatusBars' },
+}
+
+---@class SUI.MoveIt.Mover : Button
+---@field name string
+---@field parent SUI.MoveIt.MoverParent
+---@field label FontString
+---@field DisplayName FontString Same as label; kept for older callers
+---@field subtitle FontString
+---@field fill Texture
+---@field border SUI.UI.Style.Border
+---@field groupName string
+---@field displayText string
+---@field defaultPoint string
+---@field defaultScale number
+---@field postdrag? function
+---@field optionsPath? string[]
+---@field noScale? boolean
+---@field isMover boolean
+---@field IsMoverAvailable? fun(self: SUI.MoveIt.Mover): boolean
+---@field updateObj? Frame
+
+---@class SUI.MoveIt.MoverParent : Frame
+---@field mover? SUI.MoveIt.Mover
+---@field position? fun(self: SUI.MoveIt.MoverParent, point?: string, anchor?: string|Frame, secondaryPoint?: string, x?: number, y?: number, forced?: boolean, defaultPos?: boolean)
+---@field scale? fun(self: SUI.MoveIt.MoverParent, scale?: number, setDefault?: boolean, forced?: boolean)
+---@field isMoved? fun(): boolean
+---@field dirtyWidth? number
+---@field dirtyHeight? number
+---@field isBlizzMoverHolder? boolean
+
+---The mover this mover is attached to, if its saved position points at another mover
+---@param mover SUI.MoveIt.Mover
+---@return SUI.MoveIt.Mover|nil
+function MoveIt:GetAnchorMover(mover)
+	local _, anchor = mover:GetPoint(1)
+	if anchor and anchor ~= UIParent and anchor.isMover then
+		return anchor
+	end
+	return nil
 end
 
-local isDragging = false
+---Refresh the small text under a mover's name
+---@param mover SUI.MoveIt.Mover
+function MoveIt:UpdateMoverText(mover)
+	if not mover or not mover.subtitle then
+		return
+	end
+	local parts = {}
+	local anchorMover = self:GetAnchorMover(mover)
+	if anchorMover then
+		parts[#parts + 1] = L['Attached to'] .. ' ' .. (anchorMover.displayText or anchorMover.name)
+	elseif self:IsMoved(mover.name) and self.DB.movers[mover.name].MovedPoints then
+		parts[#parts + 1] = L['Moved']
+	end
+	local adjusted = self.DB.movers[mover.name].AdjustedScale
+	if adjusted then
+		parts[#parts + 1] = string.format('%s %.2f', L['Scale'], adjusted)
+	end
+	if mover.showCoords then
+		local _, _, _, x, y = mover:GetPoint(1)
+		parts[#parts + 1] = string.format('%.1f, %.1f', x or 0, y or 0)
+	end
+	mover.subtitle:SetText(table.concat(parts, '  |  '))
 
----@class SUI.MoveIt.MoverParent : Frame, SUI.MoveIt.parentMixin
-local parentFrameTemp = {}
+	local c = anchorMover and Style.color.anchored or Style.color.text
+	mover.label:SetTextColor(c[1], c[2], c[3], 1)
+end
+
+---Options path the mover's "Settings" button opens
+---@param mover SUI.MoveIt.Mover
+---@return string[]
+function MoveIt:GetOptionsPath(mover)
+	if mover.optionsPath then
+		return mover.optionsPath
+	end
+	if OPTION_PATHS[mover.name] then
+		return OPTION_PATHS[mover.name]
+	end
+	local barId = mover.name:match('^BT4Bar(%d+)$')
+	if barId and SUI.opt.args.ActionBars and SUI.opt.args.ActionBars.args['bar' .. barId] then
+		return { 'ActionBars', 'bar' .. barId }
+	end
+	if SUI.opt.args.UnitFrames and SUI.opt.args.UnitFrames.args[mover.name] then
+		return { 'UnitFrames', mover.name }
+	end
+	return { 'Movers', mover.groupName or 'General', mover.name }
+end
+
+---Set where a mover's "Settings" button leads
+---@param name string
+---@param path string[]
+function MoveIt:SetOptionsPath(name, path)
+	local mover = self.MoverList[name]
+	if mover then
+		mover.optionsPath = path
+	end
+end
+
+---Save a mover's current place. A mover attached to another mover keeps that anchor;
+---everything else is stored against the nearest screen corner or edge.
+---@param mover SUI.MoveIt.Mover
+function MoveIt:SaveMover(mover)
+	local name = mover.name
+	local PositionCalculator = self.PositionCalculator
+	local anchorMover = self:GetAnchorMover(mover)
+	if anchorMover then
+		local point, _, relativePoint, x, y = mover:GetPoint(1)
+		PositionCalculator:SavePosition(name, {
+			point = point,
+			anchorFrameName = anchorMover:GetName(),
+			anchorPoint = relativePoint,
+			x = x,
+			y = y,
+		})
+	else
+		local closest = PositionCalculator:GetClosestAnchor(mover)
+		local x, y = PositionCalculator:CalculateAnchorOffset(mover, closest)
+		mover:ClearAllPoints()
+		mover:SetPoint(closest, UIParent, closest, x, y)
+		PositionCalculator:SavePosition(name, {
+			point = closest,
+			anchorFrameName = 'UIParent',
+			anchorPoint = closest,
+			x = x,
+			y = y,
+		})
+	end
+	self:UpdateMoverText(mover)
+	if mover.postdrag then
+		mover.postdrag(mover)
+	end
+end
+
+---Move a mover by an offset in its own units, keeping any anchor it has
+---@param mover SUI.MoveIt.Mover
+---@param dx number
+---@param dy number
+function MoveIt:NudgeMover(mover, dx, dy)
+	if InCombatLockdown() then
+		return
+	end
+	local point, anchor, relativePoint, x, y = mover:GetPoint(1)
+	mover:ClearAllPoints()
+	mover:SetPoint(point, anchor or UIParent, relativePoint, (x or 0) + (dx or 0), (y or 0) + (dy or 0))
+	self:SaveMover(mover)
+end
+
+---Set a mover's scale and remember it (nil or its default clears the saved scale)
+---@param mover SUI.MoveIt.Mover
+---@param value? number
+function MoveIt:SetMoverScale(mover, value)
+	if InCombatLockdown() or mover.noScale then
+		return
+	end
+	value = value or mover.defaultScale or 1
+	value = math.max(0.25, math.min(3, value))
+	mover:SetScale(value)
+	mover.parent:SetScale(value)
+	if math.abs(value - (mover.defaultScale or 1)) < 0.001 then
+		self.DB.movers[mover.name].AdjustedScale = nil
+	else
+		self.DB.movers[mover.name].AdjustedScale = value
+	end
+	self:UpdateMoverText(mover)
+end
+
+---Place a mover where its saved data (or its default) says, and apply its saved scale
+---@param name string
+function MoveIt:ApplySavedPosition(name)
+	local mover = self.MoverList[name]
+	if not mover or not mover.defaultPoint then
+		return
+	end
+	local data = self.DB.movers[name]
+	local point, anchor, secondaryPoint, x, y = strsplit(',', data.MovedPoints or mover.defaultPoint)
+	if type(anchor) == 'string' and not _G[anchor] then
+		point, anchor, secondaryPoint, x, y = strsplit(',', mover.defaultPoint)
+	end
+	if type(anchor) == 'string' and not _G[anchor] then
+		anchor = 'UIParent'
+	end
+	mover:ClearAllPoints()
+	mover:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+
+	local scale = data.AdjustedScale or mover.defaultScale or 1
+	mover:SetScale(scale)
+	mover.parent:SetScale(scale)
+	self:UpdateMoverText(mover)
+	if mover.postdrag then
+		mover.postdrag(mover)
+	end
+end
 
 ---@param parent SUI.MoveIt.MoverParent
 ---@param name string
 ---@param DisplayName? string
 ---@param postdrag? function
 ---@param groupName? string
----@param widgets? table Ace3-style widget definitions for the settings panel
 ---@return nil
-function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widgets)
+function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName)
 	if SUI:IsModuleDisabled('MoveIt') then
 		return
 	end
@@ -56,76 +245,71 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 	local width = parent.dirtyWidth or parent:GetWidth()
 	local height = parent.dirtyHeight or parent:GetHeight()
 
-	---@class SUI.MoveIt.Mover : Frame, BackdropTemplate
-	local f = CreateFrame('Button', 'SUI_Mover_' .. name, UIParent, BackdropTemplateMixin and 'BackdropTemplate')
+	local f = CreateFrame('Button', 'SUI_Mover_' .. name, UIParent) ---@type SUI.MoveIt.Mover
 	f:SetClampedToScreen(true)
-	f:RegisterForDrag('LeftButton', 'RightButton')
+	f:RegisterForDrag('LeftButton')
 	f:EnableMouseWheel(true)
 	f:SetMovable(true)
 	f:SetSize(width, height)
-
-	f:SetBackdrop({
-		bgFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
-		edgeFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
-		edgeSize = 1,
-	})
-	f:SetBackdropColor(unpack(colors.bg))
-	f:SetBackdropBorderColor(unpack(colors.border))
-
 	f:Hide()
+	f.isMover = true
 	f.parent = parent
 	f.name = name
-	f.DisplayName = DisplayName
+	f.displayText = DisplayName
+	f.groupName = groupName or 'General'
 	f.postdrag = postdrag
 	f.defaultScale = (parent:GetScale() or 1)
 	f.defaultPoint = GetPoints(parent)
-	f.widgets = widgets -- Ace3-style widget definitions for settings panel
 
 	f:SetFrameLevel(parent:GetFrameLevel() + 1)
 	f:SetFrameStrata('DIALOG')
 
+	f.fill = Style:CreateFill(f, Style.color.mover)
+	f.border = Style:CreateBorder(f)
+	f.border:SetColor(Style:GetAccent())
+
+	local label = Style:CreateText(f, 11)
+	label:SetPoint('CENTER', 0, 4)
+	label:SetPoint('LEFT', f, 'LEFT', 2, 0)
+	label:SetPoint('RIGHT', f, 'RIGHT', -2, 0)
+	label:SetJustifyH('CENTER')
+	label:SetWordWrap(false)
+	label:SetText(DisplayName)
+	f.label = label
+	f.DisplayName = label
+
+	local subtitle = Style:CreateText(f, 9, Style.color.muted)
+	subtitle:SetPoint('TOP', label, 'BOTTOM', 0, -1)
+	subtitle:SetPoint('LEFT', f, 'LEFT', 2, 0)
+	subtitle:SetPoint('RIGHT', f, 'RIGHT', -2, 0)
+	subtitle:SetJustifyH('CENTER')
+	subtitle:SetWordWrap(false)
+	f.subtitle = subtitle
+
+	-- Older code shows and hides these to flag a moved or scaled frame
+	local textProxy = {
+		Show = function()
+			MoveIt:UpdateMoverText(f)
+		end,
+		Hide = function()
+			MoveIt:UpdateMoverText(f)
+		end,
+	}
+	f.MovedText = textProxy
+	f.ScaledText = textProxy
+
 	self.MoverList[name] = f
 
-	-- Register frame with magnetism manager if available
 	if MoveIt.MagnetismManager then
 		MoveIt.MagnetismManager:RegisterFrame(f)
 	end
 
-	local nameText = f:CreateFontString(nil, 'OVERLAY')
-	SUI.Font:Format(nameText, 12, 'Mover')
-	nameText:SetJustifyH('CENTER')
-	nameText:SetPoint('CENTER')
-	nameText:SetText(DisplayName or name)
-	nameText:SetTextColor(unpack(colors.text))
-	f:SetFontString(nameText)
-	f.DisplayName = nameText
-
-	local MovedText = f:CreateFontString(nil, 'OVERLAY')
-	SUI.Font:Format(MovedText, 8, 'Mover')
-	MovedText:SetJustifyH('CENTER')
-	MovedText:SetPoint('TOPRIGHT', nameText, 'BOTTOM', -2, -2)
-	MovedText:SetText('(MOVED)')
-	MovedText:SetTextColor(unpack(colors.text))
-	MovedText:Hide()
-	f.MovedText = MovedText
-
-	local ScaledText = f:CreateFontString(nil, 'OVERLAY')
-	SUI.Font:Format(ScaledText, 8, 'Mover')
-	ScaledText:SetJustifyH('CENTER')
-	ScaledText:SetPoint('TOPLEFT', nameText, 'BOTTOM', 2, -2)
-	ScaledText:SetText('(SCALED)')
-	ScaledText:SetTextColor(unpack(colors.text))
-	ScaledText:Hide()
-	f.ScaledText = ScaledText
-
 	f:SetScale(MoveIt.DB.movers[name].AdjustedScale or parent:GetScale() or 1)
 	if MoveIt.DB.movers[name].AdjustedScale then
-		ScaledText:Show()
 		parent:SetScale(MoveIt.DB.movers[name].AdjustedScale)
 	end
 
 	if MoveIt.DB.movers[name].MovedPoints then
-		MovedText:Show()
 		point, anchor, secondaryPoint, x, y = strsplit(',', MoveIt.DB.movers[name].MovedPoints)
 	end
 
@@ -135,6 +319,7 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 	if type(anchor) == 'string' then
 		anchorObj = _G[anchor]
 	end
+
 	-- A saved position can point at another mover that has not been created yet (load order).
 	-- Keep the saved position, use the default for now, and re-apply once that mover exists.
 	if not anchorObj and MoveIt.DB.movers[name].MovedPoints and type(anchor) == 'string' and anchor:find('^SUI_Mover_') then
@@ -163,305 +348,135 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 		anchor = 'UIParent'
 		if not MoveIt.PendingAnchors[name] then
 			MoveIt.DB.movers[name].MovedPoints = nil
-			MovedText:Hide()
 		end
 	end
 
 	f:ClearAllPoints()
-	f:SetPoint(point, anchor, secondaryPoint, x, y)
-	MoveIt:ResolvePendingAnchors()
-
-	local function SaveMoverPosition()
-		-- Normalize to UIParent anchor to avoid drift when anchored to scaled frames.
-		-- Re-anchor to the nearest UIParent corner, then read back the offset WoW computed
-		-- so the saved value is exactly what SetPoint will reproduce on the next load.
-		local closestAnchor = MoveIt.PositionCalculator:GetClosestAnchor(f)
-		local offsetX, offsetY = MoveIt.PositionCalculator:CalculateAnchorOffset(f, closestAnchor)
-		f:ClearAllPoints()
-		f:SetPoint(closestAnchor, UIParent, closestAnchor, offsetX, offsetY)
-
-		-- Read back the exact values WoW stored (avoids accumulated rounding errors
-		-- that can occur when re-deriving the offset from GetCenter/GetSize on later loads).
-		local rPoint, _, rRelPoint, rX, rY = f:GetPoint(1)
-		local rx = math.floor((rX or offsetX) + 0.5)
-		local ry = math.floor((rY or offsetY) + 0.5)
-
-		local position = {
-			point = rPoint or closestAnchor,
-			anchorFrameName = 'UIParent',
-			anchorPoint = rRelPoint or closestAnchor,
-			x = rx,
-			y = ry,
-		}
-		MoveIt.PositionCalculator:SavePosition(name, position)
-		f.MovedText:Show()
-
-		if MoveIt.logger then
-			MoveIt.logger.debug(('SaveMoverPosition %s: normalized to UIParent %s %d,%d'):format(name, closestAnchor, rx, ry))
-		end
-	end
-
-	local Scale = function(self, ammount)
-		local Current = self:GetScale()
-		local NewScale = Current + (ammount or 0)
-
-		-- Simply apply scale - don't try to adjust position
-		-- The frame scales from its anchor point (CENTER), so position stays stable
-		self:SetScale(NewScale)
-		self.parent:SetScale(NewScale)
-
-		-- Save the user's scale adjustment to DB
-		MoveIt.DB.movers[name].AdjustedScale = NewScale
-
-		-- Only hide the indicator if user resets to default scale
-		if NewScale == f.defaultScale then
-			MoveIt.DB.movers[name].AdjustedScale = nil
-			ScaledText:Hide()
-		else
-			ScaledText:Show()
-		end
-	end
-
-	local NudgeMover = function(self, nudgeX, nudgeY)
-		local point, anchor, secondaryPoint, x, y = self:GetPoint()
-		if not anchor then
-			anchor = UIParent
-		end
-		x = Round(x)
-		y = Round(y)
-
-		-- Shift it.
-		x = x + (nudgeX or 0)
-		y = y + (nudgeY or 0)
-
-		-- Save it.
-		self:ClearAllPoints()
-		self:SetPoint(point, anchor, secondaryPoint, x, y)
-		SaveMoverPosition()
-	end
+	f:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 
 	local function OnDragStart(self)
 		if InCombatLockdown() then
-			print(ERR_NOT_IN_COMBAT)
 			return
 		end
-
-		-- DUAL SNAPPING SYSTEM:
-		-- - LibSimpleSticky handles frame-to-frame snapping (via its own OnUpdate)
-		-- - MagnetismManager handles grid snapping (via our OnUpdate)
-
-		self:StartMoving()
-
-		isDragging = true
-
-		-- Initialize magnetism for grid snapping only
-		local MagnetismManager = MoveIt.MagnetismManager
-		if MagnetismManager and MagnetismManager:IsGridSnapActive() then
-			MagnetismManager:BeginDragSession(self)
+		if MoveIt.MoverMode:IsActive() then
+			MoveIt.MoverMode:StartDrag(self)
+		else
+			self:StartMoving()
 		end
-
-		-- Create OnUpdate frame for grid snap preview lines
-		if not self.dragUpdateFrame then
-			self.dragUpdateFrame = CreateFrame('Frame')
-		end
-		self.dragUpdateFrame:SetScript('OnUpdate', function()
-			-- Check IsGridSnapActive() each frame to handle toggle
-			if MagnetismManager and MagnetismManager:IsGridSnapActive() then
-				local snapInfo = MagnetismManager:CheckForSnaps(self)
-				if snapInfo then
-					MagnetismManager:ShowPreviewLines(snapInfo)
-				else
-					MagnetismManager:HidePreviewLines()
-				end
-			elseif MagnetismManager then
-				-- Hide preview lines when grid snap is disabled
-				MagnetismManager:HidePreviewLines()
-			end
-
-			-- Update settings panel position display during drag
-			local SettingsPanel = MoveIt.SettingsPanel
-			if SettingsPanel and SettingsPanel.nudgeWidget and SettingsPanel.nudgeWidget.UpdatePositionDisplay then
-				SettingsPanel.nudgeWidget:UpdatePositionDisplay()
-			end
-		end)
 	end
 
 	local function OnDragStop(self)
-		if InCombatLockdown() then
-			print(ERR_NOT_IN_COMBAT)
+		if MoveIt.MoverMode:IsDragging(self) then
+			MoveIt.MoverMode:StopDrag(self)
 			return
 		end
-		isDragging = false
-
 		self:StopMovingOrSizing()
-
-		SaveMoverPosition()
-
 		self:SetUserPlaced(false)
-
-		-- Stop OnUpdate for snap preview lines
-		if self.dragUpdateFrame then
-			self.dragUpdateFrame:SetScript('OnUpdate', nil)
+		if not InCombatLockdown() then
+			MoveIt:SaveMover(self)
 		end
-
-		-- End grid snap session and hide preview lines
-		local MagnetismManager = MoveIt.MagnetismManager
-		if MagnetismManager then
-			MagnetismManager:EndDragSession()
-		end
-
-		-- Update settings panel position display after drag
-		local SettingsPanel = MoveIt.SettingsPanel
-		if SettingsPanel and SettingsPanel.nudgeWidget and SettingsPanel.nudgeWidget.UpdatePositionDisplay then
-			SettingsPanel.nudgeWidget:UpdatePositionDisplay()
-		end
-	end
-
-	local function OnEnter(self)
-		if isDragging then
-			return
-		end
-		self:SetBackdropColor(unpack(colors.active))
-		self.DisplayName:SetTextColor(1, 1, 1)
 	end
 
 	local function OnMouseDown(self, button)
-		if button == 'LeftButton' and not isDragging then
-			-- if NudgeWindow:IsShown() then
-			-- 	NudgeWindow:Hide()
-			-- else
-			-- 	NudgeWindow:Show()
-			-- end
-		end
-
-		if IsAltKeyDown() then -- Reset anchor
-			MoveIt:Reset(name)
-			if MoveIt.DB.tips then
-				print("Tip use the chat command '/sui move reset' to reset everything quickly.")
-			end
-		elseif IsControlKeyDown() then -- Reset Scale to default
-			self:SetScale(self.defaultScale)
-			self.parent:SetScale(self.defaultScale)
-			ScaledText:Hide()
-
-			MoveIt.DB.movers[name].AdjustedScale = nil
-		elseif IsShiftKeyDown() then -- Allow hiding a mover temporarily
-			self:Hide()
-			print(self.name .. ' hidden temporarily.')
-		end
-	end
-
-	local function OnLeave(self)
-		if isDragging then
+		if InCombatLockdown() then
 			return
 		end
-		self:SetBackdropColor(unpack(colors.bg))
+		if IsAltKeyDown() and button == 'LeftButton' then
+			MoveIt:Reset(name, true)
+		elseif IsControlKeyDown() and button == 'LeftButton' then
+			MoveIt:SetMoverScale(self, nil)
+		elseif IsShiftKeyDown() and button == 'RightButton' then
+			self:Hide()
+		elseif MoveIt.MoverMode:IsActive() then
+			MoveIt.MoverMode:OnMoverClicked(self, button)
+		end
 	end
 
-	local function OnShow(self)
-		self:SetBackdropBorderColor(unpack(colors.bg))
-	end
-
-	local function OnMouseWheel(_, delta)
+	local function OnMouseWheel(self, delta)
 		if InCombatLockdown() then
 			return
 		end
 		if IsAltKeyDown() then
-			f:Scale((delta / 100))
+			MoveIt:SetMoverScale(self, (self:GetScale() or 1) + delta * 0.01)
 		elseif IsShiftKeyDown() then
-			f:NudgeMover(nil, delta)
+			MoveIt:NudgeMover(self, 0, delta)
 		else
-			f:NudgeMover(delta)
+			MoveIt:NudgeMover(self, delta, 0)
+		end
+		if MoveIt.MoverMode:IsActive() then
+			MoveIt.MoverMode:RefreshMover(self)
 		end
 	end
 
-	f.Scale = Scale
-	f.NudgeMover = NudgeMover
 	f:SetScript('OnDragStart', OnDragStart)
 	f:SetScript('OnDragStop', OnDragStop)
-	f:SetScript('OnEnter', OnEnter)
 	f:SetScript('OnMouseDown', OnMouseDown)
-	f:SetScript('OnLeave', OnLeave)
-	f:SetScript('OnShow', OnShow)
 	f:SetScript('OnMouseWheel', OnMouseWheel)
+	f:SetScript('OnEnter', function(self)
+		MoveIt.MoverMode:SetHovered(self, true)
+	end)
+	f:SetScript('OnLeave', function(self)
+		MoveIt.MoverMode:SetHovered(self, false)
+	end)
+
+	-- Kept for callers written against the older mover
+	f.NudgeMover = function(self, nudgeX, nudgeY)
+		MoveIt:NudgeMover(self, nudgeX or 0, nudgeY or 0)
+	end
+	f.Scale = function(self, amount)
+		MoveIt:SetMoverScale(self, (self:GetScale() or 1) + (amount or 0))
+	end
 
 	local DragMoving = false
 	local function ParentMouseDown(self)
-		if IsAltKeyDown() and MoveIt.DB.AltKey then
+		if IsAltKeyDown() and MoveIt.DB.AltKey and self.mover then
 			OnDragStart(self.mover)
 			DragMoving = true
 		end
 	end
 	local function ParentMouseUp(self)
-		if DragMoving then
+		if DragMoving and self.mover then
+			DragMoving = false
 			OnDragStop(self.mover)
 		end
 	end
-	local function scale(self, scale, setDefault, forced)
+
+	local function scale(self, newScale, setDefault, forced)
 		if setDefault then
-			f.defaultScale = scale
+			f.defaultScale = newScale
 		end
 
 		-- If user has adjusted scale and we're not forcing, don't change anything
 		if MoveIt.DB.movers[name].AdjustedScale and not forced then
-			if MoveIt.logger then
-				MoveIt.logger.debug(('scale() for %s: skipped due to AdjustedScale'):format(name))
-			end
 			return
 		end
 
-		-- IMPORTANT: If the frame has been MOVED, we should not change its scale
-		-- because the saved coordinates were calculated at the current scale.
-		-- Changing scale would make those coordinates represent a different position.
+		-- A moved frame keeps its scale: the saved offsets were measured at this scale
 		if MoveIt.DB.movers[name].MovedPoints and not forced then
-			if MoveIt.logger then
-				MoveIt.logger.debug(('scale() for %s: skipped due to MovedPoints'):format(name))
-			end
 			return
 		end
 
-		f:SetScale(max((scale or f.defaultScale), 0.01))
-		if f.OnScale then
-			f.OnScale:SetScale(max((scale or f.defaultScale), 0.01))
-		end
-		parent:SetScale(max((scale or f.defaultScale), 0.01))
+		local value = max((newScale or f.defaultScale), 0.01)
+		f:SetScale(value)
+		parent:SetScale(value)
+		MoveIt:UpdateMoverText(f)
 
-		-- Only show scaled indicator if user has actually adjusted the scale
-		-- Not when themes or other internal systems change it programmatically
-		if MoveIt.DB.movers[name].AdjustedScale then
-			ScaledText:Show()
-		else
-			ScaledText:Hide()
-		end
-
-		local point, anchor, secondaryPoint, x, y = strsplit(',', f.defaultPoint)
-
-		if MoveIt.DB.movers[name].MovedPoints then
-			point, anchor, secondaryPoint, x, y = strsplit(',', MoveIt.DB.movers[name].MovedPoints)
-		end
-
-		-- Ensure x and y are numbers (strsplit returns strings)
-		x = tonumber(x) or 0
-		y = tonumber(y) or 0
+		local p, a, sp, px, py = strsplit(',', MoveIt.DB.movers[name].MovedPoints or f.defaultPoint)
+		px = tonumber(px) or 0
+		py = tonumber(py) or 0
 
 		-- Validate anchor frame exists (it may reference a disabled unit frame's mover)
-		if type(anchor) == 'string' and anchor ~= 'UIParent' and not _G[anchor] then
-			if MoveIt.logger then
-				MoveIt.logger.debug(('scale() for %s: anchor %s does not exist, falling back to UIParent'):format(name, anchor))
-			end
-			anchor = 'UIParent'
-		end
-
-		if MoveIt.logger then
-			MoveIt.logger.debug(('scale() for %s: repositioning to %s,%s,%s,%.1f,%.1f'):format(name, point or 'nil', anchor or 'nil', secondaryPoint or 'nil', x, y))
+		if type(a) == 'string' and a ~= 'UIParent' and not _G[a] then
+			a = 'UIParent'
 		end
 
 		f:ClearAllPoints()
-		f:SetPoint(point, anchor, secondaryPoint, x, y)
+		f:SetPoint(p, a, sp, px, py)
 	end
-	local function position(self, point, anchor, secondaryPoint, x, y, forced, defaultPos)
+
+	local function position(self, newPoint, newAnchor, newSecondaryPoint, newX, newY, forced, defaultPos)
 		-- If Frame:position() was called just make sure we are anchored properly
-		if not point then
+		if not newPoint then
 			self:ClearAllPoints()
 			self:SetPoint('TOPLEFT', self.mover, 0, 0)
 			return
@@ -472,18 +487,14 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 			return
 		end
 
-		-- Position frame
 		f:ClearAllPoints()
-		f:SetPoint(point, (anchor or UIParent), (secondaryPoint or point), (x or 0), (y or 0))
+		f:SetPoint(newPoint, (newAnchor or UIParent), (newSecondaryPoint or newPoint), (newX or 0), (newY or 0))
 
-		-- Register frame relationships for magnetism (for non-unit-frame movers)
-		-- Unit frames register their relationships separately after all movers are created
-		if anchor and anchor ~= UIParent and self.mover and MoveIt.MagnetismManager then
-			local anchorFrame = anchor
-			if type(anchor) == 'string' then
-				anchorFrame = _G[anchor]
+		if newAnchor and newAnchor ~= UIParent and self.mover and MoveIt.MagnetismManager then
+			local anchorFrame = newAnchor
+			if type(newAnchor) == 'string' then
+				anchorFrame = _G[newAnchor]
 			end
-
 			if anchorFrame and anchorFrame.mover then
 				MoveIt.MagnetismManager:RegisterFrameRelationship(self.mover, anchorFrame.mover)
 			end
@@ -493,8 +504,9 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 			f.defaultPoint = GetPoints(f)
 		end
 	end
+
 	local function SizeChanged(frame)
-		if InCombatLockdown() then
+		if InCombatLockdown() or not frame.mover then
 			return
 		end
 		if frame.mover.updateObj then
@@ -510,22 +522,14 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 
 	parent:HookScript('OnMouseDown', ParentMouseDown)
 	parent:HookScript('OnMouseUp', ParentMouseUp)
-	---@class SUI.MoveIt.parentMixin
-	local parentMixin = {
-		scale = scale,
-		position = position,
-		mover = f,
-		dirtyWidth = 0,
-		dirtyHeight = 0,
-	}
-	for k, v in pairs(parentMixin) do
-		parent[k] = v
-	end
+
+	parent.scale = scale
+	parent.position = position
+	parent.mover = f
+	parent.dirtyWidth = 0
+	parent.dirtyHeight = 0
 	parent.isMoved = function()
-		if MoveIt.DB.movers[name].MovedPoints then
-			return true
-		end
-		return false
+		return MoveIt.DB.movers[name].MovedPoints and true or false
 	end
 
 	parent:ClearAllPoints()
@@ -537,7 +541,69 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 		parent:Hide()
 	end
 
-	self:AddToOptions(name, DisplayName, (groupName or 'General'), f)
+	self:UpdateMoverText(f)
+	self:AddToOptions(name, DisplayName, f.groupName, f)
+	MoveIt:ResolvePendingAnchors()
+end
+
+---@class SUI.MoveIt.ElementOptions
+---@field frame Frame The frame to move
+---@field key string Unique mover name, used for saved positions
+---@field label? string Name shown on the mover
+---@field group? string Group shown in options and the move mode filter
+---@field optionsPath? string[] Options page the mover's Settings button opens
+---@field noScale? boolean The frame cannot be scaled
+---@field isAvailable? fun(): boolean Return false to hide the mover (for example a disabled bar)
+---@field onMoved? fun(mover: SUI.MoveIt.Mover) Called after the frame is moved or reset
+
+---Register a frame with the mover system using named options
+---@param opts SUI.MoveIt.ElementOptions
+---@return SUI.MoveIt.Mover|nil
+function MoveIt:RegisterElement(opts)
+	self:CreateMover(opts.frame, opts.key, opts.label, opts.onMoved, opts.group)
+	local mover = self.MoverList[opts.key]
+	if not mover then
+		return nil
+	end
+	mover.optionsPath = opts.optionsPath
+	mover.noScale = opts.noScale
+	if opts.isAvailable then
+		mover.IsMoverAvailable = function()
+			return opts.isAvailable()
+		end
+	end
+	return mover
+end
+
+---Give a frame back its own positioning. The frame stays where it is on screen.
+---@param name string
+function MoveIt:ReleaseMover(name)
+	local mover = self.MoverList[name]
+	if not mover or InCombatLockdown() then
+		return
+	end
+	local parent = mover.parent
+	if MoveIt.MoverMode:IsActive() then
+		MoveIt.MoverMode:ForgetMover(mover)
+	end
+	mover:Hide()
+	self.MoverList[name] = nil
+	self.PendingAnchors[name] = nil
+	if parent then
+		local left, bottom = parent:GetLeft(), parent:GetBottom()
+		parent.mover = nil
+		parent.position = nil
+		parent.scale = nil
+		parent.isMoved = nil
+		-- GetLeft/GetBottom are already in the frame's own units, which is what SetPoint offsets use
+		if left and bottom then
+			parent:ClearAllPoints()
+			parent:SetPoint('BOTTOMLEFT', UIParent, 'BOTTOMLEFT', left, bottom)
+		end
+	end
+	if SUI.opt.args.Movers and SUI.opt.args.Movers.args[mover.groupName] then
+		SUI.opt.args.Movers.args[mover.groupName].args[name] = nil
+	end
 end
 
 function MoveIt:RegisterExternalMover(mover, name)
@@ -554,148 +620,91 @@ function MoveIt:RegisterExternalMover(mover, name)
 	return false
 end
 
+---A free-standing mover that stores its position through callbacks instead of the MoveIt database
+---@param displayName string
+---@param defaultPosition string "POINT,Anchor,RELPOINT,x,y"
+---@param config? table { width, height, savePosition = fn(positionString), onPositionChanged = fn(mover), onHide = fn() }
+---@return Button
 function MoveIt:CreateCustomMover(displayName, defaultPosition, config)
-	-- Generate a unique name based on the display name
 	local name = 'SUI_CustomMover_' .. displayName:gsub('%s+', '')
 
-	-- Default configuration options
 	local cfg = {
 		width = 180,
 		height = 180,
-		colors = {
-			bg = { 0.2, 0.0, 0.0, 0.85 }, -- Reddish background to distinguish from regular movers
-			active = { 0.3, 0.1, 0.1, 0.7 },
-			border = { 0.5, 0.0, 0.0, 1 },
-			text = { 1, 1, 1, 1 },
-		},
-		onPositionChanged = nil, -- Callback function
-		savePosition = nil, -- Function to handle position saving
-		onHide = nil, -- Function called when mover is hidden
+		onPositionChanged = nil,
+		savePosition = nil,
+		onHide = nil,
 	}
-
-	-- Override defaults with any provided config
 	if config then
 		for k, v in pairs(config) do
 			cfg[k] = v
 		end
 	end
 
-	-- Create the mover frame
-	local mover = CreateFrame('Button', name, UIParent, BackdropTemplateMixin and 'BackdropTemplate')
+	local mover = CreateFrame('Button', name, UIParent)
 	mover:SetClampedToScreen(true)
 	mover:RegisterForDrag('LeftButton', 'RightButton')
 	mover:EnableMouseWheel(true)
 	mover:SetMovable(true)
 	mover:SetSize(cfg.width, cfg.height)
-
-	mover:SetBackdrop({
-		bgFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
-		edgeFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
-		edgeSize = 1,
-	})
-	mover:SetBackdropColor(unpack(cfg.colors.bg))
-	mover:SetBackdropBorderColor(unpack(cfg.colors.border))
-
 	mover:Hide()
 	mover.defaultPoint = defaultPosition
 	mover.displayName = displayName
 	mover.savedPosition = nil
-
 	mover:SetFrameLevel(100)
 	mover:SetFrameStrata('DIALOG')
 
-	-- Create text elements
-	local nameText = mover:CreateFontString(nil, 'OVERLAY')
-	SUI.Font:Format(nameText, 12, 'Mover')
-	nameText:SetJustifyH('CENTER')
-	nameText:SetPoint('CENTER')
-	nameText:SetText(displayName)
-	nameText:SetTextColor(unpack(cfg.colors.text))
-	mover:SetFontString(nameText)
-	mover.DisplayName = nameText
-
-	local helpText = mover:CreateFontString(nil, 'OVERLAY')
-	SUI.Font:Format(helpText, 8, 'Mover')
-	helpText:SetJustifyH('CENTER')
-	helpText:SetPoint('BOTTOM', nameText, 'TOP', 0, 2)
-	helpText:SetText(L['Drag to set position'])
-	helpText:SetTextColor(unpack(cfg.colors.text))
-	mover.HelpText = helpText
-
-	-- Set initial position from saved settings
-	local point, anchor, secondaryPoint, x, y = strsplit(',', defaultPosition)
-	-- Validate anchor frame exists, fall back to UIParent if not
-	local anchorFrame = _G[anchor]
-	if not anchorFrame then
-		if MoveIt.logger then
-			MoveIt.logger.debug(('CreateCustomMover %s: anchor %s does not exist, falling back to UIParent'):format(name, anchor or 'nil'))
-		end
-		anchorFrame = UIParent
-	end
-	mover:ClearAllPoints()
-	mover:SetPoint(point, anchorFrame, secondaryPoint, x, y)
-
-	-- Script handlers for dragging
-	local isDraggingCustom = false
-
-	mover:SetScript('OnDragStart', function(self)
-		if InCombatLockdown() then
-			SUI:Print(ERR_NOT_IN_COMBAT)
-			return
-		end
-
-		self:StartMoving()
-		isDraggingCustom = true
+	mover.fill = Style:CreateFill(mover, Style.color.mover)
+	mover.border = Style:CreateBorder(mover)
+	Style:OnAccentChanged(mover, function(r, g, b)
+		mover.border:SetColor(r, g, b, 0.8)
 	end)
 
-	mover:SetScript('OnDragStop', function(self)
-		if InCombatLockdown() then
-			SUI:Print(ERR_NOT_IN_COMBAT)
-			return
-		end
+	local nameText = Style:CreateText(mover, 12)
+	nameText:SetPoint('CENTER')
+	nameText:SetText(displayName)
+	mover.DisplayName = nameText
 
-		isDraggingCustom = false
-		self:StopMovingOrSizing()
+	local helpText = Style:CreateText(mover, 9, Style.color.muted)
+	helpText:SetPoint('TOP', nameText, 'BOTTOM', 0, -2)
+	helpText:SetText(L['Drag to set position'])
+	mover.HelpText = helpText
 
-		-- Save the position
-		local point, anchor, secondaryPoint, x, y = self:GetPoint()
-		if not anchor then
-			anchor = UIParent
-		end
+	local point, anchor, secondaryPoint, x, y = strsplit(',', defaultPosition)
+	mover:ClearAllPoints()
+	mover:SetPoint(point, _G[anchor] or UIParent, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
 
-		local anchorName = anchor:GetName() or 'UIParent'
-		self.savedPosition = format('%s,%s,%s,%d,%d', point, anchorName, secondaryPoint, Round(x), Round(y))
-
-		-- Call custom save function if provided
+	local function SavePosition(self)
+		local p, a, sp, px, py = self:GetPoint()
+		local anchorName = (a and a:GetName()) or 'UIParent'
+		self.savedPosition = format('%s,%s,%s,%d,%d', p, anchorName, sp, Round(px), Round(py))
 		if cfg.savePosition then
 			cfg.savePosition(self.savedPosition)
 		end
-
-		-- Callback for position change
 		if cfg.onPositionChanged then
 			cfg.onPositionChanged(self)
 		end
+	end
 
+	mover:SetScript('OnDragStart', function(self)
+		if InCombatLockdown() then
+			return
+		end
+		self:StartMoving()
+	end)
+	mover:SetScript('OnDragStop', function(self)
+		self:StopMovingOrSizing()
 		self:SetUserPlaced(false)
+		SavePosition(self)
 	end)
-
 	mover:SetScript('OnEnter', function(self)
-		if isDraggingCustom then
-			return
-		end
-		self:SetBackdropColor(unpack(cfg.colors.active))
+		self.fill:SetVertexColor(Style.color.mover[1] + 0.05, Style.color.mover[2] + 0.05, Style.color.mover[3] + 0.05, 1)
 	end)
-
 	mover:SetScript('OnLeave', function(self)
-		if isDraggingCustom then
-			return
-		end
-		self:SetBackdropColor(unpack(cfg.colors.bg))
+		self.fill:SetVertexColor(unpack(Style.color.mover))
 	end)
-
 	mover:SetScript('OnMouseDown', function(self, button)
 		if InCombatLockdown() then
-			SUI:Print(ERR_NOT_IN_COMBAT)
 			return
 		elseif IsAltKeyDown() then
 			self:Hide()
@@ -706,138 +715,38 @@ function MoveIt:CreateCustomMover(displayName, defaultPosition, config)
 		end
 
 		if button == 'RightButton' then
-			-- Reset to default position
-			local point, anchor, secondaryPoint, x, y = strsplit(',', self.defaultPoint)
-			-- Validate anchor frame exists, fall back to UIParent if not
-			local anchorFrame = _G[anchor]
-			if not anchorFrame then
-				anchorFrame = UIParent
-			end
+			local dp, da, dsp, dx, dy = strsplit(',', self.defaultPoint)
 			self:ClearAllPoints()
-			self:SetPoint(point, anchorFrame, secondaryPoint, x, y)
-
+			self:SetPoint(dp, _G[da] or UIParent, dsp, tonumber(dx) or 0, tonumber(dy) or 0)
 			self.savedPosition = nil
-
 			if cfg.savePosition then
 				cfg.savePosition(self.defaultPoint)
 			end
-
 			SUI:Print(L['Position reset to default'])
 		end
 	end)
-
 	mover:SetScript('OnMouseWheel', function(self, delta)
+		local p, a, sp, px, py = self:GetPoint()
+		self:ClearAllPoints()
 		if IsShiftKeyDown() then
-			-- Vertical nudge
-			local point, anchor, secondaryPoint, x, y = self:GetPoint()
-			if not anchor then
-				anchor = UIParent
-			end
-
-			y = y + delta
-
-			self:ClearAllPoints()
-			self:SetPoint(point, anchor, secondaryPoint, x, y)
+			self:SetPoint(p, a or UIParent, sp, px, py + delta)
 		else
-			-- Horizontal nudge
-			local point, anchor, secondaryPoint, x, y = self:GetPoint()
-			if not anchor then
-				anchor = UIParent
-			end
-
-			x = x + delta
-
-			self:ClearAllPoints()
-			self:SetPoint(point, anchor, secondaryPoint, x, y)
+			self:SetPoint(p, a or UIParent, sp, px + delta, py)
 		end
 	end)
-
-	-- Add Escape key handling
 	mover:SetScript('OnKeyDown', function(self, key)
 		if key == 'ESCAPE' then
 			self:Hide()
 			if cfg.onHide then
 				cfg.onHide()
 			end
-			return
 		end
 	end)
 	mover:EnableKeyboard(true)
 
-	-- Register with UISpecialFrames for Escape handling
 	tinsert(UISpecialFrames, name)
-
-	-- Register with MoveIt system
 	self.MoverList[name] = mover
+	mover.isCustomMover = true
 
 	return mover
-end
-
----Create two debug test movers for snapping troubleshooting
----Call with: /run SUI.MoveIt:CreateDebugTestMovers()
-function MoveIt:CreateDebugTestMovers()
-	-- Remove existing test movers if they exist
-	if self.MoverList['DebugTestMover1'] then
-		self.MoverList['DebugTestMover1']:Hide()
-		self.MoverList['DebugTestMover1'] = nil
-	end
-	if self.MoverList['DebugTestMover2'] then
-		self.MoverList['DebugTestMover2']:Hide()
-		self.MoverList['DebugTestMover2'] = nil
-	end
-
-	-- Create test mover parent frames (required for CreateMover)
-	local parent1 = CreateFrame('Frame', 'SUI_DebugTestParent1', UIParent)
-	parent1:SetSize(50, 50)
-	parent1:SetPoint('CENTER', UIParent, 'CENTER', -100, 100)
-
-	local parent2 = CreateFrame('Frame', 'SUI_DebugTestParent2', UIParent)
-	parent2:SetSize(50, 50)
-	parent2:SetPoint('CENTER', UIParent, 'CENTER', 100, 100)
-
-	-- Initialize DB entries for the test movers
-	if not MoveIt.DB.movers['DebugTestMover1'] then
-		MoveIt.DB.movers['DebugTestMover1'] = { defaultPoint = false, MovedPoints = false }
-	end
-	if not MoveIt.DB.movers['DebugTestMover2'] then
-		MoveIt.DB.movers['DebugTestMover2'] = { defaultPoint = false, MovedPoints = false }
-	end
-
-	-- Create the movers using standard CreateMover
-	MoveIt:CreateMover(parent1, 'DebugTestMover1', 'Test Box 1', nil, 'Debug')
-	MoveIt:CreateMover(parent2, 'DebugTestMover2', 'Test Box 2', nil, 'Debug')
-
-	-- Show the test movers
-	if self.MoverList['DebugTestMover1'] then
-		self.MoverList['DebugTestMover1']:Show()
-	end
-	if self.MoverList['DebugTestMover2'] then
-		self.MoverList['DebugTestMover2']:Show()
-	end
-
-	if MoveIt.logger then
-		MoveIt.logger.info('Created 2 debug test movers (50x50)')
-	end
-
-	print('Debug test movers created. Use /sui move to see them.')
-end
-
----Remove debug test movers
----Call with: /run SUI.MoveIt:RemoveDebugTestMovers()
-function MoveIt:RemoveDebugTestMovers()
-	if self.MoverList['DebugTestMover1'] then
-		self.MoverList['DebugTestMover1']:Hide()
-		self.MoverList['DebugTestMover1'] = nil
-	end
-	if self.MoverList['DebugTestMover2'] then
-		self.MoverList['DebugTestMover2']:Hide()
-		self.MoverList['DebugTestMover2'] = nil
-	end
-	if _G['SUI_DebugTestParent1'] then
-		_G['SUI_DebugTestParent1']:Hide()
-	end
-	if _G['SUI_DebugTestParent2'] then
-		_G['SUI_DebugTestParent2']:Hide()
-	end
-	print('Debug test movers removed.')
 end

@@ -189,6 +189,17 @@ function PositionCalculator:Round(num, decimals)
 	return math.floor(num * mult + 0.5) / mult
 end
 
+---Number as text without trailing zeros (12, 12.5, 12.25)
+---@param value number
+---@return string
+function PositionCalculator:FormatNumber(value)
+	if value == math.floor(value) then
+		return string.format('%d', value)
+	end
+	local text = string.format('%.2f', value):gsub('0+$', ''):gsub('%.$', '')
+	return text
+end
+
 ---Calculate CENTER anchor offset for a frame relative to UIParent
 ---Accounts for scale differences between frame and UIParent
 ---@param frame Frame The frame to calculate position for
@@ -394,8 +405,9 @@ function PositionCalculator:CalculateAnchorOffset(frame, anchorPoint)
 	-- Convert to frame's coordinate space (for SetPoint)
 	-- When calling frame:SetPoint(anchor, UIParent, anchor, x, y),
 	-- the x,y values are interpreted in the FRAME's coordinate space
-	local offsetX = math.floor(screenOffsetX / frameScale + 0.5)
-	local offsetY = math.floor(screenOffsetY / frameScale + 0.5)
+	-- Two decimals: single physical pixel nudges are smaller than one UI unit
+	local offsetX = self:Round(screenOffsetX / frameScale, 2)
+	local offsetY = self:Round(screenOffsetY / frameScale, 2)
 
 	if MoveIt.logger then
 		MoveIt.logger.debug(
@@ -428,12 +440,18 @@ function PositionCalculator:SavePosition(name, position)
 		return
 	end
 
-	-- Round coordinates
-	local x = self:Round(position.x or 0, 0)
-	local y = self:Round(position.y or 0, 0)
+	local x = self:Round(position.x or 0, 2)
+	local y = self:Round(position.y or 0, 2)
 
 	-- Format: "POINT,AnchorFrame,ANCHORPOINT,x,y"
-	local positionString = string.format('%s,%s,%s,%d,%d', position.point or 'CENTER', position.anchorFrameName or 'UIParent', position.anchorPoint or position.point or 'CENTER', x, y)
+	local positionString = string.format(
+		'%s,%s,%s,%s,%s',
+		position.point or 'CENTER',
+		position.anchorFrameName or 'UIParent',
+		position.anchorPoint or position.point or 'CENTER',
+		self:FormatNumber(x),
+		self:FormatNumber(y)
+	)
 
 	MoveIt.DB.movers[name].MovedPoints = positionString
 

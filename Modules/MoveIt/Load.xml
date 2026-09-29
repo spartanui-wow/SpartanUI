@@ -2,16 +2,19 @@
 	<!-- Core MoveIt system -->
 	<Script file="Core.lua"/>
 	<Script file="Options.lua"/>
+	<Script file="Widgets.lua"/>
 	<Script file="MoverFactory.lua"/>
 
-	<!-- Sub-modules -->
+	<!-- Move mode -->
 	<Script file="PositionCalculator.lua"/>
 	<Script file="MagnetismManager.lua"/>
-	<Script file="FrameSnap.lua"/>
+	<Script file="Snap.lua"/>
 	<Script file="GridOverlay.lua"/>
+	<Script file="Session.lua"/>
+	<Script file="Anchors.lua"/>
 	<Script file="ControlToolbar.lua"/>
+	<Script file="Inspector.lua"/>
 	<Script file="MoverMode.lua"/>
-	<Script file="SettingsPanel.lua"/>
 	<Script file="EditModeProfileSync.lua"/>
 	<Script file="Migration.lua"/>
 </Ui>

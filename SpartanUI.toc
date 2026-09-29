@@ -35,7 +35,6 @@ Core\LibATStub.lua
 libs\Ace3\Ace3.xml
 libs\LibDataBroker\LibDataBroker-1.1.lua
 libs\LibDBIcon-1.0\lib.xml
-libs\LibSimpleSticky-1.0\LibSimpleSticky.lua
 
 # Action bar libraries (glow and keybind must load before LibActionButton)
 libs\LibButtonGlow-1.0\LibButtonGlow-1.0.lua

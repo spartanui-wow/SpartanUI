@@ -95,28 +95,15 @@ function MoveIt:Reset(name, onlyPosition)
 		end
 		print('Moved frames reset!')
 	else
-		local frame = _G['SUI_Mover_' .. name]
-		if frame and MoveIt:IsMoved(name) and MoveIt.DB.movers[name] then
-			-- Reset Position
-			local point, anchor, secondaryPoint, x, y = strsplit(',', MoverList[name].defaultPoint)
-			frame:ClearAllPoints()
-			frame:SetPoint(point, anchor, secondaryPoint, x, y)
-
-			if onlyPosition or not MoveIt.DB.movers[name].AdjustedScale then
+		local frame = MoverList[name]
+		if frame and not frame.isCustomMover and MoveIt:IsMoved(name) then
+			if onlyPosition then
 				MoveIt.DB.movers[name].MovedPoints = nil
 			else
-				-- Reset the scale
-				if MoveIt.DB.movers[name].AdjustedScale and not onlyPosition then
-					frame:SetScale(frame.defaultScale or 1)
-					frame.parent:SetScale(frame.defaultScale or 1)
-					frame.ScaledText:Hide()
-				end
-				-- Clear element
 				MoveIt.DB.movers[name] = nil
 			end
-
-			-- Hide Moved Text
-			frame.MovedText:Hide()
+			MoveIt.PendingAnchors[name] = nil
+			MoveIt:ApplySavedPosition(name)
 		end
 	end
 end
@@ -200,23 +187,6 @@ function MoveIt:UnlockAll()
 	if MoveIt.logger then
 		MoveIt.logger.debug(('UnlockAll: Completed showing %d movers, MoveEnabled=true'):format(shownCount))
 	end
-
-	if MoveIt.DB.tips then
-		print('When the movement system is enabled you can:')
-		print('     Shift+Click a mover to temporarily hide it', true)
-		print("     Alt+Click a mover to reset it's position", true)
-		print("     Control+Click a mover to reset it's scale", true)
-		print(' ', true)
-		print('     Use the scroll wheel to move left and right 1 coord at a time', true)
-		print('     Hold Shift + use the scroll wheel to move up and down 1 coord at a time', true)
-		print('     Hold Alt + use the scroll wheel to scale the frame', true)
-		print(' ', true)
-		print('     Hold Shift while dragging to stop snapping', true)
-		print(' ', true)
-		print('     Press ESCAPE to exit the movement system quickly.', true)
-		print("Use the command '/sui move tips' to disable tips")
-		print("Use the command '/sui move reset' to reset ALL moved items")
-	end
 end
 
 function MoveIt:LockAll()
@@ -229,7 +199,7 @@ function MoveIt:LockAll()
 		if MoveIt.logger then
 			MoveIt.logger.debug('LockAll: Exiting MoverMode')
 		end
-		MoveIt.MoverMode:Exit()
+		MoveIt.MoverMode:Exit(false)
 		MoveEnabled = false
 		MoverWatcher:Hide()
 		return
@@ -325,12 +295,14 @@ function MoveIt:OnInitialize()
 					MovedPoints = false,
 				},
 			},
-			-- Grid spacing for magnetism snap (pixels)
-			GridSpacing = 40,
-			-- Grid snap: show grid overlay and snap to grid lines
+			GridSpacing = 32,
+			-- 'off', 'dim' or 'bright'
+			GridMode = 'dim',
 			GridSnapEnabled = false,
-			-- Element snap: snap to other frame edges and corners
+			-- Line frames up with other frames and the screen edges and middle
 			ElementSnapEnabled = true,
+			ShowCoordinates = true,
+			SeeThrough = false,
 			-- EditMode profile sync (optional feature)
 			-- When enabled, changes to SUI profiles will automatically switch the EditMode profile
 			SyncEditModeProfile = false,
@@ -364,13 +336,17 @@ function MoveIt:OnInitialize()
 end
 
 function MoveIt:CombatLockdown()
-	if MoveIt.MoverMode and MoveIt.MoverMode:IsActive() then
-		MoveIt.MoverMode:Exit()
-		SUI:Print(L['Frame moving closed because you entered combat'])
+	if MoveIt.MoverMode:IsActive() then
+		MoveIt.MoverMode:Suspend()
 	elseif MoveEnabled then
 		MoveIt:LockAll()
 		SUI:Print(L['Frame moving closed because you entered combat'])
 	end
+end
+
+function MoveIt:CombatEnded()
+	MoveIt.MoverMode:Resume()
+	MoveIt:ResolvePendingAnchors()
 end
 
 function MoveIt:OnEnable()
@@ -458,18 +434,18 @@ function MoveIt:OnEnable()
 	end, 'Toggle custom EditMode', nil, true)
 
 	local function OnKeyDown(self, key)
-		-- Check both legacy MoveEnabled flag and new MoverMode:IsActive()
-		local isMoveActive = MoveEnabled or (MoveIt.MoverMode and MoveIt.MoverMode:IsActive())
-		if isMoveActive and key == 'ESCAPE' then
-			if InCombatLockdown() then
-				self:SetPropagateKeyboardInput(true)
-				return
-			end
-			self:SetPropagateKeyboardInput(false)
-			MoveIt:LockAll()
-		else
+		if InCombatLockdown() then
 			self:SetPropagateKeyboardInput(true)
+			return
 		end
+		local handled = false
+		if MoveIt.MoverMode:IsActive() then
+			handled = MoveIt.MoverMode:HandleKey(key)
+		elseif MoveEnabled and key == 'ESCAPE' then
+			MoveIt:LockAll()
+			handled = true
+		end
+		self:SetPropagateKeyboardInput(not handled)
 	end
 
 	MoverWatcher:Hide()
@@ -477,6 +453,7 @@ function MoveIt:OnEnable()
 	MoverWatcher:SetScript('OnKeyDown', OnKeyDown)
 
 	self:RegisterEvent('PLAYER_REGEN_DISABLED', 'CombatLockdown')
+	self:RegisterEvent('PLAYER_REGEN_ENABLED', 'CombatEnded')
 	self:RegisterEvent('PLAYER_ENTERING_WORLD', 'ResolvePendingAnchors')
 end
 
@@ -534,25 +511,12 @@ function MoveIt:ReloadDB()
 		return
 	end
 
-	-- Re-apply each stored mover position
+	-- Re-apply every mover from the new profile, including ones that go back to their default
 	local applied = 0
-	for moverName, data in pairs(MoveIt.DB.movers or {}) do
-		if data.MovedPoints then
-			local mover = _G['SUI_Mover_' .. moverName]
-			if mover then
-				local point, anchor, secondaryPoint, x, y = strsplit(',', data.MovedPoints)
-				mover:ClearAllPoints()
-				mover:SetPoint(point, anchor, secondaryPoint, tonumber(x), tonumber(y))
-
-				-- Apply custom scale if set
-				if data.AdjustedScale then
-					mover:SetScale(data.AdjustedScale)
-					if mover.parent then
-						mover.parent:SetScale(data.AdjustedScale)
-					end
-				end
-				applied = applied + 1
-			end
+	for moverName, mover in pairs(MoveIt.MoverList) do
+		if not mover.isCustomMover then
+			MoveIt:ApplySavedPosition(moverName)
+			applied = applied + 1
 		end
 	end
 
