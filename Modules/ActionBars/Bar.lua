@@ -21,6 +21,7 @@ local BACKDROP = {
 ---@field UpdateButtons? fun(self) Subclass hook: create/refresh buttons before layout
 ---@field PostApply? fun(self) Subclass hook after all settings are applied
 local Bar = {}
+module.BarPrototype = Bar
 
 ---Create a new bar frame. Bars are secure state headers so their visibility and paging
 ---can be driven by macro conditions in combat.

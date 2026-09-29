@@ -11,6 +11,7 @@
 	<Script file="Fade.lua" />
 	<Script file="ThemeLayout.lua" />
 	<Script file="Options.lua" />
+	<Script file="PreviewStage.lua" />
 	<Script file="Import\Import.lua" />
 	<Script file="Import\Bartender4.lua" />
 	<Script file="Import\ElvUI.lua" />
