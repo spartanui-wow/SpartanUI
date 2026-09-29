@@ -550,7 +550,7 @@ function W.Window(name, minW, minH)
 	win.grip = grip
 
 	function win:ApplyAlpha()
-		local a = T.Alpha()
+		local a = T.Alpha() * (self.opacity or 1)
 		self.bg:SetVertexColor(T.color.window[1], T.color.window[2], T.color.window[3], a)
 	end
 	win:ApplyAlpha()
@@ -579,6 +579,20 @@ function W.RestorePoint(frame, saved)
 	return true
 end
 
+---Adds or removes a named window from the list Escape closes.
+---@param name string
+---@param closes boolean
+function W.SetEscapeCloses(name, closes)
+	for i = #UISpecialFrames, 1, -1 do
+		if UISpecialFrames[i] == name then
+			table.remove(UISpecialFrames, i)
+		end
+	end
+	if closes then
+		tinsert(UISpecialFrames, name)
+	end
+end
+
 ---Makes a region drag its window.
 ---@param region Frame
 ---@param win Frame
@@ -586,7 +600,9 @@ function W.DragHandle(region, win)
 	region:EnableMouse(true)
 	region:RegisterForDrag('LeftButton')
 	region:SetScript('OnDragStart', function()
-		win:StartMoving()
+		if not win.locked then
+			win:StartMoving()
+		end
 	end)
 	region:SetScript('OnDragStop', function()
 		win:StopMovingOrSizing()

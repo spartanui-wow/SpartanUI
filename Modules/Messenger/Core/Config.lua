@@ -87,6 +87,7 @@ M.defaults = {
 			x = 0,
 			y = 60,
 			alpha = 0.94,
+			pinned = false,
 		},
 		fontSize = 13,
 		timeFormat = 'auto',

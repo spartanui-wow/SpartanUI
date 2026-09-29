@@ -9,6 +9,7 @@ function UI:Enable()
 	self.Launcher:Enable()
 	self.Fade:Enable()
 	self.PopOut:Restore()
+	self.Deck:Restore()
 	M:Fire('UNREAD_CHANGED')
 	C_Timer.After(6, function()
 		if M.enabled then

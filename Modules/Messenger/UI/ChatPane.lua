@@ -77,6 +77,26 @@ function CP.ConversationMenu(convo, context)
 				M:PopOut(key)
 			end,
 		})
+	else
+		local PopOut = M.UI.PopOut
+		local saved = PopOut:Saved(key)
+		table.insert(items, {
+			text = L['Show controls only on mouse-over'],
+			divider = true,
+			checked = saved.overlay == true,
+			onClick = function()
+				PopOut:SetOverlay(key, not saved.overlay)
+			end,
+		})
+		for _, opacity in ipairs({ 1, 0.8, 0.6, 0.4 }) do
+			table.insert(items, {
+				text = opacity == 1 and L['Solid background'] or string.format(L['See-through background: %d%%'], math.floor(opacity * 100 + 0.5)),
+				checked = (saved.opacity or 1) == opacity,
+				onClick = function()
+					PopOut:SetOpacity(key, opacity)
+				end,
+			})
+		end
 	end
 	table.insert(items, {
 		text = L['Close conversation'],

@@ -100,6 +100,31 @@ local function Build()
 		title.rule:SetVertexColor(r, g, b, 0.5)
 	end
 
+	-- Overlay mode: controls fade away until the mouse is over the window, leaving only the
+	-- messages, so a pop-out can sit over the game like part of the HUD
+	local chrome = { title, win.pane.composer, win.grip, win.edge, win.shadow }
+	local elapsed = 0
+	win:SetScript('OnUpdate', function(self, dt)
+		elapsed = elapsed + dt
+		if elapsed < 0.1 then
+			return
+		end
+		elapsed = 0
+		local saved = self.key and M.db.char.popouts[self.key]
+		local focused = M.UI:FocusedComposer() == self.pane.composer.edit
+		local menuOpen = _G.MessengerDropDown and _G.MessengerDropDown:IsShown() and _G.MessengerDropDown.owner == title.more
+		local show = not (saved and saved.overlay) or self:IsMouseOver() or focused or menuOpen
+		local target = show and 1 or 0
+		for _, region in ipairs(chrome) do
+			local alpha = region:GetAlpha()
+			if math.abs(alpha - target) > 0.01 then
+				region:SetAlpha(alpha + (target - alpha) * 0.5)
+			else
+				region:SetAlpha(target)
+			end
+		end
+	end)
+
 	win:SetScript('OnHide', function(self)
 		-- Hidden by Escape counts as closing. Hiding the whole interface (Alt+Z) also fires OnHide,
 		-- but the window itself is still marked shown then and must stay open.
@@ -135,6 +160,7 @@ function P:Open(key, focus)
 		win:SetPoint('CENTER', UIParent, 'CENTER', 260 + offset, -40 - offset)
 	end
 	win:SetSize(saved.w or 340, saved.h or 360)
+	win.opacity = saved.opacity
 	win:ApplyAlpha()
 	win:Show()
 	M.UI.Fade:Kick()
@@ -163,6 +189,29 @@ function P:Close(key)
 	win.pane:SetConversation(nil)
 	win.key = nil
 	table.insert(pool, win)
+end
+
+---@param key string
+---@param overlay boolean
+function P:SetOverlay(key, overlay)
+	Saved(key).overlay = overlay or nil
+end
+
+---@param key string
+---@param opacity number 0.4 to 1
+function P:SetOpacity(key, opacity)
+	Saved(key).opacity = opacity < 1 and opacity or nil
+	local win = open[key]
+	if win then
+		win.opacity = Saved(key).opacity
+		win:ApplyAlpha()
+	end
+end
+
+---@param key string
+---@return table
+function P:Saved(key)
+	return Saved(key)
 end
 
 ---Open pop-out windows by conversation key.

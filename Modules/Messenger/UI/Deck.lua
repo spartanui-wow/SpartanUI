@@ -205,7 +205,6 @@ function D:Build()
 	win:SetSize(settings.width, settings.height)
 	W.RestorePoint(win, settings)
 	win:Hide()
-	tinsert(UISpecialFrames, 'MessengerDeck')
 	self.win = win
 
 	function win:OnGeometryChanged()
@@ -248,11 +247,15 @@ function D:Build()
 		D:ShowNewConversation()
 	end)
 	title.new:SetPoint('RIGHT', title.gear, 'LEFT', -2, 0)
+	title.pin = W.IconButton(title, 'pin', 24, L['Pin Messenger'], function()
+		D:SetPinned(not M.settings.window.pinned)
+	end)
+	title.pin:SetPoint('RIGHT', title.new, 'LEFT', -2, 0)
 
 	-- Keycap showing the open/close key, so the shortcut is always in view
 	local keycap = CreateFrame('Button', nil, title)
 	keycap:SetHeight(18)
-	keycap:SetPoint('RIGHT', title.new, 'LEFT', -8, 0)
+	keycap:SetPoint('RIGHT', title.pin, 'LEFT', -8, 0)
 	keycap.bg = T.Fill(keycap, T.color.raised)
 	T.Border(keycap, T.color.edgeStrong)
 	keycap.text = T.Text(keycap, 'small', T.color.muted)
@@ -306,12 +309,18 @@ function D:Build()
 		D:Layout()
 	end)
 
+	self:ApplyPin()
 	win:SetScript('OnShow', function()
+		M.db.char.deckOpen = true
 		M.UI.Fade:Kick()
 		M.Contacts:RequestGuild()
 		D:Refresh()
 	end)
 	win:SetScript('OnHide', function()
+		-- Hiding the whole interface also fires OnHide; only a real close forgets the window
+		if not win:IsShown() then
+			M.db.char.deckOpen = nil
+		end
 		W.CloseMenu()
 		self.picker:Hide()
 	end)
@@ -333,6 +342,7 @@ function D:Build()
 	M:On('SETTINGS_CHANGED', function()
 		win:ApplyAlpha()
 		self.empty:Update()
+		self:ApplyPin()
 	end)
 	M:On('KEYS_CHANGED', function()
 		self:UpdateKeyHint()
@@ -353,6 +363,32 @@ function D:Build()
 			win:Show()
 		end
 	end)
+end
+
+---Pinned: the window stays where it is, Escape leaves it open, and it comes back after a reload.
+---@param pinned boolean
+function D:SetPinned(pinned)
+	M.settings.window.pinned = pinned
+	self:ApplyPin()
+end
+
+function D:ApplyPin()
+	local pinned = M.settings.window.pinned == true
+	local win = self.win
+	win.locked = pinned
+	win.grip:SetShown(not pinned)
+	W.SetEscapeCloses('MessengerDeck', not pinned)
+	local pin = self.title.pin
+	pin:SetTint(pinned and T.color.text or T.color.muted)
+	pin.tooltip = pinned and L['Unpin Messenger'] or L['Pin Messenger']
+	pin.hint = pinned and L['It can move, resize and close with Escape again.'] or L['Keeps it in place, open through Escape, and back after a reload.']
+end
+
+---Reopens a pinned window that was open before the reload.
+function D:Restore()
+	if M.settings.window.pinned and M.db.char.deckOpen then
+		self:Open(nil, false)
+	end
 end
 
 ---Places the body under the title bar, and turns the list into an avatar rail when narrow.
