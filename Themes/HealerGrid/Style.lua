@@ -5,12 +5,45 @@ local module = SUI:NewModule('Style.HealerGrid')
 local BG = { 0.07, 0.07, 0.07, 0.9 }
 local CELL_BG = { 0.25, 0.25, 0.25, 0.75 }
 
+-- Your own heals over time, one row in the top right corner. Each slot names its spells per
+-- class, so every healer sees their own without setting anything up.
+local HOT_SLOTS = {
+	{ DRUID = '774,155777', PRIEST = '139,194384', MONK = '119611', SHAMAN = '61295', PALADIN = '53563,156910,1244893', EVOKER = '366155,367364' },
+	{ DRUID = '8936', PRIEST = '17,1253593', MONK = '124682', SHAMAN = '974,383648', PALADIN = '156322', EVOKER = '364343' },
+	{ DRUID = '33763', PRIEST = '41635,77489', MONK = '115175,450769', EVOKER = '355941,376788,363502' },
+	{ DRUID = '48438', EVOKER = '373267' },
+}
+
+---@param size number
+---@return table
+local function HotTracker(size)
+	local entries = {}
+	for index, spells in ipairs(HOT_SLOTS) do
+		entries['slot' .. index] = {
+			enabled = true,
+			spellsByClass = spells,
+			filter = 'HELPFUL',
+			onlyMine = true,
+			size = size,
+			anchor = 'TOPRIGHT',
+			x = -2 - (index - 1) * (size + 2),
+			y = -16,
+			showStacks = true,
+			showDuration = false,
+			showSwipe = true,
+			fontSize = 9,
+		}
+	end
+	return { enabled = true, entries = entries }
+end
+
 ---Healing extras shared by party and raid cells
 ---@param elements table
 ---@param buffSize number
 ---@param debuffSize number
 ---@param defensiveSize number
 local function HealerCell(elements, buffSize, debuffSize, defensiveSize)
+	elements.AuraTracker = HotTracker(math.floor(buffSize * 0.6))
 	SUI.ThemeFlat.Auras(
 		elements,
 		{ number = 3, size = buffSize, anchor = 'BOTTOMRIGHT', relativePoint = 'BOTTOMRIGHT', growthx = 'LEFT', growthy = 'UP', y = 2, filter = 'healing_mode' },

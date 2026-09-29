@@ -1623,6 +1623,18 @@ function Auras:ResolveEntry(DB, index)
 		end
 	end
 
+	-- A slot can name its spells per class, so one layout serves every healer. A spell the
+	-- player typed in wins; a class with no entry leaves the slot off.
+	if resolved.spellId == '' and type(resolved.spellsByClass) == 'table' then
+		local _, class = UnitClass('player')
+		local spells = class and resolved.spellsByClass[class]
+		if spells then
+			resolved.spellId = tostring(spells)
+		else
+			resolved.enabled = false
+		end
+	end
+
 	return resolved
 end
 
