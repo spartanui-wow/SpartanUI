@@ -218,6 +218,9 @@ local DBdefault = {
 		SetupCompleted = {},
 	},
 	ThemeSettings = {},
+	UIStyle = {
+		accentMode = 'theme',
+	},
 }
 
 SUI.DBdefault = DBdefault
