@@ -53,10 +53,10 @@ function ControlToolbar:Create()
 	bar.title = title
 	Style:FireAccentChanged()
 
-	local x = 12 + math.ceil(title:GetStringWidth()) + 16
-	local function Place(widget, gap)
-		widget:SetPoint('TOPLEFT', bar, 'TOPLEFT', x, -8)
-		x = x + widget:GetWidth() + (gap or 6)
+	bar.leftButtons = {}
+	bar.rightButtons = {}
+	local function Place(widget)
+		bar.leftButtons[#bar.leftButtons + 1] = widget
 	end
 
 	bar.gridButton = Widgets:Button(bar, L[GRID_LABELS.bright], 96, function(self)
@@ -97,17 +97,15 @@ function ControlToolbar:Create()
 	bar.filterButton = Widgets:Button(bar, L['Show: All'], 110, function(self)
 		ControlToolbar:ToggleFilterMenu(self)
 	end)
-	Place(bar.filterButton, 24)
+	Place(bar.filterButton)
 
 	bar.saveButton = Widgets:Button(bar, L['Save and exit'], nil, function()
 		MoveIt.MoverMode:Exit(false)
 	end, true)
-	bar.saveButton:SetPoint('TOPRIGHT', bar, 'TOPRIGHT', -10, -8)
 
 	bar.exitButton = Widgets:Button(bar, L['Exit without saving'], nil, function()
 		MoveIt.MoverMode:Exit(true)
 	end)
-	bar.exitButton:SetPoint('RIGHT', bar.saveButton, 'LEFT', -6, 0)
 
 	bar.resetButton = Widgets:Button(bar, L['Reset all'], nil, function()
 		StaticPopupDialogs['SUI_MOVEIT_RESET_ALL'] = {
@@ -125,10 +123,7 @@ function ControlToolbar:Create()
 		}
 		StaticPopup_Show('SUI_MOVEIT_RESET_ALL')
 	end)
-	bar.resetButton:SetPoint('RIGHT', bar.exitButton, 'LEFT', -6, 0)
-
-	x = x + bar.resetButton:GetWidth() + bar.exitButton:GetWidth() + bar.saveButton:GetWidth() + 28
-	bar:SetWidth(math.min(UIParent:GetWidth() - 20, math.max(x, 700)))
+	bar.rightButtons = { bar.resetButton, bar.exitButton, bar.saveButton }
 
 	local hint = Style:CreateText(bar, 10, Style.color.muted)
 	hint:SetPoint('BOTTOMLEFT', 12, 8)
@@ -150,6 +145,66 @@ function ControlToolbar:Create()
 	return bar
 end
 
+local PAD, GAP, ROW_H = 12, 6, 30
+
+---Place everything from measured text widths. One row when it fits, otherwise the view
+---toggles move to a second row.
+function ControlToolbar:Layout()
+	local bar = self.toolbar
+	if not bar then
+		return
+	end
+	local Widgets = MoveIt.Widgets
+	for _, button in ipairs(bar.leftButtons) do
+		button:FitText()
+	end
+	for _, button in ipairs(bar.rightButtons) do
+		button:FitText()
+	end
+
+	local titleWidth = Widgets:MeasureText(bar.title)
+	local leftWidth = 0
+	for _, button in ipairs(bar.leftButtons) do
+		leftWidth = leftWidth + button:GetWidth() + GAP
+	end
+	local rightWidth = 0
+	for _, button in ipairs(bar.rightButtons) do
+		rightWidth = rightWidth + button:GetWidth() + GAP
+	end
+
+	local maxWidth = UIParent:GetWidth() - 20
+	local oneRowWidth = PAD + titleWidth + 20 + leftWidth + 24 + rightWidth + PAD
+	local twoRows = oneRowWidth > maxWidth
+
+	bar.title:ClearAllPoints()
+	bar.title:SetPoint('TOPLEFT', bar, 'TOPLEFT', PAD, -11)
+
+	local x = twoRows and PAD or (PAD + titleWidth + 20)
+	local y = twoRows and -(8 + ROW_H) or -8
+	for _, button in ipairs(bar.leftButtons) do
+		button:ClearAllPoints()
+		button:SetPoint('TOPLEFT', bar, 'TOPLEFT', x, y)
+		x = x + button:GetWidth() + GAP
+	end
+
+	local right = -PAD + GAP
+	for i = #bar.rightButtons, 1, -1 do
+		local button = bar.rightButtons[i]
+		button:ClearAllPoints()
+		button:SetPoint('TOPRIGHT', bar, 'TOPRIGHT', right - GAP, -8)
+		right = right - button:GetWidth() - GAP
+	end
+
+	local width
+	if twoRows then
+		width = math.max(PAD + titleWidth + 24 + rightWidth + PAD, PAD + leftWidth + PAD)
+	else
+		width = oneRowWidth
+	end
+	bar:SetWidth(math.min(maxWidth, math.max(width, 640)))
+	bar:SetHeight(twoRows and (BAR_HEIGHT + ROW_H) or BAR_HEIGHT)
+end
+
 ---Sync button states with the saved settings
 function ControlToolbar:Refresh()
 	local bar = self.toolbar
@@ -168,6 +223,7 @@ function ControlToolbar:Refresh()
 	bar.filterButton:SetText(hidden > 0 and L['Show: Some'] or L['Show: All'])
 	bar.filterButton:SetActive(hidden > 0)
 	bar.hint:SetText(self.hintText or (db.tips ~= false and DefaultHint()) or '')
+	self:Layout()
 end
 
 ---Replace the help line (nil restores the default)
@@ -183,6 +239,10 @@ function ControlToolbar:Show()
 	bar:SetAlpha(0)
 	bar:Show()
 	Style:FadeTo(bar, 1, 0.2)
+	-- Text can measure 0 until its font has been drawn once; measure again next frame
+	C_Timer.After(0, function()
+		ControlToolbar:Layout()
+	end)
 end
 
 function ControlToolbar:Hide()

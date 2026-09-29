@@ -42,6 +42,26 @@ local function PaintButton(button)
 	end
 end
 
+---Width of a FontString's text. A font file that has not been drawn yet can measure 0,
+---so fall back to an estimate from the character count.
+---@param text FontString
+---@return number
+function Widgets:MeasureText(text)
+	local width = text:GetStringWidth() or 0
+	if width <= 0 then
+		local _, size = text:GetFont()
+		width = #(text:GetText() or '') * (size or 11) * 0.52
+	end
+	return math.ceil(width)
+end
+
+local ButtonMixin = {}
+
+---Size the button to its text unless it was given a fixed width
+function ButtonMixin:FitText()
+	self:SetWidth(self.fixedWidth or math.max(48, Widgets:MeasureText(self.label) + 18))
+end
+
 ---Create a flat button
 ---@param parent Frame
 ---@param text string
@@ -51,6 +71,7 @@ end
 ---@return SUI.MoveIt.Button
 function Widgets:Button(parent, text, width, onClick, primary)
 	local button = CreateFrame('Button', nil, parent) ---@type SUI.MoveIt.Button
+	Mixin(button, ButtonMixin)
 	button:SetHeight(22)
 	button:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
 	button.fill = Style:CreateFill(button, Style.color.raised)
@@ -59,7 +80,8 @@ function Widgets:Button(parent, text, width, onClick, primary)
 	button.label:SetPoint('CENTER', 0, 0)
 	button.label:SetText(text)
 	button.primary = primary or false
-	button:SetWidth(width or math.max(48, math.ceil(button.label:GetStringWidth()) + 18))
+	button.fixedWidth = width
+	button:FitText()
 	button:SetScript('OnEnter', function(self)
 		self.hovered = true
 		PaintButton(self)
@@ -82,6 +104,7 @@ function Widgets:Button(parent, text, width, onClick, primary)
 	end
 	function button:SetText(value)
 		self.label:SetText(value)
+		self:FitText()
 	end
 	function button:SetActive(active)
 		self.active = active and true or false
