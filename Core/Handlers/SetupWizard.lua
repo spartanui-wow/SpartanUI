@@ -13,7 +13,7 @@ local ADDON_ID = 'spartanui'
 ---@param PageData table
 function module:AddPage(PageData)
 	-- No-op: old-style pages are no longer supported.
-	-- Modules should use LibAT.SetupWizard:AddPage('spartanui', page) instead.
+	-- Modules should add steps to SUI.Setup.registration instead.
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -21,327 +21,183 @@ end
 ----------------------------------------------------------------------------------------------------
 
 function module:OnInitialize()
-	if not LibAT or not LibAT.SetupWizard then
+	if not LibAT or not LibAT.Setup then
 		return
 	end
 
-	LibAT.SetupWizard:RegisterAddon(ADDON_ID, {
+	-- Asked once: a profile that has been through setup before (or predates it) is an existing user
+	module.registration = LibAT.Setup:Register(ADDON_ID, {
 		name = 'SpartanUI',
 		icon = 'Interface\\AddOns\\SpartanUI\\images\\setup\\SUISetup',
-		pages = {},
+		summary = L['Pick a look for your whole screen, your frames and your action bars.'],
+		priority = 10,
+		scope = 'account',
+		isExistingUser = function()
+			return not SUI.DB.SetupWizard.FirstLaunch
+		end,
+		profileKey = function()
+			return SUI.SpartanUIDB:GetCurrentProfile()
+		end,
+		isNewProfile = function()
+			return SUI.DB.SetupWizard.FirstLaunch
+		end,
+		optionsCommand = function()
+			SUI.Options:OpenTo({})
+		end,
 	})
+	if not module.registration then
+		return
+	end
 
-	-- Register Welcome and Other Addons pages (core concerns)
-	self:RegisterWelcomePage()
-	self:RegisterOtherAddonsPage()
+	-- Setup windows take the accent of the active SpartanUI theme, and repaint when it changes
+	if LibAT.UI.SetAccentProvider then
+		LibAT.UI.SetAccentProvider(function()
+			return SUI.UI.Style:GetAccent()
+		end)
+	end
+
+	self:RegisterWelcomeSteps()
+	self:RegisterOtherAddonsStep()
 end
 
 function module:OnEnable()
-	if not LibAT or not LibAT.SetupWizard then
-		return
-	end
-
-	-- Migration: if old wizard was completed, grandfather all SUI pages as complete
-	if not SUI.DB.SetupWizard.FirstLaunch and LibAT.Database and LibAT.Database.global then
-		if not LibAT.Database.global.setupWizardCompleted then
-			LibAT.Database.global.setupWizardCompleted = {}
-		end
-		local completed = LibAT.Database.global.setupWizardCompleted
-		if not completed[ADDON_ID .. '.welcome'] then
-			local allPages = {
-				'welcome',
-				'theme',
-				'artwork-options',
-				'font',
-				'modules',
-				'unitframes',
-				'uf-personal',
-				'uf-group',
-				'autosell',
-				'questtools',
-				'minimap',
-				'tooltips',
-				'convenience',
-				'uienhancements',
-				'other-addons',
-			}
-			for _, pageId in ipairs(allPages) do
-				completed[ADDON_ID .. '.' .. pageId] = true
-			end
-		end
-	end
-
-	-- Auto-open wizard on first launch. Completion is account-wide, so a fresh profile opens the
-	-- wizard without clearing progress that other characters' profiles rely on.
-	if SUI.DB.SetupWizard.FirstLaunch then
-		local function OpenOnFirstLaunch()
-			if InCombatLockdown() then
-				return
-			end
-			if not LibAT.SetupWizard.window or not LibAT.SetupWizard.window:IsShown() then
-				LibAT.SetupWizard:OpenWindow()
-			end
-		end
-		-- AceAddon enables modules while PLAYER_LOGIN is being dispatched, so that event has already fired here
-		if IsLoggedIn() then
-			C_Timer.After(1, OpenOnFirstLaunch)
-		else
-			local LoadWatcher = CreateFrame('Frame')
-			LoadWatcher:SetScript('OnEvent', function()
-				LoadWatcher:UnregisterAllEvents()
-				LoadWatcher:SetScript('OnEvent', nil)
-				C_Timer.After(1, OpenOnFirstLaunch)
-			end)
-			LoadWatcher:RegisterEvent('PLAYER_LOGIN')
-		end
+	if SUI.UI.Style and LibAT and LibAT.UI and LibAT.UI.NotifyAccentChanged then
+		SUI.UI.Style:OnAccentChanged(module, function()
+			LibAT.UI.NotifyAccentChanged()
+		end)
 	end
 
 	SUI:AddChatCommand('setup', function()
-		LibAT.SetupWizard:OpenWindow()
+		module:Open()
 	end, 'Open the setup wizard')
 end
 
-----------------------------------------------------------------------------------------------------
--- Welcome Page
-----------------------------------------------------------------------------------------------------
-
-function module:RegisterWelcomePage()
-	if LibAT.SetupWizard:GetPage(ADDON_ID, 'welcome') then
-		return
+---Open SpartanUI's setup, at a step when given
+---@param stepId? string
+function module:Open(stepId)
+	if LibAT and LibAT.Setup then
+		LibAT.Setup:Open(ADDON_ID, stepId)
 	end
-	LibAT.SetupWizard:AddPage(ADDON_ID, {
-		id = 'welcome',
-		name = L['Welcome'],
-		order = 10,
-		builder = function(contentFrame)
-			self:BuildWelcomePage(contentFrame)
-		end,
-		onLeave = function()
-			self:OnLeaveWelcome()
-		end,
-		isComplete = function()
-			return not SUI.DB.SetupWizard.FirstLaunch
-		end,
-	})
 end
 
-function module:BuildWelcomePage(contentFrame)
-	local UI = LibAT.UI
+----------------------------------------------------------------------------------------------------
+-- Welcome: start fresh, or copy / share a profile
+----------------------------------------------------------------------------------------------------
 
-	-- SUI Logo
-	local logo = contentFrame:CreateTexture(nil, 'ARTWORK')
-	logo:SetTexture('Interface\\AddOns\\SpartanUI\\images\\setup\\SUISetup')
-	logo:SetSize(205, 51)
-	logo:SetPoint('TOP', contentFrame, 'TOP', 0, -10)
-	logo:SetAlpha(0.8)
+local welcomeMode = 'fresh'
+local chosenProfile
 
-	-- Welcome text
-	local welcomeText = UI.CreateLabel(contentFrame, '', 'GameFontNormal')
-	welcomeText:SetPoint('TOP', logo, 'BOTTOM', 0, -10)
-	welcomeText:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-	welcomeText:SetPoint('RIGHT', contentFrame, 'RIGHT', -20, 0)
-	welcomeText:SetJustifyH('CENTER')
-	welcomeText:SetWordWrap(true)
-	welcomeText:SetText('Welcome to SpartanUI! This wizard will help you set up the UI and its modules.\nYou can re-run this wizard any time via /setup or the SUI settings screen.')
-
-	local currentProfile = SUI.SpartanUIDB:GetCurrentProfile()
-
-	-- Build profile lists
-	local function GetProfileListWithCommon(excludeCurrent, excludeCharProfiles)
-		local profileList = {}
-		local tmpProfiles = {}
-		SUI.SpartanUIDB:GetProfiles(tmpProfiles)
-
-		local function isCharacterProfile(profileName)
-			if not profileName:find(' %- ') then
-				return false
-			end
-			if SUI.SpartanUIDB.sv and SUI.SpartanUIDB.sv.profileKeys then
-				for charKey, _ in pairs(SUI.SpartanUIDB.sv.profileKeys) do
-					if profileName == charKey then
-						return true
-					end
-				end
-			end
-			return false
-		end
-
-		for _, v in pairs(tmpProfiles) do
-			local shouldExclude = (excludeCurrent and v == currentProfile) or (excludeCharProfiles and isCharacterProfile(v))
-			if not shouldExclude then
-				profileList[#profileList + 1] = { text = v, value = v, isCommon = false }
-			end
-		end
-
-		local commonProfiles = {
-			{ key = 'Default', text = 'Default' },
-			{ key = SUI.SpartanUIDB.keys.realm, text = SUI.SpartanUIDB.keys.realm },
-			{ key = SUI.SpartanUIDB.keys.class, text = UnitClass('player') },
-		}
-
-		for _, common in ipairs(commonProfiles) do
-			if not (excludeCurrent and common.key == currentProfile) then
-				local found = false
-				for _, profile in ipairs(profileList) do
-					if profile.value == common.key then
-						found = true
-						break
-					end
-				end
-				if not found then
-					profileList[#profileList + 1] = { text = common.text, value = common.key, isCommon = true }
-				end
-			end
-		end
-
-		return profileList
+---@param profileName string
+---@return boolean
+local function IsCharacterProfile(profileName)
+	if not profileName:find(' %- ') then
+		return false
 	end
+	local keys = SUI.SpartanUIDB.sv and SUI.SpartanUIDB.sv.profileKeys
+	return keys ~= nil and keys[profileName] ~= nil
+end
 
-	local copyProfiles = GetProfileListWithCommon(true, false)
-	local sharedProfiles = GetProfileListWithCommon(true, true)
+---Profiles the player can copy from or share, as value -> label
+---@param forSharing boolean character profiles cannot be shared
+---@return table<string, string>
+function module:GetProfileChoices(forSharing)
+	local current = SUI.SpartanUIDB:GetCurrentProfile()
+	local list = {}
+	local names = {}
+	SUI.SpartanUIDB:GetProfiles(names)
+	for _, name in pairs(names) do
+		if name ~= current and not (forSharing and IsCharacterProfile(name)) then
+			list[name] = name
+		end
+	end
+	local keys = SUI.SpartanUIDB.keys
+	for _, common in ipairs({ { 'Default', 'Default' }, { keys.realm, keys.realm }, { keys.class, (UnitClass('player')) } }) do
+		if common[1] ~= current and not list[common[1]] then
+			list[common[1]] = common[2]
+		end
+	end
+	return list
+end
 
-	table.sort(sharedProfiles, function(a, b)
-		local aIsDefault = a.value == 'Default'
-		local bIsDefault = b.value == 'Default'
-		if aIsDefault then
-			return true
-		end
-		if bIsDefault then
-			return false
-		end
-		local aIsRealm = a.value == SUI.SpartanUIDB.keys.realm
-		local bIsRealm = b.value == SUI.SpartanUIDB.keys.realm
-		if aIsRealm and not bIsRealm then
-			return true
-		end
-		if bIsRealm and not aIsRealm then
-			return false
-		end
-		local aIsClass = a.value == SUI.SpartanUIDB.keys.class
-		local bIsClass = b.value == SUI.SpartanUIDB.keys.class
-		if aIsClass and not bIsClass then
-			return true
-		end
-		if bIsClass and not aIsClass then
-			return false
-		end
-		return a.text < b.text
-	end)
+function module:RegisterWelcomeSteps()
+	local reg = module.registration
 
-	-- Profile copy section
-	local copyLabel = UI.CreateLabel(contentFrame, 'Copy settings from another profile:', 'GameFontNormal')
-	copyLabel:SetWidth(400)
-	copyLabel:SetJustifyH('CENTER')
-	copyLabel:SetWordWrap(true)
-	copyLabel:SetPoint('TOP', welcomeText, 'BOTTOM', 0, -25)
+	reg:AddStep({
+		id = 'welcome',
+		kind = 'choice',
+		name = L['Welcome'],
+		title = L['Welcome to SpartanUI'],
+		text = L['Start with a fresh setup, or bring your settings from another character. You can open this again any time with /setup.'],
+		order = 10,
+		scope = 'profile',
+		choices = {
+			{ value = 'fresh', title = L['Start fresh'], caption = L['Pick your look in the next steps.'], recommended = true },
+			{ value = 'copy', title = L['Copy a profile'], caption = L['Copy the settings of another profile into this one.'] },
+			{ value = 'share', title = L['Share a profile'], caption = L['Use one profile on several characters. Changes show up on all of them.'] },
+		},
+		get = function()
+			return welcomeMode
+		end,
+		set = function(value, ctx)
+			welcomeMode = value
+			chosenProfile = nil
+			ctx:CancelReload('profile')
+			local values = module.registration:GetStep('profile').widgets.profile.values
+			wipe(values)
+			if value ~= 'fresh' then
+				for key, label in pairs(module:GetProfileChoices(value == 'share')) do
+					values[key] = label
+				end
+			end
+		end,
+		onLeave = function()
+			module:OnLeaveWelcome(welcomeMode == 'fresh')
+		end,
+	})
 
-	local copyDropdown = UI.CreateDropdown(contentFrame, 'Select Profile...', 200, 20)
-	copyDropdown.selectedValue = nil
-	copyDropdown:SetupMenu(function(dropdown, rootDescription)
-		for _, profile in ipairs(copyProfiles) do
-			rootDescription:CreateButton(profile.text, function()
-				dropdown.selectedValue = profile.value
-				dropdown:SetText(profile.text)
+	reg:AddStep({
+		id = 'profile',
+		kind = 'form',
+		name = L['Profile'],
+		title = L['Which profile?'],
+		text = L['The change happens when you finish setup.'],
+		order = 11,
+		scope = 'profile',
+		hidden = function()
+			return welcomeMode == 'fresh'
+		end,
+		widgets = {
+			profile = {
+				type = 'dropdown',
+				name = L['Profile'],
+				order = 1,
+				width = 260,
+				values = {},
+				get = function()
+					return chosenProfile
+				end,
+				set = function(_, value)
+					chosenProfile = value
+				end,
+			},
+		},
+		onLeave = function(ctx)
+			if not chosenProfile then
+				return
+			end
+			local profile, sharing = chosenProfile, welcomeMode == 'share'
+			local label = (sharing and L['Share profile: %s'] or L['Copy profile: %s']):format(profile)
+			ctx:NeedsReload('profile', label, function()
+				module:HandleEditModeBeforeProfileChange(profile, sharing)
+				if sharing then
+					SUI.SpartanUIDB:SetProfile(profile)
+				else
+					SUI.SpartanUIDB:CopyProfile(profile)
+				end
+				module:HandleEditModeAfterProfileChange(profile, sharing)
 			end)
-		end
-	end)
-	copyDropdown:SetPoint('TOP', copyLabel, 'BOTTOM', 0, -5)
-	copyDropdown:SetPoint('LEFT', contentFrame, 'CENTER', -130, 0)
-
-	local copyBtn = UI.CreateButton(contentFrame, 60, 20, 'COPY')
-	copyBtn:SetScript('OnClick', function()
-		local selection = copyDropdown.selectedValue
-		if not selection or selection == '' then
-			return
-		end
-		self:HandleEditModeBeforeProfileChange(selection, false)
-		SUI.SpartanUIDB:CopyProfile(selection)
-		self:HandleEditModeAfterProfileChange(selection, false)
-		SUI:SafeReloadUI()
-	end)
-	copyBtn:SetPoint('LEFT', copyDropdown, 'RIGHT', 4, 0)
-
-	-- Shared profile section
-	local sharedLabel = UI.CreateLabel(contentFrame, 'Share a profile between characters:', 'GameFontNormal')
-	sharedLabel:SetWidth(400)
-	sharedLabel:SetJustifyH('CENTER')
-	sharedLabel:SetWordWrap(true)
-	sharedLabel:SetPoint('TOP', copyLabel, 'BOTTOM', 0, -60)
-
-	local sharedInfoBtn = UI.CreateInfoButton(
-		contentFrame,
-		"Why can't I share my character profile?",
-		'Character profiles (e.g., "Mythra - Area 52") are for one character only.\n\nTo share settings, use Default, Realm, Class, or a custom named profile.'
-	)
-	sharedInfoBtn:SetPoint('LEFT', sharedLabel, 'RIGHT', 5, 0)
-
-	local sharedDropdown = UI.CreateDropdown(contentFrame, 'Select Profile...', 200, 20)
-	sharedDropdown.selectedValue = nil
-	sharedDropdown:SetupMenu(function(dropdown, rootDescription)
-		for _, profile in ipairs(sharedProfiles) do
-			rootDescription:CreateButton(profile.text, function()
-				dropdown.selectedValue = profile.value
-				dropdown:SetText(profile.text)
-			end)
-		end
-	end)
-	sharedDropdown:SetPoint('TOP', sharedLabel, 'BOTTOM', 0, -5)
-	sharedDropdown:SetPoint('LEFT', contentFrame, 'CENTER', -130, 0)
-
-	local applyBtn = UI.CreateButton(contentFrame, 60, 20, 'APPLY')
-	applyBtn:SetScript('OnClick', function()
-		local selection = sharedDropdown.selectedValue
-		if not selection or selection == '' then
-			return
-		end
-		self:HandleEditModeBeforeProfileChange(selection, true)
-		SUI.SpartanUIDB:SetProfile(selection)
-		self:HandleEditModeAfterProfileChange(selection, true)
-		SUI:SafeReloadUI()
-	end)
-	applyBtn:SetPoint('LEFT', sharedDropdown, 'RIGHT', 4, 0)
-
-	-- Current profile status
-	local statusLabel = UI.CreateLabel(contentFrame, '')
-	statusLabel:SetJustifyH('CENTER')
-	statusLabel:SetWordWrap(true)
-	statusLabel:SetPoint('TOP', sharedDropdown, 'BOTTOM', 0, -30)
-	statusLabel:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-	statusLabel:SetPoint('RIGHT', contentFrame, 'RIGHT', -20, 0)
-
-	local isCharProfile = false
-	if currentProfile:find(' %- ') then
-		if SUI.SpartanUIDB.sv and SUI.SpartanUIDB.sv.profileKeys then
-			for charKey, _ in pairs(SUI.SpartanUIDB.sv.profileKeys) do
-				if currentProfile == charKey then
-					isCharProfile = true
-					break
-				end
-			end
-		end
-	end
-
-	if isCharProfile then
-		statusLabel:SetText('Current Profile: ' .. currentProfile)
-		statusLabel:SetTextColor(1, 0.82, 0)
-	else
-		statusLabel:SetText('Current: ' .. currentProfile)
-		statusLabel:SetTextColor(0.5, 1, 0.5)
-	end
-
-	-- Hide profile sections if no profiles available
-	if #copyProfiles == 0 and #sharedProfiles == 0 then
-		copyLabel:Hide()
-		copyDropdown:Hide()
-		copyBtn:Hide()
-		sharedLabel:Hide()
-		sharedInfoBtn:Hide()
-		sharedDropdown:Hide()
-		applyBtn:Hide()
-	end
-
-	-- Set scroll child height
-	contentFrame:SetHeight(400)
+		end,
+	})
 end
 
 ---Handle EditMode profile creation BEFORE profile copy/switch
@@ -433,12 +289,13 @@ function module:HandleEditModeAfterProfileChange(profileSelection, isSharedProfi
 	end
 end
 
----Called when leaving the Welcome page
-function module:OnLeaveWelcome()
+---Called when leaving the Welcome step
+---@param fresh boolean the player starts fresh rather than copying or sharing a profile
+function module:OnLeaveWelcome(fresh)
 	SUI.DB.SetupWizard.FirstLaunch = false
 
-	-- Create matching EditMode profile for new users
-	if SUI.IsRetail and EditModeManagerFrame then
+	-- Create matching EditMode profile for new users (a copied or shared profile brings its own)
+	if fresh and SUI.IsRetail and EditModeManagerFrame then
 		local MoveIt = SUI.MoveIt
 		if MoveIt and MoveIt.BlizzardEditMode then
 			MoveIt.BlizzardEditMode.suppressLayoutChangePopup = true
@@ -486,15 +343,14 @@ end
 -- Other Addons Page
 ----------------------------------------------------------------------------------------------------
 
-function module:RegisterOtherAddonsPage()
-	if LibAT.SetupWizard:GetPage(ADDON_ID, 'other-addons') then
-		return
-	end
-	LibAT.SetupWizard:AddPage(ADDON_ID, {
+function module:RegisterOtherAddonsStep()
+	module.registration:AddStep({
 		id = 'other-addons',
-		name = 'Other Addons',
+		kind = 'custom',
+		name = L['Other Addons'],
+		title = L['Companion addons'],
 		order = 90,
-		builder = function(contentFrame)
+		build = function(contentFrame)
 			self:BuildOtherAddonsPage(contentFrame)
 		end,
 	})
@@ -503,12 +359,8 @@ end
 function module:BuildOtherAddonsPage(contentFrame)
 	local UI = LibAT.UI
 
-	local header = UI.CreateLabel(contentFrame, 'Companion Addons', 'GameFontNormalLarge')
-	header:SetPoint('TOP', contentFrame, 'TOP', 0, 0)
-	header:SetJustifyH('CENTER')
-
 	local desc = UI.CreateLabel(contentFrame, 'These addons complement SpartanUI. Install them for additional features.', 'GameFontNormal')
-	desc:SetPoint('TOP', header, 'BOTTOM', 0, -5)
+	desc:SetPoint('TOP', contentFrame, 'TOP', 0, -5)
 	desc:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
 	desc:SetPoint('RIGHT', contentFrame, 'RIGHT', -20, 0)
 	desc:SetJustifyH('CENTER')

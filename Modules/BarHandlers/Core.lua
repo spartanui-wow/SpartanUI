@@ -182,7 +182,9 @@ end
 ---Store the player's bar system choice, disable Bartender4 when switching away from it,
 ---and reload.
 ---@param system string|nil
-function module:SetChosenSystem(system)
+---@param system string
+---@param skipReload? boolean the caller reloads (setup runs every staged change, then reloads once)
+function module:SetChosenSystem(system, skipReload)
 	DB.ActiveSystem = system
 	DB.systemChosen = true
 	if (system == 'SpartanUI' or system == 'WoW') and Bartender4 then
@@ -190,7 +192,9 @@ function module:SetChosenSystem(system)
 	elseif system == 'Bartender4' and not Bartender4 then
 		C_AddOns.EnableAddOn('Bartender4', UnitName('player'))
 	end
-	SUI:reloadui()
+	if not skipReload then
+		SUI:reloadui()
+	end
 end
 
 function module:OnInitialize()

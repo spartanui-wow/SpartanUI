@@ -1,5 +1,6 @@
 ---@class SUI
 local SUI = SUI
+local L = SUI.L
 ---@class SUI.Module.Artwork : SUI.Module
 local module = SUI:NewModule('Artwork')
 module.ActiveStyle = {}
@@ -102,188 +103,109 @@ function SUI:GetArtworkSetting(key)
 	return SUI.DBM:Get(module, key)
 end
 
+-- Looks offered in setup, newest first; the rest follow in the order players pick them most
+local SETUP_LOOKS = { 'ModernFlat', 'HealerGrid', 'ClassicDark', 'War', 'Classic', 'Midnight', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }
+local SETUP_TAGS = { ModernFlat = 'New', HealerGrid = 'New', ClassicDark = 'New', War = 'Popular', Classic = 'Popular' }
+
+---Setup cards for every look, built from the theme registry
+---@return table[]
+local function BuildLookCards()
+	local cards = {}
+	for _, name in ipairs(SETUP_LOOKS) do
+		local entry = SUI.ThemeRegistry:Get(name)
+		if entry then
+			local card = {
+				value = name,
+				title = entry.displayName or name,
+				caption = entry.description,
+				tag = SETUP_TAGS[name] and L[SETUP_TAGS[name]] or nil,
+				art = { texture = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_' .. name },
+				accent = entry.accent,
+				recommended = name == 'War',
+			}
+			local variants = SUI.ThemeRegistry:GetVariants(name)
+			if variants then
+				card.variants = {}
+				for _, variant in ipairs(variants) do
+					card.variants[#card.variants + 1] = { value = variant.id, text = variant.label }
+				end
+			end
+			cards[#cards + 1] = card
+		end
+	end
+	return cards
+end
+
+---The look shown as in use: a sub-theme counts as its family
+---@return string
+local function ActiveLook()
+	local style = module.CurrentSettings.Style
+	local entry = SUI.ThemeRegistry:Get(style)
+	return (entry and entry.variantGroup) or style
+end
+
 local function RegisterSetupWizardPages()
-	if not LibAT or not LibAT.SetupWizard then
+	local reg = SUI.Setup and SUI.Setup.registration
+	if not reg or reg:GetStep('theme') then
 		return
 	end
 
-	if LibAT.SetupWizard:GetPage('spartanui', 'theme') then
-		return
-	end
-
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'theme',
-		name = 'Theme Selection',
+		kind = 'look',
+		name = L['Look'],
+		title = L['Pick a look'],
+		text = L['This sets the art, frames, action bars and minimap together. You can change any part later.'],
 		order = 20,
-		builder = function(contentFrame)
-			local UI = LibAT.UI
-			local AceGUI = LibStub('AceGUI-3.0')
-
-			-- UI Scale slider at top
-			local scaleContainer = CreateFrame('Frame', nil, contentFrame)
-			scaleContainer:SetSize(contentFrame:GetWidth() - 40, 30)
-			scaleContainer:SetPoint('TOP', contentFrame, 'TOP', 0, -10)
-
-			local slider = UI.CreateSlider(scaleContainer, 340, 15, 50, 100, 1)
-			slider:SetPoint('CENTER', scaleContainer, 'CENTER', 0, 0)
-
-			local sliderLabel = UI.CreateLabel(scaleContainer, 'UI Scale', 'GameFontNormal')
-			sliderLabel:SetPoint('RIGHT', slider, 'LEFT', -5, 0)
-
-			local sliderText = UI.CreateEditBox(scaleContainer, 40, 15)
-			sliderText:SetPoint('LEFT', slider, 'RIGHT', 5, 0)
-			sliderText:Disable()
-
-			local sliderResetBtn = UI.CreateButton(scaleContainer, 40, 15, 'reset')
-			sliderResetBtn:SetPoint('LEFT', sliderText, 'RIGHT', 5, 0)
-
-			slider:SetScript('OnValueChanged', function()
-				local calculate = slider:GetValue()
-				if math.floor(calculate) ~= math.floor(calculate) then
-					slider:SetValue(math.floor(calculate))
-					return
-				end
-				local scale = math.floor(slider:GetValue()) / 100
-				sliderText:SetText(scale)
-				SUI.DB.scale = scale
-				module:UpdateScale()
-				if scale ~= 0.92 then
-					sliderResetBtn:Enable()
-					sliderResetBtn:Show()
-				else
-					sliderResetBtn:Disable()
-					sliderResetBtn:Hide()
-				end
-			end)
-			sliderResetBtn:SetScript('OnClick', function()
-				slider:SetValue(92)
-			end)
-			slider:SetValue(SUI.DB.scale * 100)
-
-			-- Theme card grid
-			local activeStyle = module.CurrentSettings.Style
-			local activeEntry = SUI.ThemeRegistry:Get(activeStyle)
-			if activeEntry and activeEntry.variantGroup then
-				SUI.ThemeRegistry:SetSetting(activeEntry.variantGroup, 'variant', activeStyle)
+		scope = 'profile',
+		cards = BuildLookCards(),
+		get = ActiveLook,
+		set = function(value)
+			if SUI.ThemeRegistry:GetVariants(value) then
+				SUI.ThemeRegistry:ApplyVariant(value, SUI.ThemeRegistry:GetActiveVariant(value) or value)
+			else
+				SUI:SetActiveStyle(value)
 			end
-			local activeDisplayName = (activeEntry and activeEntry.variantGroup) or activeStyle
-
-			local selectedBorder = CreateFrame('Frame', nil, contentFrame, BackdropTemplateMixin and 'BackdropTemplate')
-			selectedBorder:SetBackdrop({
-				edgeFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
-				edgeSize = 2,
-			})
-			selectedBorder:SetBackdropBorderColor(0, 0.7, 1, 1)
-			selectedBorder:SetFrameLevel(10)
-			selectedBorder:Hide()
-
-			local function SelectCard(frame)
-				selectedBorder:ClearAllPoints()
-				selectedBorder:SetPoint('TOPLEFT', frame, 'TOPLEFT', -3, 3)
-				selectedBorder:SetPoint('BOTTOMRIGHT', frame, 'BOTTOMRIGHT', 3, -3)
-				selectedBorder:Show()
-			end
-
-			local count = 0
-			local Themes = {}
-			local width = 140
-			local cardHeight = 107
-			local rowStartY = -60
-
-			for i, v in ipairs({ 'Classic', 'War', 'Midnight', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }) do
-				local variants = SUI.ThemeRegistry:GetVariants(v)
-				local widget = AceGUI:Create('ThemeVariantCard')
-				widget:SetLabel(v)
-
-				if variants then
-					local list = {}
-					local order = {}
-					for _, vd in ipairs(variants) do
-						list[vd.id] = vd.label
-						table.insert(order, vd.id)
-					end
-					widget:SetList(list, order)
-					local activeVariant = SUI.ThemeRegistry:GetActiveVariant(v)
-					if activeVariant then
-						widget:SetValue(activeVariant)
-					end
-				else
-					widget:SetList({ [v] = v })
-					widget:SetValue(v)
-				end
-
-				widget:SetCallback('OnValueChanged', function(w, event, value)
-					if variants then
-						SUI.ThemeRegistry:ApplyVariant(v, value)
-					else
-						SUI:SetActiveStyle(v)
-					end
-					SelectCard(w.frame)
-				end)
-
-				local frame = widget.frame
-				frame:SetParent(contentFrame)
-				frame:SetSize(width, cardHeight)
-				frame:SetFrameLevel(contentFrame:GetFrameLevel() + 1)
-				frame:Show()
-
-				_G['SETUPART_' .. v] = frame
-
-				if v == activeDisplayName then
-					SelectCard(frame)
-				end
-
-				Themes[i] = frame
-
-				count = count + 1
-				if i == 1 then
-					frame:SetPoint('TOP', contentFrame, 'TOP', width * -1, rowStartY)
-				elseif count == 1 then
-					rowStartY = rowStartY - (cardHeight + 10)
-					frame:SetPoint('TOP', contentFrame, 'TOP', width * -1, rowStartY)
-				elseif count == 2 then
-					frame:SetPoint('LEFT', Themes[i - 1], 'RIGHT', 20, 0)
-				elseif count == 3 then
-					frame:SetPoint('LEFT', Themes[i - 1], 'RIGHT', 20, 0)
-					count = 0
-				end
-			end
-
-			local Popular = CreateFrame('Frame', nil, contentFrame, BackdropTemplateMixin and 'BackdropTemplate')
-			Popular:SetPoint('TOPLEFT', 'SETUPART_Classic', 'TOPLEFT', -5, 5)
-			Popular:SetPoint('BOTTOMRIGHT', 'SETUPART_War', 'BOTTOMRIGHT', 5, -5)
-			Popular:SetBackdrop({
-				bgFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
-				edgeFile = 'Interface\\AddOns\\SpartanUI\\images\\blank.tga',
-				edgeSize = 1,
-			})
-			Popular:SetBackdropColor(0.0588, 0.0588, 0, 0.85)
-			Popular:SetBackdropBorderColor(0.9, 0.9, 0, 0.9)
-			local popularLabel = UI.CreateLabel(contentFrame, 'Popular', 'GameFontNormal')
-			popularLabel:SetPoint('BOTTOMLEFT', Popular, 'TOPLEFT', 0, 0)
-
-			contentFrame:SetHeight(math.abs(rowStartY) + cardHeight + 30)
 		end,
-		isComplete = function()
-			return SUI.DB.SetupWizard.SetupCompleted.Artwork == true
+		getVariant = function(value)
+			return SUI.ThemeRegistry:GetActiveVariant(value)
 		end,
-		onLeave = function()
-			SUI.DB.SetupWizard.SetupCompleted.Artwork = true
+		setVariant = function(value, variant)
+			SUI.ThemeRegistry:ApplyVariant(value, variant)
 		end,
-		children = {},
 	})
 
-	-- Artwork Options child page
-	LibAT.SetupWizard:AddPage('spartanui', {
+	-- Artwork options: rebuilt on every visit, because the options depend on the look just picked
+	reg:AddStep({
 		id = 'artwork-options',
-		name = 'Artwork Options',
-		order = 1,
-		builder = function(contentFrame)
+		kind = 'custom',
+		name = L['Artwork options'],
+		title = L['Artwork options'],
+		order = 21,
+		scope = 'profile',
+		cache = false,
+		build = function(contentFrame)
 			local widgets, totalHeight = LibAT.UI.BuildWidgets(contentFrame, {
 				currentTheme = {
 					type = 'description',
-					name = 'Current theme: ' .. (module.CurrentSettings.Style or 'War'),
+					name = L['Current look:'] .. ' ' .. (SUI.ThemeRegistry:Get(ActiveLook()) and SUI.ThemeRegistry:Get(ActiveLook()).displayName or ActiveLook()),
 					order = 1,
+				},
+				scale = {
+					type = 'slider',
+					name = L['UI scale'],
+					desc = L['Makes everything SpartanUI draws bigger or smaller. 92 is the default.'],
+					min = 50,
+					max = 100,
+					step = 1,
+					order = 5,
+					get = function()
+						return math.floor((SUI.DB.scale or 0.92) * 100 + 0.5)
+					end,
+					set = function(_, val)
+						SUI.DB.scale = val / 100
+						module:UpdateScale()
+					end,
 				},
 				transparency = {
 					type = 'slider',
@@ -341,14 +263,15 @@ local function RegisterSetupWizardPages()
 
 			contentFrame:SetHeight(totalHeight + 20)
 		end,
-	}, 'theme')
+	})
 
-	-- Font child page
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'font',
-		name = 'Font Style',
-		order = 2,
-		builder = function(contentFrame)
+		kind = 'custom',
+		name = L['Font'],
+		title = L['Font style'],
+		order = 22,
+		build = function(contentFrame)
 			local Font = SUI:GetModule('Handler.Font') ---@type SUI.Font
 			local Samples = {}
 
@@ -388,7 +311,7 @@ local function RegisterSetupWizardPages()
 
 			local UI = LibAT.UI
 			local fontBtns = {}
-			for k, v in ipairs({ 'Cognosis', 'NotoSans Bold', 'Roboto Medium', 'Roboto Bold', 'Myriad', 'Arial Narrow', 'Friz Quadrata TT', '2002' }) do
+			for k, v in ipairs({ 'Roboto Condensed Bold', 'Roboto Bold', 'Roboto Medium', 'NotoSans Bold', 'Cognosis', 'Myriad', 'Arial Narrow', 'Friz Quadrata TT' }) do
 				local button = UI.CreateButton(contentFrame, 120, 20, v)
 				button:SetScript('OnClick', function()
 					SetFont(v)
@@ -423,13 +346,7 @@ local function RegisterSetupWizardPages()
 
 			contentFrame:SetHeight(250)
 		end,
-		onLeave = function()
-			SUI.DB.SetupWizard.SetupCompleted.Font = true
-		end,
-		isComplete = function()
-			return SUI.DB.SetupWizard.SetupCompleted.Font == true
-		end,
-	}, 'theme')
+	})
 end
 
 local function StyleUpdate()

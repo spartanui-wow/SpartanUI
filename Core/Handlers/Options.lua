@@ -239,9 +239,7 @@ function module:OnInitialize()
 								type = 'execute',
 								order = 1,
 								func = function()
-									if LibAT and LibAT.SetupWizard then
-										LibAT.SetupWizard:OpenWindow()
-									end
+									SUI.Setup:Open()
 								end,
 							},
 							ResetProfileDB = {

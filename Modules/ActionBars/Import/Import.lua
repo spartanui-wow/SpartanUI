@@ -299,6 +299,7 @@ end
 ---@field positions boolean Also move bars to where the other addon had them
 ---@field keybinds boolean Move key bindings for bars without a Blizzard binding
 ---@field disableSource boolean Stop the other addon drawing bars
+---@field skipReload? boolean The caller reloads afterwards
 
 ---Apply an import and switch to SpartanUI's bars.
 ---@param importerID string
@@ -418,6 +419,6 @@ function module:RunImport(importerID, profile, options)
 	end
 
 	local BarSystem = SUI.Handlers.BarSystem
-	BarSystem:SetChosenSystem('SpartanUI')
+	BarSystem:SetChosenSystem('SpartanUI', options.skipReload)
 	return true
 end

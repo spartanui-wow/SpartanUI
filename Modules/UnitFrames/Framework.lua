@@ -1155,145 +1155,50 @@ function UF:OnEnable()
 end
 
 function UF:RegisterSetupWizardPages()
-	if not LibAT or not LibAT.SetupWizard then
+	local reg = SUI.Setup and SUI.Setup.registration
+	if not reg or reg:GetStep('unitframes') then
 		return
 	end
 
-	if LibAT.SetupWizard:GetPage('spartanui', 'unitframes') then
-		return
-	end
-
-	-- Build a sorted list of presets applicable to a given group leader
-	local function GetSortedPresets(groupLeader)
-		local list = {}
-		local source = groupLeader and UF.Preset:GetForFrameType(groupLeader) or UF.Preset:GetList()
-		if not next(source) then
-			source = UF.Preset:GetList()
-		end
-		for name, def in pairs(source) do
-			list[#list + 1] = { name = name, def = def }
-		end
-		table.sort(list, function(a, b)
-			return (a.def.displayName or a.name) < (b.def.displayName or b.name)
-		end)
-		return list
-	end
-
-	-- Build image card preset picker into contentFrame
-	-- getActive: function() -> current preset name
-	-- setActive: function(name) -> apply preset
-	local function BuildPresetCards(contentFrame, groupLeader, getActive, setActive)
-		local UI = LibAT.UI
-		local width = contentFrame:GetWidth()
-		local cardW = 120
-		local cardH = 100
-		local imgH = 60
-		local pad = 8
-		local cols = math.max(1, math.floor((width + pad) / (cardW + pad)))
-		local presets = GetSortedPresets(groupLeader)
+	---Preset cards, sorted by name. The look picked in the previous step is the recommended one.
+	---@return table[]
+	local function BuildPresetCards()
+		local look = SUI:GetActiveStyle()
 		local cards = {}
-
-		local function refresh()
-			local active = getActive()
-			for _, card in ipairs(cards) do
-				if card.presetName == active then
-					card:SetBackdropBorderColor(1, 0.82, 0, 1)
-				else
-					card:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
-				end
-			end
+		for name, def in pairs(UF.Preset:GetList()) do
+			cards[#cards + 1] = {
+				value = name,
+				title = def.displayName or name,
+				art = def.setup and def.setup.image and { texture = def.setup.image } or nil,
+				recommended = name == look,
+			}
 		end
-
-		for i, entry in ipairs(presets) do
-			local col = (i - 1) % cols
-			local row = math.floor((i - 1) / cols)
-			local x = col * (cardW + pad)
-			local y = -row * (cardH + pad)
-
-			local card = CreateFrame('Button', nil, contentFrame, BackdropTemplateMixin and 'BackdropTemplate')
-			card:SetSize(cardW, cardH)
-			card:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', x, y)
-			card:SetBackdrop({
-				bgFile = 'Interface\\Buttons\\WHITE8x8',
-				edgeFile = 'Interface\\Buttons\\WHITE8x8',
-				edgeSize = 1,
-			})
-			card:SetBackdropColor(0.08, 0.08, 0.08, 0.9)
-			card.presetName = entry.name
-
-			-- Preview image
-			if entry.def.setup and entry.def.setup.image then
-				local tex = card:CreateTexture(nil, 'ARTWORK')
-				tex:SetPoint('TOPLEFT', card, 'TOPLEFT', 2, -2)
-				tex:SetPoint('TOPRIGHT', card, 'TOPRIGHT', -2, -2)
-				tex:SetHeight(imgH)
-				tex:SetTexture(entry.def.setup.image)
-				tex:SetTexCoord(0, 1, 0, 1)
-			end
-
-			-- Name label
-			local nameLabel = UI.CreateLabel(card, entry.def.displayName or entry.name, 'GameFontNormalSmall')
-			nameLabel:SetPoint('BOTTOMLEFT', card, 'BOTTOMLEFT', 4, 6)
-			nameLabel:SetPoint('BOTTOMRIGHT', card, 'BOTTOMRIGHT', -4, 6)
-			nameLabel:SetJustifyH('CENTER')
-
-			-- Highlight texture
-			local hl = card:CreateTexture(nil, 'HIGHLIGHT')
-			hl:SetAllPoints()
-			hl:SetColorTexture(1, 1, 1, 0.08)
-			card:SetHighlightTexture(hl)
-
-			local presetName = entry.name
-			card:SetScript('OnClick', function()
-				setActive(presetName)
-				UF:Update()
-				refresh()
-			end)
-
-			cards[#cards + 1] = card
-		end
-
-		refresh()
-
-		local rows = math.ceil(#presets / cols)
-		local totalH = rows * (cardH + pad)
-		contentFrame:SetHeight(totalH + 20)
-		return totalH
+		table.sort(cards, function(a, b)
+			return a.title < b.title
+		end)
+		return cards
 	end
 
-	-- UF Overview page — set all frames at once
-	LibAT.SetupWizard:AddPage('spartanui', {
+	local step = reg:AddStep({
 		id = 'unitframes',
-		name = 'Unit Frames',
+		kind = 'look',
+		name = SUI.L['Unit frames'],
+		title = SUI.L['Pick a style for your frames'],
+		text = SUI.L['This sets every frame at once. The next steps change each group on its own.'],
 		order = 30,
-		builder = function(contentFrame)
-			local UI = LibAT.UI
-
-			local desc = UI.CreateLabel(
-				contentFrame,
-				'Choose a visual style for your unit frames.\nClick a preset to apply it to all frame groups at once.\nUse the child pages to customize each group individually.',
-				'GameFontNormal'
-			)
-			desc:SetPoint('TOP', contentFrame, 'TOP', 0, -10)
-			desc:SetPoint('LEFT', contentFrame, 'LEFT', 10, 0)
-			desc:SetPoint('RIGHT', contentFrame, 'RIGHT', -10, 0)
-			desc:SetJustifyH('CENTER')
-			desc:SetWordWrap(true)
-
-			local inner = CreateFrame('Frame', nil, contentFrame)
-			inner:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 10, -50)
-			inner:SetPoint('RIGHT', contentFrame, 'RIGHT', -10, 0)
-			inner:SetHeight(1)
-
-			BuildPresetCards(inner, nil, function()
-				return UF.Preset:GetActive('player')
-			end, function(val)
-				UF.Preset:ApplyThemeDefaults(val)
-			end)
-			contentFrame:SetHeight(inner:GetHeight() + 70)
+		scope = 'profile',
+		cards = BuildPresetCards,
+		get = function()
+			return UF.Preset:GetActive('player')
 		end,
-		children = {},
+		set = function(value)
+			UF.Preset:ApplyThemeDefaults(value)
+			UF:Update()
+		end,
 	})
+	if not step then
+		return
+	end
 
 	-- Build common settings widgets (width, heights, portrait, buff filter) for a frame group
 	local function BuildFrameSettings(contentFrame, frameName, width)
@@ -1455,11 +1360,15 @@ function UF:RegisterSetupWizardPages()
 	end
 
 	-- Personal Frames child (player, target, focus, pet)
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'uf-personal',
-		name = 'Personal Frames',
-		order = 1,
-		builder = function(contentFrame)
+		kind = 'custom',
+		name = SUI.L['Personal Frames'],
+		title = SUI.L['Personal Frames'],
+		order = 31,
+		scope = 'profile',
+		cache = false,
+		build = function(contentFrame)
 			local UI = LibAT.UI
 			local width = contentFrame:GetWidth()
 			local totalY = 10
@@ -1491,14 +1400,18 @@ function UF:RegisterSetupWizardPages()
 
 			contentFrame:SetHeight(totalY + 10)
 		end,
-	}, 'unitframes')
+	})
 
 	-- Group Frames child (party, raid, boss, arena)
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'uf-group',
-		name = 'Group Frames',
-		order = 2,
-		builder = function(contentFrame)
+		kind = 'custom',
+		name = SUI.L['Group Frames'],
+		title = SUI.L['Group Frames'],
+		order = 32,
+		scope = 'profile',
+		cache = false,
+		build = function(contentFrame)
 			local UI = LibAT.UI
 			local width = contentFrame:GetWidth()
 			local totalY = 10
@@ -1530,7 +1443,7 @@ function UF:RegisterSetupWizardPages()
 
 			contentFrame:SetHeight(totalY + 10)
 		end,
-	}, 'unitframes')
+	})
 end
 
 function UF:ReloadDB()
