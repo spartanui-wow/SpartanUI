@@ -17,7 +17,7 @@ local BAR_HEIGHT = 54
 local GRID_LABELS = { off = 'Grid: Off', dim = 'Grid: Faint', bright = 'Grid: Bright' }
 
 local function DefaultHint()
-	return L['Drag to move. Right-click a frame for more. Arrow keys nudge the selected frame. Hold Shift to keep a straight line, Ctrl to stop snapping.']
+	return L['Drag to move. Right-click a frame for more. Arrow keys nudge the selected frame. Hold Shift to keep a straight line, Ctrl to stop snapping. Drag this bar or shrink it to reach frames under it.']
 end
 
 function ControlToolbar:Create()
@@ -32,6 +32,19 @@ function ControlToolbar:Create()
 	bar:SetFrameLevel(50)
 	bar:EnableMouse(true)
 	bar:SetClampedToScreen(true)
+	-- The bar can be dragged out of the way for this visit only
+	bar:SetMovable(true)
+	bar:RegisterForDrag('LeftButton')
+	if bar.SetDontSavePosition then
+		bar:SetDontSavePosition(true)
+	end
+	bar:SetScript('OnDragStart', function(self)
+		self:StartMoving()
+	end)
+	bar:SetScript('OnDragStop', function(self)
+		self:StopMovingOrSizing()
+		self:SetUserPlaced(false)
+	end)
 	bar:Hide()
 	Style:SkinPanel(bar, Style.color.header, Style.color.lineStrong)
 
@@ -125,6 +138,11 @@ function ControlToolbar:Create()
 	end)
 	bar.rightButtons = { bar.resetButton, bar.exitButton, bar.saveButton }
 
+	bar.minimizeButton = Widgets:Button(bar, '-', 24, function()
+		ControlToolbar:SetMinimized(not ControlToolbar.minimized)
+	end)
+	bar.minimizeButton:SetTooltip(L['Shrink this bar so you can reach the frames under it.'], L['Shrink'])
+
 	local hint = Style:CreateText(bar, 10, Style.color.muted)
 	hint:SetPoint('BOTTOMLEFT', 12, 8)
 	hint:SetPoint('BOTTOMRIGHT', -12, 8)
@@ -163,11 +181,40 @@ function ControlToolbar:Layout()
 	end
 
 	local titleWidth = Widgets:MeasureText(bar.title)
+	local minimize = bar.minimizeButton
+	minimize:SetText(self.minimized and '+' or '-')
+	minimize:ClearAllPoints()
+
+	bar.title:ClearAllPoints()
+	bar.title:SetPoint('TOPLEFT', bar, 'TOPLEFT', PAD, -11)
+
+	if self.minimized then
+		for _, button in ipairs(bar.leftButtons) do
+			button:Hide()
+		end
+		for _, button in ipairs(bar.rightButtons) do
+			button:Hide()
+		end
+		bar.hint:Hide()
+		minimize:SetPoint('TOPLEFT', bar, 'TOPLEFT', PAD + titleWidth + 12, -6)
+		bar:SetWidth(PAD + titleWidth + 12 + minimize:GetWidth() + PAD)
+		bar:SetHeight(34)
+		return
+	end
+	for _, button in ipairs(bar.leftButtons) do
+		button:Show()
+	end
+	for _, button in ipairs(bar.rightButtons) do
+		button:Show()
+	end
+	bar.hint:Show()
+	minimize:SetPoint('TOPRIGHT', bar, 'TOPRIGHT', -PAD, -8)
+
 	local leftWidth = 0
 	for _, button in ipairs(bar.leftButtons) do
 		leftWidth = leftWidth + button:GetWidth() + GAP
 	end
-	local rightWidth = 0
+	local rightWidth = minimize:GetWidth() + GAP
 	for _, button in ipairs(bar.rightButtons) do
 		rightWidth = rightWidth + button:GetWidth() + GAP
 	end
@@ -175,9 +222,6 @@ function ControlToolbar:Layout()
 	local maxWidth = UIParent:GetWidth() - 20
 	local oneRowWidth = PAD + titleWidth + 20 + leftWidth + 24 + rightWidth + PAD
 	local twoRows = oneRowWidth > maxWidth
-
-	bar.title:ClearAllPoints()
-	bar.title:SetPoint('TOPLEFT', bar, 'TOPLEFT', PAD, -11)
 
 	local x = twoRows and PAD or (PAD + titleWidth + 20)
 	local y = twoRows and -(8 + ROW_H) or -8
@@ -187,7 +231,7 @@ function ControlToolbar:Layout()
 		x = x + button:GetWidth() + GAP
 	end
 
-	local right = -PAD + GAP
+	local right = -PAD - minimize:GetWidth()
 	for i = #bar.rightButtons, 1, -1 do
 		local button = bar.rightButtons[i]
 		button:ClearAllPoints()
@@ -233,8 +277,22 @@ function ControlToolbar:SetHint(text)
 	self:Refresh()
 end
 
+---Shrink the bar to just its title, or bring it back
+---@param minimized boolean
+function ControlToolbar:SetMinimized(minimized)
+	self.minimized = minimized and true or false
+	if minimized then
+		self:HideFilterMenu()
+	end
+	self:Layout()
+end
+
 function ControlToolbar:Show()
 	local bar = self:Create()
+	-- Each visit starts with the bar back at the top and full size
+	self.minimized = false
+	bar:ClearAllPoints()
+	bar:SetPoint('TOP', UIParent, 'TOP', 0, -6)
 	self:Refresh()
 	bar:SetAlpha(0)
 	bar:Show()

@@ -1497,3 +1497,7 @@ L['Use custom colors'] = true
 L['Visibility macro condition'] = true
 L['Walk through the first-time setup again. Nothing changes until you pick something.'] = true
 L['When enabled, these frames will only show in the content types you select below. Overrides the basic toggle options above.'] = true
+L['Drag to move. Right-click a frame for more. Arrow keys nudge the selected frame. Hold Shift to keep a straight line, Ctrl to stop snapping. Drag this bar or shrink it to reach frames under it.'] =
+	true
+L['Shrink this bar so you can reach the frames under it.'] = true
+L['Shrink'] = true
