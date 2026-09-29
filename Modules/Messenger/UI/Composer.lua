@@ -40,7 +40,7 @@ function Cmp.Create(parent)
 	composers[c] = true
 
 	c.bg = T.Fill(c, T.color.header)
-	c.rule = T.Line(c, 'TOP', { 1, 1, 1, 0.3 })
+	c.rule = T.Line(c, 'TOP', T.color.focus)
 
 	c.to = T.Text(c, 'name')
 	c.to:SetPoint('LEFT', 12, 0)

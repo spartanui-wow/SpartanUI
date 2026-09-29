@@ -156,7 +156,7 @@ function CL.Create(parent, onSelect)
 	end)
 	search.clear:SetPoint('RIGHT', -3, 0)
 	search.clear:Hide()
-	search.focusLine = T.Line(search, 'BOTTOM', { 1, 1, 1, 0.35 })
+	search.focusLine = T.Line(search, 'BOTTOM', T.color.focus)
 	search.focusLine:Hide()
 
 	local timer
