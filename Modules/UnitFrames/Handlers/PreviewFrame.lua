@@ -452,6 +452,15 @@ end
 local function BuildPreviewElements(preview, frameName)
 	local elementDB = preview.elementDB
 	preview.built = preview.built or {}
+	-- Elements set absolute frame levels meant for a frame near level 0; build and update at
+	-- those levels, then lift the whole tree (see PreviewFrame:LiftLevels)
+	PreviewFrame:RestoreLevels(preview)
+	if preview.levelBase and not preview.naturalLevels then
+		-- Reparenting into the options window raised these; start from where a real frame sits
+		preview:SetFrameLevel(1)
+		preview.raised:SetFrameLevel(101)
+		preview.naturalLevels = true
+	end
 
 	local realFrame = UF.Unit:Get(frameName)
 	local allowed = realFrame and realFrame.elementList
@@ -499,6 +508,60 @@ local function BuildPreviewElements(preview, frameName)
 	if preview.fixedStrata then
 		PreviewFrame:ApplyStrata(preview, preview.fixedStrata)
 	end
+	if preview.levelBase then
+		PreviewFrame:LiftLevels(preview, preview.levelBase)
+	end
+end
+
+---Frames in the preview, parents before children
+---@param preview Frame
+---@return Frame[]
+local function CollectFrames(preview)
+	local list = {}
+	local function Walk(frame)
+		list[#list + 1] = frame
+		for _, child in ipairs({ frame:GetChildren() }) do
+			Walk(child)
+		end
+	end
+	Walk(preview)
+	return list
+end
+
+---Raise every frame in the preview so its lowest level sits at `base`, keeping each part's
+---level relative to the others exactly as the elements set them. Levels are set one by one,
+---parent first, so the result does not depend on how the client moves children.
+---@param preview Frame
+---@param base number
+function PreviewFrame:LiftLevels(preview, base)
+	local frames = CollectFrames(preview)
+	local natural = {}
+	local lowest
+	for i, frame in ipairs(frames) do
+		natural[i] = frame:GetFrameLevel()
+		lowest = lowest and math.min(lowest, natural[i]) or natural[i]
+	end
+	local shift = math.max(0, base - (lowest or 0))
+	preview.levelShift = {}
+	for i, frame in ipairs(frames) do
+		frame:SetFrameLevel(math.min(9000, natural[i] + shift))
+		preview.levelShift[frame] = natural[i]
+	end
+end
+
+---Put every lifted frame back on the level the elements gave it
+---@param preview Frame
+function PreviewFrame:RestoreLevels(preview)
+	if not preview.levelShift then
+		return
+	end
+	for _, frame in ipairs(CollectFrames(preview)) do
+		local natural = preview.levelShift[frame]
+		if natural then
+			frame:SetFrameLevel(natural)
+		end
+	end
+	preview.levelShift = nil
 end
 
 ---Elements pick their own strata (often BACKGROUND). Inside the options window that would
@@ -957,8 +1020,7 @@ function PreviewFrame:RenderStage(frameName, parent)
 		end
 		preview:SetParent(parent)
 		preview.fixedStrata = parent:GetFrameStrata()
-		preview:SetFrameLevel(parent:GetFrameLevel() + 5)
-		preview.raised:SetFrameLevel(preview:GetFrameLevel() + 20)
+		preview.levelBase = parent:GetFrameLevel() + 5
 		preview.DB = UF.CurrentSettings[frameName]
 		preview.elementDB = preview.DB.elements
 		preview:SetSize(preview.DB.width, UF:CalculateHeight(frameName))

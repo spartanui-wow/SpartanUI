@@ -132,7 +132,7 @@ function provider:Render(ctx)
 	end
 	local left, bottom, right, top = MeasureBounds(canvas, frames)
 	local canvasWidth, canvasHeight = canvas:GetSize()
-	local scale = math.min(1.5, (canvasHeight - 16) / math.max(1, top - bottom), (canvasWidth - 24) / math.max(1, right - left))
+	local scale = math.min(1, (canvasHeight - 16) / math.max(1, top - bottom), (canvasWidth - 24) / math.max(1, right - left))
 	scale = math.max(0.3, scale)
 	local shiftX, shiftY = (left + right) / 2, (bottom + top) / 2
 
