@@ -2,5 +2,6 @@
 	<Script file="PageGroup.lua"/>
 	<Script file="Window.lua"/>
 	<Script file="Search.lua"/>
+	<Script file="Stage.lua"/>
 	<Script file="Setup.lua"/>
 </Ui>

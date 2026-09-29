@@ -280,89 +280,63 @@ end
 -- Preview Frame Construction
 ----------------------------------------------------------------------------------------------------
 
----Clear all children and element references from a preview frame for rebuild
----@param preview table
-local function CleanPreviewFrame(preview)
-	-- Hide and detach all child frames except the raised frame
-	local children = { preview:GetChildren() }
-	for _, child in ipairs(children) do
-		if child ~= preview.raised then
-			child:Hide()
-			child:ClearAllPoints()
-			child:SetParent(nil)
-		end
-	end
-
-	-- Clear raised frame children
-	local raisedChildren = { preview.raised:GetChildren() }
-	for _, child in ipairs(raisedChildren) do
-		child:Hide()
-		child:ClearAllPoints()
-		child:SetParent(nil)
-	end
-
-	-- Hide and detach regions on the raised frame (fontstrings, textures)
-	local raisedRegions = { preview.raised:GetRegions() }
-	for _, region in ipairs(raisedRegions) do
-		region:Hide()
-		region:ClearAllPoints()
-		region:SetParent(nil)
-	end
-
-	-- Clean up BackgroundBorder instance if it exists
-	local bgInstanceID = preview._bgInstanceID
-	if bgInstanceID and SUI.Handlers.BackgroundBorder then
-		SUI.Handlers.BackgroundBorder:SetVisible(bgInstanceID, false)
-	end
-
-	-- Clear element references
-	preview.Health = nil
-	preview.HealthPrediction = nil
-	preview.Power = nil
-	preview.Castbar = nil
-	preview.Name = nil
-	preview.FrameBackground = nil
-	preview.elementList = {}
-	preview.__tags = {}
-end
-
----Build visual elements on a preview frame using real UF.Elements:Build()
+---Build each enabled element once, then update it in place. Frames are never freed in WoW,
+---so rebuilding on every settings change (every slider tick) would leak.
 ---@param preview table
 ---@param frameName string
 local function BuildPreviewElements(preview, frameName)
 	local elementDB = preview.elementDB
+	preview.built = preview.built or {}
 
-	-- Phase 1: Build all elements (creates StatusBars, FontStrings, etc.)
 	for _, elementName in ipairs(PREVIEW_ELEMENTS) do
-		if elementDB[elementName] and elementDB[elementName].enabled then
-			UF.Elements:Build(preview, elementName, elementDB[elementName])
-
-			-- Store DB reference on element (matches what SpawnFrames does)
-			if preview[elementName] then
-				preview[elementName].DB = elementDB[elementName]
+		local db = elementDB[elementName]
+		if db and db.enabled then
+			if not preview.built[elementName] then
+				UF.Elements:Build(preview, elementName, db)
+				preview.built[elementName] = true
 			end
+			if preview[elementName] then
+				preview[elementName].DB = db
+				preview[elementName]:Show()
+			end
+		elseif preview.built[elementName] and preview[elementName] then
+			preview[elementName]:Hide()
 		end
 	end
 
-	-- Phase 2: Call element Update functions (applies textures, colors, text visibility)
-	-- This runs BEFORE positioning because Update functions set their own default
-	-- positions that our positioning phase needs to override.
+	-- Update runs before positioning because Update sets its own default positions that the
+	-- position data overrides, matching SpawnFrames.lua
 	for _, elementName in ipairs(PREVIEW_ELEMENTS) do
 		if preview[elementName] and elementDB[elementName] and elementDB[elementName].enabled then
 			UF.Elements:Update(preview, elementName, elementDB[elementName])
 		end
 	end
 
-	-- Phase 3: Apply element positioning (overrides Update's default positioning)
-	-- This matches SpawnFrames.lua where ElementUpdate runs AFTER Elements:Update
 	for _, elementName in ipairs(PREVIEW_ELEMENTS) do
-		if preview[elementName] and elementDB[elementName] then
+		if preview[elementName] and elementDB[elementName] and elementDB[elementName].enabled then
 			ApplyElementPosition(preview, elementName, elementDB[elementName])
 		end
 	end
 
-	-- Phase 4: Apply mock data (health/power values, castbar progress, colors)
 	ApplyMockData(preview)
+
+	if preview.fixedStrata then
+		PreviewFrame:ApplyStrata(preview, preview.fixedStrata)
+	end
+end
+
+---Elements pick their own strata (often BACKGROUND). Inside the options window that would
+---draw them behind the window, so move the whole preview tree to one strata.
+---@param preview Frame
+---@param strata string
+function PreviewFrame:ApplyStrata(preview, strata)
+	local function Walk(frame)
+		frame:SetFrameStrata(strata)
+		for _, child in ipairs({ frame:GetChildren() }) do
+			Walk(child)
+		end
+	end
+	Walk(preview)
 end
 
 ---Create a new preview frame with mock-oUF shim
@@ -651,7 +625,6 @@ function PreviewFrame:Show(frameName)
 	-- Build elements and show
 	for i = 1, count do
 		local preview = data.frames[i]
-		CleanPreviewFrame(preview)
 		BuildPreviewElements(preview, frameName)
 		preview:Show()
 	end
@@ -741,7 +714,6 @@ function PreviewFrame:Refresh(frameName)
 	end
 
 	for _, preview in ipairs(data.frames) do
-		CleanPreviewFrame(preview)
 		preview.DB = UF.CurrentSettings[frameName]
 		preview.elementDB = preview.DB.elements
 		preview:SetSize(preview.DB.width, UF:CalculateHeight(frameName))
@@ -761,6 +733,70 @@ function PreviewFrame:RefreshAll()
 	for frameName, data in pairs(previews) do
 		if data.showing then
 			self:Refresh(frameName)
+		end
+	end
+end
+
+----------------------------------------------------------------------------------------------------
+-- Options window preview (the Stage)
+----------------------------------------------------------------------------------------------------
+
+local stageFrames = {} -- stageFrames[frameName] = { frame, ... }
+
+---How many sample frames the options preview shows for a frame type
+---@param frameName string
+---@return number
+function PreviewFrame:GetStageCount(frameName)
+	local config = UF.Unit:GetConfig(frameName)
+	if config and config.config and config.config.IsGroup then
+		return 3
+	end
+	return 1
+end
+
+---Draw sample frames for a unit frame inside `parent`, reusing frames between calls
+---@param frameName string
+---@param parent Frame
+---@return table[] frames The drawn frames, left to right
+function PreviewFrame:RenderStage(frameName, parent)
+	local list = stageFrames[frameName]
+	if not list then
+		list = {}
+		stageFrames[frameName] = list
+	end
+	local count = self:GetStageCount(frameName)
+	for i = 1, count do
+		local preview = list[i]
+		if not preview then
+			preview = CreatePreviewFrame(frameName, 100 + i)
+			preview.mockData = UF.TestMode.GetMockData(i)
+			list[i] = preview
+		end
+		preview:SetParent(parent)
+		preview.fixedStrata = parent:GetFrameStrata()
+		preview:SetFrameLevel(parent:GetFrameLevel() + 5)
+		preview.raised:SetFrameLevel(preview:GetFrameLevel() + 20)
+		preview.DB = UF.CurrentSettings[frameName]
+		preview.elementDB = preview.DB.elements
+		preview:SetSize(preview.DB.width, UF:CalculateHeight(frameName))
+		BuildPreviewElements(preview, frameName)
+		preview:Show()
+	end
+	for i = count + 1, #list do
+		list[i]:Hide()
+	end
+	local drawn = {}
+	for i = 1, count do
+		drawn[i] = list[i]
+	end
+	return drawn
+end
+
+---Hide every options preview frame
+function PreviewFrame:HideStage()
+	for _, list in pairs(stageFrames) do
+		for _, preview in ipairs(list) do
+			preview:Hide()
 		end
 	end
 end

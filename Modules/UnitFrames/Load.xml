@@ -75,5 +75,6 @@
 	<Script file="SpawnFrames.lua" />
 	<Script file="Handlers\TestMode.lua"/>
 	<Script file="Handlers\PreviewFrame.lua"/>
+	<Script file="Handlers\PreviewStage.lua"/>
 	<Script file="Options.lua" />
 </Ui>
