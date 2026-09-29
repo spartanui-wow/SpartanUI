@@ -15,7 +15,81 @@ local PREVIEW_ELEMENTS = {
 	'Health',
 	'Castbar',
 	'Power',
+	'Portrait',
+	'ClassIcon',
+	'RaidTargetIndicator',
+	'LeaderIndicator',
+	'RaidRoleIndicator',
+	'RestingIndicator',
+	'CombatIndicator',
+	'ReadyCheckIndicator',
 }
+
+-- Indicators are normally shown by game state (in combat, resting, raid mark). The preview
+-- shows each enabled one with a sample icon so its size and place can be seen.
+local SAMPLE_INDICATORS = {
+	RaidTargetIndicator = function(element)
+		element:SetTexture('Interface\\TargetingFrame\\UI-RaidTargetingIcons')
+		SetRaidTargetIconTexture(element, 8)
+	end,
+	LeaderIndicator = function(element)
+		element:SetTexture('Interface\\GroupFrame\\UI-Group-LeaderIcon')
+		element:SetTexCoord(0, 1, 0, 1)
+	end,
+	RaidRoleIndicator = function(element)
+		element:SetTexture('Interface\\GroupFrame\\UI-Group-MainTankIcon')
+		element:SetTexCoord(0, 1, 0, 1)
+	end,
+	RestingIndicator = function(element)
+		element:SetTexture('Interface\\CharacterFrame\\UI-StateIcon')
+		element:SetTexCoord(0, 0.5, 0, 0.421875)
+	end,
+	CombatIndicator = function(element)
+		element:SetTexture('Interface\\CharacterFrame\\UI-StateIcon')
+		element:SetTexCoord(0.5, 1, 0, 0.484375)
+	end,
+	ReadyCheckIndicator = function(element)
+		element:SetTexture('Interface\\RaidFrame\\ReadyCheck-Ready')
+		element:SetTexCoord(0, 1, 0, 1)
+	end,
+	ClassIcon = function(element, mock)
+		local coords = CLASS_ICON_TCOORDS and mock and CLASS_ICON_TCOORDS[mock.class]
+		if coords then
+			element:SetTexture('Interface\\GLUES\\CHARACTERCREATE\\UI-CHARACTERCREATE-CLASSES')
+			element:SetTexCoord(unpack(coords))
+		end
+		if element.shadow then
+			element.shadow:Show()
+		end
+	end,
+}
+
+---Show sample indicators and point the portrait at the player
+---@param preview table
+local function ApplySampleVisuals(preview)
+	local elementDB = preview.elementDB
+	for name, apply in pairs(SAMPLE_INDICATORS) do
+		local element = preview[name]
+		if element and elementDB[name] and elementDB[name].enabled then
+			apply(element, preview.mockData)
+			element:Show()
+		end
+	end
+
+	-- The portrait's click button is a secure unit button for the real frame; keep it hidden here
+	if preview.PortraitClickOverlay then
+		preview.PortraitClickOverlay:Hide()
+	end
+	local portraitDB = elementDB.Portrait
+	if preview.Portrait and portraitDB and portraitDB.enabled then
+		if portraitDB.type == '3D' and preview.Portrait3D then
+			preview.Portrait3D:ClearModel()
+			preview.Portrait3D:SetUnit('player')
+		elseif preview.Portrait2D then
+			SetPortraitTexture(preview.Portrait2D, 'player')
+		end
+	end
+end
 
 ----------------------------------------------------------------------------------------------------
 -- Mock Tag Interpreter
@@ -379,9 +453,15 @@ local function BuildPreviewElements(preview, frameName)
 	local elementDB = preview.elementDB
 	preview.built = preview.built or {}
 
+	local realFrame = UF.Unit:Get(frameName)
+	local allowed = realFrame and realFrame.elementList
 	for _, elementName in ipairs(PREVIEW_ELEMENTS) do
 		local db = elementDB[elementName]
-		if db and db.enabled then
+		local wanted = db and db.enabled and (not allowed or allowed[elementName])
+		if elementName == 'Portrait' and not preview.built.Portrait and InCombatLockdown() then
+			wanted = false
+		end
+		if wanted then
 			if not preview.built[elementName] then
 				UF.Elements:Build(preview, elementName, db)
 				preview.built[elementName] = true
@@ -410,6 +490,7 @@ local function BuildPreviewElements(preview, frameName)
 	end
 
 	ApplyMockData(preview)
+	ApplySampleVisuals(preview)
 
 	for _, elementName in ipairs(SAMPLE_AURA_ELEMENTS) do
 		DrawSampleAuras(preview, elementName, elementDB[elementName])

@@ -11,7 +11,21 @@ if not Stage then
 end
 
 -- Large parts first: later parts get the higher click layer
-local PARTS = { 'FrameBackground', 'Health', 'Power', 'Castbar', 'Name' }
+local PARTS = {
+	'FrameBackground',
+	'Portrait',
+	'Health',
+	'Power',
+	'Castbar',
+	'Name',
+	'ClassIcon',
+	'RaidTargetIndicator',
+	'LeaderIndicator',
+	'RaidRoleIndicator',
+	'RestingIndicator',
+	'CombatIndicator',
+	'ReadyCheckIndicator',
+}
 local AURA_PARTS = { 'BuffContainer', 'DebuffContainer', 'CustomAuras' }
 local GAP = 8
 
@@ -67,6 +81,12 @@ local function MeasureBounds(canvas, frames)
 	end
 	for _, preview in ipairs(frames) do
 		Add(preview)
+		for _, part in ipairs(PARTS) do
+			local element = preview[part]
+			if element and element.IsShown and element:IsShown() and element.GetRect then
+				Add(element)
+			end
+		end
 		for _, auraElement in ipairs(AURA_PARTS) do
 			local holder = preview['_sample' .. auraElement]
 			if holder and holder:IsShown() then
