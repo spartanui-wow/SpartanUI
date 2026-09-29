@@ -1471,19 +1471,22 @@ function UF:RegisterSetupWizardPages()
 				{ leader = 'pet', label = 'Pet Frame' },
 			}
 
+			local loadedFrames = UF.Unit:GetFrameList()
 			for _, g in ipairs(groups) do
-				local hdr = UI.CreateHeader(contentFrame, g.label)
-				hdr:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-				totalY = totalY + 22
+				if loadedFrames[g.leader] then
+					local hdr = UI.CreateHeader(contentFrame, g.label)
+					hdr:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
+					totalY = totalY + 22
 
-				local inner = CreateFrame('Frame', nil, contentFrame)
-				inner:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-				inner:SetWidth(width)
-				inner:SetHeight(1)
+					local inner = CreateFrame('Frame', nil, contentFrame)
+					inner:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
+					inner:SetWidth(width)
+					inner:SetHeight(1)
 
-				local leader = g.leader
-				local h = BuildFrameSettings(inner, leader, width)
-				totalY = totalY + h + 20
+					local leader = g.leader
+					local h = BuildFrameSettings(inner, leader, width)
+					totalY = totalY + h + 20
+				end
 			end
 
 			contentFrame:SetHeight(totalY + 10)
@@ -1507,19 +1510,22 @@ function UF:RegisterSetupWizardPages()
 				{ leader = 'arena', label = 'Arena Frames' },
 			}
 
+			local loadedFrames = UF.Unit:GetFrameList()
 			for _, g in ipairs(groups) do
-				local hdr = UI.CreateHeader(contentFrame, g.label)
-				hdr:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-				totalY = totalY + 22
+				if loadedFrames[g.leader] then
+					local hdr = UI.CreateHeader(contentFrame, g.label)
+					hdr:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
+					totalY = totalY + 22
 
-				local inner = CreateFrame('Frame', nil, contentFrame)
-				inner:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-				inner:SetWidth(width)
-				inner:SetHeight(1)
+					local inner = CreateFrame('Frame', nil, contentFrame)
+					inner:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
+					inner:SetWidth(width)
+					inner:SetHeight(1)
 
-				local leader = g.leader
-				local h = BuildFrameSettings(inner, leader, width)
-				totalY = totalY + h + 20
+					local leader = g.leader
+					local h = BuildFrameSettings(inner, leader, width)
+					totalY = totalY + h + 20
+				end
 			end
 
 			contentFrame:SetHeight(totalY + 10)

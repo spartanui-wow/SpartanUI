@@ -1870,6 +1870,7 @@ function Options:Initialize()
 	}
 	local groupOrder = { 'player', 'target', 'party', 'raid', 'boss', 'arena', 'focus', 'pet' }
 
+	local loadedFrames = UF.Unit:GetFrameList()
 	for i, groupLeader in ipairs(groupOrder) do
 		-- Build values list: all presets, marking which have explicit configs for this group
 		local applicablePresets = UF.Preset:GetForFrameType(groupLeader)
@@ -1900,6 +1901,7 @@ function Options:Initialize()
 				UF.Preset:SetForFrame(groupLeader, presetName)
 				UF:Update()
 			end,
+			hidden = not loadedFrames[groupLeader],
 		}
 	end
 
