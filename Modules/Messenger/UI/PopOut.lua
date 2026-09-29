@@ -161,6 +161,11 @@ function P:Open(key, focus)
 	end
 	win:SetSize(saved.w or 340, saved.h or 360)
 	win.opacity = saved.opacity
+	win.titleBar:SetAlpha(1)
+	win.pane.composer:SetAlpha(1)
+	win.grip:SetAlpha(1)
+	win.edge:SetAlpha(1)
+	win.shadow:SetAlpha(1)
 	win:ApplyAlpha()
 	win:Show()
 	M.UI.Fade:Kick()

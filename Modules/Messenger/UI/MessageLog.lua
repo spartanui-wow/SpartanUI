@@ -112,6 +112,9 @@ local function CreateRow(log)
 	row:SetHyperlinksEnabled(true)
 
 	row.hl = T.Fill(row, T.color.hoverSoft)
+	-- Lines that mention the player, and the line a search jumped to, get a soft wash
+	row.mention = T.Fill(row, T.color.mention, 'BACKGROUND', -1)
+	row.mention:Hide()
 	row.hl:Hide()
 
 	row.name = T.Text(row, 'name')
@@ -176,6 +179,7 @@ end
 
 ---@param row Frame
 local function ResetRow(row)
+	row.mention:Hide()
 	row.name:Hide()
 	row.time:Hide()
 	row.body:Hide()
@@ -364,6 +368,45 @@ function Log:SetConversation(key)
 	else
 		self:ScrollToBottom()
 	end
+end
+
+---Scrolls to the newest message containing the text and briefly highlights it.
+---@param query string
+---@return boolean found
+function Log:JumpTo(query)
+	local convo = self.key and M.Store:Get(self.key)
+	if not convo or not query or query == '' then
+		return false
+	end
+	local needle = strlower(query)
+	local index
+	for i = #convo.msgs, 1, -1 do
+		local text = convo.msgs[i].x
+		if text and strlower(U.Plain(text)):find(needle, 1, true) then
+			index = i
+			break
+		end
+	end
+	if not index then
+		return false
+	end
+	local msg = convo.msgs[index]
+	self.renderCount = math.max(self.renderCount, #convo.msgs - index + 1)
+	self.flashMsg = msg
+	self:Rebuild(false)
+	for _, item in ipairs(self.items) do
+		if item.msg == msg then
+			self:SetOffset(item.y - 24)
+			break
+		end
+	end
+	C_Timer.After(2, function()
+		if self.flashMsg == msg then
+			self.flashMsg = nil
+			self:Render()
+		end
+	end)
+	return true
 end
 
 ---@return boolean
@@ -600,6 +643,11 @@ function Log:Render()
 
 			if item.kind == 'msg' then
 				local msg = item.msg
+				if msg.mn or msg == self.flashMsg then
+					local wash = msg == self.flashMsg and T.color.found or T.color.mention
+					row.mention:SetVertexColor(wash[1], wash[2], wash[3], wash[4])
+					row.mention:Show()
+				end
 				local bodyTop = item.gap
 				if item.head and not msg.em then
 					local label, r, g, b = self:SenderLabel(msg)

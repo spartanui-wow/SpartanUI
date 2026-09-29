@@ -100,6 +100,8 @@ M.defaults = {
 			people = { sound = true, toast = true, flash = true },
 			rooms = { sound = false, toast = false, flash = false },
 			holdInCombat = true,
+			mentions = true,
+			mentionWords = '',
 			hideInCombat = false,
 			toastDuration = 6,
 		},

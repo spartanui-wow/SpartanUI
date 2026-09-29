@@ -393,6 +393,35 @@ function M:BuildOptionsTable()
 							settings().alerts.rooms.flash = value
 						end,
 					},
+					mentions = {
+						type = 'toggle',
+						order = 14,
+						width = 'full',
+						name = L['Alert me when someone says my name in a group chat'],
+						desc = L['The line is highlighted, and you get the same sound and pop-up as a whisper.'],
+						get = function()
+							return settings().alerts.mentions
+						end,
+						set = function(_, value)
+							settings().alerts.mentions = value
+						end,
+					},
+					mentionWords = {
+						type = 'input',
+						order = 15,
+						width = 'double',
+						name = L['Other words to watch for'],
+						desc = L['Separate words with commas, for example: tank, heals, your guild name.'],
+						disabled = function()
+							return not settings().alerts.mentions
+						end,
+						get = function()
+							return settings().alerts.mentionWords
+						end,
+						set = function(_, value)
+							settings().alerts.mentionWords = value
+						end,
+					},
 					combatHeader = { type = 'header', order = 20, name = L['Combat'] },
 					holdInCombat = {
 						type = 'toggle',

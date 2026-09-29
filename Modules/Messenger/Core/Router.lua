@@ -96,6 +96,35 @@ local function Wanted(kind, key, channelBase)
 end
 
 ----------------------------------------------------------------------------------------------------
+-- Mentions
+----------------------------------------------------------------------------------------------------
+
+---True when a group chat line says the player's name or one of their watch words, as a whole word.
+---@param text string
+---@return boolean
+function R:IsMention(text)
+	local alerts = M.settings.alerts
+	if not alerts.mentions then
+		return false
+	end
+	local padded = ' ' .. strlower(U.Plain(text)) .. ' '
+	local words = { UnitName('player') }
+	for word in (alerts.mentionWords or ''):gmatch('[^,]+') do
+		word = U.Trim(word)
+		if word ~= '' then
+			words[#words + 1] = word
+		end
+	end
+	for _, word in ipairs(words) do
+		local escaped = strlower(word):gsub('([%(%)%.%%%+%-%*%?%[%]%^%$])', '%%%1')
+		if padded:find('[^%w\128-\255]' .. escaped .. '[^%w\128-\255]') then
+			return true
+		end
+	end
+	return false
+end
+
+----------------------------------------------------------------------------------------------------
 -- Recording
 ----------------------------------------------------------------------------------------------------
 
@@ -143,6 +172,9 @@ function R:Record(event, text, sender, guid, bnID, flags, channelBase, channelSt
 		outgoing = full ~= nil and U.SameName(full, U.PlayerFullName())
 		msg.s = full
 		msg.cl = U.ClassFromGUID(guid)
+		if not outgoing and R:IsMention(text) then
+			msg.mn = true
+		end
 		if kind.key == 'EMOTE' then
 			msg.em = true
 		end

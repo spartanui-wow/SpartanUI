@@ -220,6 +220,15 @@ function S:Undo()
 	end
 	lastRemoved = nil
 	if removed.convo then
+		-- The person may have written again during the undo window: keep those lines too
+		local current = self:Get(removed.key)
+		if current then
+			for _, msg in ipairs(current.msgs) do
+				table.insert(removed.convo.msgs, msg)
+			end
+			removed.convo.unread = (removed.convo.unread or 0) + (current.unread or 0)
+			removed.convo.last = math.max(removed.convo.last or 0, current.last or 0)
+		end
 		if S.IsRoomKey(removed.key) then
 			Rooms()[removed.key] = removed.convo
 		else
@@ -244,6 +253,7 @@ function S:Undo()
 end
 
 function S:DeleteAll()
+	lastRemoved = nil
 	wipe(People())
 	wipe(Rooms())
 	M:Fire('CONVO_DELETED', nil)

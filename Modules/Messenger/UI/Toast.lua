@@ -299,7 +299,8 @@ local function OnIncoming(key, msg, kind)
 		return
 	end
 	local alerts = M.settings.alerts
-	local cfg = alerts[kind.group] or alerts.people
+	-- A group chat line that says the player's name alerts like a whisper
+	local cfg = (msg.mn and alerts.people) or alerts[kind.group] or alerts.people
 	if M:IsViewing(key) then
 		return
 	end

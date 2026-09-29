@@ -323,26 +323,38 @@ end
 ---@return string[]
 function C:Suggest(prefix)
 	local out, seen = {}, {}
-	local function add(name)
+	local function add(name, detail, status)
 		local lower = strlower(name)
 		if not seen[lower] and lower:find(prefix, 1, true) == 1 then
 			seen[lower] = true
-			out[#out + 1] = name
+			out[#out + 1] = { name = name, detail = detail, status = status }
 		end
 	end
+	local statusText = { online = L['Online'], away = L['Away'], busy = L['Busy'], offline = L['Offline'] }
 	for _, entry in pairs(bnet) do
 		if entry.status ~= 'offline' then
-			add(entry.tag)
+			local detail = L['Battle.net']
+			if entry.character then
+				detail = detail .. '  -  ' .. entry.character
+			end
+			add(entry.tag, detail .. '  -  ' .. statusText[entry.status], entry.status)
 		end
 	end
 	for _, entry in pairs(friends) do
-		add(U.DisplayName(entry.full))
+		add(U.DisplayName(entry.full), L['Friend'] .. '  -  ' .. statusText[entry.status], entry.status)
 	end
 	for _, entry in pairs(guild) do
 		if entry.status ~= 'offline' then
-			add(U.DisplayName(entry.full))
+			add(U.DisplayName(entry.full), L['Guild'] .. '  -  ' .. statusText[entry.status], entry.status)
 		end
 	end
-	table.sort(out)
+	-- Online first, then by name
+	table.sort(out, function(a, b)
+		local ao, bo = a.status ~= 'offline', b.status ~= 'offline'
+		if ao ~= bo then
+			return ao
+		end
+		return a.name < b.name
+	end)
 	return out
 end

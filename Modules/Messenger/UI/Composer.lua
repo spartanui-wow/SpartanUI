@@ -92,12 +92,23 @@ function Cmp.Create(parent)
 	end)
 	edit:SetScript('OnKeyDown', function(self, key)
 		if c.onNavigate and IsAltKeyDown() and (key == 'UP' or key == 'DOWN') then
-			-- Save the draft before the arrow key can pull a history line into the box
-			if c.key then
-				drafts[c.key] = self:GetText()
+			-- Save the draft now, before the arrow key can pull a history line into the box, and
+			-- switch on the next frame so that key is spent in this chat, not the next one
+			local fromKey = c.key
+			local typed = self:GetText()
+			if fromKey then
+				drafts[fromKey] = typed
 				c.draftSaved = true
 			end
-			c.onNavigate(key == 'UP' and -1 or 1)
+			local step = key == 'UP' and -1 or 1
+			C_Timer.After(0, function()
+				if not c.onNavigate(step) then
+					c.draftSaved = nil
+					if c.key == fromKey then
+						self:SetText(typed)
+					end
+				end
+			end)
 		end
 	end)
 	edit:SetScript('OnTextChanged', function()

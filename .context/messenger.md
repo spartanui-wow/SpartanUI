@@ -45,6 +45,18 @@ Nothing under `Core/`, `UI/` or `Options.lua` may reference `SUI`. Files share s
 - **Emoji** are stored and sent as plain codes and only drawn locally, so other players see whatever their chat shows. The SpartanUI host points `emojiPath` at `images/chatbox/emojis`; a standalone build ships its own copy of those images.
 - **Alerts in combat** are held (messages still stored) and summarized in one toast after combat.
 
+## UX additions (2026-09-28, from a comparative audit)
+
+- **Sizes follow the text size.** `Theme.Metrics()` gives row, header, title, composer and search heights from the font size setting; every bar re-applies them on `FONTS_CHANGED`.
+- **Compact rail.** Under 640px wide (`Deck:Layout`) the list becomes a 60px column of avatars with unread badges; names move to a hover tooltip and section headers are skipped.
+- **Undo, not confirm.** Deleting a conversation or clearing a room acts immediately and shows an Undo toast (`Store:Undo`, session only). Ignoring a player still confirms, because it changes the game's ignore list.
+- **Keyboard.** Alt+Up/Down in the composer steps through the list (`Deck:Step`), saving the draft before the arrow key can pull a history line in.
+- **Pin.** `settings.window.pinned` locks the deck (`win.locked`, grip hidden), removes it from `UISpecialFrames` (`W.SetEscapeCloses`) and reopens it after a reload from `db.char.deckOpen`.
+- **Overlay pop-outs.** Per pop-out `overlay` and `opacity` (saved in `db.char.popouts[key]`); an OnUpdate fades the title bar, composer, grip and edges to 0 when the mouse is away and the composer has no focus.
+- **Mentions.** `Router:IsMention` marks group chat lines (`msg.mn`) that say the player's name or `alerts.mentionWords` as a whole word; they get a soft amber wash and use the whisper alert settings.
+- **Header name** right-click calls `SetItemRef('player:Name-Realm', ..., 'RightButton')`, which opens the game's own player menu (`FriendsFrame_ShowDropdown`).
+- **Search jump.** Picking a conversation while the list search has text calls `Log:JumpTo(query)`, which pages in older messages if needed and highlights the match for two seconds.
+
 ## Testing
 
 A headless LuaJIT harness (mocked WoW API, real AceDB) loads the core without SpartanUI and runs routing, filtering, restriction recovery, sending, rooms, channels, Battle.net, pop-outs, menus, link insertion and every options callback. Nothing replaces an in-game pass:

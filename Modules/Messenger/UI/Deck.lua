@@ -129,15 +129,22 @@ local function BuildPicker(win)
 			return btn
 		end
 		btn = CreateFrame('Button', nil, picker)
-		btn:SetHeight(22)
-		btn:SetPoint('TOPLEFT', picker, 'BOTTOMLEFT', 0, -(i - 1) * 22)
-		btn:SetPoint('TOPRIGHT', picker, 'BOTTOMRIGHT', 0, -(i - 1) * 22)
+		btn:SetHeight(24)
+		btn:SetPoint('TOPLEFT', picker, 'BOTTOMLEFT', 0, -(i - 1) * 24)
+		btn:SetPoint('TOPRIGHT', picker, 'BOTTOMRIGHT', 0, -(i - 1) * 24)
 		btn:SetFrameLevel(picker:GetFrameLevel() + 1)
 		T.Fill(btn, T.color.popup)
 		btn.hl = T.Fill(btn, T.color.hover, 'ARTWORK')
 		btn.hl:Hide()
+		btn.dot = btn:CreateTexture(nil, 'ARTWORK')
+		btn.dot:SetSize(8, 8)
+		btn.dot:SetPoint('LEFT', 12, 0)
+		T.SetIcon(btn.dot, 'dot')
 		btn.text = T.Text(btn, 'body')
-		btn.text:SetPoint('LEFT', 12, 0)
+		btn.text:SetPoint('LEFT', btn.dot, 'RIGHT', 8, 0)
+		btn.detail = T.Text(btn, 'meta', T.color.faint)
+		btn.detail:SetPoint('RIGHT', -10, 0)
+		btn.detail:SetJustifyH('RIGHT')
 		btn:SetScript('OnEnter', function(self)
 			self.hl:Show()
 		end)
@@ -155,11 +162,14 @@ local function BuildPicker(win)
 		local text = strlower(U.Trim(edit:GetText() or ''))
 		local names = text ~= '' and M.Contacts:Suggest(text) or {}
 		for i = 1, MAX_SUGGESTIONS do
-			local name = names[i]
-			if name then
+			local entry = names[i]
+			if entry then
 				local btn = Suggestion(i)
-				btn.value = name
-				btn.text:SetText(name)
+				btn.value = entry.name
+				btn.text:SetText(entry.name)
+				btn.detail:SetText(entry.detail or '')
+				local c = T.StatusColor(entry.status) or T.color.offline
+				btn.dot:SetVertexColor(c[1], c[2], c[3])
 				btn:Show()
 			elseif picker.suggestions[i] then
 				picker.suggestions[i]:Hide()
@@ -277,7 +287,7 @@ function D:Build()
 
 	-- Body
 	local list = M.ConversationList.Create(win, function(key)
-		D:Select(key)
+		D:Select(key, false, false, self.list and self.list.query)
 	end)
 	self.list = list
 
@@ -285,7 +295,7 @@ function D:Build()
 	pane:SetPoint('TOPLEFT', list, 'TOPRIGHT')
 	pane:SetPoint('BOTTOMRIGHT')
 	pane.composer.onNavigate = function(step)
-		D:Step(step)
+		return D:Step(step)
 	end
 	pane.composer.onTab = function()
 		local nextConvo = M.Store:NextUnread()
@@ -318,7 +328,7 @@ function D:Build()
 	end)
 	win:SetScript('OnHide', function()
 		-- Hiding the whole interface also fires OnHide; only a real close forgets the window
-		if not win:IsShown() then
+		if not win:IsShown() and not self.hiddenForCombat and M.enabled then
 			M.db.char.deckOpen = nil
 		end
 		W.CloseMenu()
@@ -451,7 +461,8 @@ end
 ---@param key string
 ---@param focus? boolean
 ---@param force? boolean Reload the conversation even if it is already shown
-function D:Select(key, focus, force)
+---@param query? string Search text: scroll to the newest message containing it
+function D:Select(key, focus, force, query)
 	if not self.win then
 		return
 	end
@@ -459,6 +470,10 @@ function D:Select(key, focus, force)
 	self.list:SetSelected(key)
 	if force or self.pane.key ~= key then
 		self.pane:SetConversation(key)
+	end
+	local convo = M.Store:Get(key)
+	if query and query ~= '' and convo and not strlower(M:GetTitle(convo)):find(strlower(query), 1, true) then
+		self.pane.log:JumpTo(query)
 	end
 	self.pick:Hide()
 	if focus then
@@ -468,6 +483,7 @@ end
 
 ---Moves to the previous (-1) or next (1) conversation in list order.
 ---@param step number
+---@return boolean switched
 function D:Step(step)
 	local keys = {}
 	local current
@@ -480,13 +496,15 @@ function D:Step(step)
 		end
 	end
 	if #keys == 0 then
-		return
+		return false
 	end
 	local index = current and (current + step) or 1
 	index = math.max(1, math.min(#keys, index))
 	if keys[index] ~= self.pane.key then
 		self:Select(keys[index], true)
+		return true
 	end
+	return false
 end
 
 function D:Toggle()

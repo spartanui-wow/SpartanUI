@@ -273,6 +273,14 @@ function List:SetCompact(compact)
 		return
 	end
 	self.compact = compact
+	if compact then
+		self.filter = 'all'
+		self.query = ''
+		self.search:SetText('')
+		for _, chip in ipairs(self.chips) do
+			chip:SetSelected(chip.filterKey == 'all')
+		end
+	end
 	self.search:SetShown(not compact)
 	for _, chip in ipairs(self.chips) do
 		chip:SetShown(not compact)

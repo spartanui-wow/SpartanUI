@@ -251,6 +251,9 @@ function W.Avatar(parent, size)
 			self.icon:Show()
 			self.initial:Hide()
 			self.disc:SetVertexColor(0, 0, 0, 1)
+			local offline = presence.status == 'offline'
+			self.icon:SetDesaturated(offline)
+			self.icon:SetAlpha(offline and 0.5 or 1)
 		else
 			local r, g, b = T.KindColor(convo)
 			self.icon:Hide()
