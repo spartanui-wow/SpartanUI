@@ -135,6 +135,14 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 	if type(anchor) == 'string' then
 		anchorObj = _G[anchor]
 	end
+	-- A saved position can point at another mover that has not been created yet (load order).
+	-- Keep the saved position, use the default for now, and re-apply once that mover exists.
+	if not anchorObj and MoveIt.DB.movers[name].MovedPoints and type(anchor) == 'string' and anchor:find('^SUI_Mover_') then
+		MoveIt.PendingAnchors[name] = anchor
+		point, anchor, secondaryPoint, x, y = strsplit(',', f.defaultPoint)
+		anchorObj = _G[anchor]
+	end
+
 	local anchorInvalid = not anchorObj
 	if anchorObj and type(anchor) == 'string' and anchor ~= 'UIParent' then
 		-- Walk up the parent chain looking for UIParent. If we hit SpartanUI (which is scaled),
@@ -153,12 +161,15 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 			MoveIt.logger.debug(('CreateMover %s: anchor %s is invalid or inside scaled frame, falling back to UIParent'):format(name, anchor))
 		end
 		anchor = 'UIParent'
-		MoveIt.DB.movers[name].MovedPoints = nil
-		MovedText:Hide()
+		if not MoveIt.PendingAnchors[name] then
+			MoveIt.DB.movers[name].MovedPoints = nil
+			MovedText:Hide()
+		end
 	end
 
 	f:ClearAllPoints()
 	f:SetPoint(point, anchor, secondaryPoint, x, y)
+	MoveIt:ResolvePendingAnchors()
 
 	local function SaveMoverPosition()
 		-- Normalize to UIParent anchor to avoid drift when anchored to scaled frames.
@@ -352,6 +363,9 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName, widg
 	end
 
 	local function OnMouseWheel(_, delta)
+		if InCombatLockdown() then
+			return
+		end
 		if IsAltKeyDown() then
 			f:Scale((delta / 100))
 		elseif IsShiftKeyDown() then

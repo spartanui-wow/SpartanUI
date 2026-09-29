@@ -8,6 +8,29 @@ SUI.MoveIt = MoveIt
 
 -- Shared state (accessed by other MoveIt files via MoveIt.MoverList, etc.)
 MoveIt.MoverList = {}
+---Movers whose saved position is anchored to a mover that did not exist yet, keyed by mover name
+---@type table<string, string>
+MoveIt.PendingAnchors = {}
+
+---Re-apply saved positions that were waiting for their anchor mover to be created
+function MoveIt:ResolvePendingAnchors()
+	if not next(self.PendingAnchors) or InCombatLockdown() then
+		return
+	end
+	for name, anchorName in pairs(self.PendingAnchors) do
+		local mover = self.MoverList[name]
+		local saved = self.DB.movers[name] and self.DB.movers[name].MovedPoints
+		if not mover or not saved then
+			self.PendingAnchors[name] = nil
+		elseif _G[anchorName] then
+			local point, anchor, secondaryPoint, x, y = strsplit(',', saved)
+			mover:ClearAllPoints()
+			mover:SetPoint(point, anchor, secondaryPoint, tonumber(x) or 0, tonumber(y) or 0)
+			mover.MovedText:Show()
+			self.PendingAnchors[name] = nil
+		end
+	end
+end
 
 -- MoverWatcher frame for keyboard input handling
 local MoverWatcher = CreateFrame('Frame', nil, UIParent)
@@ -138,12 +161,6 @@ function MoveIt:UnlockAll()
 		return
 	end
 
-	-- Debug logging to trace who's calling UnlockAll
-	if MoveIt.logger then
-		local stack = debugstack(2, 2, 0) -- Get caller stack
-		MoveIt.logger.debug('UnlockAll called from: ' .. (stack or 'unknown'))
-	end
-
 	-- Set flag indicating unlock is in progress
 	self.unlockInProgress = true
 
@@ -194,11 +211,8 @@ function MoveIt:UnlockAll()
 		print('     Hold Shift + use the scroll wheel to move up and down 1 coord at a time', true)
 		print('     Hold Alt + use the scroll wheel to scale the frame', true)
 		print(' ', true)
-		-- Classic-specific tip for magnetism
-		if not SUI.IsRetail then
-			print('     Hold Shift while dragging to enable snap/magnetism', true)
-			print(' ', true)
-		end
+		print('     Hold Shift while dragging to stop snapping', true)
+		print(' ', true)
 		print('     Press ESCAPE to exit the movement system quickly.', true)
 		print("Use the command '/sui move tips' to disable tips")
 		print("Use the command '/sui move reset' to reset ALL moved items")
@@ -350,9 +364,12 @@ function MoveIt:OnInitialize()
 end
 
 function MoveIt:CombatLockdown()
-	if MoveEnabled then
-		MoveIt:MoveIt()
-		print('Disabling movement system while in combat')
+	if MoveIt.MoverMode and MoveIt.MoverMode:IsActive() then
+		MoveIt.MoverMode:Exit()
+		SUI:Print(L['Frame moving closed because you entered combat'])
+	elseif MoveEnabled then
+		MoveIt:LockAll()
+		SUI:Print(L['Frame moving closed because you entered combat'])
 	end
 end
 
@@ -460,6 +477,7 @@ function MoveIt:OnEnable()
 	MoverWatcher:SetScript('OnKeyDown', OnKeyDown)
 
 	self:RegisterEvent('PLAYER_REGEN_DISABLED', 'CombatLockdown')
+	self:RegisterEvent('PLAYER_ENTERING_WORLD', 'ResolvePendingAnchors')
 end
 
 ---Handle SUI profile changes to sync EditMode profiles

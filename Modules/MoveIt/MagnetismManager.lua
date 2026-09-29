@@ -18,12 +18,11 @@ MoveIt.MagnetismManager = MagnetismManager
 MagnetismManager.magnetismRange = 8
 MagnetismManager.sqrMagnetismRange = 64
 MagnetismManager.sqrCornerMagnetismRange = 128 -- 2x normal range for corners
--- On Retail, magnetism is enabled by default; on Classic, disabled by default (hold Shift to enable)
-MagnetismManager.enabled = SUI.IsRetail and true or false
+MagnetismManager.enabled = true
 MagnetismManager.magneticFrames = {}
 MagnetismManager.previewLinesAvailable = false
 MagnetismManager.currentDragFrame = nil
-MagnetismManager.debugLogging = true -- Set to true for verbose snap detection logging
+MagnetismManager.debugLogging = false
 
 -- UIParent cached values
 MagnetismManager.uiParentCenterX = 0

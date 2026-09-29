@@ -1280,3 +1280,4 @@ L["Bartender4 import: per-bar mouseover and auto-assist targeting are not carrie
 L['Dominos import: vehicle and possess actions now show on the bar you picked in Dominos only if it maps to a SpartanUI bar.'] = true
 L["Trim the edge off spell icons and drop the game's rounded button frame."] = true
 L['Moved %d key bindings from Bartender4 to SpartanUI action bars.'] = true
+L['Frame moving closed because you entered combat'] = true
