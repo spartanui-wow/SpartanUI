@@ -16,7 +16,8 @@ function module:OnInitialize()
 			setup = {
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Digital',
 			},
-			applicableTo = { player = true, target = true },
+			applicableTo = SUI.ThemeArt.ApplicableTo(true),
+			artGroups = { graphic = 'Digital', sections = { 'bg' } },
 		},
 		-- Data callback (lazy-loaded on first access)
 		function()

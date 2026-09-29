@@ -110,7 +110,8 @@ function module:OnInitialize()
 			setup = {
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Arcane',
 			},
-			applicableTo = { player = true, target = true },
+			applicableTo = SUI.ThemeArt.ApplicableTo(true),
+			artGroups = { graphic = 'Arcane', sections = { 'top', 'bg', 'bottom' } },
 			variants = {
 				{ id = 'Arcane', label = 'Blue', applyStyle = 'Arcane', applyUF = 'Arcane' },
 				{ id = 'ArcaneRed', label = 'Red', applyStyle = 'ArcaneRed', applyUF = 'ArcaneRed' },
@@ -259,7 +260,8 @@ function module:OnInitialize()
 		setup = {
 			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_ArcaneRed',
 		},
-		applicableTo = { player = true, target = true },
+		applicableTo = SUI.ThemeArt.ApplicableTo(true),
+		artGroups = { graphic = 'ArcaneRed', sections = { 'top', 'bg', 'bottom' } },
 		variantGroup = 'Arcane',
 	}, function()
 		return {

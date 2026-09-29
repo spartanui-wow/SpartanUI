@@ -14,7 +14,8 @@ function module:OnInitialize()
 		setup = {
 			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_War',
 		},
-		applicableTo = { player = true, target = true },
+		applicableTo = SUI.ThemeArt.ApplicableTo(true),
+		artGroups = { graphic = 'War', sections = { 'top', 'bg', 'bottom' } },
 	}, function()
 		local ImageInfo = {
 			Alliance = {

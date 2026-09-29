@@ -75,7 +75,8 @@ function module:OnInitialize()
 			setup = {
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Fel',
 			},
-			applicableTo = { player = true, target = true },
+			applicableTo = SUI.ThemeArt.ApplicableTo(true),
+			artGroups = { graphic = 'Fel', sections = { 'top', 'bg', 'bottom' } },
 			variants = {
 				{ id = 'engulfed', label = 'Engulfed' },
 				{ id = 'calmed', label = 'Calmed' },

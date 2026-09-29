@@ -812,7 +812,8 @@ function module:OnInitialize()
 		setup = {
 			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Classic',
 		},
-		applicableTo = { player = true, target = true, pet = true, targettarget = true },
+		applicableTo = SUI.ThemeArt.ApplicableTo(false),
+		artGroups = { graphic = 'Classic', sections = { 'full' }, groupSections = {} },
 	}, function()
 		return {
 			frames = {

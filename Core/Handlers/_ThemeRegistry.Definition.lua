@@ -15,6 +15,7 @@ local SUI = SUI
 ---@field applicableTo? table<string, boolean> Which frame groups this theme provides configs for
 ---@field accent? number[] { r, g, b } accent color for SpartanUI's own windows
 ---@field font? SUI.ThemeRegistry.FontSpec Font the theme draws with when the player has not picked one
+---@field artGroups? { graphic?: string, sections: string[], groupSections?: string[] } Give focus, pet, boss, arena, party and raid frames this theme's unit frame art
 
 ---@class SUI.ThemeRegistry.FontSpec
 ---@field face string Bundled LibSharedMedia font name, always available

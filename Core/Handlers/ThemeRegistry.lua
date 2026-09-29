@@ -126,6 +126,13 @@ local function EnsureLoaded(themeName)
 
 	dataCache[themeName] = entry.dataCallback()
 
+	-- Art themes describe player and target; this gives the other frame groups the same art
+	local artGroups = entry.artGroups
+	if artGroups and SUI.ThemeArt and type(dataCache[themeName]) == 'table' then
+		dataCache[themeName].frames = dataCache[themeName].frames or {}
+		SUI.ThemeArt.AddGroupFrames(dataCache[themeName].frames, artGroups.graphic or themeName, artGroups.sections, artGroups.groupSections)
+	end
+
 	-- Themes still describe auras as Buffs/Debuffs. Retail draws them through
 	-- their own containers, so translate once here rather than in every theme.
 	if SUI.UF and SUI.UF.IsModernOUF and type(dataCache[themeName]) == 'table' and type(dataCache[themeName].frames) == 'table' then
@@ -185,6 +192,7 @@ function ThemeRegistry:Register(metadata, dataCallback)
 		applicableTo = metadata.applicableTo,
 		accent = metadata.accent,
 		font = metadata.font,
+		artGroups = metadata.artGroups,
 		dataCallback = dataCallback,
 		variants = metadata.variants,
 		variantGroup = metadata.variantGroup,

@@ -1,4 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="ArtFrames.lua"/>
 	<Include file="War\Style.xml"/>
 	<Include file="Classic\Style.xml"/>
 	<Include file="Arcane\Style.xml"/>

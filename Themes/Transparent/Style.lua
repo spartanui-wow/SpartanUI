@@ -45,7 +45,8 @@ function module:OnInitialize()
 			setup = {
 				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Transparent',
 			},
-			applicableTo = { player = true, target = true },
+			applicableTo = SUI.ThemeArt.ApplicableTo(true),
+			artGroups = { graphic = 'Transparent', sections = { 'top', 'bg' } },
 		},
 		-- Data callback (lazy-loaded on first access)
 		function()
