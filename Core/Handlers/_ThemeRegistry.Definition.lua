@@ -13,6 +13,12 @@ local SUI = SUI
 ---@field description? string Short description of the theme
 ---@field setup? SUI.ThemeRegistry.SetupInfo Preview info for the setup wizard
 ---@field applicableTo? table<string, boolean> Which frame groups this theme provides configs for
+---@field accent? number[] { r, g, b } accent color for SpartanUI's own windows
+---@field font? SUI.ThemeRegistry.FontSpec Font the theme draws with when the player has not picked one
+
+---@class SUI.ThemeRegistry.FontSpec
+---@field face string Bundled LibSharedMedia font name, always available
+---@field preferred? string Font another addon may register; used instead of face when present
 
 ---Setup wizard preview info
 ---@class SUI.ThemeRegistry.SetupInfo

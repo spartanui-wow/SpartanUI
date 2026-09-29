@@ -184,6 +184,7 @@ function ThemeRegistry:Register(metadata, dataCallback)
 		setup = metadata.setup,
 		applicableTo = metadata.applicableTo,
 		accent = metadata.accent,
+		font = metadata.font,
 		dataCallback = dataCallback,
 		variants = metadata.variants,
 		variantGroup = metadata.variantGroup,

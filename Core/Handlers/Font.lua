@@ -68,12 +68,70 @@ function Font:StoreItem(element, DefaultSize, Module)
 	Font.Items[Module][NewItemID] = element
 end
 
+-- Modules whose default face was picked on purpose and should not follow the theme font
+local THEME_FONT_EXEMPT = { Chatbox = true }
+
+---The font the active theme draws with, when it names one that is installed.
+---A theme may prefer a font another addon provides and fall back to a bundled one.
+---@return string|nil face LibSharedMedia font name
+function Font:GetThemeFace()
+	local entry = SUI.ThemeRegistry and SUI.ThemeRegistry:Get(SUI:GetActiveStyle())
+	local spec = entry and entry.font
+	if type(spec) ~= 'table' then
+		return nil
+	end
+	local LSM = SUI.Lib.LSM
+	if spec.preferred and LSM:IsValid('font', spec.preferred) then
+		return spec.preferred
+	end
+	if spec.face and LSM:IsValid('font', spec.face) then
+		return spec.face
+	end
+	return nil
+end
+
+---@param Module string
+---@return string
+local function DefaultFace(Module)
+	local own = DBDefaults.Modules[Module]
+	return (own and own.Face) or DBDefaults.Modules['**'].Face
+end
+
+---Store a face the player picked. Picking the default face on purpose is remembered too,
+---because the saved table cannot otherwise tell it apart from a face nobody chose.
+---@param Module string
+---@param face string
+function Font:SetFace(Module, face)
+	local settings = Font.DB.Modules[Module]
+	settings.Face = face
+	settings.FaceChosen = (face == DefaultFace(Module)) or nil
+end
+
+---The face a module draws with: the player's own choice first, then the theme font, then the default
+---@param Module? string
+---@return string face LibSharedMedia font name
+function Font:GetFace(Module)
+	Module = Module or 'Global'
+	local settings = Font.DB and Font.DB.Modules and Font.DB.Modules[Module]
+	if not settings then
+		return 'Roboto Bold'
+	end
+	if settings.FaceChosen or (settings.Face and settings.Face ~= DefaultFace(Module)) then
+		return settings.Face
+	end
+	if not THEME_FONT_EXEMPT[Module] then
+		local themeFace = Font:GetThemeFace()
+		if themeFace then
+			return themeFace
+		end
+	end
+	return settings.Face or 'Roboto Bold'
+end
+
 ---@param Module? string
 function Font:GetFont(Module)
-	if Module and Font.DB and Font.DB.Modules and Font.DB.Modules[Module] then
-		return SUI.Lib.LSM:Fetch('font', Font.DB.Modules[Module].Face)
-	elseif not Module and Font.DB and Font.DB.Modules and Font.DB.Modules.Global then
-		return SUI.Lib.LSM:Fetch('font', Font.DB.Modules.Global.Face)
+	if Font.DB and Font.DB.Modules then
+		return SUI.Lib.LSM:Fetch('font', Font:GetFace(Module))
 	end
 	return SUI.Lib.LSM:Fetch('font', 'Roboto Bold')
 end
@@ -271,10 +329,17 @@ function Font:OnEnable()
 				order = 0.01,
 				inline = true,
 				get = function(info)
+					if info[#info] == 'Face' then
+						return Font:GetFace('Global')
+					end
 					return Font.DB.Modules.Global[info[#info]]
 				end,
 				set = function(info, val)
-					Font.DB.Modules.Global[info[#info]] = val
+					if info[#info] == 'Face' then
+						Font:SetFace('Global', val)
+					else
+						Font.DB.Modules.Global[info[#info]] = val
+					end
 					Font:Refresh()
 				end,
 				args = {
@@ -313,6 +378,7 @@ function Font:OnEnable()
 						func = function()
 							for Module, _ in pairs(Font.Items) do
 								Font.DB.Modules[Module].Face = Font.DB.Modules.Global.Face
+								Font.DB.Modules[Module].FaceChosen = Font.DB.Modules.Global.FaceChosen
 								Font.DB.Modules[Module].Type = Font.DB.Modules.Global.Type
 								Font.DB.Modules[Module].Size = Font.DB.Modules.Global.Size
 							end
@@ -337,6 +403,17 @@ function Font:OnEnable()
 		},
 	}
 
+	-- Theme fonts follow the art style, and a preferred font can arrive after load
+	SUI.Event:RegisterEvent('ARTWORK_STYLE_CHANGED', function()
+		Font:Refresh()
+	end)
+	SUI.Lib.LSM.RegisterCallback(Font, 'LibSharedMedia_Registered', function(_, mediaType, key)
+		local entry = mediaType == 'font' and SUI.ThemeRegistry and SUI.ThemeRegistry:Get(SUI:GetActiveStyle())
+		if entry and entry.font and entry.font.preferred == key then
+			Font:Refresh()
+		end
+	end)
+
 	--Setup the Options in 2 seconds giving modules time to populate.
 	Font:ScheduleTimer('BuildOptions', 2)
 end
@@ -351,10 +428,17 @@ function Font:BuildOptions()
 				order = Font.DB.Modules[Module].Order,
 				inline = true,
 				get = function(info)
+					if info[#info] == 'Face' then
+						return Font:GetFace(Module)
+					end
 					return Font.DB.Modules[Module][info[#info]]
 				end,
 				set = function(info, val)
-					Font.DB.Modules[Module][info[#info]] = val
+					if info[#info] == 'Face' then
+						Font:SetFace(Module, val)
+					else
+						Font.DB.Modules[Module][info[#info]] = val
+					end
 					Font:Refresh(Module)
 				end,
 				args = {
