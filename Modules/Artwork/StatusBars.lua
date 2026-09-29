@@ -1014,10 +1014,14 @@ function module:SetActiveStyle(style)
 				barContainer.overlay:Hide()
 			end
 
-			-- Update position
+			-- Update position. With a mover, place the mover so a position the player saved is kept.
 			local point, anchor, secondaryPoint, x, y = strsplit(',', newStyle.Position)
-			barContainer:ClearAllPoints()
-			barContainer:SetPoint(point, anchor, secondaryPoint, x, y)
+			if barContainer.mover and barContainer.position then
+				barContainer:position(point, anchor, secondaryPoint, tonumber(x), tonumber(y), false, true)
+			else
+				barContainer:ClearAllPoints()
+				barContainer:SetPoint(point, anchor, secondaryPoint, tonumber(x), tonumber(y))
+			end
 
 			-- Update individual bars (Retail only - barContainer.bars exists from template)
 			if barContainer.bars then
