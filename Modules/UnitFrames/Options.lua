@@ -1716,9 +1716,10 @@ function Options:Initialize()
 
 	-- Add options to Base Help group
 	SUI.opt.args.Help.args.SUIModuleHelp.args.ResetUFSettings = {
-		name = L['Reset unitframe customizations'],
+		name = L['Reset unit frame changes'],
+		desc = L['Undo every change you made to your unit frames.'],
 		type = 'execute',
-		width = 'double',
+		confirm = true,
 		order = 90,
 		func = function()
 			UF:ResetSettings()

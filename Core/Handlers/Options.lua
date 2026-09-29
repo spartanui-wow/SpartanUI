@@ -141,17 +141,86 @@ function module:OnInitialize()
 		name = L['Help'],
 		type = 'group',
 		order = 900,
+		childGroups = 'tab',
 		args = {
-			SUIActions = {
-				name = L['SUI Core Reset'],
+			intro = {
+				name = L['Stuck, or something looks wrong? Start here.'],
+				type = 'description',
+				order = 1,
+				fontSize = 'medium',
+			},
+			GetHelp = {
+				name = L['Get help'],
 				type = 'group',
 				inline = true,
-				order = 40,
+				order = 10,
 				args = {
+					discordText = {
+						name = L['Ask questions and chat with other players and the author on Discord. Click the link, then press Ctrl+C to copy it.'],
+						type = 'description',
+						order = 1,
+						fontSize = 'medium',
+					},
+					discord = {
+						name = L['Discord'],
+						type = 'input',
+						order = 2,
+						width = 'full',
+						get = function()
+							return 'https://discord.gg/Qc9TRBv'
+						end,
+						set = function() end,
+					},
+					bugsText = {
+						name = L['Found a bug, or have an idea? Tell us here.'],
+						type = 'description',
+						order = 3,
+						fontSize = 'medium',
+					},
+					bugs = {
+						name = L['Bugs and ideas'],
+						type = 'input',
+						order = 4,
+						width = 'full',
+						get = function()
+							return 'http://bugs.spartanui.net/'
+						end,
+						set = function() end,
+					},
+				},
+			},
+			About = {
+				name = L['About this version'],
+				type = 'group',
+				inline = true,
+				order = 20,
+				args = {
+					info = {
+						name = function()
+							return module:GetVersionSummary()
+						end,
+						type = 'description',
+						order = 1,
+						fontSize = 'medium',
+					},
+				},
+			},
+			SUICoreReset = {
+				name = L['Fix a problem'],
+				type = 'group',
+				inline = true,
+				order = 30,
+				args = {
+					explain = {
+						name = L['These put things back the way SpartanUI sets them up. The bigger ones ask first.'],
+						type = 'description',
+						order = 0,
+					},
 					ReRunSetupWizard = {
-						name = L['Rerun setup wizard'],
+						name = L['Run setup again'],
+						desc = L['Walk through the first-time setup again. Nothing changes until you pick something.'],
 						type = 'execute',
-						order = 0.1,
+						order = 1,
 						func = function()
 							if LibAT and LibAT.SetupWizard then
 								LibAT.SetupWizard:OpenWindow()
@@ -159,21 +228,24 @@ function module:OnInitialize()
 						end,
 					},
 					ResetProfileDB = {
-						name = L['Reset profile'],
+						name = L['Reset this profile'],
+						desc = L['Start this profile fresh. Your other profiles are not touched. Your screen reloads.'],
 						type = 'execute',
-						width = 'double',
-						desc = L['Start fresh with a new SUI profile'],
-						order = 0.5,
+						order = 2,
+						confirm = true,
+						confirmText = L['Reset this profile to SpartanUI defaults? Your screen will reload.'],
 						func = function()
 							SUI.SpartanUIDB:ResetProfile()
 							SUI:SafeReloadUI()
 						end,
 					},
 					ResetDB = {
-						name = L['Reset Database'],
+						name = L['Reset everything'],
+						desc = L['Remove every SpartanUI setting for all characters and profiles. Only use this if nothing else works.'],
 						type = 'execute',
-						desc = L['New SUI profile did not work? This is your nucular option. Reset everything SpartanUI related.'],
-						order = 1,
+						order = 3,
+						confirm = true,
+						confirmText = L['Remove ALL SpartanUI settings on every character? This cannot be undone. Your screen will reload.'],
 						func = function()
 							SUI.SpartanUIDB:ResetDB()
 							SUI:SafeReloadUI()
@@ -181,71 +253,24 @@ function module:OnInitialize()
 					},
 				},
 			},
-			line1 = { name = '', type = 'header', order = 40 },
 			SUIModuleHelp = {
-				name = L['SUI module resets'],
+				name = L['Reset one part'],
 				type = 'group',
-				order = 45,
 				inline = true,
+				order = 40,
 				args = {
 					ResetMovedFrames = {
-						name = L['Reset movable frames'],
+						name = L['Reset frame positions'],
+						desc = L['Put every frame you moved back in its default place.'],
 						type = 'execute',
 						order = 3,
+						confirm = true,
 						func = function()
 							SUI.MoveIt:Reset()
 						end,
 					},
 				},
 			},
-			line2 = { name = '', type = 'header', order = 49 },
-			ver1 = {
-				name = 'SUI ' .. L['Version'] .. ': ' .. SUI.Version,
-				type = 'description',
-				order = 50,
-				fontSize = 'large',
-			},
-			ver2 = {
-				name = 'SUI ' .. L['Build'] .. ': ' .. SUI.BuildNum,
-				type = 'description',
-				order = 51,
-				fontSize = 'large',
-			},
-			ver3 = {
-				name = L['Bartender4 version'] .. ': ' .. SUI.Bartender4Version,
-				type = 'description',
-				order = 53,
-				fontSize = 'large',
-			},
-			line3 = { name = '', type = 'header', order = 99 },
-			navigationissues = { name = L['Have a Question?'], type = 'description', order = 100, fontSize = 'large' },
-			navigationissues2 = {
-				name = '',
-				type = 'input',
-				order = 101,
-				width = 'full',
-				get = function(info)
-					return 'https://discord.gg/Qc9TRBv'
-				end,
-				set = function(info, value) end,
-			},
-			bugsandfeatures = {
-				name = L['Bugs & Feature Requests'] .. ':',
-				type = 'description',
-				order = 200,
-				fontSize = 'large',
-			},
-			bugsandfeatures2 = {
-				name = '',
-				type = 'input',
-				order = 201,
-				width = 'full',
-				get = function(info)
-					return 'http://bugs.spartanui.net/'
-				end,
-				set = function(info, value) end,
-			},
-			line4 = { name = '', type = 'header', order = 500 },
 		},
 	}
 
@@ -300,6 +325,33 @@ function module:OnInitialize()
 			Modules = SUI.opt.args.Modules.args.ModuleListing,
 		},
 	}
+end
+
+---Plain text describing this copy of SpartanUI and the game client
+---@return string
+function module:GetVersionSummary()
+	local function Known(value)
+		return value and value ~= '' and value ~= 0 and not tostring(value):find('^@')
+	end
+	local lines = {}
+	local version = Known(SUI.Version) and tostring(SUI.Version) or L['Development build']
+	if SUI.releaseType and SUI.releaseType ~= '' then
+		version = version .. ' (' .. SUI.releaseType .. ')'
+	end
+	lines[#lines + 1] = 'SpartanUI: ' .. version
+	if Known(SUI.BuildNum) then
+		lines[#lines + 1] = L['Build'] .. ': ' .. tostring(SUI.BuildNum)
+	end
+	local _, build, _, interface = GetBuildInfo()
+	lines[#lines + 1] = L['Game'] .. ': ' .. tostring(SUI.wowVersion or '') .. ' ' .. tostring(build or '') .. ' (' .. tostring(interface or '') .. ')'
+	local libVersion = C_AddOns.GetAddOnMetadata('LibsAddonTools', 'Version')
+	if Known(libVersion) then
+		lines[#lines + 1] = "Lib's AddonTools: " .. libVersion
+	end
+	if C_AddOns.IsAddOnLoaded('Bartender4') and Known(SUI.Bartender4Version) then
+		lines[#lines + 1] = 'Bartender4: ' .. tostring(SUI.Bartender4Version)
+	end
+	return table.concat(lines, '\n')
 end
 
 function module:OnEnable()
