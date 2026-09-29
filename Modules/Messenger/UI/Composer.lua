@@ -90,6 +90,16 @@ function Cmp.Create(parent)
 			c.onTab()
 		end
 	end)
+	edit:SetScript('OnKeyDown', function(self, key)
+		if c.onNavigate and IsAltKeyDown() and (key == 'UP' or key == 'DOWN') then
+			-- Save the draft before the arrow key can pull a history line into the box
+			if c.key then
+				drafts[c.key] = self:GetText()
+				c.draftSaved = true
+			end
+			c.onNavigate(key == 'UP' and -1 or 1)
+		end
+	end)
 	edit:SetScript('OnTextChanged', function()
 		c:UpdateState()
 	end)
@@ -165,9 +175,10 @@ end
 
 ---@param key string|nil
 function Composer:SetConversation(key)
-	if self.key then
+	if self.key and not self.draftSaved then
 		drafts[self.key] = self.edit:GetText()
 	end
+	self.draftSaved = nil
 	self.key = key
 	local convo = key and M.Store:Get(key)
 	self.edit:ClearHistory()

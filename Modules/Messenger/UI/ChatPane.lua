@@ -102,9 +102,8 @@ function CP.ConversationMenu(convo, context)
 			text = L['Clear history'],
 			danger = true,
 			onClick = function()
-				W.Confirm(string.format(L['Clear all messages in %s?'], M:GetTitle(convo)), function()
-					Store:Clear(key)
-				end)
+				Store:Clear(key)
+				M.UI.Toast:ShowUndo(string.format(L['Cleared %s'], M:GetTitle(convo)))
 			end,
 		})
 	else
@@ -126,9 +125,9 @@ function CP.ConversationMenu(convo, context)
 			divider = convo.kind ~= 'WHISPER',
 			danger = true,
 			onClick = function()
-				W.Confirm(string.format(L['Delete your conversation with %s? This cannot be undone.'], M:GetTitle(convo)), function()
-					Store:Delete(key)
-				end)
+				local title = M:GetTitle(convo)
+				Store:Delete(key)
+				M.UI.Toast:ShowUndo(string.format(L['Deleted your conversation with %s'], title))
 			end,
 		})
 	end

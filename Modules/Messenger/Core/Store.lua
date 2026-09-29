@@ -182,11 +182,15 @@ function S:SetFlag(key, flag, value)
 end
 
 ---@param key string
+-- The last delete or clear, kept for this session so it can be undone
+local lastRemoved
+
 function S:Clear(key)
 	local convo = self:Get(key)
 	if not convo then
 		return
 	end
+	lastRemoved = { key = key, msgs = convo.msgs, unread = convo.unread }
 	convo.msgs = {}
 	convo.unread = 0
 	M:Fire('CONVO_CHANGED', key)
@@ -196,11 +200,47 @@ end
 
 ---@param key string
 function S:Delete(key)
+	local convo = self:Get(key)
+	if convo then
+		lastRemoved = { key = key, convo = convo }
+	end
 	People()[key] = nil
 	Rooms()[key] = nil
 	M:Fire('CONVO_DELETED', key)
 	M:Fire('LIST_CHANGED')
 	M:Fire('UNREAD_CHANGED')
+end
+
+---Brings back the last deleted conversation or cleared messages.
+---@return string|nil key
+function S:Undo()
+	local removed = lastRemoved
+	if not removed then
+		return nil
+	end
+	lastRemoved = nil
+	if removed.convo then
+		if S.IsRoomKey(removed.key) then
+			Rooms()[removed.key] = removed.convo
+		else
+			People()[removed.key] = removed.convo
+		end
+	else
+		local convo = self:Get(removed.key)
+		if not convo then
+			return nil
+		end
+		-- Anything that arrived after the clear stays, after the restored lines
+		for _, msg in ipairs(convo.msgs) do
+			table.insert(removed.msgs, msg)
+		end
+		convo.msgs = removed.msgs
+		convo.unread = (removed.unread or 0) + (convo.unread or 0)
+	end
+	M:Fire('CONVO_CHANGED', removed.key)
+	M:Fire('LIST_CHANGED')
+	M:Fire('UNREAD_CHANGED')
+	return removed.key
 end
 
 function S:DeleteAll()

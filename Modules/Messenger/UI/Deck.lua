@@ -281,6 +281,9 @@ function D:Build()
 	local pane = M.ChatPane.Create(win, true)
 	pane:SetPoint('TOPLEFT', list, 'TOPRIGHT')
 	pane:SetPoint('BOTTOMRIGHT')
+	pane.composer.onNavigate = function(step)
+		D:Step(step)
+	end
 	pane.composer.onTab = function()
 		local nextConvo = M.Store:NextUnread()
 		if nextConvo then
@@ -424,6 +427,29 @@ function D:Select(key, focus, force)
 	self.pick:Hide()
 	if focus then
 		self.pane:FocusComposer()
+	end
+end
+
+---Moves to the previous (-1) or next (1) conversation in list order.
+---@param step number
+function D:Step(step)
+	local keys = {}
+	local current
+	for _, entry in ipairs(self.list.data) do
+		if entry.convo then
+			keys[#keys + 1] = entry.convo.key
+			if entry.convo.key == self.pane.key then
+				current = #keys
+			end
+		end
+	end
+	if #keys == 0 then
+		return
+	end
+	local index = current and (current + step) or 1
+	index = math.max(1, math.min(#keys, index))
+	if keys[index] ~= self.pane.key then
+		self:Select(keys[index], true)
 	end
 end
 

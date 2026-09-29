@@ -273,7 +273,7 @@ local function ShowCard(opts)
 	card:SetWidth(width)
 	card:SetHeight(height)
 	card:Show()
-	StartTimer(card, not opts.sticky and M.settings.alerts.toastDuration or nil)
+	StartTimer(card, not opts.sticky and (opts.duration or M.settings.alerts.toastDuration) or nil)
 	Layout()
 end
 
@@ -413,6 +413,32 @@ function A:ShowIntro()
 					M.settings.routes.BN_WHISPER.hide = false
 					M.settings.replyKey = false
 					M:RoutesChanged()
+				end,
+			},
+		},
+	})
+end
+
+---Confirms a delete or clear with an Undo button instead of asking first.
+---@param title string
+function A:ShowUndo(title)
+	local c = T.color.muted
+	ShowCard({
+		key = 'undo',
+		title = title,
+		body = L['Changed your mind?'],
+		r = c[1],
+		g = c[2],
+		b = c[3],
+		duration = 10,
+		actions = {
+			{
+				text = L['Undo'],
+				onClick = function()
+					local key = M.Store:Undo()
+					if key then
+						M:Open(key, false)
+					end
 				end,
 			},
 		},
