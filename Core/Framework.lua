@@ -126,7 +126,7 @@ SUI.AddLib = function(name, libaray, silent)
 end
 
 SUI.AddLib('AceC', 'AceConfig-3.0')
-SUI.AddLib('AceCD', 'AceConfigDialog-3.0')
+SUI.AddLib('AceCD', 'AceConfigDialog-3.0-SUI')
 SUI.AddLib('AceDB', 'AceDB-3.0')
 SUI.AddLib('AceDBO', 'AceDBOptions-3.0')
 SUI.AddLib('AceGUI', 'AceGUI-3.0')
@@ -1252,7 +1252,8 @@ function SUI:OnEnable()
 			},
 		},
 	})
-	AceC:RegisterOptionsTable('SpartanUI', SUI.opt)
+	-- Skip validation: the table is large, and it uses keys only our dialog understands (advanced, primary)
+	LibStub('AceConfigRegistry-3.0'):RegisterOptionsTable('SpartanUI', SUI.opt, true)
 
 	AceCD:AddToBlizOptions('SpartanUIBliz', 'SpartanUI')
 	AceCD:SetDefaultSize('SpartanUI', 1000, 700)

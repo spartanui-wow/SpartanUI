@@ -316,11 +316,74 @@ function module:ConfigOpened(name)
 	if name ~= 'SpartanUI' then
 		return
 	end
+	module:BuildFooter()
+end
 
-	local frame = module:GetConfigWindow()
-	if frame and frame.bottomHolder then
-		frame.bottomHolder:Show()
+---Buttons along the bottom of the options window
+function module:BuildFooter()
+	local window = Lib.AceCD and Lib.AceCD.OpenFrames and Lib.AceCD.OpenFrames['SpartanUI']
+	if not window or not window.footer or window.footerBuilt then
+		return
 	end
+	window.footerBuilt = true
+	local Style = SUI.UI.Style
+	local footer = window.footer
+	local previous
+	local buttons = {}
+
+	local function Add(text, onClick, primary)
+		local button = Style:CreateButton(footer, text, nil, onClick, primary)
+		if previous then
+			button:SetPoint('LEFT', previous, 'RIGHT', 6, 0)
+		else
+			button:SetPoint('LEFT', footer, 'LEFT', 12, 0)
+		end
+		previous = button
+		buttons[#buttons + 1] = button
+		return button
+	end
+
+	if SUI:IsModuleEnabled('MoveIt') then
+		Add(L['Move frames'], function()
+			if SUI.MoveIt and SUI.MoveIt.MoverMode then
+				Lib.AceCD:Close('SpartanUI')
+				SUI.MoveIt.MoverMode:Toggle()
+			end
+		end)
+	end
+	if LibAT and LibAT.Logger and LibAT.Logger.ToggleWindow then
+		Add(L['Logs'], function()
+			LibAT.Logger.ToggleWindow()
+		end)
+	end
+	local ProfileHandler = SUI:GetModule('Handler.Profiles', true) ---@type SUI.Handler.Profiles
+	if ProfileHandler then
+		Add(L['Import settings'], function()
+			ProfileHandler:ImportUI()
+			Lib.AceCD:Close('SpartanUI')
+		end)
+		Add(L['Export settings'], function()
+			ProfileHandler:ExportUI()
+			Lib.AceCD:Close('SpartanUI')
+		end)
+	end
+
+	local close = Style:CreateButton(footer, CLOSE or L['Close'], 90, function()
+		Lib.AceCD:Close('SpartanUI')
+	end, true)
+	close:SetPoint('RIGHT', footer, 'RIGHT', -22, 0)
+
+	-- Text can measure 0 before the font is drawn once; size the buttons again when shown
+	footer:HookScript('OnShow', function()
+		for _, button in ipairs(buttons) do
+			button:FitText()
+		end
+	end)
+	C_Timer.After(0, function()
+		for _, button in ipairs(buttons) do
+			button:FitText()
+		end
+	end)
 end
 function module:PLAYER_REGEN_ENABLED()
 	module:ToggleOptions()
@@ -358,114 +421,7 @@ function module:ToggleOptions(pages)
 	end
 
 	if mode == 'Open' and frame then
-		if not frame.bottomHolder then -- window was released or never opened
-			local bottom = CreateFrame('Frame', nil, frame, BackdropTemplateMixin and 'BackdropTemplate')
-			bottom:SetPoint('BOTTOMLEFT', 2, 2)
-			bottom:SetPoint('BOTTOMRIGHT', -2, 2)
-			bottom:SetHeight(35)
-			bottom:SetBackdropBorderColor(0, 0, 0, 0)
-			frame.bottomHolder = bottom
-
-			-- Button layout: Toggle Movers | Logging | Import Settings | Export Settings | Close
-			-- Button widths: 120px for most, 80px for Close (smaller)
-			-- Spacing between buttons: 10px
-			-- Total width calculation: 4*120 + 80 + 4*10 = 600px (centered in window)
-
-			-- Toggle Movers button (leftmost, most prominent)
-			if SUI:IsModuleEnabled('MoveIt') then
-				local MoveIt = CreateFrame('Button', nil, bottom, 'UIPanelButtonTemplate')
-				MoveIt:SetSize(150, 20)
-				MoveIt:SetText(L['Toggle movers'])
-				MoveIt:SetPoint('BOTTOM', -190, 10) -- Start at -190 to center the 5 buttons
-				MoveIt:HookScript('OnClick', function()
-					-- Toggle custom MoveIt frame mover system
-					if SUI.MoveIt and SUI.MoveIt.MoverMode then
-						SUI.MoveIt.MoverMode:Toggle()
-					end
-				end)
-				SUI.Skins.SkinObj('Button', MoveIt, 'Dark', 'Ace3') -- Dark skin for prominence
-				bottom.MoveIt = MoveIt
-			end
-
-			-- Logging button (second from left, darker/transparent)
-			if SUI.Log then
-				local Logging = CreateFrame('Button', nil, bottom, 'UIPanelButtonTemplate')
-				Logging:SetSize(100, 20)
-				Logging:SetText('Logging')
-				if bottom.MoveIt then
-					Logging:SetPoint('LEFT', bottom.MoveIt, 'RIGHT', 10, 0)
-				else
-					Logging:SetPoint('BOTTOM', -190, 10)
-				end
-				Logging:HookScript('OnClick', function()
-					-- Use the LibAT.Logger API to toggle the Logger window
-					if LibAT and LibAT.Logger and LibAT.Logger.ToggleWindow then
-						LibAT.Logger.ToggleWindow()
-					end
-				end)
-				SUI.Skins.SkinObj('Button', Logging, 'Light', 'Ace3')
-				-- Make it more transparent/darker by adjusting the background after skinning
-				Logging:HookScript('OnShow', function(self)
-					if self.bg then
-						self.bg:SetAlpha(0.6)
-					end
-					-- Also make the texture more transparent
-					local normalTexture = self:GetNormalTexture()
-					if normalTexture then
-						normalTexture:SetAlpha(0.7)
-					end
-				end)
-				bottom.Logging = Logging
-			end
-
-			-- Import and Export buttons (middle)
-			local ProfileHandler = SUI:GetModule('Handler.Profiles', true) ---@type SUI.Handler.Profiles
-			if ProfileHandler then
-				-- Import Settings button
-				local Import = CreateFrame('Button', nil, bottom, 'UIPanelButtonTemplate')
-				Import:SetSize(120, 20)
-				Import:SetText('Import Settings')
-				if bottom.Logging then
-					Import:SetPoint('LEFT', bottom.Logging, 'RIGHT', 10, 0)
-				elseif bottom.MoveIt then
-					Import:SetPoint('LEFT', bottom.MoveIt, 'RIGHT', 10, 0)
-				else
-					Import:SetPoint('BOTTOM', -70, 10)
-				end
-				Import:HookScript('OnClick', function()
-					ProfileHandler:ImportUI()
-					ACD:Close('SpartanUI')
-				end)
-				SUI.Skins.SkinObj('Button', Import, 'Light', 'Ace3')
-				bottom.Import = Import
-
-				-- Export Settings button
-				local Export = CreateFrame('Button', nil, bottom, 'UIPanelButtonTemplate')
-				Export:SetSize(120, 20)
-				Export:SetText('Export Settings')
-				Export:SetPoint('LEFT', bottom.Import, 'RIGHT', 10, 0)
-				Export:HookScript('OnClick', function()
-					ProfileHandler:ExportUI()
-					ACD:Close('SpartanUI')
-				end)
-				SUI.Skins.SkinObj('Button', Export, 'Light', 'Ace3')
-				bottom.Export = Export
-			end
-
-			local Logo = bottom:CreateTexture()
-			Logo:SetTexture('Interface\\AddOns\\SpartanUI\\images\\setup\\SUISetup')
-			Logo:SetPoint('LEFT', bottom, 'LEFT')
-			Logo:SetSize(156, 45)
-			Logo:SetScale(0.78)
-			Logo:SetTexCoord(0, 0.611328125, 0, 0.6640625)
-			bottom.Logo = Logo
-
-			frame:HookScript('OnHide', function()
-				if bottom then
-					bottom:Hide()
-				end
-			end)
-		end
+		module:BuildFooter()
 
 		if ACD and pages and #pages > 0 then
 			-- Check if the navigation path exists and provide feedback if it doesn't
@@ -530,7 +486,11 @@ function module:ToggleOptions(pages)
 
 			if pathExists then
 				-- Valid path, navigate to it
-				ACD:SelectGroup('SpartanUI', unpack(validPath))
+				if ACD.Navigate then
+					ACD:Navigate('SpartanUI', validPath)
+				else
+					ACD:SelectGroup('SpartanUI', unpack(validPath))
+				end
 			else
 				-- Path doesn't exist, provide feedback with available options
 				SUI:Print('Navigation path not found: ' .. table.concat(pages, ' > '))
@@ -616,6 +576,31 @@ function Options:hasChanges(UserSetting, DefaultSetting)
 		end
 	end
 	return false
+end
+
+---Open the options window (never closes it) and show a page, optionally scrolling to one setting
+---@param path string[] Keys to the group, for example { 'UnitFrames', 'player' }
+---@param optionKey? string Key of a setting inside that group
+function Options:OpenTo(path, optionKey)
+	if InCombatLockdown() then
+		SUI:Print(ERR_NOT_IN_COMBAT)
+		return
+	end
+	local ACD = Lib.AceCD
+	if not ACD then
+		return
+	end
+	if not module:GetConfigWindow() then
+		ACD:Open('SpartanUI')
+	end
+	module:BuildFooter()
+	if path and #path > 0 then
+		if ACD.Navigate then
+			ACD:Navigate('SpartanUI', path, optionKey)
+		else
+			ACD:SelectGroup('SpartanUI', unpack(path))
+		end
+	end
 end
 
 ---@param moduleName string The name of the module to open settings for

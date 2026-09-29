@@ -262,6 +262,120 @@ function Style:SetFont(text, size, flags)
 end
 
 ----------------------------------------------------------------------------------------------------
+-- Buttons
+----------------------------------------------------------------------------------------------------
+
+---@class SUI.UI.Style.Button : Button
+---@field label FontString
+---@field fill Texture
+---@field border SUI.UI.Style.Border
+---@field primary boolean
+---@field active boolean
+
+local function PaintButton(button)
+	local c = Style.color
+	local r, g, b = Style:GetAccent()
+	if not button:IsEnabled() then
+		button.fill:SetVertexColor(c.raised[1], c.raised[2], c.raised[3], 0.6)
+		button.border:SetColor(c.line[1], c.line[2], c.line[3], c.line[4])
+		button.label:SetTextColor(c.faint[1], c.faint[2], c.faint[3])
+	elseif button.primary then
+		local lift = button.hovered and 0.12 or 0
+		button.fill:SetVertexColor(math.min(1, r + lift), math.min(1, g + lift), math.min(1, b + lift), 1)
+		button.border:SetColor(r, g, b, 1)
+		button.label:SetTextColor(c.onAccent[1], c.onAccent[2], c.onAccent[3])
+	elseif button.active then
+		button.fill:SetVertexColor(r, g, b, button.hovered and 0.3 or 0.2)
+		button.border:SetColor(r, g, b, 0.9)
+		button.label:SetTextColor(c.text[1], c.text[2], c.text[3])
+	else
+		local lift = button.hovered and 0.035 or 0
+		local textColor = button.hovered and c.text or c.muted
+		button.fill:SetVertexColor(c.raised[1] + lift, c.raised[2] + lift, c.raised[3] + lift, c.raised[4])
+		button.border:SetColor(c.lineStrong[1], c.lineStrong[2], c.lineStrong[3], button.hovered and 0.3 or c.lineStrong[4])
+		button.label:SetTextColor(textColor[1], textColor[2], textColor[3])
+	end
+end
+
+---Width of a FontString's text. A font file that has not been drawn yet can measure 0,
+---so fall back to an estimate from the character count.
+---@param text FontString
+---@return number
+function Style:MeasureText(text)
+	local width = text:GetStringWidth() or 0
+	if width <= 0 then
+		local _, size = text:GetFont()
+		width = #(text:GetText() or '') * (size or 11) * 0.52
+	end
+	return math.ceil(width)
+end
+
+local ButtonMixin = {}
+
+---Size the button to its text unless it was given a fixed width
+function ButtonMixin:FitText()
+	self:SetWidth(self.fixedWidth or math.max(48, Style:MeasureText(self.label) + 18))
+end
+
+---Create a flat button
+---@param parent Frame
+---@param text string
+---@param width? number Fixed width; sized to the text when omitted
+---@param onClick? fun(button: SUI.UI.Style.Button, mouseButton: string)
+---@param primary? boolean Filled with the accent color
+---@return SUI.UI.Style.Button
+function Style:CreateButton(parent, text, width, onClick, primary)
+	local button = CreateFrame('Button', nil, parent) ---@type SUI.UI.Style.Button
+	Mixin(button, ButtonMixin)
+	button:SetHeight(22)
+	button:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+	button.fill = Style:CreateFill(button, Style.color.raised)
+	button.border = Style:CreateBorder(button)
+	button.label = Style:CreateText(button, 11)
+	button.label:SetPoint('CENTER', 0, 0)
+	button.label:SetText(text)
+	button.primary = primary or false
+	button.fixedWidth = width
+	button:FitText()
+	button:SetScript('OnEnter', function(self)
+		self.hovered = true
+		PaintButton(self)
+		if self.tooltip then
+			GameTooltip:SetOwner(self, 'ANCHOR_BOTTOM')
+			GameTooltip:SetText(self.tooltipTitle or text, 1, 1, 1)
+			GameTooltip:AddLine(self.tooltip, nil, nil, nil, true)
+			GameTooltip:Show()
+		end
+	end)
+	button:SetScript('OnLeave', function(self)
+		self.hovered = false
+		PaintButton(self)
+		GameTooltip:Hide()
+	end)
+	button:SetScript('OnEnable', PaintButton)
+	button:SetScript('OnDisable', PaintButton)
+	if onClick then
+		button:SetScript('OnClick', onClick)
+	end
+	function button:SetText(value)
+		self.label:SetText(value)
+		self:FitText()
+	end
+	function button:SetActive(active)
+		self.active = active and true or false
+		PaintButton(self)
+	end
+	function button:SetTooltip(body, title)
+		self.tooltip = body
+		self.tooltipTitle = title
+	end
+	Style:OnAccentChanged(button, function()
+		PaintButton(button)
+	end)
+	return button
+end
+
+----------------------------------------------------------------------------------------------------
 -- Motion
 ----------------------------------------------------------------------------------------------------
 
