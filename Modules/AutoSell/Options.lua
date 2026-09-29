@@ -8,135 +8,41 @@ local MAX_BAG_SLOTS = 12 -- Maximum number of bag slots to scan (0-12 covers all
 local buildItemList, buildCharacterList, OptionTable
 
 local function RegisterSetupWizardPage()
-	if not LibAT or not LibAT.SetupWizard then
+	local reg = SUI.Setup and SUI.Setup.registration
+	if not reg or reg:GetStep('autosell') then
 		return
 	end
 
-	if LibAT.SetupWizard:GetPage('spartanui', 'autosell') then
-		return
+	local function Item(key, title)
+		return { key = key, title = title, recommended = module.DBDefaults and module.DBDefaults[key] == true }
 	end
 
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'autosell',
+		kind = 'toggles',
 		name = L['Auto sell'],
+		title = L['Auto sell'],
+		text = L['Automatically vendor items when you visit a merchant.'] .. ' ' .. L['Crafting, consumables, and gearset items will not be sold by default.'],
 		order = 50,
-		builder = function(contentFrame)
-			local UI = LibAT.UI
-			local widgetWidth = contentFrame:GetWidth() - 40
-
-			local desc = UI.CreateLabel(
-				contentFrame,
-				L['Automatically vendor items when you visit a merchant.'] .. ' ' .. L['Crafting, consumables, and gearset items will not be sold by default.'],
-				'GameFontNormal'
-			)
-			desc:SetPoint('TOP', contentFrame, 'TOP', 0, -5)
-			desc:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-			desc:SetPoint('RIGHT', contentFrame, 'RIGHT', -20, 0)
-			desc:SetJustifyH('CENTER')
-			desc:SetWordWrap(true)
-
-			if SUI:IsModuleDisabled('AutoSell') then
-				local disabled = UI.CreateLabel(contentFrame, 'Module is disabled', 'GameFontNormalLarge')
-				disabled:SetPoint('CENTER', contentFrame, 'CENTER', 0, 0)
-				contentFrame:SetHeight(200)
-				return
-			end
-
-			local container = CreateFrame('Frame', nil, contentFrame)
-			container:SetPoint('TOP', contentFrame, 'TOP', 0, -40)
-			container:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-			container:SetSize(widgetWidth, 1)
-
-			-- Quality checkboxes in a 2-column grid
-			local qualityHeader = UI.CreateLabel(container, 'Sell by Quality', 'GameFontNormal')
-			qualityHeader:SetPoint('TOPLEFT', container, 'TOPLEFT', 0, 0)
-
-			local qualities = {
-				{ key = 'Gray', label = L['Sell gray'] },
-				{ key = 'White', label = L['Sell white'] },
-				{ key = 'Green', label = L['Sell green'] },
-				{ key = 'Blue', label = L['Sell blue'] },
-				{ key = 'Purple', label = L['Sell purple'] },
-			}
-			local colWidth = (widgetWidth - 10) / 2
-			for i, q in ipairs(qualities) do
-				local cb = UI.CreateCheckbox(container, q.label)
-				cb:SetChecked(module.CurrentSettings[q.key])
-				local col = (i - 1) % 2
-				local row = math.floor((i - 1) / 2)
-				if col == 0 then
-					cb:SetPoint('TOPLEFT', container, 'TOPLEFT', 0, -20 - row * 26)
-				else
-					cb:SetPoint('TOPLEFT', container, 'TOPLEFT', colWidth + 10, -20 - row * 26)
-				end
-				local key = q.key
-				cb:HookScript('OnClick', function(self)
-					module.DB[key] = self:GetChecked()
-					SUI.DBM:RefreshSettings(module)
-				end)
-			end
-
-			local qualityRows = math.ceil(#qualities / 2)
-			local qualityHeight = 20 + qualityRows * 26 + 8
-
-			local dividerTex = container:CreateTexture(nil, 'BACKGROUND')
-			dividerTex:SetSize(widgetWidth, 1)
-			dividerTex:SetPoint('TOPLEFT', container, 'TOPLEFT', 0, -qualityHeight)
-			dividerTex:SetColorTexture(0.3, 0.3, 0.3, 0.8)
-
-			-- Sub-frame for BuildWidgets, offset below the quality grid
-			local widgetContainer = CreateFrame('Frame', nil, container)
-			widgetContainer:SetPoint('TOP', container, 'TOP', 0, -(qualityHeight + 10))
-			widgetContainer:SetPoint('LEFT', container, 'LEFT', 0, 0)
-			widgetContainer:SetSize(widgetWidth, 1)
-
-			local widgets, totalHeight = UI.BuildWidgets(widgetContainer, {
-				MaxILVL = {
-					type = 'slider',
-					name = L['Maximum iLVL to sell'],
-					order = 11,
-					min = 0,
-					max = module.CurrentSettings.MaximumiLVL or 700,
-					step = 1,
-					get = function()
-						return module.CurrentSettings.MaxILVL
-					end,
-					set = function(_, val)
-						module.DB.MaxILVL = val
-						SUI.DBM:RefreshSettings(module)
-					end,
-				},
-				divider2 = {
-					type = 'divider',
-					order = 20,
-				},
-				AutoRepair = {
-					type = 'checkbox',
-					name = L['Auto repair'],
-					order = 21,
-					get = function()
-						return module.CurrentSettings.AutoRepair
-					end,
-					set = function(_, val)
-						module.DB.AutoRepair = val
-						SUI.DBM:RefreshSettings(module)
-					end,
-				},
-				UseGuildBankRepair = {
-					type = 'checkbox',
-					name = L['Use guild bank repair if possible'],
-					order = 22,
-					get = function()
-						return module.CurrentSettings.UseGuildBankRepair
-					end,
-					set = function(_, val)
-						module.DB.UseGuildBankRepair = val
-						SUI.DBM:RefreshSettings(module)
-					end,
-				},
-			}, widgetWidth)
-
-			contentFrame:SetHeight(40 + qualityHeight + 10 + totalHeight + 20)
+		hidden = function()
+			return SUI:IsModuleDisabled('AutoSell')
+		end,
+		groups = {
+			{
+				title = L['Sell by quality'],
+				items = { Item('Gray', L['Sell gray']), Item('White', L['Sell white']), Item('Green', L['Sell green']), Item('Blue', L['Sell blue']), Item('Purple', L['Sell purple']) },
+			},
+			{
+				title = L['Repairs'],
+				items = { Item('AutoRepair', L['Auto repair']), Item('UseGuildBankRepair', L['Use guild bank repair if possible']) },
+			},
+		},
+		get = function(key)
+			return module.CurrentSettings[key] and true or false
+		end,
+		set = function(key, value)
+			module.DB[key] = value
+			SUI.DBM:RefreshSettings(module)
 		end,
 	})
 end

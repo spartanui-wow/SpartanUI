@@ -254,4 +254,36 @@ function module:OnEnable()
 	api:UpdateTheme(self:BuildTheme())
 	RebuildSlots()
 	api:SetHost(host)
+	self:RegisterSetupStep()
+end
+
+---Setup step: keep DataBar's own look or match SpartanUI
+function module:RegisterSetupStep()
+	local reg = SUI.Setup and SUI.Setup.registration
+	local api = API()
+	if not reg or not api or reg:GetStep('databar') then
+		return
+	end
+	reg:AddStep({
+		id = 'databar',
+		kind = 'choice',
+		name = L["Lib's DataBar"],
+		title = L['How should your info bar look?'],
+		text = L['Your info bar can match the look you picked, and changes with it when you pick another one.'],
+		order = 27,
+		choices = {
+			{ value = THEME_ID, title = L['Match SpartanUI'], caption = L['Same font, colors and art as your look.'], recommended = true },
+			{ value = 'own', title = L['Keep its own look'], caption = L['Set it up in its own settings.'] },
+		},
+		get = function()
+			return api:GetThemeId() == THEME_ID and THEME_ID or 'own'
+		end,
+		set = function(value)
+			if value == THEME_ID then
+				api:SetThemeId(THEME_ID)
+			elseif api:GetThemeId() == THEME_ID then
+				api:SetThemeId('default')
+			end
+		end,
+	})
 end

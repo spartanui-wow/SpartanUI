@@ -84,19 +84,21 @@ function module:OnEnable()
 end
 
 function module:RegisterSetupWizardPage()
-	if not LibAT or not LibAT.SetupWizard then
+	local reg = SUI.Setup and SUI.Setup.registration
+	if not reg or reg:GetStep('uienhancements') then
 		return
 	end
 
-	if LibAT.SetupWizard:GetPage('spartanui', 'uienhancements') then
-		return
-	end
-
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'uienhancements',
+		kind = 'custom',
 		name = L['UI Enhancements'],
 		order = 55,
-		builder = function(contentFrame)
+		title = L['UI Enhancements'],
+		hidden = function()
+			return SUI:IsModuleDisabled('UIEnhancements')
+		end,
+		build = function(contentFrame)
 			local width = contentFrame:GetWidth()
 			local totalY = 0 -- tracks downward offset (negative y from TOPLEFT)
 			local SPACING = 5

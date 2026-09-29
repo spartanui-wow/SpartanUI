@@ -3132,19 +3132,22 @@ function module:OnEnable()
 end
 
 function module:RegisterSetupWizardPage()
-	if not LibAT or not LibAT.SetupWizard then
+	local reg = SUI.Setup and SUI.Setup.registration
+	if not reg or reg:GetStep('minimap') then
 		return
 	end
 
-	if LibAT.SetupWizard:GetPage('spartanui', 'minimap') then
-		return
-	end
-
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'minimap',
+		kind = 'custom',
 		name = L['Minimap'],
 		order = 52,
-		builder = function(contentFrame)
+		title = L['Minimap'],
+		hidden = function()
+			return SUI:IsModuleDisabled('Minimap')
+		end,
+		cache = false,
+		build = function(contentFrame)
 			local UI = LibAT.UI
 			local widgetWidth = contentFrame:GetWidth() - 40
 

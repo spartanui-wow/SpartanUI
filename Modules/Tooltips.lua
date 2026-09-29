@@ -1053,136 +1053,112 @@ function module:OnEnable()
 end
 
 function module:RegisterSetupWizardPage()
-	local LibAT = _G.LibAT
-	if not LibAT or not LibAT.SetupWizard then
+	local reg = SUI.Setup and SUI.Setup.registration
+	if not reg or reg:GetStep('tooltips') then
 		return
 	end
 
-	if LibAT.SetupWizard:GetPage('spartanui', 'tooltips') then
-		return
-	end
-
-	LibAT.SetupWizard:AddPage('spartanui', {
+	reg:AddStep({
 		id = 'tooltips',
+		kind = 'form',
 		name = L['Tooltips'],
+		title = L['Tooltips'],
+		text = L['Customize tooltip appearance and behavior.'],
 		order = 53,
-		builder = function(contentFrame)
-			local UI = LibAT.UI
-			local widgetWidth = contentFrame:GetWidth() - 40
-
-			local desc = UI.CreateLabel(contentFrame, 'Customize tooltip appearance and behavior.', 'GameFontNormal')
-			desc:SetPoint('TOP', contentFrame, 'TOP', 0, -5)
-			desc:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-			desc:SetPoint('RIGHT', contentFrame, 'RIGHT', -20, 0)
-			desc:SetJustifyH('CENTER')
-			desc:SetWordWrap(true)
-
-			if SUI:IsModuleDisabled('Tooltips') then
-				local disabled = UI.CreateLabel(contentFrame, 'Module is disabled', 'GameFontNormalLarge')
-				disabled:SetPoint('CENTER', contentFrame, 'CENTER', 0, 0)
-				contentFrame:SetHeight(200)
-				return
-			end
-
-			local container = CreateFrame('Frame', nil, contentFrame)
-			container:SetPoint('TOP', contentFrame, 'TOP', 0, -40)
-			container:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-			container:SetSize(widgetWidth, 1)
-
-			local widgets, totalHeight = UI.BuildWidgets(container, {
-				toggleAnchor = {
-					type = 'button',
-					name = 'Move Frames',
-					desc = 'Open the frame mover so you can drag UI frames to new positions',
-					order = 0,
-					func = function()
-						if SUI.MoveIt and SUI.MoveIt.MoverMode then
-							SUI.MoveIt.MoverMode:Toggle()
-						end
-					end,
-				},
-				onMouse = {
-					type = 'checkbox',
-					name = L['Display on mouse?'],
-					desc = L['TooltipOverrideDesc'],
-					order = 1,
-					get = function()
-						return module.DB.onMouse
-					end,
-					set = function(_, val)
-						module.DB.onMouse = val
-					end,
-				},
-				ColorOverlay = {
-					type = 'checkbox',
-					name = L['Color Overlay'],
-					desc = L['Apply the color to the texture or put it over the texture'],
-					order = 2,
-					get = function()
-						return module.DB.ColorOverlay
-					end,
-					set = function(_, val)
-						module.DB.ColorOverlay = val
-					end,
-				},
-				VendorPrices = {
-					type = 'checkbox',
-					name = L['Show vendor prices'],
-					order = 3,
-					get = function()
-						return module.DB.VendorPrices
-					end,
-					set = function(_, val)
-						module.DB.VendorPrices = val
-					end,
-				},
-				divider1 = {
-					type = 'divider',
-					order = 10,
-				},
-				spellIDHeader = {
-					type = 'header',
-					name = 'Spell/Item IDs',
-					order = 11,
-				},
-				spellIDEnabled = {
-					type = 'checkbox',
-					name = 'Show Spell IDs',
-					desc = 'Display spell IDs in tooltips',
-					order = 12,
-					get = function()
-						return module.DB.SpellID.enabled
-					end,
-					set = function(_, val)
-						module.DB.SpellID.enabled = val
-					end,
-				},
-				spellIDModifier = {
-					type = 'dropdown',
-					name = 'Modifier Key',
-					desc = 'Modifier key required to show spell IDs',
-					order = 13,
-					values = {
-						NONE = 'Never',
-						ALL = 'Always',
-						SHIFT = 'Shift',
-						CTRL = 'Ctrl',
-						ALT = 'Alt',
-					},
-					get = function()
-						return module.DB.SpellID.modifierKey
-					end,
-					set = function(_, val)
-						module.DB.SpellID.modifierKey = val
-					end,
-					disabled = function()
-						return not module.DB.SpellID.enabled
-					end,
-				},
-			}, widgetWidth)
-
-			contentFrame:SetHeight(totalHeight + 60)
+		hidden = function()
+			return SUI:IsModuleDisabled('Tooltips')
 		end,
+		widgets = {
+			toggleAnchor = {
+				type = 'button',
+				name = 'Move Frames',
+				desc = 'Open the frame mover so you can drag UI frames to new positions',
+				order = 0,
+				func = function()
+					if SUI.MoveIt and SUI.MoveIt.MoverMode then
+						SUI.MoveIt.MoverMode:Toggle()
+					end
+				end,
+			},
+			onMouse = {
+				type = 'checkbox',
+				name = L['Display on mouse?'],
+				desc = L['TooltipOverrideDesc'],
+				order = 1,
+				get = function()
+					return module.DB.onMouse
+				end,
+				set = function(_, val)
+					module.DB.onMouse = val
+				end,
+			},
+			ColorOverlay = {
+				type = 'checkbox',
+				name = L['Color Overlay'],
+				desc = L['Apply the color to the texture or put it over the texture'],
+				order = 2,
+				get = function()
+					return module.DB.ColorOverlay
+				end,
+				set = function(_, val)
+					module.DB.ColorOverlay = val
+				end,
+			},
+			VendorPrices = {
+				type = 'checkbox',
+				name = L['Show vendor prices'],
+				order = 3,
+				get = function()
+					return module.DB.VendorPrices
+				end,
+				set = function(_, val)
+					module.DB.VendorPrices = val
+				end,
+			},
+			divider1 = {
+				type = 'divider',
+				order = 10,
+			},
+			spellIDHeader = {
+				type = 'header',
+				name = 'Spell/Item IDs',
+				order = 11,
+			},
+			spellIDEnabled = {
+				type = 'checkbox',
+				name = 'Show Spell IDs',
+				desc = 'Display spell IDs in tooltips',
+				order = 12,
+				get = function()
+					return module.DB.SpellID.enabled
+				end,
+				set = function(_, val)
+					module.DB.SpellID.enabled = val
+				end,
+			},
+			spellIDModifier = {
+				type = 'dropdown',
+				name = 'Modifier Key',
+				desc = 'Modifier key required to show spell IDs',
+				order = 13,
+				values = {
+					NONE = 'Never',
+					ALL = 'Always',
+					SHIFT = 'Shift',
+					CTRL = 'Ctrl',
+					ALT = 'Alt',
+				},
+				get = function()
+					return module.DB.SpellID.modifierKey
+				end,
+				set = function(_, val)
+					module.DB.SpellID.modifierKey = val
+				end,
+				disabled = function()
+					return not module.DB.SpellID.enabled
+				end,
+			},
+		},
 	})
 end
 
