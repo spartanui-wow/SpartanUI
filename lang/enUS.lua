@@ -1367,3 +1367,4 @@ L['Click to change these settings'] = true
 L['Hide preview'] = true
 L['Preview'] = true
 L['Show preview'] = true
+L['sample icons'] = true

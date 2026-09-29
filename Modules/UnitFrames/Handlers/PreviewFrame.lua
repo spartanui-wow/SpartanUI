@@ -280,6 +280,97 @@ end
 -- Preview Frame Construction
 ----------------------------------------------------------------------------------------------------
 
+----------------------------------------------------------------------------------------------------
+-- Sample aura icons
+----------------------------------------------------------------------------------------------------
+
+-- Blizzard's aura containers cannot run on a preview frame, so draw sample icons laid out
+-- from the same settings the real container uses
+local SAMPLE_AURA_ELEMENTS = { 'BuffContainer', 'DebuffContainer', 'CustomAuras' }
+local SAMPLE_ICONS = {
+	BuffContainer = {
+		'Interface\\Icons\\Spell_Holy_Renew',
+		'Interface\\Icons\\Spell_Holy_PowerWordShield',
+		'Interface\\Icons\\Spell_Nature_Rejuvenation',
+		'Interface\\Icons\\Spell_Holy_WordFortitude',
+		'Interface\\Icons\\Spell_Holy_MagicalSentry',
+		'Interface\\Icons\\Spell_Nature_Regeneration',
+	},
+	DebuffContainer = {
+		'Interface\\Icons\\Spell_Shadow_ShadowWordPain',
+		'Interface\\Icons\\Spell_Shadow_CurseOfTounges',
+		'Interface\\Icons\\Spell_Nature_CorrosiveBreath',
+		'Interface\\Icons\\Spell_Frost_FrostNova',
+	},
+	CustomAuras = {
+		'Interface\\Icons\\Spell_Nature_Lightning',
+		'Interface\\Icons\\Spell_Holy_SealOfMight',
+	},
+}
+local MAX_SAMPLE_ROWS = 2
+
+---@param preview table
+---@param elementName string
+---@param DB table|nil
+local function DrawSampleAuras(preview, elementName, DB)
+	local key = '_sample' .. elementName
+	local holder = preview[key]
+	if not DB or not DB.enabled then
+		if holder then
+			holder:Hide()
+		end
+		return
+	end
+	if not holder then
+		holder = CreateFrame('Frame', nil, preview)
+		holder.icons = {}
+		holder.sampleName = elementName
+		preview[key] = holder
+	end
+
+	local size = DB.size or 24
+	local spacing = DB.spacing or 2
+	local perRow = math.max(1, DB.perRow or 8)
+	local count = math.min(DB.number or perRow, perRow * MAX_SAMPLE_ROWS)
+	local anchor = (DB.position and DB.position.anchor) or 'TOPLEFT'
+	local xDir = (DB.growthx or 'RIGHT') == 'LEFT' and -1 or 1
+	local yDir = (DB.growthy or 'UP') == 'DOWN' and -1 or 1
+	local textures = SAMPLE_ICONS[elementName] or SAMPLE_ICONS.BuffContainer
+
+	for i = 1, count do
+		local icon = holder.icons[i]
+		if not icon then
+			icon = holder:CreateTexture(nil, 'ARTWORK')
+			icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+			holder.icons[i] = icon
+		end
+		local col = (i - 1) % perRow
+		local row = math.floor((i - 1) / perRow)
+		icon:SetTexture(textures[((i - 1) % #textures) + 1])
+		icon:SetSize(size, size)
+		icon:ClearAllPoints()
+		icon:SetPoint(anchor, holder, anchor, xDir * col * (size + spacing), yDir * row * (size + spacing))
+		icon:Show()
+	end
+	for i = count + 1, #holder.icons do
+		holder.icons[i]:Hide()
+	end
+
+	local rows = math.ceil(count / perRow)
+	local cols = math.min(count, perRow)
+	holder:SetSize(math.max(1, cols * (size + spacing) - spacing), math.max(1, rows * (size + spacing) - spacing))
+
+	local position = DB.position or {}
+	local relativeTo = preview
+	if position.relativeTo and position.relativeTo ~= 'Frame' and preview[position.relativeTo] then
+		relativeTo = preview[position.relativeTo]
+	end
+	holder:ClearAllPoints()
+	holder:SetPoint(anchor, relativeTo, position.relativePoint or anchor, position.x or 0, position.y or 0)
+	holder:SetFrameLevel(preview.raised:GetFrameLevel() + 1)
+	holder:Show()
+end
+
 ---Build each enabled element once, then update it in place. Frames are never freed in WoW,
 ---so rebuilding on every settings change (every slider tick) would leak.
 ---@param preview table
@@ -319,6 +410,10 @@ local function BuildPreviewElements(preview, frameName)
 	end
 
 	ApplyMockData(preview)
+
+	for _, elementName in ipairs(SAMPLE_AURA_ELEMENTS) do
+		DrawSampleAuras(preview, elementName, elementDB[elementName])
+	end
 
 	if preview.fixedStrata then
 		PreviewFrame:ApplyStrata(preview, preview.fixedStrata)
