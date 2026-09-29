@@ -1,4 +1,5 @@
 <Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Include file="Widgets\Widgets.xml"/>
 	<Script file="PageGroup.lua"/>
 	<Script file="Window.lua"/>
 	<Script file="Search.lua"/>

@@ -1,0 +1,16 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<Script file="Common.lua"/>
+	<Script file="Switch.lua"/>
+	<Script file="Slider.lua"/>
+	<Script file="EditBox.lua"/>
+	<Script file="Button.lua"/>
+	<Script file="Heading.lua"/>
+	<Script file="ColorPicker.lua"/>
+	<Script file="Dropdown.lua"/>
+	<Script file="Segmented.lua"/>
+	<Script file="Expander.lua"/>
+	<Script file="InlineGroup.lua"/>
+	<Script file="ScrollFrame.lua"/>
+	<Script file="TabGroup.lua"/>
+	<Script file="TreeGroup.lua"/>
+</Ui>

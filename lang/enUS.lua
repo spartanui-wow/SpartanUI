@@ -1368,3 +1368,4 @@ L['Hide preview'] = true
 L['Preview'] = true
 L['Show preview'] = true
 L['sample icons'] = true
+L['No recent colors yet'] = true
