@@ -24,7 +24,8 @@ SUI.OptionsWindow = SUI.OptionsWindow or {}
 SUI.OptionsWindow.Stage = Stage
 
 local APP = 'SpartanUI'
-local HEADER = 22
+local HEADER = 42
+local PANEL_WIDTH = 340
 
 ---@type SUI.OptionsWindow.StageProvider[]
 local providers = {}
@@ -95,29 +96,47 @@ function Stage:Setup(window)
 	header:SetPoint('TOPLEFT')
 	header:SetPoint('TOPRIGHT')
 	header:SetHeight(HEADER)
+	header:EnableMouse(true)
+	header:SetScript('OnMouseDown', function()
+		window.frame:StartMoving()
+	end)
+	header:SetScript('OnMouseUp', function()
+		window.frame:StopMovingOrSizing()
+		window:PlaceStage()
+	end)
+	Style:CreateFill(header, Style.color.header)
 	stage.header = header
 
-	local title = Style:CreateText(header, 10, Style.color.muted)
-	title:SetPoint('LEFT', 10, 0)
+	local title = Style:CreateText(header, 12, Style.color.muted)
+	title:SetPoint('TOPLEFT', 12, -8)
 	title:SetText(L['Preview'])
 	stage.title = title
 
 	local hint = Style:CreateText(header, 9, Style.color.faint)
-	hint:SetPoint('LEFT', title, 'RIGHT', 10, 0)
+	hint:SetPoint('TOPLEFT', title, 'BOTTOMLEFT', 0, -3)
+	hint:SetPoint('RIGHT', header, 'RIGHT', -10, 0)
+	hint:SetJustifyH('LEFT')
 	hint:SetText(L['Click a part to jump to its settings'])
 	stage.hint = hint
 
-	local toggle = Style:CreateButton(header, L['Hide preview'], 96, function(self)
-		collapsed = not collapsed
-		self:SetText(collapsed and L['Show preview'] or L['Hide preview'])
-		Stage:Refresh(true)
+	local toggle = Style:CreateButton(header, L['Hide'], 60, function()
+		Stage:SetCollapsed(true)
 	end)
-	toggle:SetHeight(18)
-	toggle:SetPoint('RIGHT', -6, 0)
+	toggle:SetHeight(20)
+	toggle:SetPoint('RIGHT', header, 'RIGHT', -10, 0)
 	stage.toggle = toggle
 
+	-- Sits in the window's title bar while the panel is hidden
+	local reopen = Style:CreateButton(window.header, L['Show preview'], nil, function()
+		Stage:SetCollapsed(false)
+	end)
+	reopen:SetHeight(22)
+	reopen:SetPoint('RIGHT', window.header, 'RIGHT', -44, 0)
+	reopen:Hide()
+	stage.reopen = reopen
+
 	local canvas = CreateFrame('Frame', nil, stage)
-	canvas:SetPoint('TOPLEFT', header, 'BOTTOMLEFT', 1, 0)
+	canvas:SetPoint('TOPLEFT', header, 'BOTTOMLEFT', 1, -1)
 	canvas:SetPoint('BOTTOMRIGHT', -1, 1)
 	if canvas.SetClipsChildren then
 		canvas:SetClipsChildren(true)
@@ -127,6 +146,13 @@ function Stage:Setup(window)
 	window.frame:HookScript('OnHide', function()
 		Stage:HideProvider()
 	end)
+end
+
+---Hide the preview panel (a button brings it back) or show it again
+---@param value boolean
+function Stage:SetCollapsed(value)
+	collapsed = value and true or false
+	self:Refresh(true)
 end
 
 ---Clickable area over part of the preview
@@ -193,7 +219,7 @@ function Stage:HideProvider()
 end
 
 ---Redraw the stage for the current page
----@param resize? boolean Also recompute the dock height
+---@param resize? boolean Also re-open or close the panel
 function Stage:Refresh(resize)
 	dirty = false
 	local window = GetWindow()
@@ -201,32 +227,32 @@ function Stage:Refresh(resize)
 		return
 	end
 	self:Setup(window)
+	local stage = window.stage
 	local provider = Match(currentPath)
 	if provider ~= current then
 		self:HideProvider()
 		current = provider
 		resize = true
 	end
-	if not provider then
-		window:SetStageHeight(0)
-		return
-	end
 
-	local ctx = { path = currentPath, canvas = window.stage.canvas, Region = Region }
-	local height = provider:GetHeight(ctx) or 0
-	if height <= 0 then
+	local ctx = { path = currentPath, canvas = stage.canvas, Region = Region }
+	local wanted = provider and (provider:GetHeight(ctx) or 0) > 0
+	if not wanted then
 		self:HideProvider()
-		window:SetStageHeight(0)
+		stage.reopen:Hide()
+		window:SetStageWidth(0)
 		return
 	end
-	if resize then
-		window:SetStageHeight(collapsed and HEADER or (height + HEADER))
-	end
-	window.stage.canvas:SetShown(not collapsed)
-	window.stage.hint:SetShown(not collapsed)
 	if collapsed then
 		self:HideProvider()
+		window:SetStageWidth(0)
+		stage.reopen:FitText()
+		stage.reopen:Show()
 		return
+	end
+	stage.reopen:Hide()
+	if resize or window.stageWidth <= 0 then
+		window:SetStageWidth(PANEL_WIDTH)
 	end
 
 	for i = 1, #regions do

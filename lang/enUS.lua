@@ -1503,3 +1503,4 @@ L['Shrink this bar so you can reach the frames under it.'] = true
 L['Shrink'] = true
 L['Ask for help'] = true
 L['Turn modules on or off'] = true
+L['Hide'] = true

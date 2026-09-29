@@ -18,6 +18,8 @@ local FOOTER = 40
 local SIDEBAR = 196
 local NAV_HEIGHT = 26
 local MIN_W, MIN_H = 760, 460
+-- Room the settings keep when a preview panel opens beside them
+local STAGE_GAP = 4
 
 local function SaveStatus(frame)
 	local self = frame.obj
@@ -97,7 +99,7 @@ local methods = {
 		self.frame:SetFrameLevel(100)
 		self:SetTitle()
 		self:ApplyStatus()
-		self:SetStageHeight(0)
+		self:SetStageWidth(0)
 		self:Show()
 	end,
 
@@ -118,8 +120,7 @@ local methods = {
 
 	OnHeightSet = function(self, height)
 		local content = self.content
-		local stageGap = self.stageHeight > 0 and (self.stageHeight + 8) or 0
-		local contentheight = math.max(0, height - HEADER - 10 - stageGap - FOOTER - 4)
+		local contentheight = math.max(0, height - HEADER - 10 - FOOTER - 4)
 		content:SetHeight(contentheight)
 		content.height = contentheight
 	end,
@@ -162,17 +163,35 @@ local methods = {
 		end
 	end,
 
-	---Height of the preview dock above the content (0 hides it)
-	---@param height number
-	SetStageHeight = function(self, height)
-		self.stageHeight = math.max(0, height or 0)
-		self.stage:SetHeight(math.max(0.001, self.stageHeight))
-		self.stage:SetShown(self.stageHeight > 0)
-		self.content:ClearAllPoints()
-		self.content:SetPoint('TOPLEFT', self.stage, 'BOTTOMLEFT', 0, self.stageHeight > 0 and -8 or 0)
-		self.content:SetPoint('BOTTOMRIGHT', self.frame, 'BOTTOMRIGHT', -12, FOOTER + 4)
-		self:OnHeightSet(self.frame:GetHeight())
-		self:DoLayout()
+	---Width of the preview panel attached to the window's side (0 hides it). The panel sits
+	---outside the window, so the settings keep their full width.
+	---@param width number
+	SetStageWidth = function(self, width)
+		width = math.max(0, width or 0)
+		if width == self.stageWidth then
+			return
+		end
+		self.stageWidth = width
+		self.stage:SetWidth(math.max(0.001, width))
+		self.stage:SetShown(width > 0)
+		self:PlaceStage()
+	end,
+
+	---Attach the preview panel to the right edge, or the left edge when the right has no room
+	PlaceStage = function(self)
+		local frame, stage = self.frame, self.stage
+		local right, left = frame:GetRight(), frame:GetLeft()
+		local screen = UIParent:GetRight() or UIParent:GetWidth()
+		local width = math.max(0, self.stageWidth or 0)
+		local onLeft = right and left and (right + STAGE_GAP + width > screen) and (left - STAGE_GAP - width >= 0)
+		stage:ClearAllPoints()
+		if onLeft then
+			stage:SetPoint('TOPRIGHT', frame, 'TOPLEFT', -STAGE_GAP, 0)
+			stage:SetPoint('BOTTOMRIGHT', frame, 'BOTTOMLEFT', -STAGE_GAP, 0)
+		else
+			stage:SetPoint('TOPLEFT', frame, 'TOPRIGHT', STAGE_GAP, 0)
+			stage:SetPoint('BOTTOMLEFT', frame, 'BOTTOMRIGHT', STAGE_GAP, 0)
+		end
 	end,
 
 	---Show the top level pages in the sidebar
@@ -307,6 +326,7 @@ local function Constructor()
 	header:SetScript('OnMouseUp', function()
 		frame:StopMovingOrSizing()
 		SaveStatus(frame)
+		frame.obj:PlaceStage()
 	end)
 	Style:CreateFill(header, Style.color.header)
 
@@ -400,15 +420,18 @@ local function Constructor()
 	noResults:SetText(L['Nothing found. Try another word.'])
 	noResults:Hide()
 
-	-- Preview dock and content
+	-- Preview panel, attached outside the window
 	local stage = CreateFrame('Frame', nil, frame)
-	stage:SetPoint('TOPLEFT', sidebar, 'TOPRIGHT', 12, -10)
-	stage:SetPoint('RIGHT', frame, 'RIGHT', -12, 0)
-	stage:SetHeight(0.001)
+	stage:SetPoint('TOPLEFT', frame, 'TOPRIGHT', STAGE_GAP, 0)
+	stage:SetPoint('BOTTOMLEFT', frame, 'BOTTOMRIGHT', STAGE_GAP, 0)
+	stage:SetWidth(0.001)
+	stage:EnableMouse(true)
 	stage:Hide()
-	Style:SkinPanel(stage, Style.color.raised, Style.color.line)
+	Style:SkinPanel(stage, Style.color.pane, Style.color.lineStrong)
 
 	local content = CreateFrame('Frame', nil, frame)
+	content:SetPoint('TOPLEFT', sidebar, 'TOPRIGHT', 12, -10)
+	content:SetPoint('BOTTOMRIGHT', frame, 'BOTTOMRIGHT', -12, FOOTER + 4)
 
 	-- Footer
 	local footer = CreateFrame('Frame', nil, frame)
@@ -464,7 +487,7 @@ local function Constructor()
 		navButtons = {},
 		noResults = noResults,
 		stage = stage,
-		stageHeight = 0,
+		stageWidth = -1,
 		footer = footer,
 		sizer = sizer,
 		type = Type,
@@ -529,7 +552,7 @@ local function Constructor()
 	end)
 
 	local registered = AceGUI:RegisterAsContainer(widget)
-	registered:SetStageHeight(0)
+	registered:SetStageWidth(0)
 	return registered
 end
 

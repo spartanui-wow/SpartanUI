@@ -15,6 +15,7 @@ ACD:SetWidgetMap('SpartanUI', {
 	CheckBox = 'SUI-Switch',
 	Slider = 'SUI-Slider',
 	EditBox = 'SUI-EditBox',
+	NumberEditBox = 'SUI-EditBox',
 	Button = 'SUI-Button',
 	Heading = 'SUI-Heading',
 	ColorPicker = 'SUI-ColorPicker',
