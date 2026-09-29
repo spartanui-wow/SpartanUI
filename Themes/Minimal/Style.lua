@@ -71,6 +71,12 @@ function module:OnInitialize()
 				['MultiCastActionBarFrame'] = 0.6,
 				['BT4BarMicroMenu'] = 0.6,
 			},
+			dataBars = {
+				look = {
+					accent = 'Color.Art',
+					bar = { background = { show = true, color = { 0, 0, 0, 0.6 } } },
+				},
+			},
 			minimap = SUI.BlizzAPI.HasModernMinimap() and {
 				UnderVehicleUI = false,
 				scaleWithArt = false,
@@ -356,6 +362,12 @@ function module:SetColor()
 		v.expanded.bg:SetVertexColor(r, g, b, a)
 		v.collapsed.bg:SetVertexColor(r, g, b, a)
 		SUI.Log('SetColor: Applied color to sliding tray backgrounds', 'Style.Minimal', 'debug')
+	end
+
+	-- Lib's DataBar edges take the art color too
+	local dataBarHost = SUI:GetModule('Handler.DataBarHost', true)
+	if dataBarHost and dataBarHost.QueueRefresh then
+		dataBarHost:QueueRefresh()
 	end
 
 	SUI.Log('SetColor: Color update complete', 'Style.Minimal', 'debug')

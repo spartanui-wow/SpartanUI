@@ -855,23 +855,14 @@ function module:OnEnable()
 	module:RegisterEvent('ADDON_LOADED', StyleUpdate)
 	module:RegisterEvent('PLAYER_ENTERING_WORLD', StyleUpdate)
 
-	-- Register with LibsDataBar API if available
-	local function tryRegisterIntegration()
-		if _G.LibsDataBar_RegisterIntegration then
-			_G.LibsDataBar_RegisterIntegration('SpartanUI', function(event, data)
-				if event == 'refresh' or event == 'resize' or event == 'move' or event == 'show' or event == 'hide' then
-					module:updateOffset()
-				end
-			end)
-			SUI.Log('LibsDataBar integration registered successfully', 'Artwork')
-		else
-			-- LibsDataBar not available yet, retry
-			C_Timer.After(1, tryRegisterIntegration)
-		end
+	-- Lib's DataBar loads first (OptionalDeps), so its API is ready here when it is installed
+	if LibsDataBar and LibsDataBar.API then
+		LibsDataBar.API:RegisterCallback('SpartanUI', function(event)
+			if event == 'refresh' or event == 'resize' or event == 'move' or event == 'show' or event == 'hide' or event == 'host' or event == 'remove' then
+				module:updateOffset()
+			end
+		end)
 	end
-
-	-- Start registration attempts after a delay
-	C_Timer.After(2, tryRegisterIntegration)
 end
 
 function module:UpdateBarBG()

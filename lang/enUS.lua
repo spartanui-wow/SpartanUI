@@ -1504,3 +1504,6 @@ L['Shrink'] = true
 L['Ask for help'] = true
 L['Turn modules on or off'] = true
 L['Hide'] = true
+L["Lib's DataBar"] = true
+L['Info bars'] = true
+L['Matches your SpartanUI look and changes with it.'] = true

@@ -27,6 +27,7 @@ local SUI = SUI
 ---Full theme data returned by the lazy-load callback
 ---@class SUI.ThemeRegistry.ThemeData
 ---@field frames? table<string, table> Per-frame UF config overrides
+---@field dataBars? SUI.ThemeRegistry.DataBars Look and spots for Lib's DataBar, used when it is installed
 ---@field unitframes? table UF artwork settings (textures, positions, callbacks)
 ---@field minimap? table Minimap layout settings
 ---@field statusBars? table Status bar appearance settings
@@ -59,3 +60,9 @@ local SUI = SUI
 ---@field GetSortedNames fun(self: SUI.ThemeRegistry): string[]
 ---@field GetSetting fun(self: SUI.ThemeRegistry, themeName: string, key: string): any
 ---@field SetSetting fun(self: SUI.ThemeRegistry, themeName: string, key: string, value: any)
+
+---Lib's DataBar settings for a theme
+---@class SUI.ThemeRegistry.DataBars
+---@field look? table DataBar `look` block (font size, textColor, highlight, bar art); `accent = 'Color.Art'` passes the theme's art color on
+---@field base? string DataBar theme id the look builds on (default 'default')
+---@field bars? table<string, { position?: string, width?: number, height?: number, strata?: string }> Bars the theme places; a `position` ('point,anchor,relativePoint,x,y') makes SpartanUI place that bar

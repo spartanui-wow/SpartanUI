@@ -263,3 +263,21 @@ function Flat.Group(spec)
 	frame.columnSpacing = spec.spacing
 	return frame
 end
+
+---Lib's DataBar look and spot for the flat themes: a slim strip across the top middle
+---@param bg number[] bar background { r, g, b, a }
+---@return table
+function Flat.DataBars(bg)
+	return {
+		look = {
+			font = { size = 11 },
+			bar = {
+				background = { show = true, color = { bg[1], bg[2], bg[3], bg[4] or 0.9 } },
+				border = { show = true, color = { 0, 0, 0, 1 }, size = 1 },
+			},
+		},
+		bars = {
+			main = { position = 'TOP,UIParent,TOP,0,0', width = 700, height = 22 },
+		},
+	}
+end

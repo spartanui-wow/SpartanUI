@@ -36,6 +36,7 @@
 	<Script file="Artwork\SlidingTrays.lua" />
 	<Script file="Artwork\StatusBars.lua" />
 	<Script file="Artwork\Options.lua" />
+	<Script file="DataBarHost\DataBarHost.lua" />
 
 	<!-- Load UnitFrames -->
 	<Include file="UnitFrames\Load.xml"/>

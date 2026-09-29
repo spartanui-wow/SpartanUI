@@ -61,6 +61,7 @@ function module:OnInitialize()
 			frames = frames,
 			barPositions = barPositions,
 			barScales = barScales,
+			dataBars = Flat.DataBars(BG),
 			minimap = Flat.Minimap(190),
 			unitframes = {
 				displayName = 'Modern Flat',
