@@ -9,8 +9,8 @@ local L = M.L
 local CL = {}
 M.ConversationList = CL
 
-local ROW_H = 46
 local SECTION_H = 22
+local COMPACT_AVATAR = 32
 
 local FILTERS = {
 	{ key = 'all', label = L['All'] },
@@ -44,7 +44,7 @@ local List = {}
 ---@param list MessengerList
 local function CreateRow(list)
 	local row = CreateFrame('Button', nil, list.rowArea)
-	row:SetHeight(ROW_H)
+	row:SetHeight(list.rowH)
 	row:RegisterForClicks('LeftButtonUp', 'RightButtonUp', 'MiddleButtonUp')
 
 	row.selectedBg = row:CreateTexture(nil, 'BACKGROUND')
@@ -83,10 +83,18 @@ local function CreateRow(list)
 	row:SetScript('OnEnter', function(self)
 		if self.convo then
 			self.hl:Show()
+			-- The compact rail shows only avatars, so the name and latest line move to a tooltip
+			if list.compact then
+				GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
+				GameTooltip:SetText(M:GetTitle(self.convo), 1, 1, 1)
+				GameTooltip:AddLine(Preview(self.convo), T.color.muted[1], T.color.muted[2], T.color.muted[3], true)
+				GameTooltip:Show()
+			end
 		end
 	end)
 	row:SetScript('OnLeave', function(self)
 		self.hl:Hide()
+		GameTooltip:Hide()
 	end)
 	row:SetScript('OnClick', function(self, button)
 		local convo = self.convo
@@ -121,13 +129,13 @@ function CL.Create(parent, onSelect)
 	list.offset = 0
 	list.data = {}
 	list.rows = {}
+	list.rowH = T.Metrics().row
 
 	list.bg = T.Fill(list, T.color.list)
 	T.Line(list, 'RIGHT')
 
 	-- Search
 	local search = CreateFrame('EditBox', nil, list)
-	search:SetHeight(26)
 	search:SetPoint('TOPLEFT', 10, -10)
 	search:SetPoint('TOPRIGHT', -10, -10)
 	search:SetAutoFocus(false)
@@ -207,8 +215,6 @@ function CL.Create(parent, onSelect)
 
 	-- Rows
 	local area = CreateFrame('Frame', nil, list)
-	area:SetPoint('TOPLEFT', 0, -72)
-	area:SetPoint('BOTTOMRIGHT', -1, 0)
 	area:SetClipsChildren(true)
 	area:EnableMouseWheel(true)
 	area:SetScript('OnMouseWheel', function(_, delta)
@@ -238,9 +244,41 @@ function CL.Create(parent, onSelect)
 		for _, chip in ipairs(list.chips) do
 			chip:Resize()
 		end
-		list:Render()
+		list:ApplyMetrics()
+		list:Refresh()
 	end)
+	list:ApplyMetrics()
 	return list
+end
+
+---Sizes the search box, rows and row area for the current text size and layout.
+function List:ApplyMetrics()
+	local metrics = T.Metrics()
+	self.rowH = metrics.row
+	self.search:SetHeight(metrics.search)
+	local area = self.rowArea
+	area:ClearAllPoints()
+	if self.compact then
+		area:SetPoint('TOPLEFT', 0, -6)
+	else
+		area:SetPoint('TOPLEFT', 0, -(10 + metrics.search + 8 + 18 + 10))
+	end
+	area:SetPoint('BOTTOMRIGHT', -1, 0)
+end
+
+---Narrow windows show the list as a rail of avatars.
+---@param compact boolean
+function List:SetCompact(compact)
+	if self.compact == compact then
+		return
+	end
+	self.compact = compact
+	self.search:SetShown(not compact)
+	for _, chip in ipairs(self.chips) do
+		chip:SetShown(not compact)
+	end
+	self:ApplyMetrics()
+	self:Refresh()
 end
 
 ---@param filter string
@@ -270,7 +308,7 @@ end
 
 ---@param delta number rows
 function List:Scroll(delta)
-	local visible = math.floor(self.rowArea:GetHeight() / ROW_H)
+	local visible = math.floor(self.rowArea:GetHeight() / self.rowH)
 	local maxOffset = math.max(0, #self.data - visible)
 	self.offset = math.max(0, math.min(self.offset + delta, maxOffset))
 	self:Render()
@@ -285,7 +323,7 @@ function List:Refresh()
 			pinnedCount = pinnedCount + 1
 		end
 	end
-	local splitSections = pinnedCount > 0 and pinnedCount < #convos
+	local splitSections = not self.compact and pinnedCount > 0 and pinnedCount < #convos
 	self.firstConvo = convos[1]
 	for i, convo in ipairs(convos) do
 		if splitSections and i == 1 then
@@ -296,7 +334,7 @@ function List:Refresh()
 		data[#data + 1] = { convo = convo }
 	end
 	self.data = data
-	local visible = math.floor(self.rowArea:GetHeight() / ROW_H)
+	local visible = math.floor(self.rowArea:GetHeight() / self.rowH)
 	self.offset = math.max(0, math.min(self.offset, #data - visible))
 	self:Render()
 end
@@ -314,6 +352,26 @@ function List:PaintRow(row, convo)
 	row.avatar:SetConversation(convo, presence)
 	row.avatar:SetRingColor(T.color.list)
 	row.avatar:Show()
+	row.section:Hide()
+
+	row.avatar:ClearAllPoints()
+	row.badge:ClearAllPoints()
+	if self.compact then
+		row.avatar:SetPoint('CENTER')
+		row.badge:SetPoint('CENTER', row.avatar, 'TOPRIGHT', -2, -2)
+		row.name:Hide()
+		row.time:Hide()
+		row.pin:Hide()
+		row.preview:Hide()
+		if convo.muted then
+			row.badge:SetCount(convo.unread, T.color.faint[1], T.color.faint[2], T.color.faint[3])
+		else
+			row.badge:SetCount(convo.unread, r, g, b)
+		end
+		return
+	end
+	row.avatar:SetPoint('LEFT', 12, 0)
+	row.badge:SetPoint('BOTTOMRIGHT', -12, 8)
 
 	row.name:SetText(M:GetTitle(convo))
 	if convo.muted then
@@ -378,9 +436,9 @@ function List:Render()
 			y = y + SECTION_H
 		else
 			row.convo = entry.convo
-			row:SetHeight(ROW_H)
+			row:SetHeight(self.rowH)
 			self:PaintRow(row, entry.convo)
-			y = y + ROW_H
+			y = y + self.rowH
 		end
 		index = index + 1
 	end
@@ -389,7 +447,8 @@ function List:Render()
 		self.rows[i].convo = nil
 	end
 
-	if #self.data == 0 then
+	self.empty:SetShown(#self.data == 0 and not self.compact)
+	if #self.data == 0 and not self.compact then
 		if self.query ~= '' then
 			self.empty:SetText(string.format(L['Nothing matches "%s".'], self.query))
 		elseif self.filter == 'unread' then
@@ -399,8 +458,5 @@ function List:Render()
 		else
 			self.empty:SetText(L['No conversations yet.'])
 		end
-		self.empty:Show()
-	else
-		self.empty:Hide()
 	end
 end

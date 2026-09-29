@@ -14,7 +14,6 @@ local Cmp = {}
 M.Composer = Cmp
 
 local EASE_TIME = 0.15
-local HEIGHT = 36
 
 ---@class MessengerComposer : Frame
 local Composer = {}
@@ -37,7 +36,7 @@ end
 function Cmp.Create(parent)
 	local c = CreateFrame('Frame', nil, parent)
 	Mixin(c, Composer)
-	c:SetHeight(HEIGHT)
+	c:SetHeight(T.Metrics().composer)
 	composers[c] = true
 
 	c.bg = T.Fill(c, T.color.header)
@@ -62,7 +61,7 @@ function Cmp.Create(parent)
 	local edit = CreateFrame('EditBox', nil, c)
 	edit:SetPoint('LEFT', c.to, 'RIGHT', 10, 0)
 	edit:SetPoint('RIGHT', c.counter, 'LEFT', -8, 0)
-	edit:SetHeight(HEIGHT - 8)
+	edit:SetHeight(T.Metrics().composer - 8)
 	edit:SetAutoFocus(false)
 	edit:SetAltArrowKeyMode(false)
 	edit:SetHistoryLines(30)
@@ -101,6 +100,9 @@ function Cmp.Create(parent)
 		c:UpdateState()
 	end)
 
+	c:SetScript('OnSizeChanged', function()
+		c:FitLabel()
+	end)
 	c:SetScript('OnMouseDown', function()
 		if edit:IsEnabled() then
 			edit:SetFocus()
@@ -122,7 +124,11 @@ end
 
 function Composer:ApplyFont()
 	local face = ChatFontNormal:GetFont() or STANDARD_TEXT_FONT
+	local height = T.Metrics().composer
+	self:SetHeight(height)
+	self.edit:SetHeight(height - 8)
 	self.edit:SetFont(face, T.BaseSize(), '')
+	self:FitLabel()
 	self.edit:SetShadowColor(0, 0, 0, 0.85)
 	self.edit:SetShadowOffset(1, -1)
 	self.edit:SetTextColor(T.color.text[1], T.color.text[2], T.color.text[3])
@@ -182,7 +188,19 @@ function Composer:SetConversation(key)
 	else
 		self.to:SetText('')
 	end
+	self:FitLabel()
 	self:UpdateState()
+end
+
+---Keeps the destination label from taking the typing space: at most 40% of the bar, cut short
+---with an ellipsis beyond that.
+function Composer:FitLabel()
+	local to = self.to
+	to:SetWidth(0)
+	local limit = math.max(60, (self:GetWidth() or 0) * 0.4)
+	if to:GetStringWidth() > limit then
+		to:SetWidth(limit)
+	end
 end
 
 ---@return string|nil

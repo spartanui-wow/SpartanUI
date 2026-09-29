@@ -11,7 +11,6 @@ local L = M.L
 local P = {}
 M.UI.PopOut = P
 
-local TITLE_H = 30
 local open = {}
 local pool = {}
 local count = 0
@@ -35,7 +34,7 @@ local function Build()
 	local title = CreateFrame('Frame', nil, win)
 	title:SetPoint('TOPLEFT')
 	title:SetPoint('TOPRIGHT')
-	title:SetHeight(TITLE_H)
+	title:SetHeight(T.Metrics().title - 2)
 	T.Fill(title, T.color.header, 'BACKGROUND', 1)
 	W.DragHandle(title, win)
 	win.titleBar = title
@@ -71,7 +70,7 @@ local function Build()
 	title.rule = T.Line(title, 'BOTTOM')
 
 	win.pane = M.ChatPane.Create(win, false)
-	win.pane:SetPoint('TOPLEFT', 0, -TITLE_H)
+	win.pane:SetPoint('TOPLEFT', title, 'BOTTOMLEFT')
 	win.pane:SetPoint('BOTTOMRIGHT')
 
 	function win:OnGeometryChanged()
@@ -197,6 +196,14 @@ M:On('LIST_CHANGED', function()
 			win:UpdateTitle()
 		end
 	end)
+end)
+M:On('FONTS_CHANGED', function()
+	for _, win in ipairs(pool) do
+		win.titleBar:SetHeight(T.Metrics().title - 2)
+	end
+	for _, win in pairs(open) do
+		win.titleBar:SetHeight(T.Metrics().title - 2)
+	end
 end)
 M:On('CONTACTS_CHANGED', function()
 	for _, win in pairs(open) do

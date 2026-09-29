@@ -203,6 +203,19 @@ function T.BaseSize()
 	return M.settings and M.settings.fontSize or 13
 end
 
+---Bar and row heights for the current text size, so larger text never clips.
+---@return table { row, header, title, composer, search }
+function T.Metrics()
+	local s = T.BaseSize()
+	return {
+		row = math.max(46, math.floor((s - 1) * 1.3 + (s - 2) * 1.3 + 18)),
+		header = math.max(46, math.floor((s + 1) * 1.3 + (s - 2) * 1.3 + 16)),
+		title = math.max(32, math.floor(s * 1.3 + 16)),
+		composer = math.max(36, math.floor(s * 1.3 + 18)),
+		search = math.max(26, math.floor((s - 1) * 1.3 + 10)),
+	}
+end
+
 ---@param fs FontString
 ---@param role string
 local function ApplyFont(fs, role)

@@ -12,7 +12,6 @@ local L = M.L
 local CP = {}
 M.ChatPane = CP
 
-local HEADER_H = 46
 local BANNER_H = 26
 
 local InviteUnit = (C_PartyInfo and C_PartyInfo.InviteUnit) or InviteUnit
@@ -151,7 +150,7 @@ function CP.Create(parent, showHeader)
 	local header = CreateFrame('Frame', nil, pane)
 	header:SetPoint('TOPLEFT')
 	header:SetPoint('TOPRIGHT')
-	header:SetHeight(showHeader and HEADER_H or 0.001)
+	header:SetHeight(showHeader and T.Metrics().header or 0.001)
 	header:SetShown(showHeader)
 	pane.header = header
 	if showHeader then
@@ -237,6 +236,11 @@ function CP.Create(parent, showHeader)
 		M:Defer('pane-header-' .. tostring(pane), function()
 			pane:UpdateHeader()
 		end)
+	end)
+	M:On('FONTS_CHANGED', function()
+		if pane.showHeader then
+			pane.header:SetHeight(T.Metrics().header)
+		end
 	end)
 	M:On('CONTACTS_CHANGED', function()
 		pane:UpdateHeader()

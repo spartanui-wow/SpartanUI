@@ -10,8 +10,9 @@ local L = M.L
 ---@class Messenger.Deck
 local D = {}
 
-local TITLE_H = 32
 local LIST_W = 236
+local RAIL_W = 60
+local COMPACT_BELOW = 640
 local MAX_SUGGESTIONS = 6
 
 ----------------------------------------------------------------------------------------------------
@@ -99,7 +100,6 @@ end
 
 local function BuildPicker(win)
 	local picker = CreateFrame('Frame', nil, win)
-	picker:SetPoint('TOPLEFT', 0, -TITLE_H)
 	picker:SetWidth(LIST_W)
 	picker:SetHeight(46)
 	picker:SetFrameLevel(win:GetFrameLevel() + 30)
@@ -219,7 +219,6 @@ function D:Build()
 	local title = CreateFrame('Frame', nil, win)
 	title:SetPoint('TOPLEFT')
 	title:SetPoint('TOPRIGHT')
-	title:SetHeight(TITLE_H)
 	T.Fill(title, T.color.header, 'BACKGROUND', 1)
 	T.Line(title, 'BOTTOM')
 	W.DragHandle(title, win)
@@ -277,9 +276,6 @@ function D:Build()
 	local list = M.ConversationList.Create(win, function(key)
 		D:Select(key)
 	end)
-	list:SetPoint('TOPLEFT', 0, -TITLE_H)
-	list:SetPoint('BOTTOMLEFT', 0, 0)
-	list:SetWidth(LIST_W)
 	self.list = list
 
 	local pane = M.ChatPane.Create(win, true)
@@ -299,12 +295,13 @@ function D:Build()
 	self.pick:Hide()
 
 	self.empty = BuildEmpty(win)
-	self.empty:ClearAllPoints()
-	self.empty:SetPoint('TOPLEFT', 0, -TITLE_H)
-	self.empty:SetPoint('BOTTOMRIGHT')
 	self.empty:Hide()
 
 	self.picker = BuildPicker(win)
+	self:Layout()
+	win:SetScript('OnSizeChanged', function()
+		D:Layout()
+	end)
 
 	win:SetScript('OnShow', function()
 		M.UI.Fade:Kick()
@@ -339,6 +336,7 @@ function D:Build()
 	end)
 	M:On('FONTS_CHANGED', function()
 		self:UpdateKeyHint()
+		self:Layout()
 	end)
 	M:On('COMBAT', function(inCombat)
 		if not M.settings.alerts.hideInCombat then
@@ -352,6 +350,25 @@ function D:Build()
 			win:Show()
 		end
 	end)
+end
+
+---Places the body under the title bar, and turns the list into an avatar rail when narrow.
+function D:Layout()
+	local win = self.win
+	local titleH = T.Metrics().title
+	self.title:SetHeight(titleH)
+	local compact = win:GetWidth() < COMPACT_BELOW
+	local list = self.list
+	list:ClearAllPoints()
+	list:SetPoint('TOPLEFT', 0, -titleH)
+	list:SetPoint('BOTTOMLEFT', 0, 0)
+	list:SetWidth(compact and RAIL_W or LIST_W)
+	list:SetCompact(compact)
+	self.empty:ClearAllPoints()
+	self.empty:SetPoint('TOPLEFT', 0, -titleH)
+	self.empty:SetPoint('BOTTOMRIGHT')
+	self.picker:ClearAllPoints()
+	self.picker:SetPoint('TOPLEFT', 0, -titleH)
 end
 
 ---Shows the open/close key in the title bar and the close button's tooltip.
