@@ -184,14 +184,12 @@ local function Build(frame, DB)
 			else
 				-- Fader not active, apply range alpha normally
 				if isEligible then
-					if SUI.IsRetail then
+					if self.SetAlphaFromBoolean then
 						self:SetAlphaFromBoolean(inRange, element.insideAlpha, element.outsideAlpha)
+					elseif canAccess(inRange) and not inRange then
+						self:SetAlpha(element.outsideAlpha)
 					else
-						if inRange then
-							self:SetAlpha(element.insideAlpha)
-						else
-							self:SetAlpha(element.outsideAlpha)
-						end
+						self:SetAlpha(element.insideAlpha)
 					end
 				else
 					self:SetAlpha(element.insideAlpha)
