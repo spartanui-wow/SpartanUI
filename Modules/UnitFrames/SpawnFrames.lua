@@ -175,6 +175,17 @@ local function CreateUnitFrame(self, unit)
 
 		UF.Unit:Update(self)
 		local elementsDB = self.DB.elements
+
+		-- Clear every element's anchors before placing any. Placed one at a time, an element can
+		-- anchor to one that still points back at it from the previous layout, which the game
+		-- rejects as a loop (seen switching presets: cast bar -> power -> health -> old cast bar spot).
+		for element, _ in pairs(self.elementList) do
+			local config = UF.Elements:GetConfig(element)
+			if self[element] and self[element].ClearAllPoints and elementsDB[element] and not (config and config.config and config.config.NoBulkUpdate) then
+				self[element]:ClearAllPoints()
+			end
+		end
+
 		for element, _ in pairs(self.elementList) do
 			if not elementsDB[element] then
 				SUI:Error('MISSING: ' .. element .. ' Type:' .. type(element))

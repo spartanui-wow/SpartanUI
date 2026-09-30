@@ -1556,3 +1556,7 @@ L['Quest Tools'] = true
 L['Repairs'] = true
 L['Sell by quality'] = true
 L['Show vendor prices'] = true
+L['Frames'] = true
+L['Action bars'] = true
+L['Features'] = true
+L['Other addons'] = true

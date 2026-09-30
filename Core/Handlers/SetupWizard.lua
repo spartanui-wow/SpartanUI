@@ -5,6 +5,20 @@ local L = SUI.L
 local module = SUI:NewModule('Handler.SetupWizard') ---@type SUI.Module
 
 local ADDON_ID = 'spartanui'
+local BACKDROP_LOOKS = {
+	War = true,
+	Classic = true,
+	Midnight = true,
+	Fel = true,
+	Arcane = true,
+	Digital = true,
+	Tribal = true,
+	Minimal = true,
+	Transparent = true,
+	ModernFlat = true,
+	HealerGrid = true,
+	ClassicDark = true,
+}
 
 ----------------------------------------------------------------------------------------------------
 -- Backward compat stub: old modules calling SUI.Setup:AddPage() will silently no-op
@@ -32,6 +46,27 @@ function module:OnInitialize()
 		summary = L['Pick a look for your whole screen, your frames and your action bars.'],
 		priority = 10,
 		scope = 'account',
+		-- The step list shows chapters; each module's steps join one here
+		chapters = {
+			welcome = L['Welcome'],
+			profile = L['Welcome'],
+			theme = L['Look'],
+			['artwork-options'] = L['Look'],
+			font = L['Look'],
+			unitframes = L['Frames'],
+			['uf-personal'] = L['Frames'],
+			['uf-group'] = L['Frames'],
+			actionbars = L['Action bars'],
+			['actionbars-import'] = L['Action bars'],
+			modules = L['Features'],
+			autosell = L['Features'],
+			questtools = L['Features'],
+			minimap = L['Features'],
+			tooltips = L['Features'],
+			convenience = L['Features'],
+			uienhancements = L['Features'],
+			['other-addons'] = L['Other addons'],
+		},
 		isExistingUser = function()
 			return not SUI.DB.SetupWizard.FirstLaunch
 		end,
@@ -55,6 +90,17 @@ function module:OnInitialize()
 			return SUI.UI.Style:GetAccent()
 		end)
 	end
+	if LibAT.UI.SetBackdropProvider then
+		LibAT.UI.SetBackdropProvider(function()
+			local style = SUI:GetActiveStyle()
+			local entry = style and SUI.ThemeRegistry and SUI.ThemeRegistry:Get(style)
+			local look = (entry and entry.variantGroup) or style
+			if not look or not BACKDROP_LOOKS[look] then
+				return nil
+			end
+			return 'Interface\\AddOns\\SpartanUI\\images\\setup\\backdrops\\' .. look .. '.png'
+		end)
+	end
 
 	self:RegisterWelcomeSteps()
 	self:RegisterOtherAddonsStep()
@@ -64,6 +110,11 @@ function module:OnEnable()
 	if SUI.UI.Style and LibAT and LibAT.UI and LibAT.UI.NotifyAccentChanged then
 		SUI.UI.Style:OnAccentChanged(module, function()
 			LibAT.UI.NotifyAccentChanged()
+		end)
+	end
+	if SUI.Event and LibAT and LibAT.UI and LibAT.UI.NotifyBackdropChanged then
+		SUI.Event:RegisterEvent('ARTWORK_STYLE_CHANGED', function()
+			LibAT.UI.NotifyBackdropChanged()
 		end)
 	end
 

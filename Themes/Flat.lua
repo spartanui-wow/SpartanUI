@@ -103,7 +103,8 @@ function Flat.Name(size, anchor)
 	}
 end
 
----Cast bar tucked under the power bar
+---Cast bar along the bottom edge of the frame, under the power bar. Anchored to the frame
+---rather than the power bar, so no layout can chain it back to itself.
 ---@param height number
 ---@param texture? string
 ---@return table
@@ -112,7 +113,7 @@ function Flat.Castbar(height, texture)
 		enabled = height > 0,
 		height = height,
 		texture = texture or 'SpartanUI Flat',
-		position = { anchor = 'TOP', relativeTo = 'Power', relativePoint = 'BOTTOM', x = 0, y = -1 },
+		position = { anchor = 'BOTTOM', relativeTo = 'Frame', relativePoint = 'BOTTOM', x = 0, y = 0 },
 		Icon = { enabled = false },
 	}
 end

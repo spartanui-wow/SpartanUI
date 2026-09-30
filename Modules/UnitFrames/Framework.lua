@@ -1160,6 +1160,29 @@ function UF:RegisterSetupWizardPages()
 		return
 	end
 
+	-- The older preview images draw the frames small inside a 512x256 file; crop each to its art
+	local PREVIEW_CROPS = {
+		Style_Frames_Arcane = { 0.059, 0.479, 0.035, 0.418 },
+		Style_Frames_ArcaneRed = { 0.059, 0.479, 0.035, 0.418 },
+		Style_Frames_Classic = { 0, 0.848, 0.102, 0.93 },
+		Style_Frames_Digital = { 0.07, 0.877, 0.051, 0.949 },
+		Style_Frames_Fel = { 0.07, 0.877, 0.051, 0.949 },
+		Style_Frames_Midnight_Shadow = { 0.016, 0.521, 0.098, 0.363 },
+		Style_Frames_Midnight_Void = { 0.016, 0.521, 0.098, 0.363 },
+		Style_Frames_Minimal = { 0.045, 0.877, 0.113, 0.828 },
+		Style_Frames_Transparent = { 0.025, 0.881, 0.109, 0.391 },
+		Style_Frames_Tribal = { 0.082, 0.48, 0.09, 0.398 },
+		Style_Frames_War = { 0.07, 0.471, 0.051, 0.418 },
+	}
+
+	---@param image string
+	---@return table
+	local function PreviewArt(image)
+		local file = image:match('([^\\/]+)$') or image
+		file = file:gsub('%.%a+$', '')
+		return { texture = image, texCoord = PREVIEW_CROPS[file] }
+	end
+
 	---Preset cards, sorted by name. The look picked in the previous step is the recommended one.
 	---@return table[]
 	local function BuildPresetCards()
@@ -1169,7 +1192,7 @@ function UF:RegisterSetupWizardPages()
 			cards[#cards + 1] = {
 				value = name,
 				title = def.displayName or name,
-				art = def.setup and def.setup.image and { texture = def.setup.image } or nil,
+				art = def.setup and def.setup.image and PreviewArt(def.setup.image) or nil,
 				recommended = name == look,
 			}
 		end
