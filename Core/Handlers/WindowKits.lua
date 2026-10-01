@@ -277,17 +277,18 @@ function WindowKits:Register()
 		assets = PaintedAssets('tribal'),
 	})
 
-	-- Glass: see-through panels over a dark, soft backdrop
+	-- Glass: the game shows through the window and its panels; only menus and popups stay solid
 	Register('transparent', {
 		name = 'Transparent',
 		layout = PAINTED_LAYOUT,
 		backdropAspect = 2,
-		backdropDim = 0.2,
-		windowSurfaceAlpha = 0.05,
-		materialAlpha = 0.08,
+		backdropAlpha = 0.65,
+		backdropDim = 0.16,
+		windowSurfaceAlpha = 0.14,
+		materialAlpha = 0.05,
 		colors = {
-			surface = { [0] = Hex('080b10', 0.7), [1] = { 15 / 255, 22 / 255, 30 / 255, 0.52 }, [2] = { 26 / 255, 36 / 255, 47 / 255, 0.62 }, [3] = Hex('253240', 0.9) },
-			bar = { 15 / 255, 22 / 255, 30 / 255, 0.6 },
+			surface = { [0] = Hex('080b10', 0.6), [1] = { 15 / 255, 22 / 255, 30 / 255, 0.42 }, [2] = { 26 / 255, 36 / 255, 47 / 255, 0.52 }, [3] = Hex('253240', 0.9) },
+			bar = { 15 / 255, 22 / 255, 30 / 255, 0.55 },
 			text = Hex('edf5fc'),
 			secondary = Hex('bccbd8'),
 			muted = Hex('8fa3b5'),
