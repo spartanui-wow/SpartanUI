@@ -172,6 +172,8 @@ local function Enable(self)
 		element.bg = element.bg or element:CreateTexture(nil, 'BACKGROUND')
 		element.bottom = element.bottom or element:CreateTexture(nil, 'BORDER')
 		element.full = element.full or element:CreateTexture(nil, 'BACKGROUND')
+		-- Disable hides the whole element; a look that turns the art back on must show it again
+		element:Show()
 
 		self:RegisterEvent('UNIT_FACTION', Path)
 		if oUF.IsRetail then
