@@ -10,6 +10,7 @@
 	<Script file="Handlers\BackgroundBorder.lua" />
 	<Script file="Handlers\Modules.lua" />
 	<Script file="Handlers\Profiles.lua" />
+	<Script file="Handlers\WindowKits.lua" />
 	<Script file="Handlers\SetupWizard.lua" />
 	<Script file="Handlers\Options.lua" />
 	<!-- <Script file="EditorMode.lua" /> -->

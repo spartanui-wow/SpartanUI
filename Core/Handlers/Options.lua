@@ -396,6 +396,7 @@ function module:BuildFooter()
 	window.footerBuilt = true
 	local Style = SUI.UI.Style
 	local footer = window.footer
+	local padding = LibAT.UI.Kit:GetActive().layout.barPadding
 	local previous
 	local buttons = {}
 
@@ -404,7 +405,7 @@ function module:BuildFooter()
 		if previous then
 			button:SetPoint('LEFT', previous, 'RIGHT', 6, 0)
 		else
-			button:SetPoint('LEFT', footer, 'LEFT', 12, 0)
+			button:SetPoint('LEFT', footer, 'LEFT', padding, 0)
 		end
 		previous = button
 		buttons[#buttons + 1] = button
@@ -439,7 +440,7 @@ function module:BuildFooter()
 	local close = Style:CreateButton(footer, CLOSE or L['Close'], 90, function()
 		Lib.AceCD:Close('SpartanUI')
 	end, true)
-	close:SetPoint('RIGHT', footer, 'RIGHT', -22, 0)
+	close:SetPoint('RIGHT', footer, 'RIGHT', -padding, 0)
 
 	-- Text can measure 0 before the font is drawn once; size the buttons again when shown
 	footer:HookScript('OnShow', function()

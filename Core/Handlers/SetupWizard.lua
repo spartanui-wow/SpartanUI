@@ -83,6 +83,7 @@ function module:OnInitialize()
 	if not module.registration then
 		return
 	end
+	SUI.WindowKits:Register()
 
 	-- Setup windows take the accent of the active SpartanUI theme, and repaint when it changes
 	if LibAT.UI.SetAccentProvider then
@@ -101,6 +102,11 @@ function module:OnInitialize()
 			return 'Interface\\AddOns\\SpartanUI\\images\\setup\\backdrops\\' .. look .. '.png'
 		end)
 	end
+	if LibAT.UI.SetKitProvider then
+		LibAT.UI.SetKitProvider(function()
+			return SUI.WindowKits:GetActiveId()
+		end)
+	end
 
 	self:RegisterWelcomeSteps()
 	self:RegisterOtherAddonsStep()
@@ -115,6 +121,9 @@ function module:OnEnable()
 	if SUI.Event and LibAT and LibAT.UI and LibAT.UI.NotifyBackdropChanged then
 		SUI.Event:RegisterEvent('ARTWORK_STYLE_CHANGED', function()
 			LibAT.UI.NotifyBackdropChanged()
+			if LibAT.UI.NotifyKitChanged then
+				LibAT.UI.NotifyKitChanged()
+			end
 		end)
 	end
 

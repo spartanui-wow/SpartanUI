@@ -4,8 +4,8 @@ local L = SUI.L
 local Style = SUI.UI.Style
 
 -- SpartanUI's options window. AceConfigDialog fills the content area; the window adds a
--- sidebar that picks the top level page, a search box, a dock above the content for a live
--- preview (the Stage), and a footer for actions.
+-- sidebar that picks the top level page, a search box, a preview panel beside it (the Stage),
+-- and a footer for actions. Its frame, bars and panels come from the active window kit.
 
 local Type, Version = 'SUI-Window', 1
 local AceGUI = LibStub and LibStub('AceGUI-3.0', true)
@@ -13,9 +13,9 @@ if not AceGUI or (AceGUI:GetWidgetVersion(Type) or 0) >= Version then
 	return
 end
 
-local HEADER = 42
-local FOOTER = 40
 local SIDEBAR = 196
+-- Space between the content panel's edge and the settings inside it
+local CONTENT_PAD = 10
 local NAV_HEIGHT = 26
 local MIN_W, MIN_H = 760, 460
 -- Room the settings keep when a preview panel opens beside them
@@ -112,15 +112,18 @@ local methods = {
 	end,
 
 	OnWidthSet = function(self, width)
+		local layout = LibAT.UI.Kit:GetActive().layout
 		local content = self.content
-		local contentwidth = math.max(0, width - SIDEBAR - 24)
+		local contentwidth = math.max(0, width - layout.sideInset * 2 - SIDEBAR - 12 - CONTENT_PAD * 2)
 		content:SetWidth(contentwidth)
 		content.width = contentwidth
 	end,
 
 	OnHeightSet = function(self, height)
+		local layout = LibAT.UI.Kit:GetActive().layout
 		local content = self.content
-		local contentheight = math.max(0, height - HEADER - 10 - FOOTER - 4)
+		local chrome = layout.barInset * 2 + layout.titleHeight + layout.footerHeight + 18
+		local contentheight = math.max(0, height - chrome - CONTENT_PAD * 2)
 		content:SetHeight(contentheight)
 		content.height = contentheight
 	end,
@@ -301,7 +304,7 @@ local function Constructor()
 	end
 	tinsert(UISpecialFrames, 'SUI_OptionsWindow')
 
-	Style:SkinPanel(frame, Style.color.pane, Style.color.lineStrong)
+	LibAT.UI.Kit:DressShell(frame, { footer = true })
 
 	frame:SetScript('OnShow', function(self)
 		self.obj:Fire('OnShow')
@@ -313,11 +316,8 @@ local function Constructor()
 		AceGUI:ClearFocus()
 	end)
 
-	-- Header: drag handle, logo, title, close
-	local header = CreateFrame('Frame', nil, frame)
-	header:SetPoint('TOPLEFT')
-	header:SetPoint('TOPRIGHT')
-	header:SetHeight(HEADER)
+	-- Title bar: drag handle, logo, title (the kit draws the bar and the close button)
+	local header = frame.TitleBar
 	header:EnableMouse(true)
 	header:SetScript('OnMouseDown', function()
 		frame:StartMoving()
@@ -328,52 +328,23 @@ local function Constructor()
 		SaveStatus(frame)
 		frame.obj:PlaceStage()
 	end)
-	Style:CreateFill(header, Style.color.header)
+	frame.TitleText:Hide()
 
 	local logo = header:CreateTexture(nil, 'ARTWORK')
 	logo:SetTexture('Interface\\AddOns\\SpartanUI\\images\\setup\\SUISetup')
 	logo:SetTexCoord(0, 0.611328125, 0, 0.6640625)
-	logo:SetSize(96, 28)
+	logo:SetSize(80, 23)
 	logo:SetPoint('LEFT', 12, 0)
 
 	local titletext = Style:CreateText(header, 13, Style.color.muted)
 	titletext:SetPoint('LEFT', logo, 'RIGHT', 10, 0)
 
-	local accentLine = header:CreateTexture(nil, 'OVERLAY')
-	accentLine:SetTexture(Style.WHITE)
-	accentLine:SetPoint('BOTTOMLEFT')
-	accentLine:SetPoint('BOTTOMRIGHT')
-	accentLine:SetHeight(Style:PixelSize(header) * 2)
-
-	local close = CreateFrame('Button', nil, header)
-	close:SetSize(30, 30)
-	close:SetPoint('RIGHT', -6, 0)
-	close.label = Style:CreateText(close, 14, Style.color.muted)
-	close.label:SetPoint('CENTER')
-	close.label:SetText('x')
-	close:SetScript('OnEnter', function(self)
-		self.label:SetTextColor(Style.color.text[1], Style.color.text[2], Style.color.text[3])
-	end)
-	close:SetScript('OnLeave', function(self)
-		self.label:SetTextColor(Style.color.muted[1], Style.color.muted[2], Style.color.muted[3])
-	end)
-	close:SetScript('OnClick', function()
-		PlaySound(799)
-		frame.obj:Hide()
-	end)
-
 	-- Sidebar
 	local sidebar = CreateFrame('Frame', nil, frame)
-	sidebar:SetPoint('TOPLEFT', header, 'BOTTOMLEFT', 0, 0)
-	sidebar:SetPoint('BOTTOMLEFT', frame, 'BOTTOMLEFT', 0, FOOTER)
+	sidebar:SetPoint('TOPLEFT', frame.Body, 'TOPLEFT')
+	sidebar:SetPoint('BOTTOMLEFT', frame.Body, 'BOTTOMLEFT')
 	sidebar:SetWidth(SIDEBAR)
-	Style:CreateFill(sidebar, Style.color.raised)
-	local sideRule = sidebar:CreateTexture(nil, 'ARTWORK')
-	sideRule:SetTexture(Style.WHITE)
-	sideRule:SetPoint('TOPRIGHT')
-	sideRule:SetPoint('BOTTOMRIGHT')
-	sideRule:SetWidth(Style:PixelSize(sidebar))
-	sideRule:SetVertexColor(unpack(Style.color.line))
+	LibAT.UI.Kit:SkinPanel(sidebar, { elevation = 1, shadow = false })
 
 	local searchBox = CreateFrame('EditBox', nil, sidebar)
 	searchBox:SetHeight(24)
@@ -427,52 +398,24 @@ local function Constructor()
 	stage:SetWidth(0.001)
 	stage:EnableMouse(true)
 	stage:Hide()
-	Style:SkinPanel(stage, Style.color.pane, Style.color.lineStrong)
+	LibAT.UI.Kit:SkinPanel(stage, { elevation = 1 })
 
-	local content = CreateFrame('Frame', nil, frame)
-	content:SetPoint('TOPLEFT', sidebar, 'TOPRIGHT', 12, -10)
-	content:SetPoint('BOTTOMRIGHT', frame, 'BOTTOMRIGHT', -12, FOOTER + 4)
+	local contentPanel = CreateFrame('Frame', nil, frame)
+	contentPanel:SetPoint('TOPLEFT', sidebar, 'TOPRIGHT', 12, 0)
+	contentPanel:SetPoint('BOTTOMRIGHT', frame.Body, 'BOTTOMRIGHT')
+	LibAT.UI.Kit:SkinPanel(contentPanel, { elevation = 1, shadow = false })
 
-	-- Footer
-	local footer = CreateFrame('Frame', nil, frame)
-	footer:SetPoint('BOTTOMLEFT')
-	footer:SetPoint('BOTTOMRIGHT')
-	footer:SetHeight(FOOTER)
-	Style:CreateFill(footer, Style.color.header)
-	local footRule = footer:CreateTexture(nil, 'ARTWORK')
-	footRule:SetTexture(Style.WHITE)
-	footRule:SetPoint('TOPLEFT')
-	footRule:SetPoint('TOPRIGHT')
-	footRule:SetHeight(Style:PixelSize(footer))
-	footRule:SetVertexColor(unpack(Style.color.line))
+	local content = CreateFrame('Frame', nil, contentPanel)
+	content:SetPoint('TOPLEFT', CONTENT_PAD, -CONTENT_PAD)
+	content:SetPoint('BOTTOMRIGHT', -CONTENT_PAD, CONTENT_PAD)
 
-	local sizer = CreateFrame('Frame', nil, frame)
-	sizer:SetSize(16, 16)
-	sizer:SetPoint('BOTTOMRIGHT')
-	sizer:SetFrameLevel(footer:GetFrameLevel() + 5)
-	sizer:EnableMouse(true)
-	for i = 1, 3 do
-		local dot = sizer:CreateTexture(nil, 'OVERLAY')
-		dot:SetTexture(Style.WHITE)
-		dot:SetVertexColor(Style.color.faint[1], Style.color.faint[2], Style.color.faint[3], 0.8)
-		dot:SetSize(2, 2)
-		dot:SetPoint('BOTTOMRIGHT', -3 - (i - 1) * 4, 3)
-		if i > 1 then
-			local up = sizer:CreateTexture(nil, 'OVERLAY')
-			up:SetTexture(Style.WHITE)
-			up:SetVertexColor(Style.color.faint[1], Style.color.faint[2], Style.color.faint[3], 0.8)
-			up:SetSize(2, 2)
-			up:SetPoint('BOTTOMRIGHT', -3, 3 + (i - 1) * 4)
-		end
+	-- Footer and resize grip come from the kit
+	local footer = frame.Footer
+	local sizer = frame.ResizeHandle
+	sizer:Show()
+	function frame:OnResized()
+		SaveStatus(self)
 	end
-	sizer:SetScript('OnMouseDown', function()
-		frame:StartSizing('BOTTOMRIGHT')
-		AceGUI:ClearFocus()
-	end)
-	sizer:SetScript('OnMouseUp', function()
-		frame:StopMovingOrSizing()
-		SaveStatus(frame)
-	end)
 
 	local widget = {
 		localstatus = {},
@@ -496,6 +439,12 @@ local function Constructor()
 	for method, func in pairs(methods) do
 		widget[method] = func
 	end
+
+	-- A kit with a different frame size changes the room the settings get
+	LibAT.UI.Kit:Track(contentPanel, function()
+		widget:OnWidthSet(frame:GetWidth())
+		widget:OnHeightSet(frame:GetHeight())
+	end)
 
 	-- Search
 	local pending
@@ -542,8 +491,7 @@ local function Constructor()
 		widget:ClearSearch()
 	end)
 
-	Style:OnAccentChanged(frame, function(r, g, b)
-		accentLine:SetVertexColor(r, g, b, 1)
+	Style:OnAccentChanged(frame, function()
 		for _, button in ipairs(widget.navButtons) do
 			if button:IsShown() then
 				PaintNav(button)

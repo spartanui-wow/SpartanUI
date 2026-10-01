@@ -321,19 +321,12 @@ local function reloaduiWindow()
 		height = 100,
 		hidePortrait = true,
 	})
-	popup.Inset:Hide()
-
-	popup.Background = popup:CreateTexture(nil, 'BACKGROUND')
-	popup.Background:SetAtlas('auctionhouse-background-index', true)
-	popup.Background:SetPoint('TOPLEFT', popup, 'TOPLEFT', 5, -27)
-	popup.Background:SetPoint('BOTTOMRIGHT', popup, 'BOTTOMRIGHT', -5, 27)
-
 	popup:SetPoint('TOP', UIParent, 'TOP', 0, -20)
 	popup:SetFrameStrata('DIALOG')
 
 	-- Message
 	local message = UI.CreateLabel(popup, 'A reload of your UI is required.', 'GameFontNormalLarge')
-	message:SetPoint('CENTER', popup.Background, 'CENTER', 0, 0)
+	message:SetPoint('CENTER', popup.Body, 'CENTER', 0, 0)
 
 	-- Buttons
 	UI.CreateActionButtons(popup, {

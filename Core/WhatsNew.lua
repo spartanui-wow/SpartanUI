@@ -19,7 +19,7 @@ function SUI:WhatsNew()
 	local logo = module.window:CreateTexture(nil, 'ARTWORK')
 	logo:SetTexture('Interface\\AddOns\\SpartanUI\\images\\setup\\SUISetup')
 	logo:SetSize(256, 64)
-	logo:SetPoint('TOP', module.window, 'TOP', 0, -35)
+	logo:SetPoint('TOP', module.window.Body, 'TOP', 0, 0)
 	logo:SetAlpha(0.8)
 
 	-- Setup the Top text fields

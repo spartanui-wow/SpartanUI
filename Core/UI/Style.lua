@@ -2,9 +2,9 @@
 local SUI = SUI
 
 -- Shared visual language for SpartanUI's own tool windows (frame mover, options window, setup).
--- Flat dark panels, 1 physical pixel borders, one accent color taken from the active theme,
--- one condensed UI font and short eased motion. Anything drawn with these helpers repaints
--- itself when the accent changes.
+-- Colors and buttons follow the active window kit from Lib's AddonTools, so these windows look
+-- like every other kit window; the palette below is only used when no kit is loaded. Anything
+-- drawn with these helpers repaints itself when the accent or the kit changes.
 
 ---@class SUI.UI.Style
 local Style = {}
@@ -36,6 +36,22 @@ Style.color = {
 }
 
 local DEFAULT_ACCENT = { 0.886, 0.122, 0.122 }
+
+---Take colors from a window kit, then repaint everything drawn with these helpers.
+---@param kit table A normalized LibAT.UI.Kit config
+function Style:ApplyKit(kit)
+	local c, k = self.color, kit.colors
+	c.pane = k.surface[1]
+	c.raised = k.surface[2]
+	c.header = k.bar or k.surface[3]
+	c.line = { k.trim[1], k.trim[2], k.trim[3], 0.35 }
+	c.lineStrong = { k.trimHi[1], k.trimHi[2], k.trimHi[3], 0.45 }
+	c.text = k.text
+	c.muted = k.secondary
+	c.faint = k.muted
+	self.kit = kit
+	self:FireAccentChanged()
+end
 
 -- Accent per theme. A theme can also set `accent = { r, g, b }` in its registry metadata.
 local THEME_ACCENTS = {
@@ -261,6 +277,13 @@ function Style:SetFont(text, size, flags)
 	text:SetShadowOffset(1, -1)
 end
 
+---Text drawn on a filled shape (buttons, segments) is sharper without the drop shadow
+---@param text FontString
+function Style:ClearShadow(text)
+	text:SetShadowColor(0, 0, 0, 0)
+	text:SetShadowOffset(0, 0)
+end
+
 ----------------------------------------------------------------------------------------------------
 -- Buttons
 ----------------------------------------------------------------------------------------------------
@@ -272,9 +295,26 @@ end
 ---@field primary boolean
 ---@field active boolean
 
+---Kit buttons are a gradient with an edge; without a kit the flat fill below is used.
+local function PaintKitButton(button, colors, fallbackText)
+	local r, g, b = Style:GetAccent()
+	local top = colors.top or { r, g, b }
+	local bottom = colors.bottom or { r * 0.5, g * 0.5, b * 0.5 }
+	LibAT.UI.Kit:SetGradient(button.fill, top, bottom, button.hovered and 0.85 or 1)
+	local edge = colors.edge or { r, g, b }
+	button.border:SetColor(edge[1], edge[2], edge[3], 1)
+	local text = colors.text or fallbackText
+	button.label:SetTextColor(text[1], text[2], text[3])
+end
+
 local function PaintButton(button)
 	local c = Style.color
 	local r, g, b = Style:GetAccent()
+	local kit = Style.kit
+	if kit and button:IsEnabled() and not button.active then
+		PaintKitButton(button, button.primary and kit.button.primary or kit.button.secondary, button.primary and c.onAccent or c.text)
+		return
+	end
 	if not button:IsEnabled() then
 		button.fill:SetVertexColor(c.raised[1], c.raised[2], c.raised[3], 0.6)
 		button.border:SetColor(c.line[1], c.line[2], c.line[3], c.line[4])
@@ -332,6 +372,7 @@ function Style:CreateButton(parent, text, width, onClick, primary)
 	button.fill = Style:CreateFill(button, Style.color.raised)
 	button.border = Style:CreateBorder(button)
 	button.label = Style:CreateText(button, 11)
+	Style:ClearShadow(button.label)
 	button.label:SetPoint('CENTER', 0, 0)
 	button.label:SetText(text)
 	button.primary = primary or false
@@ -468,6 +509,11 @@ watcher:RegisterEvent('PLAYER_ENTERING_WORLD')
 watcher:RegisterEvent('PLAYER_LOGIN')
 watcher:SetScript('OnEvent', function(_, event)
 	if event == 'PLAYER_LOGIN' then
+		if LibAT and LibAT.UI and LibAT.UI.Kit then
+			LibAT.UI.Kit:Track(watcher, function(_, kit)
+				Style:ApplyKit(kit)
+			end)
+		end
 		-- SUI.Event loads after the core UI files
 		if SUI.Event then
 			SUI.Event:RegisterEvent('ARTWORK_STYLE_CHANGED', function()

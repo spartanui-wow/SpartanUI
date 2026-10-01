@@ -16,6 +16,7 @@ local SUI = SUI
 ---@field accent? number[] { r, g, b } accent color for SpartanUI's own windows
 ---@field font? SUI.ThemeRegistry.FontSpec Font the theme draws with when the player has not picked one
 ---@field artGroups? { graphic?: string, sections: string[], groupSections?: string[] } Give focus, pet, boss, arena, party and raid frames this theme's unit frame art
+---@field kit? string Shared window trim kit id
 
 ---@class SUI.ThemeRegistry.FontSpec
 ---@field face string Bundled LibSharedMedia font name, always available

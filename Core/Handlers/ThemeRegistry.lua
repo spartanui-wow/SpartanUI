@@ -193,6 +193,7 @@ function ThemeRegistry:Register(metadata, dataCallback)
 		accent = metadata.accent,
 		font = metadata.font,
 		artGroups = metadata.artGroups,
+		kit = metadata.kit,
 		dataCallback = dataCallback,
 		variants = metadata.variants,
 		variantGroup = metadata.variantGroup,

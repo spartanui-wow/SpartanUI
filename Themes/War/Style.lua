@@ -14,6 +14,7 @@ function module:OnInitialize()
 		setup = {
 			image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_War',
 		},
+		kit = 'war',
 		applicableTo = SUI.ThemeArt.ApplicableTo(true),
 		artGroups = { graphic = 'War', sections = { 'top', 'bg', 'bottom' } },
 	}, function()
