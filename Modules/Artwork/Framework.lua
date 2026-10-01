@@ -136,25 +136,33 @@ local function BuildLookCards()
 	return cards
 end
 
----Switch to a look. A variant that does not set a style of its own (Fel's Engulfed and Calmed only
----change its minimap) needs the theme itself switched to first.
+---Switch to a look: its artwork and its unit frames, as the theme buttons in the options do. A
+---variant can set either itself (applyStyle, applyUF); whatever it leaves out comes from the theme.
+---Fel's Engulfed and Calmed only change its minimap, so Fel itself is switched to first.
 ---@param value string Theme name
 ---@param variant? string Variant id
 local function ApplyLook(value, variant)
 	local variants = SUI.ThemeRegistry:GetVariants(value)
 	if not variants then
 		SUI:SetActiveStyle(value)
+		if SUI.UF then
+			SUI.UF:SetActiveStyle(value)
+		end
 		return
 	end
 	variant = variant or SUI.ThemeRegistry:GetActiveVariant(value) or value
-	local appliesStyle = false
+	local appliesStyle, appliesUF = false, false
 	for _, entry in ipairs(variants) do
-		if entry.id == variant and entry.applyStyle then
-			appliesStyle = true
+		if entry.id == variant then
+			appliesStyle = entry.applyStyle ~= nil
+			appliesUF = entry.applyUF ~= nil
 		end
 	end
 	if not appliesStyle and SUI:GetActiveStyle() ~= value then
 		SUI:SetActiveStyle(value)
+	end
+	if not appliesUF and SUI.UF then
+		SUI.UF:SetActiveStyle(value)
 	end
 	SUI.ThemeRegistry:ApplyVariant(value, variant)
 end
