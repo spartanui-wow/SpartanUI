@@ -136,6 +136,29 @@ local function BuildLookCards()
 	return cards
 end
 
+---Switch to a look. A variant that does not set a style of its own (Fel's Engulfed and Calmed only
+---change its minimap) needs the theme itself switched to first.
+---@param value string Theme name
+---@param variant? string Variant id
+local function ApplyLook(value, variant)
+	local variants = SUI.ThemeRegistry:GetVariants(value)
+	if not variants then
+		SUI:SetActiveStyle(value)
+		return
+	end
+	variant = variant or SUI.ThemeRegistry:GetActiveVariant(value) or value
+	local appliesStyle = false
+	for _, entry in ipairs(variants) do
+		if entry.id == variant and entry.applyStyle then
+			appliesStyle = true
+		end
+	end
+	if not appliesStyle and SUI:GetActiveStyle() ~= value then
+		SUI:SetActiveStyle(value)
+	end
+	SUI.ThemeRegistry:ApplyVariant(value, variant)
+end
+
 ---The look shown as in use: a sub-theme counts as its family
 ---@return string
 local function ActiveLook()
@@ -161,17 +184,13 @@ local function RegisterSetupWizardPages()
 		cards = BuildLookCards(),
 		get = ActiveLook,
 		set = function(value)
-			if SUI.ThemeRegistry:GetVariants(value) then
-				SUI.ThemeRegistry:ApplyVariant(value, SUI.ThemeRegistry:GetActiveVariant(value) or value)
-			else
-				SUI:SetActiveStyle(value)
-			end
+			ApplyLook(value)
 		end,
 		getVariant = function(value)
 			return SUI.ThemeRegistry:GetActiveVariant(value)
 		end,
 		setVariant = function(value, variant)
-			SUI.ThemeRegistry:ApplyVariant(value, variant)
+			ApplyLook(value, variant)
 		end,
 	})
 
