@@ -268,6 +268,7 @@ local function updateAura(element, unit, index, offset, filter, isDebuff, visibl
 		timeMod = modRate,
 		-- oUF-compatible safe properties
 		isPlayerAura = (source == 'player' or source == 'vehicle'),
+		isHarmful = isDebuff,
 		isHarmfulAura = isDebuff,
 		isHelpful = not isDebuff,
 		isRaid = false, -- Classic doesn't have this flag

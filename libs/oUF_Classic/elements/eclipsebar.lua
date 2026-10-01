@@ -7,7 +7,7 @@ local UnitPower = UnitPower
 local UnitPowerMax = UnitPowerMax
 local UnitHasVehicleUI = UnitHasVehicleUI
 local GetShapeshiftFormID = GetShapeshiftFormID
-local GetPrimaryTalentTree = GetPrimaryTalentTree
+local GetSpecialization = (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization) or GetSpecialization or GetPrimaryTalentTree
 local GetEclipseDirection = GetEclipseDirection
 
 local POWERTYPE_BALANCE = Enum.PowerType.Balance
@@ -89,9 +89,9 @@ local function Visibility(self)
 
 	if not UnitHasVehicleUI('player') then
 		local form = GetShapeshiftFormID()
-		local ptt = GetPrimaryTalentTree()
+		local spec = GetSpecialization()
 
-		if ptt and ptt == 1 and (form == MOONKIN_FORM or not form) then
+		if spec == 1 and (form == MOONKIN_FORM or not form) then
 			shouldEnable = true
 		end
 	end
