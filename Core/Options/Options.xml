@@ -5,4 +5,5 @@
 	<Script file="Search.lua"/>
 	<Script file="Stage.lua"/>
 	<Script file="Setup.lua"/>
+	<Script file="UITest.lua"/>
 </Ui>

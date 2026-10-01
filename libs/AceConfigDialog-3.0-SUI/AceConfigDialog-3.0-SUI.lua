@@ -1187,11 +1187,9 @@ end
 -- SUI: appName lets an app swap a custom control name that is not registered for its own widget
 local function CreateControl(userControlType, fallbackControlType, appName)
 	local control
-	if userControlType and not gui:GetWidgetVersion(userControlType) then
-		local mapped = MapType(appName, userControlType)
-		if mapped ~= userControlType then
-			userControlType = mapped
-		end
+	-- SUI: the app's widget map also replaces registered custom types (shared media pickers)
+	if userControlType then
+		userControlType = MapType(appName, userControlType)
 	end
 	if userControlType then
 		control = gui:Create(userControlType)
@@ -1335,7 +1333,7 @@ local function FeedOptions(appName, options,container,rootframe,path,group,inlin
 					control:SetCallback("OnClick",ActivateControl)
 
 				elseif v.type == "input" then
-					control = CreateControl(v.dialogControl or v.control, v.multiline and "MultiLineEditBox" or MapType(appName, "EditBox"), appName) -- SUI: MapType
+					control = CreateControl(v.dialogControl or v.control, v.multiline and MapType(appName, "MultiLineEditBox") or MapType(appName, "EditBox"), appName) -- SUI: MapType
 
 					if v.multiline and control.SetNumLines then
 						control:SetNumLines(tonumber(v.multiline) or 4)
@@ -1554,7 +1552,7 @@ local function FeedOptions(appName, options,container,rootframe,path,group,inlin
 					control:SetCallback("OnValueConfirmed",ActivateControl)
 
 				elseif v.type == "keybinding" then
-					control = CreateControl(v.dialogControl or v.control, "Keybinding", appName) -- SUI: appName
+					control = CreateControl(v.dialogControl or v.control, MapType(appName, "Keybinding"), appName) -- SUI: MapType
 					control:SetLabel(name)
 					control:SetKey(GetOptionsMemberValue("get",v, options, path, appName))
 					control:SetCallback("OnKeyChanged",ActivateControl)

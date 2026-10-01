@@ -6,6 +6,8 @@ local W = SUI.UI.OptionWidgets
 -- Dropdown replacement with its own flat list. Long lists scroll and get a search box, and the
 -- list can be driven with the arrow keys, Enter and Escape. Same methods, callbacks and events as
 -- the stock AceGUI Dropdown. Custom item widget types are shown as plain text.
+-- The SUI-Media-* types are the same dropdown for shared media (fonts, bar textures, backgrounds,
+-- borders, sounds): they show the media name and preview each item.
 
 local Type, Version = 'SUI-Dropdown', 1
 local AceGUI = LibStub and LibStub('AceGUI-3.0', true)
@@ -31,6 +33,28 @@ local L = SUI.L or setmetatable({}, {
 
 ---@class SUI.OptionsDropdownPullout : Frame
 local pullout
+
+local LSM = LibStub and LibStub('LibSharedMedia-3.0', true)
+local MEDIA = { Font = 'font', Statusbar = 'statusbar', Background = 'background', Border = 'border', Sound = 'sound' }
+local SWATCH_W = 40
+local SPEAKER = 'Interface\\Common\\VoiceChat-Speaker'
+
+---The file for a media item; lists map a media name to its file
+local function MediaPath(self, key)
+	local path = self.list and self.list[key]
+	if (path == nil or path == key) and LSM then
+		path = LSM:Fetch(self.media, key, true)
+	end
+	return path
+end
+
+---What a list item reads as: media lists show the name, other lists their text
+local function ItemText(self, key)
+	if self.media then
+		return key ~= nil and tostring(key) or ''
+	end
+	return self.list[key]
+end
 
 ----------------------------------------------------------------------------------------------------
 -- List helpers
@@ -60,11 +84,116 @@ local function BuildVisible(self, query)
 	local visible = {}
 	local needle = query and query ~= '' and query:lower() or nil
 	for _, key in ipairs(self.order) do
-		if not needle or W.PlainText(self.list[key]):lower():find(needle, 1, true) then
+		if not needle or W.PlainText(ItemText(self, key)):lower():find(needle, 1, true) then
 			visible[#visible + 1] = key
 		end
 	end
 	return visible
+end
+
+----------------------------------------------------------------------------------------------------
+-- Media previews (used by the box and by list rows)
+----------------------------------------------------------------------------------------------------
+
+local function Speaker_OnClick(play)
+	if play.path and PlaySoundFile then
+		PlaySoundFile(play.path, 'Master')
+	end
+end
+
+local function Speaker_OnEnter(play)
+	play.icon:SetVertexColor(1, 1, 1, 1)
+end
+
+local function Speaker_OnLeave(play)
+	local c = Style.color.muted
+	play.icon:SetVertexColor(c[1], c[2], c[3], 1)
+end
+
+local function EnsureMediaParts(holder)
+	if holder.mediaBar then
+		return
+	end
+	holder.mediaBar = holder:CreateTexture(nil, 'ARTWORK', nil, -8)
+	holder.mediaBar:SetPoint('TOPLEFT', 1, -1)
+	holder.mediaBar:SetPoint('BOTTOMRIGHT', -1, 1)
+	holder.mediaBar:Hide()
+	holder.mediaSwatch = holder:CreateTexture(nil, 'ARTWORK')
+	holder.mediaSwatch:SetSize(SWATCH_W, 14)
+	holder.mediaSwatch:Hide()
+	holder.mediaEdge = CreateFrame('Frame', nil, holder, BackdropTemplateMixin and 'BackdropTemplate' or nil)
+	holder.mediaEdge:SetSize(SWATCH_W, 16)
+	holder.mediaEdge:Hide()
+	local play = CreateFrame('Button', nil, holder)
+	play:SetSize(16, 16)
+	play.icon = play:CreateTexture(nil, 'ARTWORK')
+	play.icon:SetAllPoints()
+	play.icon:SetTexture(SPEAKER)
+	play:SetScript('OnClick', Speaker_OnClick)
+	play:SetScript('OnEnter', Speaker_OnEnter)
+	play:SetScript('OnLeave', Speaker_OnLeave)
+	Speaker_OnLeave(play)
+	play:Hide()
+	holder.mediaPlay = play
+end
+
+---Show `key` of a media dropdown on `holder` (the box or a row): the font face, a bar texture behind
+---the text, a background or border swatch, or a speaker that plays the sound. Without a media owner
+---every preview is put away again, since rows are shared by all dropdowns.
+---@param holder Frame
+---@param text FontString
+---@param owner table|nil Dropdown widget
+---@param key any
+---@param right number Space the text normally keeps on its right
+local function PaintMedia(holder, text, owner, key, right)
+	local kind = owner and owner.media
+	if not kind and not holder.mediaBar then
+		return
+	end
+	EnsureMediaParts(holder)
+	local path = kind and key ~= nil and MediaPath(owner, key) or nil
+
+	if kind == 'font' and path then
+		text:SetFont(path, W.LABEL_SIZE, '')
+		holder.mediaFont = true
+	elseif holder.mediaFont then
+		Style:SetFont(text, W.LABEL_SIZE)
+		holder.mediaFont = nil
+	end
+
+	holder.mediaBar:SetShown(kind == 'statusbar' and path ~= nil)
+	if kind == 'statusbar' and path then
+		holder.mediaBar:SetTexture(path)
+		holder.mediaBar:SetVertexColor(1, 1, 1, 0.75)
+	end
+
+	local swatch = kind == 'background' and path ~= nil
+	holder.mediaSwatch:SetShown(swatch)
+	if swatch then
+		holder.mediaSwatch:SetTexture(path)
+		holder.mediaSwatch:ClearAllPoints()
+		holder.mediaSwatch:SetPoint('RIGHT', holder, 'RIGHT', -right, 0)
+	end
+
+	local edge = kind == 'border' and path ~= nil
+	holder.mediaEdge:SetShown(edge)
+	if edge then
+		holder.mediaEdge:SetBackdrop({ edgeFile = path, edgeSize = 12 })
+		holder.mediaEdge:ClearAllPoints()
+		holder.mediaEdge:SetPoint('RIGHT', holder, 'RIGHT', -right, 0)
+	end
+
+	local sound = kind == 'sound' and path ~= nil
+	holder.mediaPlay:SetShown(sound)
+	holder.mediaPlay.path = path
+	if sound then
+		holder.mediaPlay:ClearAllPoints()
+		holder.mediaPlay:SetPoint('RIGHT', holder, 'RIGHT', -right, 0)
+		holder.mediaPlay:SetFrameLevel(holder:GetFrameLevel() + 2)
+	end
+
+	local extra = (swatch or edge) and (SWATCH_W + 6) or (sound and 22 or 0)
+	text:SetPoint('RIGHT', holder, 'RIGHT', -(right + extra), 0)
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -221,7 +350,8 @@ function Pullout.Render()
 		row.index = index
 		row.key = key
 		if key ~= nil then
-			row.text:SetText(owner.list[key])
+			row.text:SetText(ItemText(owner, key))
+			PaintMedia(row, row.text, owner, key, 6)
 			row:Show()
 			PaintRow(row)
 		else
@@ -673,7 +803,12 @@ local methods = {
 	end,
 
 	SetValue = function(self, value)
-		self:SetText(self.list[value] or '')
+		if self.media then
+			self:SetText(value ~= nil and tostring(value) or '')
+			PaintMedia(self.button, self.text, value ~= nil and self or nil, value, 22)
+		else
+			self:SetText(self.list[value] or '')
+		end
 		self.value = value
 		if self.open and pullout and pullout.owner == self then
 			Pullout.Render()
@@ -703,6 +838,9 @@ local methods = {
 	end,
 
 	SetList = function(self, list, order, itemType)
+		if not list and self.media and LSM then
+			list = LSM:HashTable(self.media)
+		end
 		self.list = list or {}
 		self.itemType = itemType
 		wipe(self.order)
@@ -756,8 +894,10 @@ local methods = {
 -- Constructor
 ----------------------------------------------------------------------------------------------------
 
-local function Constructor()
-	local count = AceGUI:GetNextWidgetNum(Type)
+---@param kind? string A MEDIA key for a shared media dropdown
+local function Constructor(kind)
+	local widgetType = kind and ('SUI-Media-' .. kind) or Type
+	local count = AceGUI:GetNextWidgetNum(widgetType)
 	local frame = CreateFrame('Frame', nil, UIParent)
 	frame:Hide()
 	frame:SetScript('OnHide', Dropdown_OnHide)
@@ -771,7 +911,7 @@ local function Constructor()
 	label:SetHeight(20)
 	label:Hide()
 
-	local button = CreateFrame('Button', 'SUI_OptionsDropdown' .. count, frame)
+	local button = CreateFrame('Button', 'SUI_Options' .. (kind or '') .. 'Dropdown' .. count, frame)
 	button:SetPoint('BOTTOMLEFT', 0, 0)
 	button:SetPoint('BOTTOMRIGHT', 0, 0)
 	button:SetHeight(W.INPUT_HEIGHT)
@@ -790,7 +930,8 @@ local function Constructor()
 	arrow.anchor:SetPoint('RIGHT', button, 'RIGHT', -8, 0)
 
 	local widget = {
-		type = Type,
+		type = widgetType,
+		media = kind and MEDIA[kind],
 		frame = frame,
 		count = count,
 		button = button,
@@ -814,4 +955,12 @@ local function Constructor()
 	return AceGUI:RegisterAsWidget(widget)
 end
 
-AceGUI:RegisterWidgetType(Type, Constructor, Version)
+AceGUI:RegisterWidgetType(Type, function()
+	return Constructor()
+end, Version)
+
+for kind in pairs(MEDIA) do
+	AceGUI:RegisterWidgetType('SUI-Media-' .. kind, function()
+		return Constructor(kind)
+	end, Version)
+end

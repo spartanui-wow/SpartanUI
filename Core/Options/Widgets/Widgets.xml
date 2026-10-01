@@ -3,6 +3,8 @@
 	<Script file="Switch.lua"/>
 	<Script file="Slider.lua"/>
 	<Script file="EditBox.lua"/>
+	<Script file="MultiLineEditBox.lua"/>
+	<Script file="Keybinding.lua"/>
 	<Script file="Button.lua"/>
 	<Script file="Heading.lua"/>
 	<Script file="ColorPicker.lua"/>

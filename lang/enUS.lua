@@ -1360,6 +1360,7 @@ L['Logs'] = true
 L['Main page'] = true
 L['More settings'] = true
 L['Nothing found. Try another word.'] = true
+L['Press a key. Esc clears it.'] = true
 L['Search settings'] = true
 L['Unitframe Presets'] = true
 L['Click a part to jump to its settings'] = true

@@ -167,6 +167,7 @@ local function Constructor()
 	frame.border = Style:CreateBorder(frame)
 
 	local text = Style:CreateText(frame, W.LABEL_SIZE)
+	Style:ClearShadow(text)
 	text:SetPoint('TOPLEFT', 8, -1)
 	text:SetPoint('BOTTOMRIGHT', -8, 1)
 	text:SetJustifyV('MIDDLE')
