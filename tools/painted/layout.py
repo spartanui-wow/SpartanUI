@@ -6,12 +6,43 @@ Coordinates:
 """
 
 import os
+import json
+import subprocess
 from functools import lru_cache
 
-import lupa
+try:
+    import lupa
+except ImportError:
+    lupa = None
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 PAINTED = os.path.join(ROOT, 'Themes', 'Painted.lua')
+
+
+@lru_cache(maxsize=None)
+def external_layout(native=45):
+    """Use an explicitly supplied Lua executable on offline machines without lupa."""
+    executable = os.environ.get('PAINTED_LUA')
+    if not executable:
+        raise RuntimeError('Install lupa or set PAINTED_LUA to a Lua executable')
+    script = os.path.join(os.path.dirname(__file__), 'dump_layout.lua')
+    return json.loads(subprocess.check_output([executable, script, ROOT, str(native)], text=True))
+
+
+@lru_cache(maxsize=None)
+def theme_spec(theme):
+    if not theme:
+        return {}
+    if lupa is None:
+        return external_layout()['specs'].get(theme, {})
+    lua = lupa.LuaRuntime(unpack_returned_tuples=True)
+    path = os.path.join(ROOT, 'Themes', theme, 'Style.lua')
+    if not os.path.exists(path):
+        return {}
+    lua.execute('SUI = { ThemePainted = { Register = function(spec) captured = spec end } }')
+    source = open(path, encoding='utf-8').read()
+    lua.execute(source)
+    return to_py(lua.globals().captured)
 
 
 def to_py(value):
@@ -32,6 +63,8 @@ def painted_module():
 
 def fit_bars(theme, native=45):
     """The bars fitted into a look's painted trays, as the game places them (Painted.FitBars)."""
+    if lupa is None:
+        return external_layout(native)['bars'].get(theme or '', external_layout(native)['bars']['default'])
     return to_py(painted_module().FitBars(theme, native))
 
 
@@ -45,6 +78,8 @@ def theme_from_images(images):
 
 @lru_cache(maxsize=1)
 def layout():
+    if lupa is None:
+        return external_layout()['layout']
     painted = painted_module()
     data = to_py(painted.LAYOUT)
     width, height = painted.BarSize(False)

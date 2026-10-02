@@ -156,7 +156,32 @@ def draw_statusbars(canvas, sc, lay, images, accent, shift=0, narrow_look=False)
         d.rectangle(fill, fill=accent + (200,))
 
 
-def draw_unitframe(canvas, sc, lay, images, unit, portrait=True):
+def draw_plate(canvas, sc, lay, image, left, bottom, width, height, mirrored=False):
+    """Mirror Plate and oUF_SpartanArt.DrawSliced, keeping all four caps fixed."""
+    plate = lay['plate']
+    margin = plate['slice']
+    scale = plate['width'] / plate['file']['width']
+    right = plate['width'] - plate['left'] - lay['frames']['width']
+    below = plate['height'] - plate['top'] - lay['frameHeight']
+    outer_left = left - (right if mirrored else plate['left'])
+    outer_right = left + width + (plate['left'] if mirrored else right)
+    outer_top = bottom + height + plate['top']
+    outer_bottom = bottom - below
+    if mirrored:
+        image = image.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+    ml, mr = (margin['right'], margin['left']) if mirrored else (margin['left'], margin['right'])
+    sx = (0, ml, image.width - mr, image.width)
+    sy = (0, margin['top'], image.height - margin['bottom'], image.height)
+    dx = (outer_left, outer_left + ml * scale, outer_right - mr * scale, outer_right)
+    dy = (outer_top, outer_top - margin['top'] * scale, outer_bottom + margin['bottom'] * scale, outer_bottom)
+    for row in range(3):
+        for col in range(3):
+            tile = image.crop((sx[col], sy[row], sx[col + 1], sy[row + 1]))
+            paste_scaled(canvas, tile, sc.rect(dx[col], dy[row + 1], dx[col + 1], dy[row]))
+
+
+def draw_unitframe(canvas, sc, lay, images, unit, portrait=True, spec=None):
+    spec = spec or {}
     plate_info = lay['plate']
     frames = lay['frames']
     spot = frames[unit]
@@ -164,21 +189,11 @@ def draw_unitframe(canvas, sc, lay, images, unit, portrait=True):
     left, bottom = spot['x'] - width / 2, spot['y'] - height / 2
     top = bottom + height
     is_target = unit == 'target'
-    # The plate is always the one without a ring; the ring is drawn on its own over it
     path = os.path.join(images, 'UnitFrame-NoPortrait.png')
-    if os.path.exists(path):
-        plate = Image.open(path).convert('RGBA')
-        if is_target:
-            plate = plate.transpose(Image.FLIP_LEFT_RIGHT)
-            px1 = left + width + plate_info['left'] - plate_info['width']
-        else:
-            px1 = left - plate_info['left']
-        py2 = top + plate_info['top']
-        paste_scaled(canvas, plate, sc.rect(px1, py2 - plate_info['height'], px1 + plate_info['width'], py2))
     mount = lay['mount']
     mount_path = os.path.join(images, 'UnitFrame-Mount.png')
     if portrait and os.path.exists(mount_path):
-        # The ring and its joining piece sit behind the plate: draw them, then the plate again on top
+        # Mount uses the plate's picture scale; PlacePortrait sizes the face separately.
         art = Image.open(mount_path).convert('RGBA')
         if is_target:
             art = art.transpose(Image.FLIP_LEFT_RIGHT)
@@ -186,8 +201,8 @@ def draw_unitframe(canvas, sc, lay, images, unit, portrait=True):
         rx = left + mount['x'] if not is_target else left + width - mount['x']
         ry = bottom + height / 2
         paste_scaled(canvas, art, sc.rect(rx - size / 2, ry - size / 2, rx + size / 2, ry + size / 2))
-        if os.path.exists(path):
-            paste_scaled(canvas, plate, sc.rect(px1, py2 - plate_info['height'], px1 + plate_info['width'], py2))
+    if os.path.exists(path):
+        draw_plate(canvas, sc, lay, Image.open(path).convert('RGBA'), left, bottom, width, height, is_target)
     d = ImageDraw.Draw(canvas)
     # Bars, inset inside the plate's window: power along the
     # bottom, health over everything above it, the cast bar over the power bar
@@ -198,8 +213,8 @@ def draw_unitframe(canvas, sc, lay, images, unit, portrait=True):
     d.rectangle(sc.rect(bl, low + frames['power'], br, top - inset['top']), fill=(40, 170, 60, 235))
     d.rectangle(sc.rect(bl, low, br, low + frames['power']), fill=(40, 80, 200, 235))
     d.rectangle(sc.rect(bl, low, bl + (br - bl) * 0.6, low + frames['power']), fill=(220, 170, 40, 200))
-    name_off = inset['side'] + 2
-    name_x, name_y = sc.pt(left + (width - name_off if is_target else name_off), top + 2)
+    name_off = spec.get('nameInset', inset['side'] + 2)
+    name_x, name_y = sc.pt(left + (width - name_off if is_target else name_off), top + (7 if spec.get('nameAbove') else 2))
     f = font(max(10, int(12 * sc.px)))
     text = 'Target Name' if is_target else '60 Player Name'
     tw = d.textlength(text, font=f)
@@ -210,8 +225,9 @@ def draw_unitframe(canvas, sc, lay, images, unit, portrait=True):
     p = lay['mount']
     cx = left + p['x'] if not is_target else left + width - p['x']
     cy = bottom + height / 2
-    box = [int(v) for v in sc.rect(cx - p['size'] / 2, cy - p['size'] / 2, cx + p['size'] / 2, cy + p['size'] / 2)]
-    size = box[2] - box[0]
+    size = int(round(p['size'] * sc.px))
+    pcx, pcy = sc.pt(cx, cy)
+    box = [int(round(pcx - size / 2)), int(round(pcy - size / 2))]
     face = Image.new('RGBA', (size, size), (0, 0, 0, 0))
     fd = ImageDraw.Draw(face)
     for i in range(size // 2, 0, -1):
@@ -242,15 +258,16 @@ def render(images, out, size, bg=None, accent=(150, 110, 230), variant='docked',
     draw_minimap(canvas, sc, lay, images, corner)
     nc = lay['narrowCentre']
     shift = nc['plaque'] - nc['keep'] if corner and narrow else 0
-    from layout import ROOT, theme_from_images
+    from layout import ROOT, theme_from_images, theme_spec
 
     look = theme or theme_from_images(images)
+    spec = theme_spec(look)
     style = os.path.join(ROOT, 'Themes', look, 'Style.lua') if look else None
     narrow_look = bool(style and os.path.exists(style) and 'narrowCentre = true' in open(style, encoding='utf-8').read())
     draw_statusbars(canvas, sc, lay, images, accent, shift, narrow_look)
     draw_buttons(canvas, sc, lay, images, shift, look)
     for unit in ('player', 'target'):
-        draw_unitframe(canvas, sc, lay, images, unit, portrait)
+        draw_unitframe(canvas, sc, lay, images, unit, portrait, spec)
     canvas.convert('RGB').save(out)
     return out
 

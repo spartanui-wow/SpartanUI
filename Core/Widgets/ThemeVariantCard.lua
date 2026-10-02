@@ -192,7 +192,19 @@ local function SetLabel(self, text)
 	self.label:SetText(text or '')
 	-- Auto-set theme image from label text (matches setup image naming convention)
 	if text and text ~= '' then
-		self.imageBtn:SetNormalTexture('interface\\addons\\SpartanUI\\images\\setup\\Style_' .. (text:gsub(' ', '')))
+		-- Cards are named after the look's id; a renamed look (Voyager is Atlas) maps back to it
+		local file = text:gsub(' ', '')
+		local registry = SUI and SUI.ThemeRegistry
+		if registry and registry.GetSortedNames then
+			for _, name in ipairs(registry:GetSortedNames()) do
+				local entry = registry:Get(name)
+				if entry and entry.displayName == text then
+					file = name
+					break
+				end
+			end
+		end
+		self.imageBtn:SetNormalTexture('interface\\addons\\SpartanUI\\images\\setup\\Style_' .. file)
 	end
 end
 
