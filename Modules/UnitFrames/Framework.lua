@@ -1180,31 +1180,36 @@ function UF:OnEnable()
 	self:RegisterSetupWizardPages()
 end
 
+---Frame style cards for setup and the settings window, sorted by name
+---@param recommendLook? boolean mark the style that matches the current look as recommended
+---@return table[]
+function UF:GetPresetCards(recommendLook)
+	local look = SUI:GetActiveStyle()
+	local cards = {}
+	for name, def in pairs(UF.Preset:GetList()) do
+		cards[#cards + 1] = {
+			value = name,
+			title = def.displayName or name,
+			-- Every frame style has a card of its own, named after the style; pages show the band
+			-- where its frames are
+			art = { texture = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_' .. name, texCoord = { 0, 1, 0.22, 0.72 } },
+			recommended = recommendLook and name == look or nil,
+		}
+	end
+	table.sort(cards, function(a, b)
+		return a.title < b.title
+	end)
+	return cards
+end
+
 function UF:RegisterSetupWizardPages()
 	local reg = SUI.Setup and SUI.Setup.registration
 	if not reg or reg:GetStep('unitframes') then
 		return
 	end
 
-	---Preset cards, sorted by name. The look picked in the previous step is the recommended one.
-	---@return table[]
 	local function BuildPresetCards()
-		local look = SUI:GetActiveStyle()
-		local cards = {}
-		for name, def in pairs(UF.Preset:GetList()) do
-			cards[#cards + 1] = {
-				value = name,
-				title = def.displayName or name,
-				-- Every frame style has a card of its own, named after the style; the page shows the band
-				-- where its frames are
-				art = { texture = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_' .. name, texCoord = { 0, 1, 0.22, 0.72 } },
-				recommended = name == look,
-			}
-		end
-		table.sort(cards, function(a, b)
-			return a.title < b.title
-		end)
-		return cards
+		return UF:GetPresetCards(true)
 	end
 
 	-- Which buffs and debuffs the group frames show. Applied when leaving the page, so it lands on

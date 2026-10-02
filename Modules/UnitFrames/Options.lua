@@ -1862,9 +1862,6 @@ function Options:Initialize()
 		}
 	end
 
-	-- Add theme defaults section to the core styles page
-	SUI.opt.args.General.args.style.args.Unitframes = UFOptions.args.General.args.ThemeDefaults
-
 	-- Build per-group preset selectors
 	local groupDisplayNames = {
 		player = L['Player'],

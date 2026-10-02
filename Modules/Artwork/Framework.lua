@@ -177,6 +177,29 @@ local function ActiveLook()
 	return (entry and entry.variantGroup) or style
 end
 
+---Look cards with each look's current variant, for the settings window
+---@return table[]
+function module:GetLookCards()
+	local cards = BuildLookCards()
+	for _, card in ipairs(cards) do
+		if card.variants then
+			card.variant = SUI.ThemeRegistry:GetActiveVariant(card.value)
+		end
+	end
+	return cards
+end
+
+---@param value string
+---@param variant? string
+function module:ApplyLook(value, variant)
+	ApplyLook(value, variant)
+end
+
+---@return string
+function module:GetActiveLook()
+	return ActiveLook()
+end
+
 local function RegisterSetupWizardPages()
 	local reg = SUI.Setup and SUI.Setup.registration
 	if not reg or reg:GetStep('theme') then
@@ -221,6 +244,10 @@ local function RegisterSetupWizardPages()
 		order = 21,
 		scope = 'profile',
 		cache = false,
+		summary = function()
+			local Font = SUI:GetModule('Handler.Font') ---@type SUI.Font
+			return ('%d%% size, %s'):format(math.floor((SUI.DB.scale or 0.92) * 100 + 0.5), Font:GetFace('Global') or '')
+		end,
 		hidden = function()
 			return not SUI.Setup:IsStartingFresh()
 		end,

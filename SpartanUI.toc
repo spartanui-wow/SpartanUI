@@ -63,6 +63,7 @@ libs\HereBeDragons\HereBeDragons-2.0.lua
 libs\LibSharedMedia-3.0\lib.xml
 libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Core\Widgets\ThemeVariantCard.lua
+Core\Widgets\CardGrid.lua
 
 # ============================================
 # LIBRARIES - CLASSIC ONLY

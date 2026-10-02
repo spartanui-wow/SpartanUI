@@ -65,34 +65,114 @@ function module:OnInitialize()
 			end,
 			set = function(info, value) end,
 		},
+		-- Three pages of picture cards: the look, the frames and the windows. The old groups stay (hidden)
+		-- because looks still add their variant pickers to them.
 		style = {
-			name = L['Art Style'],
+			name = L['Look'],
 			type = 'group',
 			order = 100,
 			args = {
-				description = { type = 'header', name = L['Overall Style'], order = 1 },
-				OverallStyle = {
+				cards = {
 					name = '',
-					type = 'group',
-					inline = true,
-					order = 10,
-					args = {},
-				},
-				description2 = { type = 'header', name = L['Artwork Style'], order = 19 },
-				Artwork = {
-					type = 'group',
-					name = L['Artwork'],
-					inline = true,
-					order = 20,
-					args = {},
-				},
-				description3 = { type = 'header', name = L['Unitframe Presets'], order = 29 },
-				description4 = { type = 'header', name = L['Window look'], order = 90 },
-				WindowLook = {
-					name = L['Window look'],
-					desc = L['How the settings, setup and other SpartanUI windows look. "Match my look" follows the art style you picked.'],
 					type = 'select',
-					order = 91,
+					dialogControl = 'SUICardGrid',
+					order = 1,
+					width = 'full',
+					values = function()
+						local values = {}
+						local artwork = SUI:GetModule('Artwork', true)
+						for _, card in ipairs(artwork and artwork.GetLookCards and artwork:GetLookCards() or {}) do
+							values[card.value] = card.title
+						end
+						return values
+					end,
+					arg = {
+						size = 'look',
+						cards = function()
+							local artwork = SUI:GetModule('Artwork', true)
+							return artwork and artwork.GetLookCards and artwork:GetLookCards() or {}
+						end,
+						setVariant = function(value, variant)
+							local artwork = SUI:GetModule('Artwork', true)
+							if artwork and artwork.ApplyLook then
+								artwork:ApplyLook(value, variant)
+							end
+						end,
+					},
+					get = function()
+						local artwork = SUI:GetModule('Artwork', true)
+						return artwork and artwork.GetActiveLook and artwork:GetActiveLook()
+					end,
+					set = function(_, value)
+						local artwork = SUI:GetModule('Artwork', true)
+						if artwork and artwork.ApplyLook then
+							artwork:ApplyLook(value)
+						end
+					end,
+				},
+				OverallStyle = { name = '', type = 'group', inline = true, hidden = true, order = 10, args = {} },
+				Artwork = { type = 'group', name = '', inline = true, hidden = true, order = 20, args = {} },
+			},
+		},
+		frameStyle = {
+			name = L['Frames'],
+			type = 'group',
+			order = 101,
+			args = {
+				intro = {
+					name = L['Your health bars, portraits and party frames. Picking a look sets these too; pick here to mix a look with other frames.'],
+					type = 'description',
+					fontSize = 'medium',
+					order = 0,
+				},
+				cards = {
+					name = '',
+					type = 'select',
+					dialogControl = 'SUICardGrid',
+					order = 1,
+					width = 'full',
+					values = function()
+						local values = {}
+						for _, card in ipairs(SUI.UF and SUI.UF.GetPresetCards and SUI.UF:GetPresetCards() or {}) do
+							values[card.value] = card.title
+						end
+						return values
+					end,
+					arg = {
+						size = 'compact',
+						cards = function()
+							return SUI.UF and SUI.UF.GetPresetCards and SUI.UF:GetPresetCards() or {}
+						end,
+					},
+					get = function()
+						return SUI.UF and SUI.UF.Preset and SUI.UF.Preset:GetActive('player')
+					end,
+					set = function(_, value)
+						if SUI.UF and SUI.UF.Preset then
+							SUI.UF.Preset:ApplyThemeDefaults(value)
+							SUI.UF:Update()
+						end
+					end,
+				},
+			},
+		},
+		windowLook = {
+			name = L['Windows'],
+			type = 'group',
+			order = 102,
+			args = {
+				intro = {
+					name = L['How the settings, setup and other SpartanUI windows look. Your screen art stays the same.'],
+					type = 'description',
+					fontSize = 'medium',
+					order = 0,
+				},
+				cards = {
+					name = '',
+					type = 'select',
+					dialogControl = 'SUICardGrid',
+					order = 1,
+					width = 'full',
 					values = function()
 						local values = { auto = L['Match my look'] }
 						for _, kit in ipairs(SUI.WindowKits:GetList()) do
@@ -100,18 +180,17 @@ function module:OnInitialize()
 						end
 						return values
 					end,
-					sorting = function()
-						local order = { 'auto' }
-						for _, kit in ipairs(SUI.WindowKits:GetList()) do
-							order[#order + 1] = kit.id
-						end
-						return order
-					end,
+					arg = {
+						size = 'swatch',
+						cards = function()
+							return SUI.WindowKits:GetCards()
+						end,
+					},
 					get = function()
 						return SUI.WindowKits:GetChoice()
 					end,
-					set = function(_, val)
-						SUI.WindowKits:SetChoice(val)
+					set = function(_, value)
+						SUI.WindowKits:SetChoice(value)
 					end,
 				},
 			},

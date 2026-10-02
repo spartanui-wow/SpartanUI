@@ -317,6 +317,12 @@ function module:RegisterWelcomeSteps()
 			chosenProfile = nil
 			ctx:CancelReload('profile')
 		end,
+		-- On the final page only a copied or shared profile is worth a line
+		summary = function()
+			if welcomeMode ~= 'fresh' and chosenProfile then
+				return (welcomeMode == 'share' and L['Shared with %s'] or L['Copy of %s']):format(chosenProfile)
+			end
+		end,
 		-- A copied or shared setup already has everything: Next applies it and reloads
 		finishNow = function()
 			if welcomeMode ~= 'fresh' and chosenProfile then

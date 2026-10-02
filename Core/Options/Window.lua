@@ -161,8 +161,15 @@ local methods = {
 		content.height = contentheight
 	end,
 
-	SetTitle = function(self, title)
-		self.titletext:SetText(title or '')
+	-- The name is fixed and drawn with its own colors; the rest of a title (game and version) is quiet
+	SetTitle = function(self)
+		local parts = {}
+		for _, value in ipairs({ SUI.wowVersion, SUI.Version, SUI.releaseType }) do
+			if value and value ~= '' then
+				parts[#parts + 1] = value
+			end
+		end
+		self.titleversion:SetText(table.concat(parts, '  '))
 	end,
 
 	SetStatusText = function(self, text) end,
@@ -446,14 +453,21 @@ local function Constructor()
 	end)
 	frame.TitleText:Hide()
 
+	-- The helm from the game menu, then the name in the window kit's own title font
 	local logo = header:CreateTexture(nil, 'ARTWORK')
-	logo:SetTexture('Interface\\AddOns\\SpartanUI\\images\\setup\\SUISetup')
-	logo:SetTexCoord(0, 0.611328125, 0, 0.6640625)
-	logo:SetSize(80, 23)
+	logo:SetTexture('Interface\\AddOns\\SpartanUI\\images\\Menu\\SUILogo_white.png')
+	logo:SetSize(22, 22)
 	logo:SetPoint('LEFT', 12, 0)
 
-	local titletext = Style:CreateText(header, 13, Style.color.muted)
-	titletext:SetPoint('LEFT', logo, 'RIGHT', 10, 0)
+	local titletext = header:CreateFontString(nil, 'OVERLAY')
+	LibAT.UI.Kit:SetFont(titletext, 15)
+	titletext:SetText('|cffffffffSpartan|cffe21f1fUI|r')
+	titletext:SetPoint('LEFT', logo, 'RIGHT', 8, 0)
+
+	local titleversion = header:CreateFontString(nil, 'OVERLAY')
+	LibAT.UI.Kit:SetFont(titleversion, 12)
+	titleversion:SetTextColor(Style.color.muted[1], Style.color.muted[2], Style.color.muted[3])
+	titleversion:SetPoint('LEFT', titletext, 'RIGHT', 10, -1)
 
 	-- Sidebar
 	local sidebar = CreateFrame('Frame', nil, frame)
@@ -542,6 +556,7 @@ local function Constructor()
 	local widget = {
 		localstatus = {},
 		titletext = titletext,
+		titleversion = titleversion,
 		content = content,
 		frame = frame,
 		header = header,

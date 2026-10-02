@@ -442,6 +442,26 @@ function WindowKits:GetList()
 	return list
 end
 
+---Cards for the settings window: Match my look, then every window look
+---@return table[]
+function WindowKits:GetCards()
+	local Kit = LibAT and LibAT.UI and LibAT.UI.Kit
+	-- Match my look shows the window look the current art style brings
+	local auto = Kit and Kit.registry[self:GetActiveId()]
+	local cards = { { value = 'auto', title = SUI.L['Match my look'], art = { color = { 0.08, 0.07, 0.06, 1 } }, kit = auto } }
+	for _, kit in ipairs(self:GetList()) do
+		local config = Kit and Kit.registry[kit.id]
+		local colors = config and config.colors or {}
+		local surface = colors.surface and (colors.surface[2] or colors.surface[1]) or colors.bar or { 0.1, 0.1, 0.1, 1 }
+		local assets = config and config.assets or {}
+		-- A dark stage; the little window drawn over it shows the look
+		local art = { color = { 0.06, 0.05, 0.05, 1 } }
+		local button = config and config.button and config.button.primary
+		cards[#cards + 1] = { value = kit.id, title = kit.name, art = art, accent = button and button.top or colors.trim, kit = config }
+	end
+	return cards
+end
+
 ---The window look the player picked; 'auto' follows the main look. Saved account-wide by Lib's AddonTools.
 ---@return string
 function WindowKits:GetChoice()
