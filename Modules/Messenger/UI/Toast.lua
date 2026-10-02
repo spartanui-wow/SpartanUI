@@ -446,6 +446,22 @@ function A:ShowUndo(title)
 	})
 end
 
+---A short message that something could not be done.
+---@param title string
+---@param body? string
+function A:ShowNotice(title, body)
+	local c = T.color.muted
+	ShowCard({
+		key = 'notice',
+		title = title,
+		body = body or '',
+		r = c[1],
+		g = c[2],
+		b = c[3],
+		duration = 6,
+	})
+end
+
 function A:Enable()
 	if not anchor then
 		BuildAnchor()

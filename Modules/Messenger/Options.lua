@@ -98,7 +98,7 @@ function M:BuildOptionsTable()
 			peopleHeader = { type = 'header', order = 1, name = L['People'] },
 			groupHeader = { type = 'header', order = 20, name = L['Groups'] },
 			publicHeader = { type = 'header', order = 40, name = L['Nearby'] },
-			channelHeader = { type = 'header', order = 60, name = L['Channels'] },
+			channelHeader = { type = 'header', order = 60, name = L['Joined channels'] },
 			noChannels = {
 				type = 'description',
 				order = 61,
@@ -168,6 +168,26 @@ function M:BuildOptionsTable()
 						end,
 						set = function(_, value)
 							settings().onWhisper = value
+						end,
+					},
+					listMode = {
+						type = 'select',
+						order = 5,
+						width = 'double',
+						name = L['Conversation list size'],
+						desc = L['How much room the list on the left takes. You can also switch with the list button at the top left of the Messenger window.'],
+						values = {
+							auto = L['Automatic: full, pictures only when the window is narrow'],
+							full = L['Full: name and latest message'],
+							slim = L['Compact: one short line per conversation'],
+							icons = L['Pictures only'],
+						},
+						sorting = { 'auto', 'full', 'slim', 'icons' },
+						get = function()
+							return settings().listMode
+						end,
+						set = function(_, value)
+							M.UI.Deck:SetListMode(value)
 						end,
 					},
 					fontSize = {
@@ -359,7 +379,7 @@ function M:BuildOptionsTable()
 							settings().alerts.people.flash = value
 						end,
 					},
-					roomsHeader = { type = 'header', order = 10, name = L['Group and channel chats'] },
+					roomsHeader = { type = 'header', order = 10, name = L['Channels'] },
 					roomsSound = {
 						type = 'toggle',
 						order = 11,
@@ -397,7 +417,7 @@ function M:BuildOptionsTable()
 						type = 'toggle',
 						order = 14,
 						width = 'full',
-						name = L['Alert me when someone says my name in a group chat'],
+						name = L['Alert me when someone says my name in a channel'],
 						desc = L['The line is highlighted, and you get the same sound and pop-up as a whisper.'],
 						get = function()
 							return settings().alerts.mentions
@@ -516,7 +536,7 @@ function M:BuildOptionsTable()
 						type = 'range',
 						order = 3,
 						width = 'double',
-						name = L['Keep group and channel chat for (days)'],
+						name = L['Keep channel messages for (days)'],
 						min = 1,
 						max = 14,
 						step = 1,

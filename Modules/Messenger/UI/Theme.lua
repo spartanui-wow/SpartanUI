@@ -88,7 +88,7 @@ function T.Alpha()
 end
 
 ----------------------------------------------------------------------------------------------------
--- Icons (Media/Icons.tga: 8 x 2 grid of 32px white glyphs, tinted with vertex color)
+-- Icons (Media/Icons.tga: 8 x 4 grid of 32px white glyphs, tinted with vertex color)
 ----------------------------------------------------------------------------------------------------
 
 local ICONS = {
@@ -108,6 +108,7 @@ local ICONS = {
 	info = 13,
 	dot = 14,
 	check = 15,
+	sidebar = 16,
 }
 
 ---@param texture Texture
@@ -117,7 +118,7 @@ function T.SetIcon(texture, name)
 	local col = index % 8
 	local row = math.floor(index / 8)
 	texture:SetTexture(M.mediaPath .. 'Icons')
-	texture:SetTexCoord(col / 8, (col + 1) / 8, row / 2, (row + 1) / 2)
+	texture:SetTexCoord(col / 8, (col + 1) / 8, row / 4, (row + 1) / 4)
 end
 
 ---@return string path, number left, number right, number top, number bottom
@@ -125,7 +126,7 @@ function T.IconCoords(name)
 	local index = ICONS[name] or 0
 	local col = index % 8
 	local row = math.floor(index / 8)
-	return M.mediaPath .. 'Icons', col / 8, (col + 1) / 8, row / 2, (row + 1) / 2
+	return M.mediaPath .. 'Icons', col / 8, (col + 1) / 8, row / 4, (row + 1) / 4
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -224,6 +225,8 @@ function T.Metrics()
 	local s = T.BaseSize()
 	return {
 		row = math.max(46, math.floor((s - 1) * 1.3 + (s - 2) * 1.3 + 18)),
+		slimRow = math.max(22, math.floor((s - 1) * 1.3 + 8)),
+		iconRow = 36,
 		header = math.max(46, math.floor((s + 1) * 1.3 + (s - 2) * 1.3 + 16)),
 		title = math.max(32, math.floor(s * 1.3 + 16)),
 		composer = math.max(36, math.floor(s * 1.3 + 18)),

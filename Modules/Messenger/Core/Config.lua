@@ -90,6 +90,7 @@ M.defaults = {
 			pinned = false,
 		},
 		fontSize = 13,
+		listMode = 'auto',
 		timeFormat = 'auto',
 		replyKey = true,
 		takeOverWhispers = true,

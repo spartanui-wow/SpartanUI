@@ -240,7 +240,7 @@ end
 ---@param channel? string
 ---@param reopen boolean
 local function EnsureRoom(kind, channel, reopen)
-	local key = kind.key == 'CHANNEL' and ('ch:' .. channel) or ('r:' .. kind.key)
+	local key = Rm.KeyFor(kind.key, channel)
 	local existing = Store:Get(key)
 	local fields = { kind = kind.key, target = channel }
 	if not existing then
@@ -255,6 +255,111 @@ local function EnsureRoom(kind, channel, reopen)
 	end
 end
 
+---@param kindKey string
+---@param channel? string
+---@return string
+function Rm.KeyFor(kindKey, channel)
+	return kindKey == 'CHANNEL' and ('ch:' .. channel) or ('r:' .. kindKey)
+end
+
+---Base names of the channels the player is in, in channel number order.
+---@return {name: string, id: number}[]
+local function JoinedChannels()
+	local out = {}
+	local data = { GetChannelList() }
+	for i = 1, #data, 3 do
+		local id, name = data[i], data[i + 1]
+		if type(name) == 'string' and not name:find('^Community:') then
+			out[#out + 1] = { name = name, id = id }
+		end
+	end
+	return out
+end
+
+local NEARBY = { SAY = true, YELL = true, EMOTE = true }
+
+---Channels the player could open right now, for starting a conversation from the search box. With no search
+---text, only group chats and joined channels are offered (Say and Yell are always there and would
+---crowd out the rest).
+---@param prefix string lower case, may be empty
+---@return {name: string, detail: string, kind: string, channel?: string, room: boolean}[]
+function Rm:Choices(prefix)
+	local out = {}
+	local function add(kindKey, name, channel)
+		local lower = strlower(name)
+		local matches
+		if prefix == '' then
+			matches = not NEARBY[kindKey]
+		else
+			matches = lower:find(prefix, 1, true) == 1
+			if not matches and channel then
+				local id = GetChannelName(channel)
+				matches = id and id > 0 and tostring(id) == prefix
+			end
+		end
+		if matches then
+			out[#out + 1] = {
+				name = name,
+				detail = M.Contacts:Describe({ kind = kindKey, target = channel }),
+				kind = kindKey,
+				channel = channel,
+				room = true,
+			}
+		end
+	end
+	for _, kind in ipairs(M.Kinds) do
+		if kind.group == 'rooms' and kind.key ~= 'CHANNEL' and self:IsAvailable(kind.key) then
+			add(kind.key, kind.label)
+		end
+	end
+	for _, channel in ipairs(JoinedChannels()) do
+		add('CHANNEL', channel.name, channel.name)
+	end
+	return out
+end
+
+---Finds an open-able channel by its exact name ("guild", "Trade").
+---@param text string
+---@return string|nil kindKey, string|nil channel
+function Rm:Find(text)
+	local lower = strlower(text)
+	for _, kind in ipairs(M.Kinds) do
+		if kind.group == 'rooms' and kind.key ~= 'CHANNEL' and strlower(kind.label) == lower and self:IsAvailable(kind.key) then
+			return kind.key
+		end
+	end
+	for _, channel in ipairs(JoinedChannels()) do
+		if strlower(channel.name) == lower then
+			return 'CHANNEL', channel.name
+		end
+	end
+	return nil
+end
+
+local pendingJoin
+
+---Joins a chat channel the player is not in yet and opens it once the game confirms.
+---@param name string
+---@return boolean started
+function Rm:Join(name)
+	name = U.Trim(name or '')
+	if name == '' or name:find('[%s#]') or U.IsRestricted() then
+		return false
+	end
+	local frameID = DEFAULT_CHAT_FRAME and DEFAULT_CHAT_FRAME.GetID and DEFAULT_CHAT_FRAME:GetID() or nil
+	local ok, zoneChannel, joined = pcall(JoinPermanentChannel, name, nil, frameID, 1)
+	if not ok or not zoneChannel then
+		return false
+	end
+	name = U.Str(joined) or name
+	M.settings.channels[name].capture = true
+	M.Router:RefreshEvents()
+	M:Fire('SETTINGS_CHANGED')
+	pendingJoin = { name = strlower(name), expires = GetTime() + 10 }
+	self:Sync(false)
+	return true
+end
+
 ---Creates list entries for every room that is turned on and available.
 ---@param reopen? boolean Also bring back rooms the player closed (used when a chat is turned on)
 function Rm:Sync(reopen)
@@ -266,15 +371,23 @@ function Rm:Sync(reopen)
 			EnsureRoom(kind, nil, reopen == true)
 		end
 	end
-	local data = { GetChannelList() }
-	for i = 1, #data, 3 do
-		local name = data[i + 1]
-		if type(name) == 'string' and not name:find('^Community:') and M:IsCaptured('CHANNEL', name) then
-			EnsureRoom(M.KindByKey.CHANNEL, name, reopen == true)
+	local openKey
+	for _, channel in ipairs(JoinedChannels()) do
+		if M:IsCaptured('CHANNEL', channel.name) then
+			EnsureRoom(M.KindByKey.CHANNEL, channel.name, reopen == true)
+			if pendingJoin and pendingJoin.name == strlower(channel.name) then
+				openKey = Rm.KeyFor('CHANNEL', channel.name)
+			end
 		end
+	end
+	if pendingJoin and (openKey or GetTime() > pendingJoin.expires) then
+		pendingJoin = nil
 	end
 	M:Fire('LIST_CHANGED')
 	M:Fire('UNREAD_CHANGED')
+	if openKey then
+		M:Open(openKey, true)
+	end
 end
 
 local EVENTS = { 'GROUP_ROSTER_UPDATE', 'PLAYER_GUILD_UPDATE', 'CHANNEL_UI_UPDATE', 'CHAT_MSG_CHANNEL_NOTICE', 'PLAYER_ENTERING_WORLD', 'CLUB_STREAMS_LOADED' }

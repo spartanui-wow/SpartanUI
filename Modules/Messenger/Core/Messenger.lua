@@ -112,6 +112,34 @@ function M:Open(key, focus)
 	end
 end
 
+---Opens a channel (Guild, Party, Trade...), turning it on first if the player had not.
+---@param kindKey string
+---@param channel? string Channel base name for numbered channels
+---@param focus? boolean
+---@return string|nil key
+function M:OpenRoom(kindKey, channel, focus)
+	local route = self.enabled and self:GetRoute(kindKey, channel)
+	if not route or not self.Rooms:IsAvailable(kindKey, channel) then
+		return nil
+	end
+	if not route.capture then
+		route.capture = true
+		self.Router:RefreshEvents()
+		self:Fire('SETTINGS_CHANGED')
+	end
+	self.Rooms:Sync(false)
+	local key = self.Rooms.KeyFor(kindKey, channel)
+	local convo = Store:Get(key)
+	if not convo then
+		return nil
+	end
+	if convo.closed then
+		Store:Ensure(key, { closed = false })
+	end
+	self:Open(key, focus ~= false)
+	return key
+end
+
 ---Starts or resumes a whisper conversation with a character.
 ---@param name string Name or Name-Realm
 ---@param focus? boolean

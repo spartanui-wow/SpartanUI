@@ -10,13 +10,12 @@ local CL = {}
 M.ConversationList = CL
 
 local SECTION_H = 22
-local COMPACT_AVATAR = 32
 
 local FILTERS = {
 	{ key = 'all', label = L['All'] },
 	{ key = 'unread', label = L['Unread'] },
 	{ key = 'people', label = L['People'] },
-	{ key = 'rooms', label = L['Rooms'] },
+	{ key = 'rooms', label = L['Channels'] },
 }
 
 ---@param convo MessengerConversation
@@ -80,11 +79,19 @@ local function CreateRow(list)
 	row.section = T.Text(row, 'small', T.color.faint)
 	row.section:SetPoint('BOTTOMLEFT', 12, 5)
 
+	row.dot = row:CreateTexture(nil, 'ARTWORK')
+	row.dot:SetSize(8, 8)
+	row.dot:SetPoint('LEFT', 12, 0)
+	T.SetIcon(row.dot, 'dot')
+	row.dot:Hide()
+
 	row:SetScript('OnEnter', function(self)
-		if self.convo then
+		if self.suggestion then
 			self.hl:Show()
-			-- The compact rail shows only avatars, so the name and latest line move to a tooltip
-			if list.compact then
+		elseif self.convo then
+			self.hl:Show()
+			-- The smaller list sizes cut the latest message short (or hide it), so show it on hover
+			if list.mode ~= 'full' then
 				GameTooltip:SetOwner(self, 'ANCHOR_RIGHT')
 				GameTooltip:SetText(M:GetTitle(self.convo), 1, 1, 1)
 				GameTooltip:AddLine(Preview(self.convo), T.color.muted[1], T.color.muted[2], T.color.muted[3], true)
@@ -97,6 +104,10 @@ local function CreateRow(list)
 		GameTooltip:Hide()
 	end)
 	row:SetScript('OnClick', function(self, button)
+		if self.suggestion then
+			list:Pick(self.suggestion)
+			return
+		end
 		local convo = self.convo
 		if not convo then
 			return
@@ -119,11 +130,14 @@ end
 
 ---@param parent Frame
 ---@param onSelect fun(key: string)
+---@param starter? table { suggest = fun(query: string, quiet: boolean): table[], pick = fun(entry), start = fun(text), changed = fun() } lets the search box also start conversations
 ---@return MessengerList
-function CL.Create(parent, onSelect)
+function CL.Create(parent, onSelect, starter)
 	local list = CreateFrame('Frame', nil, parent)
 	Mixin(list, List)
 	list.onSelect = onSelect
+	list.starter = starter
+	list.suggestions = {}
 	list.filter = 'all'
 	list.query = ''
 	list.offset = 0
@@ -149,10 +163,11 @@ function CL.Create(parent, onSelect)
 	search.icon:SetVertexColor(T.color.faint[1], T.color.faint[2], T.color.faint[3])
 	search.placeholder = T.Text(search, 'meta', T.color.faint)
 	search.placeholder:SetPoint('LEFT', 26, 0)
-	search.placeholder:SetText(L['Search people and messages'])
+	search.placeholder:SetText(starter and L['Search, or start a conversation'] or L['Search people and messages'])
 	search.clear = W.IconButton(search, 'close', 18, nil, function()
 		search:SetText('')
 		search:ClearFocus()
+		list:EndNew()
 	end)
 	search.clear:SetPoint('RIGHT', -3, 0)
 	search.clear:Hide()
@@ -163,7 +178,7 @@ function CL.Create(parent, onSelect)
 	search:SetScript('OnTextChanged', function(self)
 		local text = self:GetText() or ''
 		self.placeholder:SetShown(text == '')
-		self.clear:SetShown(text ~= '')
+		self.clear:SetShown(text ~= '' or list.newMode == true)
 		if timer then
 			timer:Cancel()
 		end
@@ -176,12 +191,32 @@ function CL.Create(parent, onSelect)
 	search:SetScript('OnEscapePressed', function(self)
 		self:SetText('')
 		self:ClearFocus()
+		list:EndNew()
 	end)
 	search:SetScript('OnEnterPressed', function(self)
+		if timer then
+			timer:Cancel()
+		end
+		local text = U.Trim(self:GetText() or '')
+		list.query = text
+		list:Refresh()
 		self:ClearFocus()
 		local first = list.firstConvo
 		if first then
 			list:Select(first.key)
+		elseif text ~= '' and list.starter then
+			-- Nothing to open: start one with exactly what was typed
+			list:Reset()
+			list.starter.start(text)
+		end
+	end)
+	search:SetScript('OnTabPressed', function(self)
+		for _, entry in ipairs(list.suggestions) do
+			if not entry.message and not entry.join then
+				self:SetText(entry.name)
+				self:SetCursorPosition(#entry.name)
+				return
+			end
 		end
 	end)
 	search:SetScript('OnEditFocusGained', function(self)
@@ -254,39 +289,89 @@ end
 ---Sizes the search box, rows and row area for the current text size and layout.
 function List:ApplyMetrics()
 	local metrics = T.Metrics()
-	self.rowH = metrics.row
+	local mode = self.mode or 'full'
+	self.rowH = (mode == 'slim' and metrics.slimRow) or (mode == 'icons' and metrics.iconRow) or metrics.row
 	self.search:SetHeight(metrics.search)
 	local area = self.rowArea
 	area:ClearAllPoints()
-	if self.compact then
+	if mode == 'icons' then
 		area:SetPoint('TOPLEFT', 0, -6)
+	elseif mode == 'slim' then
+		area:SetPoint('TOPLEFT', 0, -(10 + metrics.search + 10))
 	else
 		area:SetPoint('TOPLEFT', 0, -(10 + metrics.search + 8 + 18 + 10))
 	end
 	area:SetPoint('BOTTOMRIGHT', -1, 0)
 end
 
----Narrow windows show the list as a rail of avatars.
----@param compact boolean
-function List:SetCompact(compact)
-	if self.compact == compact then
+---List sizes: 'full' (two lines per conversation), 'slim' (one line, no filter buttons) and
+---'icons' (a rail of avatars with no search or filters).
+---@param mode 'full'|'slim'|'icons'
+function List:SetMode(mode)
+	if self.mode == mode then
 		return
 	end
-	self.compact = compact
-	if compact then
+	self.mode = mode
+	self.compact = mode == 'icons'
+	-- Hidden filters must not keep hiding conversations
+	if mode == 'icons' or (mode == 'slim' and self.filter ~= 'all') then
 		self.filter = 'all'
 		self.query = ''
+		self.newMode = false
 		self.search:SetText('')
 		for _, chip in ipairs(self.chips) do
 			chip:SetSelected(chip.filterKey == 'all')
 		end
 	end
-	self.search:SetShown(not compact)
+	self.search:SetShown(mode ~= 'icons')
 	for _, chip in ipairs(self.chips) do
-		chip:SetShown(not compact)
+		chip:SetShown(mode == 'full')
 	end
 	self:ApplyMetrics()
 	self:Refresh()
+end
+
+---Puts the cursor in the search box to start a conversation: until the player types, the list
+---offers the channels they can open instead of their conversations.
+function List:StartNew()
+	if not self.starter then
+		return
+	end
+	self.newMode = true
+	self.query = ''
+	self.offset = 0
+	self.search:SetText('')
+	self.search.placeholder:SetText(L['Name, BattleTag or channel'])
+	self.starter.changed()
+	self.search:SetFocus()
+	self.search.clear:Show()
+	self:Refresh()
+end
+
+function List:EndNew()
+	if not self.newMode then
+		return
+	end
+	self.newMode = false
+	self.search.placeholder:SetText(L['Search, or start a conversation'])
+	self.search.clear:SetShown((self.search:GetText() or '') ~= '')
+	self:Refresh()
+	self.starter.changed()
+end
+
+---Empties the box and leaves "new conversation" mode.
+function List:Reset()
+	self.query = ''
+	self.search:SetText('')
+	self.search:ClearFocus()
+	self:EndNew()
+	self:Refresh()
+end
+
+---@param entry table A suggestion row's entry
+function List:Pick(entry)
+	self:Reset()
+	self.starter.pick(entry)
 end
 
 ---@param filter string
@@ -323,7 +408,8 @@ function List:Scroll(delta)
 end
 
 function List:Refresh()
-	local convos = M.Store:List(self.filter, self.query)
+	local blank = self.query == ''
+	local convos = (self.newMode and blank) and {} or M.Store:List(self.filter, self.query)
 	local data = {}
 	local pinnedCount = 0
 	for _, convo in ipairs(convos) do
@@ -331,7 +417,7 @@ function List:Refresh()
 			pinnedCount = pinnedCount + 1
 		end
 	end
-	local splitSections = not self.compact and pinnedCount > 0 and pinnedCount < #convos
+	local splitSections = self.mode ~= 'icons' and pinnedCount > 0 and pinnedCount < #convos
 	self.firstConvo = convos[1]
 	for i, convo in ipairs(convos) do
 		if splitSections and i == 1 then
@@ -340,6 +426,26 @@ function List:Refresh()
 			data[#data + 1] = { section = L['Recent'] }
 		end
 		data[#data + 1] = { convo = convo }
+	end
+	self.suggestions = {}
+	if self.starter and self.mode ~= 'icons' and (self.newMode or not blank) then
+		local shown = {}
+		for _, convo in ipairs(convos) do
+			shown[convo.key] = true
+		end
+		for _, entry in ipairs(self.starter.suggest(self.query, #convos > 0 and not self.newMode)) do
+			if not (entry.key and shown[entry.key]) then
+				self.suggestions[#self.suggestions + 1] = entry
+			end
+		end
+		if #self.suggestions > 0 then
+			if #convos > 0 then
+				data[#data + 1] = { section = L['Start a conversation'] }
+			end
+			for _, entry in ipairs(self.suggestions) do
+				data[#data + 1] = { suggestion = entry }
+			end
+		end
 	end
 	self.data = data
 	local visible = math.floor(self.rowArea:GetHeight() / self.rowH)
@@ -361,10 +467,12 @@ function List:PaintRow(row, convo)
 	row.avatar:SetRingColor(T.color.list)
 	row.avatar:Show()
 	row.section:Hide()
+	row.dot:Hide()
 
 	row.avatar:ClearAllPoints()
 	row.badge:ClearAllPoints()
-	if self.compact then
+	row.name:ClearAllPoints()
+	if self.mode == 'icons' then
 		row.avatar:SetPoint('CENTER')
 		row.badge:SetPoint('CENTER', row.avatar, 'TOPRIGHT', -2, -2)
 		row.name:Hide()
@@ -378,8 +486,31 @@ function List:PaintRow(row, convo)
 		end
 		return
 	end
-	row.avatar:SetPoint('LEFT', 12, 0)
-	row.badge:SetPoint('BOTTOMRIGHT', -12, 8)
+	local slim = self.mode == 'slim'
+	row.name:SetWidth(0)
+	row.time:ClearAllPoints()
+	row.preview:ClearAllPoints()
+	if slim then
+		-- One dense line: unread count, name, latest message, time. No picture.
+		row.avatar:Hide()
+		row.badge:SetPoint('LEFT', 8, 0)
+		if (convo.unread or 0) > 0 then
+			row.name:SetPoint('LEFT', row.badge, 'RIGHT', 6, 0)
+		else
+			row.name:SetPoint('LEFT', 10, 0)
+		end
+		row.time:SetPoint('RIGHT', -8, 0)
+		row.preview:SetPoint('LEFT', row.name, 'RIGHT', 8, 0)
+		row.preview:SetPoint('RIGHT', row.time, 'LEFT', -8, 0)
+	else
+		row.avatar:SetPoint('LEFT', 12, 0)
+		row.badge:SetPoint('BOTTOMRIGHT', -12, 8)
+		row.name:SetPoint('TOPLEFT', row.avatar, 'TOPRIGHT', 10, 0)
+		row.name:SetPoint('RIGHT', row.pin, 'LEFT', -4, 0)
+		row.time:SetPoint('TOPRIGHT', -12, -8)
+		row.preview:SetPoint('BOTTOMLEFT', row.avatar, 'BOTTOMRIGHT', 10, 0)
+		row.preview:SetPoint('RIGHT', row.badge, 'LEFT', -6, 0)
+	end
 
 	row.name:SetText(M:GetTitle(convo))
 	if convo.muted then
@@ -393,11 +524,17 @@ function List:PaintRow(row, convo)
 
 	row.time:SetText(convo.last and U.ListTime(convo.last) or '')
 	row.time:Show()
-	row.pin:SetShown(convo.pinned == true)
-
+	row.pin:SetShown(not slim and convo.pinned == true)
 	row.preview:SetText(Preview(convo))
 	T.SetColor(row.preview, unread and T.color.text or T.color.muted)
 	row.preview:Show()
+	if slim then
+		-- Keep room for the latest message: the name takes at most 45% of the row
+		local limit = (row:GetWidth() or 0) * 0.45
+		if limit > 0 and row.name:GetStringWidth() > limit then
+			row.name:SetWidth(limit)
+		end
+	end
 
 	if convo.muted then
 		row.badge:SetCount(convo.unread, T.color.faint[1], T.color.faint[2], T.color.faint[3])
@@ -405,6 +542,43 @@ function List:PaintRow(row, convo)
 		row.badge:SetCount(convo.unread, r, g, b)
 	end
 	row.section:Hide()
+end
+
+---One line: a dot (presence or chat color), the name, and a detail on the right.
+---@param row Button
+---@param entry table
+function List:PaintSuggestion(row, entry)
+	row.selectedBg:Hide()
+	row.avatar:Hide()
+	row.badge:Hide()
+	row.pin:Hide()
+	row.preview:Hide()
+	row.section:Hide()
+	local dotColor
+	if entry.room or entry.join then
+		dotColor = { T.KindColor({ kind = entry.kind or 'CHANNEL', target = entry.channel }) }
+	elseif entry.message then
+		dotColor = { T.KindColor({ kind = 'WHISPER' }) }
+	else
+		dotColor = T.StatusColor(entry.status) or T.color.offline
+	end
+	row.dot:SetVertexColor(dotColor[1], dotColor[2], dotColor[3])
+	row.dot:Show()
+	row.time:ClearAllPoints()
+	row.time:SetPoint('RIGHT', -10, 0)
+	row.time:SetText(entry.detail or '')
+	row.time:Show()
+	row.name:ClearAllPoints()
+	row.name:SetWidth(0)
+	row.name:SetPoint('LEFT', row.dot, 'RIGHT', 8, 0)
+	row.name:SetPoint('RIGHT', row.time, 'LEFT', -8, 0)
+	if entry.message then
+		row.name:SetText(string.format(L['Message %s'], entry.name))
+	else
+		row.name:SetText(entry.name)
+	end
+	T.SetColor(row.name, T.color.text)
+	row.name:Show()
 end
 
 function List:Render()
@@ -429,8 +603,16 @@ function List:Render()
 		row:SetPoint('TOPLEFT', 0, -y)
 		row:SetWidth(width)
 		row:Show()
-		if entry.section then
+		row.suggestion = entry.suggestion
+		if entry.suggestion then
 			row.convo = nil
+			local h = T.Metrics().slimRow
+			row:SetHeight(h)
+			self:PaintSuggestion(row, entry.suggestion)
+			y = y + h
+		elseif entry.section then
+			row.convo = nil
+			row.dot:Hide()
 			row:SetHeight(SECTION_H)
 			row.selectedBg:Hide()
 			row.avatar:Hide()
@@ -453,16 +635,19 @@ function List:Render()
 	for i = used + 1, #self.rows do
 		self.rows[i]:Hide()
 		self.rows[i].convo = nil
+		self.rows[i].suggestion = nil
 	end
 
-	self.empty:SetShown(#self.data == 0 and not self.compact)
-	if #self.data == 0 and not self.compact then
-		if self.query ~= '' then
+	self.empty:SetShown(#self.data == 0 and self.mode ~= 'icons')
+	if #self.data == 0 and self.mode ~= 'icons' then
+		if self.newMode and self.query == '' then
+			self.empty:SetText(L['Type a name, BattleTag or channel.'])
+		elseif self.query ~= '' then
 			self.empty:SetText(string.format(L['Nothing matches "%s".'], self.query))
 		elseif self.filter == 'unread' then
 			self.empty:SetText(L['You are all caught up.'])
 		elseif self.filter == 'rooms' then
-			self.empty:SetText(L['No group chats yet. Turn them on in Messenger settings.'])
+			self.empty:SetText(L['No channels open yet. Pick one from New conversation, or turn them on in the settings.'])
 		else
 			self.empty:SetText(L['No conversations yet.'])
 		end

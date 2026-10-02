@@ -11,9 +11,11 @@ local L = M.L
 local D = {}
 
 local LIST_W = 236
+local SLIM_W = 210
 local RAIL_W = 60
 local COMPACT_BELOW = 640
-local MAX_SUGGESTIONS = 6
+local LIST_WIDTH = { full = LIST_W, slim = SLIM_W, icons = RAIL_W }
+local MAX_PEOPLE = 6
 
 ----------------------------------------------------------------------------------------------------
 -- Empty state: shown when there are no conversations at all
@@ -45,7 +47,7 @@ local function BuildEmpty(parent)
 	body:SetWidth(340)
 	body:SetWordWrap(true)
 	body:SetJustifyH('CENTER')
-	body:SetText(L['Whispers you send and get land here. You can also bring group chats in:'])
+	body:SetText(L['Whispers you send and get land here. You can also bring channels in:'])
 
 	empty.rooms = {}
 	local row = CreateFrame('Frame', nil, empty)
@@ -95,114 +97,6 @@ local function BuildEmpty(parent)
 end
 
 ----------------------------------------------------------------------------------------------------
--- New conversation picker
-----------------------------------------------------------------------------------------------------
-
-local function BuildPicker(win)
-	local picker = CreateFrame('Frame', nil, win)
-	picker:SetWidth(LIST_W)
-	picker:SetHeight(46)
-	picker:SetFrameLevel(win:GetFrameLevel() + 30)
-	T.Fill(picker, T.color.popup)
-	T.Line(picker, 'BOTTOM')
-	picker:EnableMouse(true)
-	picker:Hide()
-
-	local label = T.Text(picker, 'meta', T.color.muted)
-	label:SetPoint('TOPLEFT', 12, -6)
-	label:SetText(L['To: name, Name-Realm or BattleTag'])
-
-	local edit = CreateFrame('EditBox', nil, picker)
-	edit:SetPoint('BOTTOMLEFT', 10, 6)
-	edit:SetPoint('BOTTOMRIGHT', -10, 6)
-	edit:SetHeight(20)
-	edit:SetAutoFocus(false)
-	edit:SetFontObject(ChatFontNormal)
-	edit:SetTextInsets(4, 4, 0, 0)
-	T.Fill(edit, T.color.input)
-	picker.edit = edit
-
-	picker.suggestions = {}
-	local function Suggestion(i)
-		local btn = picker.suggestions[i]
-		if btn then
-			return btn
-		end
-		btn = CreateFrame('Button', nil, picker)
-		btn:SetHeight(24)
-		btn:SetPoint('TOPLEFT', picker, 'BOTTOMLEFT', 0, -(i - 1) * 24)
-		btn:SetPoint('TOPRIGHT', picker, 'BOTTOMRIGHT', 0, -(i - 1) * 24)
-		btn:SetFrameLevel(picker:GetFrameLevel() + 1)
-		T.Fill(btn, T.color.popup)
-		btn.hl = T.Fill(btn, T.color.hover, 'ARTWORK')
-		btn.hl:Hide()
-		btn.dot = btn:CreateTexture(nil, 'ARTWORK')
-		btn.dot:SetSize(8, 8)
-		btn.dot:SetPoint('LEFT', 12, 0)
-		T.SetIcon(btn.dot, 'dot')
-		btn.text = T.Text(btn, 'body')
-		btn.text:SetPoint('LEFT', btn.dot, 'RIGHT', 8, 0)
-		btn.detail = T.Text(btn, 'meta', T.color.faint)
-		btn.detail:SetPoint('RIGHT', -10, 0)
-		btn.detail:SetJustifyH('RIGHT')
-		btn:SetScript('OnEnter', function(self)
-			self.hl:Show()
-		end)
-		btn:SetScript('OnLeave', function(self)
-			self.hl:Hide()
-		end)
-		btn:SetScript('OnClick', function(self)
-			D:StartConversation(self.value)
-		end)
-		picker.suggestions[i] = btn
-		return btn
-	end
-
-	local function UpdateSuggestions()
-		local text = strlower(U.Trim(edit:GetText() or ''))
-		local names = text ~= '' and M.Contacts:Suggest(text) or {}
-		for i = 1, MAX_SUGGESTIONS do
-			local entry = names[i]
-			if entry then
-				local btn = Suggestion(i)
-				btn.value = entry.name
-				btn.text:SetText(entry.name)
-				btn.detail:SetText(entry.detail or '')
-				local c = T.StatusColor(entry.status) or T.color.offline
-				btn.dot:SetVertexColor(c[1], c[2], c[3])
-				btn:Show()
-			elseif picker.suggestions[i] then
-				picker.suggestions[i]:Hide()
-			end
-		end
-	end
-
-	edit:SetScript('OnTextChanged', UpdateSuggestions)
-	edit:SetScript('OnEnterPressed', function(self)
-		D:StartConversation(self:GetText())
-	end)
-	edit:SetScript('OnEscapePressed', function()
-		picker:Hide()
-	end)
-	edit:SetScript('OnTabPressed', function()
-		local first = picker.suggestions[1]
-		if first and first:IsShown() then
-			edit:SetText(first.value)
-			edit:SetCursorPosition(#first.value)
-		end
-	end)
-	picker:SetScript('OnHide', function()
-		edit:SetText('')
-		edit:ClearFocus()
-		for _, btn in ipairs(picker.suggestions) do
-			btn:Hide()
-		end
-		D:Refresh()
-	end)
-	return picker
-end
-
-----------------------------------------------------------------------------------------------------
 -- Window
 ----------------------------------------------------------------------------------------------------
 
@@ -232,9 +126,39 @@ function D:Build()
 	T.Line(title, 'BOTTOM')
 	W.DragHandle(title, win)
 
+	-- Folds the conversation list down to pictures and back; right-click picks a size
+	title.list = W.IconButton(title, 'sidebar', 24, nil, function(btn, mouseButton)
+		if mouseButton == 'RightButton' then
+			local current = M.settings.listMode
+			local function item(text, mode)
+				return {
+					text = text,
+					checked = current == mode,
+					onClick = function()
+						D:SetListMode(mode)
+					end,
+				}
+			end
+			W.OpenMenu(btn, {
+				item(L['Full list'], 'full'),
+				item(L['Compact list'], 'slim'),
+				item(L['Pictures only'], 'icons'),
+				item(L['Automatic'], 'auto'),
+			})
+			local dropdown = _G.MessengerDropDown
+			if dropdown then
+				dropdown:ClearAllPoints()
+				dropdown:SetPoint('TOPLEFT', btn, 'BOTTOMLEFT', 0, -2)
+			end
+		else
+			D:ToggleList()
+		end
+	end)
+	title.list:SetPoint('LEFT', 6, 0)
+
 	title.icon = title:CreateTexture(nil, 'ARTWORK')
 	title.icon:SetSize(18, 18)
-	title.icon:SetPoint('LEFT', 12, 0)
+	title.icon:SetPoint('LEFT', title.list, 'RIGHT', 4, 0)
 	T.SetIcon(title.icon, 'bubble')
 	title.icon:SetVertexColor(T.color.muted[1], T.color.muted[2], T.color.muted[3])
 
@@ -288,7 +212,21 @@ function D:Build()
 	-- Body
 	local list = M.ConversationList.Create(win, function(key)
 		D:Select(key, false, false, self.list and self.list.query)
-	end)
+	end, {
+		suggest = function(query, quiet)
+			return D:Suggestions(query, quiet)
+		end,
+		pick = function(entry)
+			D:PickSuggestion(entry)
+		end,
+		start = function(text)
+			D:StartConversation(text)
+		end,
+		changed = function()
+			D:Layout()
+			D:Refresh()
+		end,
+	})
 	self.list = list
 
 	local pane = M.ChatPane.Create(win, true)
@@ -313,7 +251,6 @@ function D:Build()
 	self.empty = BuildEmpty(win)
 	self.empty:Hide()
 
-	self.picker = BuildPicker(win)
 	self:Layout()
 	win:SetScript('OnSizeChanged', function()
 		D:Layout()
@@ -332,7 +269,7 @@ function D:Build()
 			M.db.char.deckOpen = nil
 		end
 		W.CloseMenu()
-		self.picker:Hide()
+		self.list:EndNew()
 	end)
 
 	M:On('LIST_CHANGED', function()
@@ -353,6 +290,7 @@ function D:Build()
 		win:ApplyAlpha()
 		self.empty:Update()
 		self:ApplyPin()
+		self:Layout()
 	end)
 	M:On('KEYS_CHANGED', function()
 		self:UpdateKeyHint()
@@ -401,23 +339,67 @@ function D:Restore()
 	end
 end
 
----Places the body under the title bar, and turns the list into an avatar rail when narrow.
+---The list size in use: the player's choice, or for "automatic" full width unless the window is narrow.
+---@return 'full'|'slim'|'icons'
+function D:ListMode()
+	local choice = M.settings.listMode
+	if choice == 'full' or choice == 'slim' or choice == 'icons' then
+		return choice
+	end
+	return self.win:GetWidth() < COMPACT_BELOW and 'icons' or 'full'
+end
+
+---@param mode 'auto'|'full'|'slim'|'icons'
+function D:SetListMode(mode)
+	M.settings.listMode = mode
+	if self.win then
+		self:Layout()
+	end
+end
+
+local NEXT_LIST_MODE = { full = 'slim', slim = 'icons', icons = 'full' }
+
+---The title bar button steps through the list sizes: full, one line, pictures.
+function D:ToggleList()
+	self:SetListMode(NEXT_LIST_MODE[self:ListMode()])
+end
+
+function D:UpdateListButton()
+	local button = self.title and self.title.list
+	if not button then
+		return
+	end
+	local mode = self:ListMode()
+	if mode == 'full' then
+		button.tooltip = L['Make the list one line per conversation']
+	elseif mode == 'slim' then
+		button.tooltip = L['Shrink the list to pictures']
+	else
+		button.tooltip = L['Show the full conversation list']
+	end
+	button.hint = L['Right-click to pick a list size.']
+end
+
+---Places the body under the title bar, and sizes the list for the chosen mode.
 function D:Layout()
 	local win = self.win
 	local titleH = T.Metrics().title
 	self.title:SetHeight(titleH)
-	local compact = win:GetWidth() < COMPACT_BELOW
+	local mode = self:ListMode()
 	local list = self.list
+	-- Starting a conversation needs the search box, which the picture column does not have
+	if list.newMode and mode == 'icons' then
+		mode = 'slim'
+	end
 	list:ClearAllPoints()
 	list:SetPoint('TOPLEFT', 0, -titleH)
 	list:SetPoint('BOTTOMLEFT', 0, 0)
-	list:SetWidth(compact and RAIL_W or LIST_W)
-	list:SetCompact(compact)
+	list:SetWidth(LIST_WIDTH[mode])
+	list:SetMode(mode)
+	self:UpdateListButton()
 	self.empty:ClearAllPoints()
 	self.empty:SetPoint('TOPLEFT', 0, -titleH)
 	self.empty:SetPoint('BOTTOMRIGHT')
-	self.picker:ClearAllPoints()
-	self.picker:SetPoint('TOPLEFT', 0, -titleH)
 end
 
 ---Shows the open/close key in the title bar and the close button's tooltip.
@@ -443,8 +425,9 @@ end
 ---Swaps between the empty state and the list + conversation layout.
 function D:Refresh()
 	local hasAny = #M.Store:List('all') > 0
-	self.empty:SetShown(not hasAny and not self.picker:IsShown())
-	self.list:SetShown(hasAny or self.picker:IsShown())
+	local starting = self.list.newMode == true
+	self.empty:SetShown(not hasAny and not starting)
+	self.list:SetShown(hasAny or starting)
 	self.pane:SetShown(hasAny)
 	if not hasAny then
 		self.empty:Update()
@@ -543,15 +526,88 @@ function D:Open(key, focus)
 	end
 end
 
+---The list's search box doubles as the "new conversation" box.
 function D:ShowNewConversation()
 	self:Build()
 	if not self.win:IsShown() then
 		self.win:Show()
 	end
-	self.picker:Show()
-	self.empty:Hide()
-	self.list:Show()
-	self.picker.edit:SetFocus()
+	self.list:StartNew()
+end
+
+---@param name string Name, Name-Realm or BattleTag
+---@return string|nil
+local function PersonKey(name)
+	if name:find('#', 1, true) then
+		return M.Store.BNetKey(name)
+	end
+	local full = U.FullName(name)
+	return full and M.Store.CharKey(full) or nil
+end
+
+---New conversations the search box offers for the typed text: a whisper to exactly what was
+---typed, matching people, channels, then joining a channel the player is not in. With nothing
+---typed it lists channels that are not open yet.
+---@param typed string
+---@param quiet? boolean Leave out the whisper and join rows (the search already found conversations)
+---@return table[]
+function D:Suggestions(typed, quiet)
+	typed = U.Trim(typed or '')
+	local prefix = strlower(typed)
+	local rooms = M.Rooms:Choices(prefix)
+	for _, entry in ipairs(rooms) do
+		entry.key = M.Rooms.KeyFor(entry.kind, entry.channel)
+	end
+	if prefix == '' then
+		local out = {}
+		for _, entry in ipairs(rooms) do
+			local convo = M.Store:Get(entry.key)
+			if not (convo and not convo.closed and M.Rooms:IsShown(convo)) then
+				out[#out + 1] = entry
+			end
+		end
+		return out
+	end
+	local out = {}
+	local people = M.Contacts:Suggest(prefix)
+	local exactPerson = false
+	for _, entry in ipairs(people) do
+		entry.key = PersonKey(entry.name)
+		if strlower(entry.name) == prefix then
+			exactPerson = true
+		end
+	end
+	local channelName = M.Rooms:Find(typed)
+	if not quiet and not exactPerson and not channelName and not typed:find('[%s#]') and not typed:find('^%d+$') then
+		out[#out + 1] = { name = typed, detail = L['Whisper'], message = true, key = PersonKey(typed) }
+	end
+	for i = 1, math.min(#people, MAX_PEOPLE) do
+		out[#out + 1] = people[i]
+	end
+	for _, entry in ipairs(rooms) do
+		out[#out + 1] = entry
+	end
+	if not quiet and not typed:find('[%s#%-]') and #typed >= 2 and not typed:find('^%d+$') and not channelName then
+		out[#out + 1] = { name = typed, detail = L['Join this channel'], join = true }
+	end
+	return out
+end
+
+---@param entry table
+function D:PickSuggestion(entry)
+	if not entry then
+		return
+	end
+	self.list:Reset()
+	if entry.room then
+		M:OpenRoom(entry.kind, entry.channel, true)
+	elseif entry.join then
+		if not M.Rooms:Join(entry.name) then
+			M.UI.Toast:ShowNotice(L['That channel could not be joined'], L['Check the name, or try again after the fight.'])
+		end
+	else
+		self:StartConversation(entry.name)
+	end
 end
 
 ---@param text string
@@ -560,7 +616,11 @@ function D:StartConversation(text)
 	if text == '' then
 		return
 	end
-	self.picker:Hide()
+	local kindKey, channel = M.Rooms:Find(text)
+	if kindKey then
+		M:OpenRoom(kindKey, channel, true)
+		return
+	end
 	if text:find('#', 1, true) then
 		local entry = M.Contacts:GetBNetByTag(text)
 		if entry then
@@ -568,7 +628,10 @@ function D:StartConversation(text)
 			return
 		end
 	end
-	M:OpenWhisper(text, true)
+	-- Names have no spaces (only realms, as in Name-Argent Dawn): anything else was a search
+	if not text:find('%s') or text:find('-', 1, true) then
+		M:OpenWhisper(text, true)
+	end
 end
 
 function D:Hide()

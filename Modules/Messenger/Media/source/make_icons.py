@@ -1,6 +1,6 @@
 """Messenger icon atlas: 16 white glyphs, 32px cells, 2px strokes, 8x supersampled.
 
-Output: Modules/Messenger/Media/Icons.tga (256x64, RGBA, uncompressed) and
+Output: Modules/Messenger/Media/Icons.tga (256x128 = 8 x 4 cells, RGBA, uncompressed) and
 images/chatbox/messenger.png for the SpartanUI chat header.
 Glyphs are pure white with alpha so the addon tints them with SetVertexColor.
 """
@@ -13,7 +13,8 @@ S = CELL * SS
 W = 2.0 * SS  # stroke width in supersampled px
 
 ORDER = ['close', 'plus', 'gear', 'search', 'pin', 'popout', 'dock', 'more',
-         'send', 'chevron', 'mute', 'invite', 'bubble', 'info', 'dot', 'check']
+         'send', 'chevron', 'mute', 'invite', 'bubble', 'info', 'dot', 'check',
+         'sidebar']
 
 
 def p(x, y):
@@ -84,6 +85,9 @@ def draw(name, d):
         disc(d, 16, 16, 14)
     elif name == 'check':
         line(d, [(9, 16), (14, 21), (23, 11)])
+    elif name == 'sidebar':
+        rect(d, 8, 9, 24, 23); line(d, [(14, 9), (14, 23)])
+        line(d, [(10.5, 13), (11.5, 13)]); line(d, [(10.5, 16.5), (11.5, 16.5)])
 
 
 def render(name):
@@ -95,7 +99,7 @@ def render(name):
     return img
 
 
-atlas = Image.new('RGBA', (CELL * 8, CELL * 2), (255, 255, 255, 0))
+atlas = Image.new('RGBA', (CELL * 8, CELL * 4), (255, 255, 255, 0))
 for i, n in enumerate(ORDER):
     atlas.paste(render(n), ((i % 8) * CELL, (i // 8) * CELL))
 atlas.save(r'C:\code\SpartanUI\Modules\Messenger\Media\Icons.tga')
