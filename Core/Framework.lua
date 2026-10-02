@@ -38,12 +38,11 @@ local currentVersion = VERSION_INFO[WOW_PROJECT_ID] or VERSION_INFO[1]
 SUI[currentVersion.flag] = true ---@type boolean
 SUI.wowVersion = currentVersion.name
 
--- WoW Forever (1.60.x) currently reports WOW_PROJECT_ID as MAINLINE because it runs the
--- modern engine, but it ships Classic content with only part of the Retail API surface.
--- Prefer a real project id once Blizzard adds one; fall back to the interface number,
--- which is the only thing that distinguishes it today.
+-- WoW Forever (1.60.x) runs the modern engine but ships Classic content with only part of the
+-- Retail API surface. Its project id is 18 (WOW_PROJECT_CAMELOT, not always defined); the
+-- interface number is the fallback for builds that report MAINLINE.
 SUI.IsForever = false
-if WOW_PROJECT_FOREVER and WOW_PROJECT_ID == WOW_PROJECT_FOREVER then
+if WOW_PROJECT_ID == (WOW_PROJECT_CAMELOT or 18) or (WOW_PROJECT_FOREVER and WOW_PROJECT_ID == WOW_PROJECT_FOREVER) then
 	SUI.IsForever = true
 else
 	local _, _, _, interfaceVersion = GetBuildInfo()
