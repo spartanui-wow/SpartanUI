@@ -686,7 +686,7 @@ local function PositionSinglePreview(frameName, preview)
 	preview:SetPoint('CENTER', realFrame, 'CENTER', 0, 0)
 end
 
----Position group preview frames (boss, arena, party, raid)
+---Position group preview frames (boss, arena, party, raid) the way the real group grows
 ---@param frameName string
 ---@param previewFrames table[]
 local function PositionGroupPreviews(frameName, previewFrames)
@@ -695,69 +695,12 @@ local function PositionGroupPreviews(frameName, previewFrames)
 		return
 	end
 
-	local settings = UF.CurrentSettings[frameName]
-	local frameHeight = UF:CalculateHeight(frameName)
-	local yOffset = settings.yOffset or -1
-
-	-- Boss/arena: simple vertical stack
-	local config = UF.Unit:GetConfig(frameName)
-	if config and config.config and config.config.useUnitWatch then
-		for i, preview in ipairs(previewFrames) do
-			preview:ClearAllPoints()
-			if i == 1 then
-				preview:SetPoint('TOPLEFT', holder, 'TOPLEFT', 0, 0)
-			else
-				preview:SetPoint('TOP', previewFrames[i - 1], 'BOTTOM', 0, yOffset)
-			end
-		end
-		return
-	end
-
-	-- Party/raid: grid layout
-	local unitsPerColumn = settings.unitsPerColumn or 5
-	local maxColumns = settings.maxColumns or 1
-	local columnSpacing = settings.columnSpacing or 0
-	local columnAnchorPoint = settings.columnAnchorPoint or 'LEFT'
-	local point = settings.point or 'TOP'
-	local xOffset = settings.xOffset or 0
-
+	local offsets, _, _, left, top = UF.Unit:GroupOffsets(frameName, #previewFrames)
+	local halfWidth = (UF.CurrentSettings[frameName].width or 180) / 2
+	local halfHeight = (UF:CalculateHeight(frameName) or 40) / 2
 	for i, preview in ipairs(previewFrames) do
 		preview:ClearAllPoints()
-
-		local colIndex = math.floor((i - 1) / unitsPerColumn)
-		local rowIndex = (i - 1) - (colIndex * unitsPerColumn)
-
-		if rowIndex == 0 and colIndex == 0 then
-			preview:SetPoint(point, holder, point, 0, 0)
-		elseif rowIndex == 0 then
-			-- First frame in a new column
-			local prevColFirst = previewFrames[(colIndex - 1) * unitsPerColumn + 1]
-			if point == 'TOP' or point == 'BOTTOM' then
-				if columnAnchorPoint == 'LEFT' or columnAnchorPoint == 'TOPLEFT' or columnAnchorPoint == 'BOTTOMLEFT' then
-					preview:SetPoint('LEFT', prevColFirst, 'RIGHT', columnSpacing, 0)
-				else
-					preview:SetPoint('RIGHT', prevColFirst, 'LEFT', -columnSpacing, 0)
-				end
-			else
-				if columnAnchorPoint == 'TOP' or columnAnchorPoint == 'TOPLEFT' or columnAnchorPoint == 'TOPRIGHT' then
-					preview:SetPoint('TOP', prevColFirst, 'BOTTOM', 0, -columnSpacing)
-				else
-					preview:SetPoint('BOTTOM', prevColFirst, 'TOP', 0, columnSpacing)
-				end
-			end
-		else
-			-- Stack within column
-			local prev = previewFrames[i - 1]
-			if point == 'TOP' then
-				preview:SetPoint('TOP', prev, 'BOTTOM', 0, yOffset)
-			elseif point == 'BOTTOM' then
-				preview:SetPoint('BOTTOM', prev, 'TOP', 0, -yOffset)
-			elseif point == 'LEFT' then
-				preview:SetPoint('LEFT', prev, 'RIGHT', xOffset, 0)
-			elseif point == 'RIGHT' then
-				preview:SetPoint('RIGHT', prev, 'LEFT', -xOffset, 0)
-			end
-		end
+		preview:SetPoint('TOPLEFT', holder, 'TOPLEFT', offsets[i][1] - halfWidth - left, offsets[i][2] + halfHeight - top)
 	end
 end
 
@@ -988,16 +931,22 @@ end
 ----------------------------------------------------------------------------------------------------
 
 local stageFrames = {} -- stageFrames[frameName] = { frame, ... }
+local STAGE_COUNTS = { party = 5, boss = 5, arena = 3, raid = 10 }
 
 ---How many sample frames the options preview shows for a frame type
 ---@param frameName string
 ---@return number
 function PreviewFrame:GetStageCount(frameName)
 	local config = UF.Unit:GetConfig(frameName)
-	if config and config.config and config.config.IsGroup then
-		return 3
+	if not config or not config.config or not config.config.IsGroup then
+		return 1
 	end
-	return 1
+	-- Enough frames to show how the group grows, never more than it can show
+	local count = STAGE_COUNTS[frameName] or 3
+	if config.unitsPerColumn then
+		count = math.min(count, config.unitsPerColumn * math.max(1, config.maxColumns or 1))
+	end
+	return math.max(1, count)
 end
 
 ---Draw sample frames for a unit frame inside `parent`, reusing frames between calls

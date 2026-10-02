@@ -28,7 +28,6 @@ local PARTS = {
 }
 local AURA_PARTS = { 'BuffContainer', 'DebuffContainer', 'CustomAuras' }
 local ART_PARTS = { 'full', 'bg', 'top', 'bottom' }
-local GAP = 8
 local FOOTER_RESERVE = 28
 
 -- Parts the player hid from the preview (this session only; the real frame is not touched)
@@ -54,19 +53,15 @@ local function GetFrameName(ctx)
 end
 
 ---@type SUI.OptionsWindow.StageProvider
-local provider = { path = { 'UnitFrames' } }
+local provider = { path = { 'UnitFrames' }, zoomable = true }
 
 function provider:GetHeight(ctx)
 	local frameName = GetFrameName(ctx)
 	if not frameName then
 		return 0
 	end
-	local height = UF:CalculateHeight(frameName) or 40
 	local settings = UF.CurrentSettings[frameName]
-	local count = UF.PreviewFrame:GetStageCount(frameName)
-	if count > 1 and (settings.point == 'TOP' or settings.point == 'BOTTOM') then
-		height = height * count + math.abs(settings.yOffset or 1) * (count - 1)
-	end
+	local _, _, height = UF.Unit:GroupOffsets(frameName, UF.PreviewFrame:GetStageCount(frameName))
 	local elements = settings.elements or {}
 	for _, auraElement in ipairs(AURA_PARTS) do
 		local db = elements[auraElement]
@@ -146,22 +141,11 @@ function provider:Render(ctx)
 		end
 	end
 	local reserve = HiddenCount(frameName) > 0 and FOOTER_RESERVE or 0
-	local settings = UF.CurrentSettings[frameName]
-	local frameWidth = settings.width or 180
-	local frameHeight = UF:CalculateHeight(frameName) or 40
-	local offsets = {}
-
-	-- Group frames stack the way the real group grows: TOP/BOTTOM in a column, LEFT/RIGHT in a row
-	local point = settings.point
-	local vertical = #frames > 1 and (point == 'TOP' or point == 'BOTTOM')
-	local stepX = vertical and 0 or (frameWidth + (point and math.abs(settings.xOffset or 0) or GAP))
-	local stepY = vertical and (frameHeight + math.abs(settings.yOffset or 1)) or 0
-	local direction = (point == 'BOTTOM' or point == 'RIGHT') and -1 or 1
+	-- Group frames sit the way the real group grows (growth direction, frames per column, offsets)
+	local offsets = UF.Unit:GroupOffsets(frameName, #frames)
 
 	-- Lay out at scale 1, measure everything that will be drawn, then scale and center it
 	for i, preview in ipairs(frames) do
-		local index = i - 1 - (#frames - 1) / 2
-		offsets[i] = { index * stepX * direction, -index * stepY * direction }
 		preview:SetScale(1)
 		preview:ClearAllPoints()
 		preview:SetPoint('CENTER', canvas, 'CENTER', offsets[i][1], offsets[i][2])

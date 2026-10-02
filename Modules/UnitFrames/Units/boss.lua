@@ -24,18 +24,12 @@ local elementList = {
 }
 
 local function GroupBuilder(holder)
-	local db = holder.config
 	for i = 1, 8 do
 		local frame = SUIUF:Spawn('boss' .. i, 'SUI_UF_boss' .. i)
 		frame:SetID(i)
-		if i == 1 then
-			frame:SetPoint('TOPLEFT', holder, 'TOPLEFT', 0, 0)
-		else
-			frame:SetPoint('TOP', holder.frames[i - 1], 'BOTTOM', 0, db.yOffset)
-		end
-
 		holder.frames[i] = frame
 	end
+	UF.Unit:LayoutGroupFrames('boss')
 end
 
 local function Builder(frame)

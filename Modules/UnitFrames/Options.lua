@@ -1484,8 +1484,6 @@ function Options:AddGroupDisplay(frameName, OptionSet)
 	}
 end
 
----@param frameName UnitFrameName
----@param OptionSet AceConfig.OptionsTable
 -- Growth direction maps user-friendly names to WoW SecureGroupHeader attributes
 -- point: controls how units stack within a column
 -- columnAnchorPoint: controls how columns are arranged
@@ -1500,6 +1498,21 @@ Options.GrowthDirectionMap = {
 	LEFT_UP = { point = 'RIGHT', columnAnchorPoint = 'BOTTOM' },
 }
 
+---Resize a group's mover to its layout and re-place frames the game does not lay out (boss, arena)
+---@param frameName UnitFrameName
+function Options:RelayoutGroup(frameName)
+	local holder = UF.Unit:Get(frameName)
+	if not holder then
+		return
+	end
+	if not InCombatLockdown() then
+		holder:SetSize(UF.Unit:GroupSize(frameName))
+	end
+	UF.Unit:LayoutGroupFrames(frameName)
+end
+
+---@param frameName UnitFrameName
+---@param OptionSet AceConfig.OptionsTable
 function Options:AddGroupLayout(frameName, OptionSet)
 	OptionSet.args.General.args.Layout = {
 		name = L['Layout Configuration'],
@@ -1521,6 +1534,7 @@ function Options:AddGroupLayout(frameName, OptionSet)
 				elseif holder.header then
 					holder.header:SetAttribute(setting, val)
 				end
+				Options:RelayoutGroup(frameName)
 			end
 		end,
 		args = {
@@ -1560,6 +1574,7 @@ function Options:AddGroupLayout(frameName, OptionSet)
 								holder.header:SetAttribute('point', mapping.point)
 								holder.header:SetAttribute('columnAnchorPoint', mapping.columnAnchorPoint)
 							end
+							Options:RelayoutGroup(frameName)
 						end
 					end
 				end,

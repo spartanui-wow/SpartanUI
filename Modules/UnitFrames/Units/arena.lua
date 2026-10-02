@@ -31,15 +31,11 @@ local elementList = {
 local function GroupBuilder(holder)
 	for i = 1, 5 do
 		local frame = SUIUF:Spawn('arena' .. i, 'SUI_UF_arena' .. i)
-		if i == 1 then
-			frame:SetPoint('TOPLEFT', holder, 'TOPLEFT', 0, 0)
-		else
-			frame:SetPoint('TOP', holder.frames[i - 1], 'BOTTOM', 0, -10)
-		end
 		frame:SetAttribute('oUF-enableArenaPrep', true)
 
 		holder.frames[i] = frame
 	end
+	UF.Unit:LayoutGroupFrames('arena')
 end
 
 local function Builder(frame)
@@ -59,7 +55,7 @@ local Settings = {
 	maxColumns = 1,
 	unitsPerColumn = 5,
 	columnSpacing = 1,
-	yOffset = -25,
+	yOffset = -10,
 	elements = {
 		Name = { text = '[SUI_ColorClass][name] [arenaspec]' },
 		Power = {

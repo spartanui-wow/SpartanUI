@@ -94,8 +94,64 @@ function Unit:Update(frame)
 		local holder = BuiltFrames[unitName]
 		if holder then
 			holder:SetSize(Unit:GroupSize(unitName))
+			Unit:LayoutGroupFrames(unitName)
 		end
 	end
+end
+
+-- Which way a frame's edge points from the previous one, per anchor point
+local STEP = { TOP = { 0, -1 }, BOTTOM = { 0, 1 }, LEFT = { 1, 0 }, RIGHT = { -1, 0 } }
+
+---The anchor points a group grows by, from its growth direction setting
+---@param settings table
+---@return string point How frames stack in a column
+---@return string columnAnchorPoint Where new columns go
+function Unit:GrowthPoints(settings)
+	local map = UF.Options and UF.Options.GrowthDirectionMap
+	local growth = map and (map[settings.growthDirection or 'DOWN_RIGHT'] or map.DOWN_RIGHT)
+	if not growth then
+		return 'TOP', 'LEFT'
+	end
+	return growth.point, growth.columnAnchorPoint
+end
+
+---Where each frame of a group sits, the way the game's group layout places them: the frame
+---centers relative to the first frame, at scale 1, plus the size of the whole layout.
+---@param frameName UnitFrameName
+---@param count integer
+---@param perColumn? integer Frames per column (defaults to the frame's setting)
+---@return table[] offsets { {x, y}, ... }
+---@return number width
+---@return number height
+---@return number left Left edge of the layout, relative to the first frame's center
+---@return number top Top edge of the layout, relative to the first frame's center
+function Unit:GroupOffsets(frameName, count, perColumn)
+	local settings = UF.CurrentSettings[frameName]
+	local width = settings.width or 180
+	local height = UF:CalculateHeight(frameName) or 40
+	local point, columnPoint = self:GrowthPoints(settings)
+	perColumn = math.max(1, perColumn or settings.unitsPerColumn or count)
+	local spacing = settings.columnSpacing or 0
+	local step, columnStep = STEP[point] or STEP.TOP, STEP[columnPoint] or STEP.LEFT
+
+	-- In a column each frame meets the previous one edge to edge, moved by the raw offset (as the
+	-- game does it); new columns start beside the first frame of the previous column
+	local dx = step[1] * width + (step[1] ~= 0 and (settings.xOffset or 0) or 0)
+	local dy = step[2] * height + (step[2] ~= 0 and (settings.yOffset or 0) or 0)
+	local cdx = columnStep[1] * (width + spacing)
+	local cdy = columnStep[2] * (height + spacing)
+
+	local offsets = {}
+	local minX, maxX, minY, maxY = 0, 0, 0, 0
+	for i = 1, math.max(1, count) do
+		local column = math.floor((i - 1) / perColumn)
+		local row = (i - 1) - column * perColumn
+		local x, y = column * cdx + row * dx, column * cdy + row * dy
+		offsets[i] = { x, y }
+		minX, maxX = math.min(minX, x), math.max(maxX, x)
+		minY, maxY = math.min(minY, y), math.max(maxY, y)
+	end
+	return offsets, maxX - minX + width, maxY - minY + height, minX - width / 2, maxY + height / 2
 end
 
 ---Calculates the size of a single header's layout area.
@@ -104,22 +160,43 @@ end
 ---@return integer height
 local function SingleHeaderSize(frameName)
 	local CurFrameOpt = UF.CurrentSettings[frameName]
-	local frameHeight = UF:CalculateHeight(frameName)
-	local frameWidth = CurFrameOpt.width
 	local unitsPerColumn = CurFrameOpt.unitsPerColumn or 10
 	local maxColumns = CurFrameOpt.maxColumns or 1
-	local columnSpacing = CurFrameOpt.columnSpacing or 0
-	local ySpacing = math.abs(CurFrameOpt.yOffset or 0)
-
-	-- Single column: frames stacked vertically with ySpacing gap between them
-	local columnHeight = (unitsPerColumn - 1) * (frameHeight + ySpacing) + frameHeight
-	local columnWidth = frameWidth
-
-	-- Multiple columns expand horizontally (columnAnchorPoint = LEFT)
-	local width = columnWidth + (maxColumns - 1) * (columnWidth + columnSpacing)
-	local height = columnHeight
-
+	local _, width, height = Unit:GroupOffsets(frameName, unitsPerColumn * maxColumns, unitsPerColumn)
 	return width, height
+end
+
+local pendingLayout = {}
+local layoutWatcher = CreateFrame('Frame')
+layoutWatcher:SetScript('OnEvent', function(self)
+	self:UnregisterEvent('PLAYER_REGEN_ENABLED')
+	for frameName in pairs(pendingLayout) do
+		pendingLayout[frameName] = nil
+		Unit:LayoutGroupFrames(frameName)
+	end
+end)
+
+---Place the frames of a group the game does not lay out itself (boss, arena) by its growth
+---direction, frames per column and offsets. Groups drawn by the game's group header are skipped.
+---@param frameName UnitFrameName
+function Unit:LayoutGroupFrames(frameName)
+	local holder = BuiltFrames[frameName]
+	local settings = UF.CurrentSettings[frameName]
+	local config = holder and settings and settings.config
+	if not config or not config.useUnitWatch or not holder.frames or #holder.frames == 0 then
+		return
+	end
+	if InCombatLockdown() then
+		pendingLayout[frameName] = true
+		layoutWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
+		return
+	end
+	local offsets, _, _, left, top = self:GroupOffsets(frameName, #holder.frames)
+	local halfWidth, halfHeight = (settings.width or 180) / 2, (UF:CalculateHeight(frameName) or 40) / 2
+	for i, frame in ipairs(holder.frames) do
+		frame:ClearAllPoints()
+		frame:SetPoint('TOPLEFT', holder, 'TOPLEFT', offsets[i][1] - halfWidth - left, offsets[i][2] + halfHeight - top)
+	end
 end
 
 ---Calculates the total size of a group frame holder.
