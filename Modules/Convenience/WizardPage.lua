@@ -3,109 +3,27 @@ local SUI, L = SUI, SUI.L
 local module = SUI:GetModule('Convenience')
 
 function module:RegisterSetupWizardPage()
-	local reg = SUI.Setup and SUI.Setup.registration
-	if not reg or reg:GetStep('convenience') then
+	if not (SUI.Setup and SUI.Setup.AddHelpers) then
 		return
 	end
-
 	local DB = module:GetDB()
-
-	reg:AddStep({
-		id = 'convenience',
-		kind = 'form',
-		name = L['Convenience'],
-		title = L['Convenience'],
-		order = 54,
-		hidden = function()
-			return SUI:IsModuleDisabled('Convenience')
-		end,
-		widgets = {
-			cvarsHeader = {
-				type = 'header',
-				name = 'UI Tweaks',
-				order = 1,
-			},
-			disablePersonalNameplate = {
-				type = 'checkbox',
-				name = 'Disable personal nameplate',
-				desc = 'Hides the nameplate under your character',
-				order = 2,
-				get = function()
-					return GetCVar('nameplateShowSelf') == '0'
-				end,
-				set = function(_, val)
-					SetCVar('nameplateShowSelf', val and '0' or '1')
-				end,
-			},
-			enableNameplates = {
-				type = 'checkbox',
-				name = 'Enable enemy nameplates',
-				desc = 'Shows nameplates above enemies',
-				order = 3,
-				get = function()
-					return GetCVar('nameplateShowAll') == '1'
-				end,
-				set = function(_, val)
-					SetCVar('nameplateShowAll', val and '1' or '0')
-				end,
-			},
-			disableTutorials = {
-				type = 'checkbox',
-				name = 'Disable all tutorials',
-				desc = 'For experienced players - disables all in-game tutorial popups',
-				order = 4,
-				get = function()
-					return GetCVar('showTutorials') == '0'
-				end,
-				set = function(_, val)
-					if val then
-						SetCVar('showTutorials', 0)
-					else
-						SetCVar('showTutorials', 1)
-					end
-				end,
-			},
-			convenienceHeader = {
-				type = 'header',
-				name = L['Convenience'],
-				order = 10,
-			},
-			autoAcceptSummon = {
-				type = 'checkbox',
-				name = 'Auto-accept summons',
-				desc = 'Automatically accept summons when out of combat',
-				order = 11,
-				get = function()
-					return DB.autoAcceptSummon
-				end,
-				set = function(_, val)
-					DB.autoAcceptSummon = val
-				end,
-			},
-			autoAcceptResurrection = {
-				type = 'checkbox',
-				name = 'Auto-accept resurrections',
-				desc = 'Automatically accept resurrection requests when out of combat',
-				order = 12,
-				get = function()
-					return DB.autoAcceptResurrection
-				end,
-				set = function(_, val)
-					DB.autoAcceptResurrection = val
-				end,
-			},
-			autoReleaseInPvP = {
-				type = 'checkbox',
-				name = 'Auto-release in PvP',
-				desc = 'Automatically release spirit when dying in battlegrounds or arenas',
-				order = 13,
-				get = function()
-					return DB.autoReleaseInPvP
-				end,
-				set = function(_, val)
-					DB.autoReleaseInPvP = val
-				end,
-			},
-		},
+	local function Item(key, title, caption)
+		return {
+			key = 'convenience:' .. key,
+			title = title,
+			caption = caption,
+			module = 'Convenience',
+			get = function()
+				return DB[key] and true or false
+			end,
+			set = function(value)
+				DB[key] = value
+			end,
+		}
+	end
+	SUI.Setup:AddHelpers('groups', {
+		Item('autoAcceptSummon', L['Accept summons'], L['Only out of combat.']),
+		Item('autoAcceptResurrection', L['Accept resurrections'], L['Only out of combat.']),
+		Item('autoReleaseInPvP', L['Release your spirit in battlegrounds'], L['Saves a click after every death in PvP.']),
 	})
 end

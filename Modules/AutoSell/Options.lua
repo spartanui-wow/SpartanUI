@@ -8,42 +8,33 @@ local MAX_BAG_SLOTS = 12 -- Maximum number of bag slots to scan (0-12 covers all
 local buildItemList, buildCharacterList, OptionTable
 
 local function RegisterSetupWizardPage()
-	local reg = SUI.Setup and SUI.Setup.registration
-	if not reg or reg:GetStep('autosell') then
+	if not (SUI.Setup and SUI.Setup.AddHelpers) then
 		return
 	end
-
-	local function Item(key, title)
-		return { key = key, title = title, recommended = module.DBDefaults and module.DBDefaults[key] == true }
+	local function Setting(key)
+		return {
+			get = function()
+				return module.CurrentSettings[key] and true or false
+			end,
+			set = function(value)
+				module.DB[key] = value
+				SUI.DBM:RefreshSettings(module)
+			end,
+		}
 	end
-
-	reg:AddStep({
-		id = 'autosell',
-		kind = 'toggles',
-		name = L['Auto sell'],
-		title = L['Auto sell'],
-		text = L['Automatically vendor items when you visit a merchant.'] .. ' ' .. L['Crafting, consumables, and gearset items will not be sold by default.'],
-		order = 50,
-		hidden = function()
-			return SUI:IsModuleDisabled('AutoSell')
-		end,
-		groups = {
-			{
-				title = L['Sell by quality'],
-				items = { Item('Gray', L['Sell gray']), Item('White', L['Sell white']), Item('Green', L['Sell green']), Item('Blue', L['Sell blue']), Item('Purple', L['Sell purple']) },
-			},
-			{
-				title = L['Repairs'],
-				items = { Item('AutoRepair', L['Auto repair']), Item('UseGuildBankRepair', L['Use guild bank repair if possible']) },
-			},
-		},
-		get = function(key)
-			return module.CurrentSettings[key] and true or false
-		end,
-		set = function(key, value)
-			module.DB[key] = value
-			SUI.DBM:RefreshSettings(module)
-		end,
+	local function Item(key, title, caption, recommended)
+		local item = Setting(key)
+		item.key = 'autosell:' .. key
+		item.title = title
+		item.caption = caption
+		item.recommended = recommended
+		item.module = 'AutoSell'
+		return item
+	end
+	SUI.Setup:AddHelpers('selling', {
+		Item('Gray', L['Sell gray junk at vendors'], L['Gray items are sold the moment you open a vendor.'], true),
+		Item('AutoRepair', L['Repair your gear at vendors'], L['Uses your own gold.'], true),
+		Item('UseGuildBankRepair', L['Pay repairs from the guild bank first'], L['Only when your guild allows it.'], false),
 	})
 end
 

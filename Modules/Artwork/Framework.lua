@@ -104,7 +104,8 @@ function SUI:GetArtworkSetting(key)
 end
 
 -- Looks offered in setup, newest first; the rest follow in the order players pick them most
-local SETUP_LOOKS = { 'Atlas', 'Boughs', 'Meridian', 'ModernFlat', 'HealerGrid', 'ClassicDark', 'War', 'Classic', 'Midnight', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }
+-- Popular first, then new, then the rest
+local SETUP_LOOKS = { 'War', 'Classic', 'Atlas', 'Boughs', 'Meridian', 'ModernFlat', 'HealerGrid', 'ClassicDark', 'Midnight', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }
 local SETUP_TAGS = { Atlas = 'New', Boughs = 'New', Meridian = 'New', ModernFlat = 'New', HealerGrid = 'New', ClassicDark = 'New', War = 'Popular', Classic = 'Popular' }
 
 ---Setup cards for every look, built from the theme registry
@@ -119,9 +120,10 @@ local function BuildLookCards()
 				title = entry.displayName or name,
 				caption = entry.description,
 				tag = SETUP_TAGS[name] and L[SETUP_TAGS[name]] or nil,
-				art = { texture = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_' .. name },
+				tagStyle = SETUP_TAGS[name] and SETUP_TAGS[name]:lower() or nil,
+				-- War shows the player's own faction
+				art = { texture = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_' .. ((name == 'War' and UnitFactionGroup('player') == 'Alliance') and 'War_Alliance' or name) },
 				accent = entry.accent,
-				recommended = name == 'War',
 			}
 			local variants = SUI.ThemeRegistry:GetVariants(name)
 			if variants then
@@ -189,6 +191,13 @@ local function RegisterSetupWizardPages()
 		text = L['This sets the art, frames, action bars and minimap together. You can change any part later.'],
 		order = 20,
 		scope = 'profile',
+		-- A copied or shared profile brings its own look
+		hidden = function()
+			return not SUI.Setup:IsStartingFresh()
+		end,
+		onLeave = function()
+			SUI.Setup:EnsureWelcomeDone()
+		end,
 		cards = BuildLookCards(),
 		get = ActiveLook,
 		set = function(value)
@@ -202,30 +211,33 @@ local function RegisterSetupWizardPages()
 		end,
 	})
 
-	-- Artwork options: rebuilt on every visit, because the options depend on the look just picked
+	-- Size and letters on one page. Look-only extras and the vehicle switch live in the look's settings.
 	reg:AddStep({
 		id = 'artwork-options',
 		kind = 'custom',
-		name = L['Artwork options'],
-		title = L['Artwork options'],
+		name = L['Make it yours'],
+		title = L['Make it yours'],
+		text = L['How big things are and how the letters look. Both can change later in /sui.'],
 		order = 21,
 		scope = 'profile',
 		cache = false,
+		hidden = function()
+			return not SUI.Setup:IsStartingFresh()
+		end,
 		build = function(contentFrame)
-			local widgets, totalHeight = LibAT.UI.BuildWidgets(contentFrame, {
-				currentTheme = {
-					type = 'description',
-					name = L['Current look:'] .. ' ' .. (SUI.ThemeRegistry:Get(ActiveLook()) and SUI.ThemeRegistry:Get(ActiveLook()).displayName or ActiveLook()),
-					order = 1,
-				},
+			local UI = LibAT.UI
+			local Font = SUI:GetModule('Handler.Font') ---@type SUI.Font
+			local width = contentFrame:GetWidth()
+			local _, sizeHeight = UI.BuildWidgets(contentFrame, {
+				sizeHeader = { type = 'header', name = L['Size'], order = 1 },
 				scale = {
 					type = 'slider',
-					name = L['UI scale'],
+					name = L['Size of everything SpartanUI draws'],
 					desc = L['Makes everything SpartanUI draws bigger or smaller. 92 is the default.'],
 					min = 50,
 					max = 100,
 					step = 1,
-					order = 5,
+					order = 2,
 					get = function()
 						return math.floor((SUI.DB.scale or 0.92) * 100 + 0.5)
 					end,
@@ -236,12 +248,12 @@ local function RegisterSetupWizardPages()
 				},
 				transparency = {
 					type = 'slider',
-					name = 'Artwork Transparency',
-					desc = 'Controls the overall transparency of the artwork. 100 = fully opaque.',
+					name = L['How much of the art you can see'],
+					desc = L['100 is fully solid. Lower lets the game show through the art.'],
 					min = 0,
 					max = 100,
 					step = 1,
-					order = 10,
+					order = 3,
 					get = function()
 						return math.floor((SUI.DB.alpha or 1) * 100)
 					end,
@@ -250,128 +262,94 @@ local function RegisterSetupWizardPages()
 						module:UpdateAlpha()
 					end,
 				},
-				divider1 = {
-					type = 'divider',
-					order = 20,
-				},
-				vehicleUI = {
-					type = 'checkbox',
-					name = 'Use SUI Vehicle UI',
-					order = 21,
-					get = function()
-						return module.CurrentSettings.VehicleUI
-					end,
-					set = function(_, val)
-						module.DB.VehicleUI = val
-						SUI.DBM:RefreshSettings(module)
-						if SUI.ActionBars and SUI.ActionBars:IsActive() then
-							SUI.ActionBars:UpdateBlizzardVehicle()
-							SUI.ActionBars:ApplyAll()
-						end
-					end,
-				},
-			}, contentFrame:GetWidth() - 20)
+				lettersHeader = { type = 'header', name = L['Letters'], order = 10 },
+			}, width - 20)
 
-			-- Theme-specific options injected by active theme
-			local activeStyle = module.CurrentSettings.Style
-			local themeEntry = activeStyle and SUI.ThemeRegistry:Get(activeStyle)
-			local themeGroup = themeEntry and themeEntry.variantGroup or activeStyle
-			if themeGroup then
-				local styleModule = SUI:GetModule('Style.' .. themeGroup, true)
-				if styleModule and styleModule.BuildWizardOptions then
-					local themeFrame = CreateFrame('Frame', nil, contentFrame)
-					themeFrame:SetPoint('TOP', contentFrame, 'TOP', 0, -(totalHeight + 10))
-					themeFrame:SetPoint('LEFT', contentFrame, 'LEFT', 0, 0)
-					themeFrame:SetPoint('RIGHT', contentFrame, 'RIGHT', 0, 0)
-					local themeHeight = styleModule:BuildWizardOptions(themeFrame, contentFrame:GetWidth() - 20)
-					totalHeight = totalHeight + (themeHeight or 0) + 10
-				end
+			local LSM = SUI.Lib.LSM
+			local sample = contentFrame:CreateFontString(nil, 'OVERLAY')
+			local function ShowSample()
+				local path = LSM:Fetch('font', Font:GetFace('Global')) or STANDARD_TEXT_FONT
+				sample:SetFont(path, 15, 'OUTLINE')
+				local health = UnitHealthMax('player') or 0
+				sample:SetText(('%s   %s / %s   %s'):format(UnitName('player') or '', BreakUpLargeNumbers(health), BreakUpLargeNumbers(health), L['The quick brown fox jumps over the lazy dog']))
 			end
 
-			contentFrame:SetHeight(totalHeight + 20)
-		end,
-	})
-
-	reg:AddStep({
-		id = 'font',
-		kind = 'custom',
-		name = L['Font'],
-		title = L['Font style'],
-		order = 22,
-		build = function(contentFrame)
-			local Font = SUI:GetModule('Handler.Font') ---@type SUI.Font
-			local Samples = {}
-
-			Samples[1] = contentFrame:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
-			Samples[1].size = 10
-			Samples[1]:SetFont(SUI.Font:GetFont(), 10, 'OUTLINE')
-			Samples[1]:SetText('Never gonna give you up, never gonna let you down\nNever gonna run around and desert you\nNever gonna make you cry, never gonna say goodbye')
-			Samples[1]:SetPoint('TOP', contentFrame, 'TOP', 10, -10)
-			Samples[1]:SetVertexColor(1, 1, 1)
-
-			Samples[2] = contentFrame:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
-			Samples[2].size = 12
-			Samples[2]:SetFont(SUI.Font:GetFont(), 12, 'OUTLINE')
-			Samples[2]:SetText('The quick brown fox jumps over the lazy dog')
-			Samples[2]:SetPoint('TOP', Samples[1], 'BOTTOM', 0, -10)
-			Samples[2]:SetVertexColor(1, 1, 1)
-
-			Samples[3] = contentFrame:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
-			Samples[3].size = 16
-			Samples[3]:SetFont(SUI.Font:GetFont(), 16, 'OUTLINE')
-			Samples[3]:SetText('The quick brown fox jumps over the lazy dog')
-			Samples[3]:SetPoint('TOP', Samples[2], 'BOTTOM', 0, -10)
-			Samples[3]:SetVertexColor(1, 1, 1)
-
-			Samples[4] = contentFrame:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
-			Samples[4].size = 18
-			Samples[4]:SetFont(SUI.Font:GetFont(), 18, 'OUTLINE')
-			Samples[4]:SetText('The quick brown fox jumps over the lazy dog')
-			Samples[4]:SetPoint('TOP', Samples[3], 'BOTTOM', 0, -10)
-			Samples[4]:SetVertexColor(1, 1, 1)
-
-			local function SetFont(font)
-				for i = 1, #Samples do
-					Samples[i]:SetFont(SUI.Lib.LSM:Fetch('font', font), Samples[i].size)
+			local tiles = {}
+			local function PaintTiles()
+				local current = Font:GetFace('Global')
+				for name, button in pairs(tiles) do
+					button.style = name == current and 'primary' or 'secondary'
+					if button.ApplyKit then
+						button:ApplyKit()
+					end
 				end
 			end
-
-			local UI = LibAT.UI
-			local fontBtns = {}
-			for k, v in ipairs({ 'Roboto Condensed Bold', 'Roboto Bold', 'Roboto Medium', 'NotoSans Bold', 'Cognosis', 'Myriad', 'Arial Narrow', 'Friz Quadrata TT' }) do
-				local button = UI.CreateButton(contentFrame, 120, 20, v)
-				button:SetScript('OnClick', function()
-					SetFont(v)
-					Font:SetFace('Global', v)
-					Font:Refresh()
-				end)
-				local buttonText = button:GetFontString()
-				if buttonText then
-					buttonText:SetFont(SUI.Lib.LSM:Fetch('font', v), 12)
-				end
-				if k <= 4 then
-					button:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 5 + (k - 1) * 130, -140)
-				else
-					button:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 5 + (k - 5) * 130, -170)
-				end
-				fontBtns[k] = button
-			end
-
-			local AceGUI = LibStub('AceGUI-3.0')
-			local dropdown = AceGUI:Create('LSM30_Font') ---@type AceGUIWidgetLSM30_Font
-			dropdown:SetLabel('Other Fonts')
-			dropdown:SetList(SUI.Lib.LSM:HashTable('font'))
-			dropdown:SetValue(Font:GetFace('Global'))
-			dropdown:SetCallback('OnValueChanged', function(_, _, value)
-				SetFont(value)
-				Font:SetFace('Global', value)
+			local function Pick(name)
+				Font:SetFace('Global', name)
 				Font:Refresh()
-			end)
-			dropdown.frame:SetParent(contentFrame)
-			dropdown.frame:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 5, -200)
-			dropdown.frame:SetWidth(contentFrame:GetWidth() - 10)
+				ShowSample()
+				PaintTiles()
+			end
 
-			contentFrame:SetHeight(250)
+			local tileWidth = math.floor((width - 20 - 3 * 8) / 4)
+			local top = sizeHeight + 4
+			for k, name in ipairs({ 'Roboto Condensed Bold', 'Roboto Bold', 'Roboto Medium', 'NotoSans Bold', 'Cognosis', 'Myriad', 'Arial Narrow', 'Friz Quadrata TT' }) do
+				local button = UI.CreateButton(contentFrame, tileWidth, 26, name)
+				local text = button:GetFontString()
+				local path = LSM:Fetch('font', name, true)
+				if text and path then
+					text:SetFont(path, 13, '')
+				end
+				button:SetScript('OnClick', function()
+					Pick(name)
+				end)
+				local column = (k - 1) % 4
+				local row = math.floor((k - 1) / 4)
+				button:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', column * (tileWidth + 8), -(top + row * 34))
+				tiles[name] = button
+			end
+			top = top + 2 * 34 + 6
+
+			-- Every installed font, each name drawn in its own letters
+			local more = UI.CreateDropdown(contentFrame, L['More fonts'], 260, 24)
+			more:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -top)
+			if more.SetupMenu then
+				more:SetupMenu(function(_, root)
+					local names = {}
+					for name in pairs(LSM:HashTable('font')) do
+						names[#names + 1] = name
+					end
+					table.sort(names)
+					for _, name in ipairs(names) do
+						local entry = root:CreateRadio(name, function()
+							return Font:GetFace('Global') == name
+						end, function()
+							Pick(name)
+						end)
+						local path = LSM:Fetch('font', name, true)
+						if entry.AddInitializer and path then
+							entry:AddInitializer(function(button)
+								local text = button.fontString or button.Text
+								if text and text.SetFont then
+									text:SetFont(path, 13, '')
+								end
+							end)
+						end
+					end
+				end)
+			end
+			top = top + 24 + 14
+
+			sample:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -top)
+			sample:SetPoint('RIGHT', contentFrame, 'RIGHT', -10, 0)
+			sample:SetJustifyH('LEFT')
+			sample:SetWordWrap(true)
+			ShowSample()
+			PaintTiles()
+			top = top + 40
+
+			contentFrame.totalHeight = top
+			contentFrame:SetHeight(top)
 		end,
 	})
 end

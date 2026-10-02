@@ -338,7 +338,8 @@ end
 
 ---@param unitName string
 ---@param presetKey string
-function AuraPresets:ApplyPreset(unitName, presetKey)
+---@param quiet? boolean no chat line (setup applies presets to several frames at once)
+function AuraPresets:ApplyPreset(unitName, presetKey, quiet)
 	local preset = self.Presets[presetKey]
 	if not preset then
 		return
@@ -350,7 +351,9 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 	-- Debuffs entries map onto groups 1 and 2.
 	if UF.IsModernOUF then
 		self:ApplyPresetToGroupElement(unitName, preset)
-		SUI:Print(string.format('Applied "%s" aura preset to %s', preset.name, unitName))
+		if not quiet then
+			SUI:Print(string.format('Applied "%s" aura preset to %s', preset.name, unitName))
+		end
 		return
 	end
 
@@ -386,14 +389,17 @@ function AuraPresets:ApplyPreset(unitName, presetKey)
 		end
 	end
 
-	SUI:Print(string.format('Applied "%s" aura preset to %s', preset.name, unitName))
+	if not quiet then
+		SUI:Print(string.format('Applied "%s" aura preset to %s', preset.name, unitName))
+	end
 end
 
 -- Apply preset to all group units (party and raid)
 ---@param presetKey string
-function AuraPresets:ApplyPresetToGroups(presetKey)
+---@param quiet? boolean
+function AuraPresets:ApplyPresetToGroups(presetKey, quiet)
 	local groupUnits = { 'party', 'raid10', 'raid25', 'raid40' }
 	for _, unitName in ipairs(groupUnits) do
-		self:ApplyPreset(unitName, presetKey)
+		self:ApplyPreset(unitName, presetKey, quiet)
 	end
 end

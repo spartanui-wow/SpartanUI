@@ -1851,10 +1851,10 @@ function Options:Initialize()
 			name = data.displayName or styleName,
 			type = 'execute',
 			image = function()
-				return data.setup.image or ('interface\\addons\\SpartanUI\\images\\setup\\Style_Frames_' .. styleName), 120, 60
+				return 'interface\\addons\\SpartanUI\\images\\setup\\Style_Frames_' .. styleName, 120, 60
 			end,
 			imageCoords = function()
-				return data.setup.imageCoords or { 0, 0.5, 0, 0.5 }
+				return data.setup.imageCoords or { 0, 1, 0, 1 }
 			end,
 			func = function()
 				UF:SetActiveStyle(styleName)

@@ -83,6 +83,78 @@ local function AddChatHeaderButton()
 	M:On('UNREAD_CHANGED', UpdateHeaderCount)
 end
 
+---Messenger's switches on the setup window's Helpers page
+local function RegisterSetupStep()
+	if not (SUI.Setup and SUI.Setup.AddHelpers) then
+		return
+	end
+	local function Routes(keys, value)
+		for _, key in ipairs(keys) do
+			local route = M:GetRoute(key)
+			if route then
+				route.capture = value
+			end
+		end
+		M:RoutesChanged()
+	end
+	local function AllCaptured(keys)
+		for _, key in ipairs(keys) do
+			if not M:IsCaptured(key) then
+				return false
+			end
+		end
+		return true
+	end
+	local WHISPERS = { 'WHISPER', 'BN_WHISPER' }
+	local GROUP_CHAT = { 'GUILD', 'PARTY' }
+	SUI.Setup:AddHelpers('messages', {
+		{
+			key = 'messenger:whispers',
+			title = L['Keep whispers as conversations in Messenger'],
+			caption = L['Whispers leave the main chat and open in their own window.'],
+			recommended = true,
+			module = 'Messenger',
+			get = function()
+				return M.settings ~= nil and AllCaptured(WHISPERS)
+			end,
+			set = function(value)
+				if M.settings then
+					Routes(WHISPERS, value)
+				end
+			end,
+		},
+		{
+			key = 'messenger:takeover',
+			title = L['Whispers you start in the main chat open there too'],
+			caption = L['Typing /w Name or clicking a name moves you into Messenger.'],
+			module = 'Messenger',
+			get = function()
+				return M.settings ~= nil and M.settings.takeOverWhispers == true
+			end,
+			set = function(value)
+				if M.settings then
+					M.settings.takeOverWhispers = value
+					M:Fire('SETTINGS_CHANGED')
+				end
+			end,
+		},
+		{
+			key = 'messenger:groupchat',
+			title = L['Also keep guild and party chat in Messenger'],
+			caption = L['You can pick each chat later in Messenger settings.'],
+			module = 'Messenger',
+			get = function()
+				return M.settings ~= nil and AllCaptured(GROUP_CHAT)
+			end,
+			set = function(value)
+				if M.settings then
+					Routes(GROUP_CHAT, value)
+				end
+			end,
+		},
+	})
+end
+
 function module:OnInitialize()
 	for _, addon in ipairs(CONFLICTS) do
 		if SUI:IsAddonEnabled(addon) then
@@ -113,6 +185,7 @@ function module:OnEnable()
 		return SUI:IsModuleDisabled(module)
 	end
 	SUI.Options:AddOptions(options, 'Messenger')
+	RegisterSetupStep()
 
 	if SUI:IsModuleDisabled(module) then
 		return

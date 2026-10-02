@@ -4,7 +4,7 @@ local SUI = SUI
 SUI.ThemePainted.Register({
 	name = 'Meridian',
 	displayName = 'Observatory',
-	description = 'A worn brass survey instrument: dark enamel, thin brass rims and sea-glass accents, with almost no ornament.',
+	description = 'A worn brass survey instrument with dark enamel and sea-glass accents',
 	accent = { 0.537, 0.710, 0.675 },
 	narrowCentre = true,
 	-- The name strip ends in sea-glass beads

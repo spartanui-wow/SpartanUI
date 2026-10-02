@@ -39,33 +39,26 @@ function module:OnInitialize()
 		return
 	end
 
+	-- A profile setup has never seen: helpers show their recommended state there
+	module.freshProfile = SUI.DB.SetupWizard.FirstLaunch == true
+
 	-- Asked once: a profile that has been through setup before (or predates it) is an existing user
 	module.registration = LibAT.Setup:Register(ADDON_ID, {
 		name = 'SpartanUI',
-		icon = 'Interface\\AddOns\\SpartanUI\\images\\setup\\SUISetup',
+		-- The name in its own colors, where a window has room for it (What's new)
+		brand = '|cffffffffSpartan|cffe21f1fUI|r',
+		icon = 'Interface\\AddOns\\SpartanUI\\images\\Menu\\SUILogo_white.png',
 		summary = L['Pick a look for your whole screen, your frames and your action bars.'],
 		priority = 10,
 		scope = 'account',
 		-- The step list shows chapters; each module's steps join one here
 		chapters = {
 			welcome = L['Welcome'],
-			profile = L['Welcome'],
 			theme = L['Look'],
+			unitframes = L['Look'],
 			['artwork-options'] = L['Look'],
-			font = L['Look'],
-			unitframes = L['Frames'],
-			['uf-personal'] = L['Frames'],
-			['uf-group'] = L['Frames'],
 			actionbars = L['Action bars'],
-			['actionbars-import'] = L['Action bars'],
-			modules = L['Features'],
-			autosell = L['Features'],
-			questtools = L['Features'],
-			minimap = L['Features'],
-			tooltips = L['Features'],
-			convenience = L['Features'],
-			uienhancements = L['Features'],
-			['other-addons'] = L['Other addons'],
+			helpers = L['Helpers'],
 		},
 		isExistingUser = function()
 			return not SUI.DB.SetupWizard.FirstLaunch
@@ -79,6 +72,56 @@ function module:OnInitialize()
 		optionsCommand = function()
 			SUI.Options:OpenTo({})
 		end,
+		finish = {
+			note = L['Open settings any time: type /sui, or press Esc and click SpartanUI. /setup brings this window back.'],
+			links = {
+				{
+					title = L['Frame sizes'],
+					caption = L['Width and bar heights for every frame'],
+					onClick = function()
+						SUI.Options:OpenTo({ 'UnitFrames' })
+					end,
+				},
+				{
+					title = L['Minimap'],
+					caption = L['Shape, size, clock and addon buttons'],
+					onClick = function()
+						SUI.Options:OpenTo({ 'Modules', 'Minimap' })
+					end,
+				},
+				{
+					title = L['Tooltips'],
+					caption = L['Colors, spell IDs and vendor prices'],
+					onClick = function()
+						SUI.Options:OpenTo({ 'Modules', 'Tooltips' })
+					end,
+				},
+				{
+					title = L['Mouse and cursor'],
+					caption = L['A ring or a trail around your cursor'],
+					onClick = function()
+						SUI.Options:OpenTo({ 'Modules', 'UIEnhancements' })
+					end,
+				},
+				{
+					title = L['All features'],
+					caption = L['Turn any SpartanUI feature on or off'],
+					onClick = function()
+						SUI.Options:OpenTo({ 'Modules' })
+					end,
+				},
+				{
+					title = L['Move frames'],
+					caption = L['Drag anything on your screen where you want it'],
+					action = L['Start'],
+					onClick = function()
+						if SUI.MoveIt and SUI.MoveIt.MoverMode then
+							SUI.MoveIt.MoverMode:Toggle()
+						end
+					end,
+				},
+			},
+		},
 	})
 	if not module.registration then
 		return
@@ -109,10 +152,11 @@ function module:OnInitialize()
 	end
 
 	self:RegisterWelcomeSteps()
-	self:RegisterOtherAddonsStep()
+	self:RegisterHelpersStep()
 end
 
 function module:OnEnable()
+	module:WatchFirstUse()
 	if SUI.UI.Style and LibAT and LibAT.UI and LibAT.UI.NotifyAccentChanged then
 		SUI.UI.Style:OnAccentChanged(module, function()
 			LibAT.UI.NotifyAccentChanged()
@@ -146,6 +190,72 @@ end
 
 local welcomeMode = 'fresh'
 local chosenProfile
+
+---Is the player setting up this profile from scratch (not copying or sharing another)?
+---@return boolean
+function module:IsStartingFresh()
+	return welcomeMode == 'fresh' or chosenProfile == nil
+end
+
+---Does any profile other than the current one exist?
+---@return boolean
+function module:HasOtherProfiles()
+	local current = SUI.SpartanUIDB:GetCurrentProfile()
+	local names = {}
+	SUI.SpartanUIDB:GetProfiles(names)
+	for _, name in pairs(names) do
+		if name ~= current then
+			return true
+		end
+	end
+	return false
+end
+
+---How many characters use a profile, and which SpartanUI version it was last used with
+---@param profileName string
+---@return string caption
+---@return number characters
+local function ProfileCaption(profileName)
+	local sv = SUI.SpartanUIDB.sv
+	local count = 0
+	for _, used in pairs(sv and sv.profileKeys or {}) do
+		if used == profileName then
+			count = count + 1
+		end
+	end
+	local parts = {}
+	if count == 1 then
+		parts[#parts + 1] = L['Used by 1 character']
+	elseif count > 1 then
+		parts[#parts + 1] = (L['Used by %d characters']):format(count)
+	end
+	local data = sv and sv.profiles and sv.profiles[profileName]
+	if data and data.Version and data.Version ~= '' then
+		parts[#parts + 1] = (L['Last used with SpartanUI %s']):format(tostring(data.Version))
+	end
+	if #parts == 0 then
+		return L['Not used yet'], count
+	end
+	return table.concat(parts, '. '), count
+end
+
+---The profile cards for the copy or share choice: setups in use first (most characters first),
+---then the rest by name
+---@return table[]
+local function ProfileCards()
+	local cards = {}
+	for key, label in pairs(module:GetProfileChoices(welcomeMode == 'share')) do
+		local caption, count = ProfileCaption(key)
+		cards[#cards + 1] = { value = key, title = label, caption = caption, characters = count }
+	end
+	table.sort(cards, function(a, b)
+		if a.characters ~= b.characters then
+			return a.characters > b.characters
+		end
+		return a.title < b.title
+	end)
+	return cards
+end
 
 ---@param profileName string
 ---@return boolean
@@ -187,9 +297,13 @@ function module:RegisterWelcomeSteps()
 		kind = 'choice',
 		name = L['Welcome'],
 		title = L['Welcome to SpartanUI'],
-		text = L['Start with a fresh setup, or bring your settings from another character. You can open this again any time with /setup.'],
+		text = L['Start fresh, or use the setup from another character. A copied or shared setup is ready right away.'],
 		order = 10,
 		scope = 'profile',
+		-- Nothing to copy or share on a first install: setup opens on the look
+		hidden = function()
+			return not module:HasOtherProfiles()
+		end,
 		choices = {
 			{ value = 'fresh', title = L['Start fresh'], caption = L['Pick your look in the next steps.'], recommended = true },
 			{ value = 'copy', title = L['Copy a profile'], caption = L['Copy the settings of another profile into this one.'] },
@@ -202,60 +316,42 @@ function module:RegisterWelcomeSteps()
 			welcomeMode = value
 			chosenProfile = nil
 			ctx:CancelReload('profile')
-			local values = module.registration:GetStep('profile').widgets.profile.values
-			wipe(values)
-			if value ~= 'fresh' then
-				for key, label in pairs(module:GetProfileChoices(value == 'share')) do
-					values[key] = label
-				end
+		end,
+		-- A copied or shared setup already has everything: Next applies it and reloads
+		finishNow = function()
+			if welcomeMode ~= 'fresh' and chosenProfile then
+				return welcomeMode == 'share' and L['Share and reload'] or L['Copy and reload']
 			end
 		end,
+		-- Copy and share list the profiles right under the pick
+		follow = {
+			title = function()
+				return welcomeMode == 'share' and L['Share which setup?'] or L['Copy which setup?']
+			end,
+			shown = function()
+				return welcomeMode ~= 'fresh'
+			end,
+			choices = ProfileCards,
+			get = function()
+				return chosenProfile
+			end,
+			set = function(value, ctx)
+				chosenProfile = value
+				local profile, sharing = value, welcomeMode == 'share'
+				local label = (sharing and L['Share profile: %s'] or L['Copy profile: %s']):format(profile)
+				ctx:NeedsReload('profile', label, function()
+					module:HandleEditModeBeforeProfileChange(profile, sharing)
+					if sharing then
+						SUI.SpartanUIDB:SetProfile(profile)
+					else
+						SUI.SpartanUIDB:CopyProfile(profile)
+					end
+					module:HandleEditModeAfterProfileChange(profile, sharing)
+				end)
+			end,
+		},
 		onLeave = function()
 			module:OnLeaveWelcome(welcomeMode == 'fresh')
-		end,
-	})
-
-	reg:AddStep({
-		id = 'profile',
-		kind = 'form',
-		name = L['Profile'],
-		title = L['Which profile?'],
-		text = L['The change happens when you finish setup.'],
-		order = 11,
-		scope = 'profile',
-		hidden = function()
-			return welcomeMode == 'fresh'
-		end,
-		widgets = {
-			profile = {
-				type = 'dropdown',
-				name = L['Profile'],
-				order = 1,
-				width = 260,
-				values = {},
-				get = function()
-					return chosenProfile
-				end,
-				set = function(_, value)
-					chosenProfile = value
-				end,
-			},
-		},
-		onLeave = function(ctx)
-			if not chosenProfile then
-				return
-			end
-			local profile, sharing = chosenProfile, welcomeMode == 'share'
-			local label = (sharing and L['Share profile: %s'] or L['Copy profile: %s']):format(profile)
-			ctx:NeedsReload('profile', label, function()
-				module:HandleEditModeBeforeProfileChange(profile, sharing)
-				if sharing then
-					SUI.SpartanUIDB:SetProfile(profile)
-				else
-					SUI.SpartanUIDB:CopyProfile(profile)
-				end
-				module:HandleEditModeAfterProfileChange(profile, sharing)
-			end)
 		end,
 	})
 end
@@ -352,6 +448,7 @@ end
 ---Called when leaving the Welcome step
 ---@param fresh boolean the player starts fresh rather than copying or sharing a profile
 function module:OnLeaveWelcome(fresh)
+	module.welcomeDone = true
 	SUI.DB.SetupWizard.FirstLaunch = false
 
 	-- Create matching EditMode profile for new users (a copied or shared profile brings its own)
@@ -399,180 +496,165 @@ function module:OnLeaveWelcome(fresh)
 	end
 end
 
-----------------------------------------------------------------------------------------------------
--- Other Addons Page
-----------------------------------------------------------------------------------------------------
-
-function module:RegisterOtherAddonsStep()
-	module.registration:AddStep({
-		id = 'other-addons',
-		kind = 'custom',
-		name = L['Other Addons'],
-		title = L['Companion addons'],
-		order = 90,
-		build = function(contentFrame)
-			self:BuildOtherAddonsPage(contentFrame)
-		end,
-	})
+---The first step that runs does the welcome work, even when the welcome page itself was hidden
+function module:EnsureWelcomeDone()
+	if not module.welcomeDone then
+		module:OnLeaveWelcome(welcomeMode == 'fresh')
+	end
 end
 
-function module:BuildOtherAddonsPage(contentFrame)
-	local UI = LibAT.UI
+----------------------------------------------------------------------------------------------------
+-- Helpers: one page for every feature that acts on its own while the player plays
+----------------------------------------------------------------------------------------------------
 
-	local desc = UI.CreateLabel(contentFrame, 'These addons complement SpartanUI. Install them for additional features.', 'GameFontNormal')
-	desc:SetPoint('TOP', contentFrame, 'TOP', 0, -5)
-	desc:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-	desc:SetPoint('RIGHT', contentFrame, 'RIGHT', -20, 0)
-	desc:SetJustifyH('CENTER')
-	desc:SetWordWrap(true)
+local HELPER_GROUPS = {
+	{ id = 'selling', title = 'Selling and repairs' },
+	{ id = 'quests', title = 'Quests' },
+	{ id = 'messages', title = 'Messages' },
+	{ id = 'groups', title = 'Groups' },
+}
+local helperItems = {} ---@type table<string, table[]>
+local helperByKey = {} ---@type table<string, table>
+local helperChoice = {} ---@type table<string, boolean>
 
-	local addons = {
-		{
-			name = 'SpartanUI Animated',
-			desc = 'Adds animated artwork textures to SpartanUI themes.',
-			addonName = 'SpartanUI-Animated',
-			url = 'https://www.curseforge.com/wow/addons/spartanui-animated',
-		},
-		{
-			name = 'FunFact',
-			desc = 'Spam your group with random fun facts. Type /fact to share one, or they show on death.',
-			global = 'FunFactDB',
-			url = 'https://www.curseforge.com/wow/addons/funfact',
-		},
-		{
-			name = "Lib's - Time Played",
-			desc = 'Tracks /played time across all your characters with a data broker display. Cool graphs!',
-			global = 'LibsTimePlayedDB',
-			url = 'https://www.curseforge.com/wow/addons/libs-timeplayed',
-		},
-		{
-			name = "Lib's - Farm Assistant",
-			desc = 'Session-based farming tracker with loot, gold, currency, reputation, and honor tracking.',
-			global = 'LibsFarmAssistantDB',
-			url = 'https://github.com/spartanui-wow/Libs-FarmAssistant',
-		},
-		{
-			name = "Lib's - DataBar",
-			desc = 'Customizable data broker bar with plugins for clock, bags, currency, XP, location, and more.',
-			global = 'LibsDataBarDB',
-			url = 'https://github.com/spartanui-wow/Libs-DataBar',
-		},
-		{
-			name = "Lib's - Item Highlighter",
-			desc = 'Highlights openable, cosmetic, and usable items in your bags.',
-			global = 'LibsIHDB',
-			url = 'https://www.curseforge.com/wow/addons/libs-itemhighlighter',
-		},
-		{
-			name = "Lib's - Disenchant Assist",
-			desc = 'Smart disenchanting assistant with advanced filtering and safety features.',
-			global = 'LibsDisenchantAssistDB',
-			url = 'https://www.curseforge.com/wow/addons/libs-disenchantassist',
-		},
-	}
-
-	local function isAddonInstalled(addon)
-		if addon.addonName then
-			return C_AddOns.IsAddOnLoaded(addon.addonName)
-		end
-		return _G[addon.global] ~= nil
-	end
-
-	-- Sort: non-installed first, installed last
-	local notInstalled = {}
-	local installed = {}
-	for _, addon in ipairs(addons) do
-		if isAddonInstalled(addon) then
-			table.insert(installed, addon)
-		else
-			table.insert(notInstalled, addon)
+---Add switches to the Helpers page. Each item: key, title, caption, recommended, get(), set(value),
+---and module (the SpartanUI module the switch needs; it is turned on when the switch is).
+---@param groupId 'selling'|'quests'|'messages'|'groups'
+---@param items table[]
+function module:AddHelpers(groupId, items)
+	helperItems[groupId] = helperItems[groupId] or {}
+	for _, item in ipairs(items) do
+		if not helperByKey[item.key] then
+			helperByKey[item.key] = item
+			table.insert(helperItems[groupId], item)
 		end
 	end
-	local sortedAddons = {}
-	for _, addon in ipairs(notInstalled) do
-		table.insert(sortedAddons, addon)
+end
+
+---What a switch shows: the player's pick this run, the recommended state on a new profile, else the setting
+---@param item table
+---@return boolean
+local function HelperValue(item)
+	if helperChoice[item.key] ~= nil then
+		return helperChoice[item.key]
 	end
-	for _, addon in ipairs(installed) do
-		table.insert(sortedAddons, addon)
+	if module.freshProfile then
+		return item.recommended == true
 	end
+	local ok, value = pcall(item.get)
+	return ok and value and true or false
+end
 
-	local yOffset = -50
-	local cardHeight = 64
-	for _, addon in ipairs(sortedAddons) do
-		local isInstalled = isAddonInstalled(addon)
-		local card = CreateFrame('Frame', nil, contentFrame, BackdropTemplateMixin and 'BackdropTemplate')
-		card:SetSize(contentFrame:GetWidth() - 40, cardHeight)
-		card:SetPoint('TOP', contentFrame, 'TOP', 0, yOffset)
-		card:SetPoint('LEFT', contentFrame, 'LEFT', 20, 0)
-		card:SetPoint('RIGHT', contentFrame, 'RIGHT', -20, 0)
-		card:SetBackdrop({
-			bgFile = 'Interface\\Buttons\\WHITE8x8',
-			edgeFile = 'Interface\\Buttons\\WHITE8x8',
-			edgeSize = 1.5,
-		})
-		card:SetBackdropColor(0.1, 0.1, 0.1, 0.6)
-		if isInstalled then
-			card:SetBackdropBorderColor(0.2, 0.8, 0.2, 1)
-		else
-			card:SetBackdropBorderColor(0.3, 0.3, 0.3, 0.8)
-		end
-
-		local nameLabel = UI.CreateLabel(card, addon.name, 'GameFontNormal')
-		nameLabel:SetPoint('TOPLEFT', card, 'TOPLEFT', 10, -8)
-
-		if isInstalled then
-			local statusLabel = UI.CreateLabel(card, 'Installed', 'GameFontNormalSmall')
-			statusLabel:SetPoint('LEFT', nameLabel, 'RIGHT', 8, 0)
-			statusLabel:SetTextColor(0.2, 0.8, 0.2)
-		end
-
-		local descLabel = UI.CreateLabel(card, addon.desc, 'GameFontHighlightSmall')
-		descLabel:SetPoint('TOPLEFT', nameLabel, 'BOTTOMLEFT', 0, -2)
-		descLabel:SetPoint('RIGHT', card, 'RIGHT', -10, 0)
-		descLabel:SetWordWrap(true)
-
-		if addon.url then
-			local linkBox = CreateFrame('EditBox', nil, card, 'InputBoxTemplate')
-			linkBox:SetSize(card:GetWidth() - 20, 16)
-			linkBox:SetPoint('BOTTOMLEFT', card, 'BOTTOMLEFT', 10, 4)
-			linkBox:SetAutoFocus(false)
-			linkBox:SetFontObject('GameFontHighlightSmall')
-			linkBox:SetText(addon.url)
-			linkBox:SetCursorPosition(0)
-			linkBox:SetScript('OnEditFocusGained', function(self)
-				self:HighlightText()
-			end)
-			linkBox:SetScript('OnEscapePressed', function(self)
-				self:ClearFocus()
-			end)
-			cardHeight = 80
-			card:SetHeight(cardHeight)
-		end
-
-		yOffset = yOffset - (cardHeight + 6)
+---@param item table
+---@param value boolean
+local function ApplyHelper(item, value)
+	if value and item.module and SUI:IsModuleDisabled(item.module) then
+		SUI:EnableModule(item.module)
 	end
+	local ok, err = pcall(item.set, value)
+	if not ok and SUI.logger and SUI.logger.error then
+		SUI.logger.error('Setup helper ' .. item.key .. ' failed: ' .. tostring(err))
+	end
+end
 
-	-- All projects link
-	yOffset = yOffset - 10
-	local cfHeader = UI.CreateLabel(contentFrame, 'All my projects', 'GameFontNormal')
-	cfHeader:SetPoint('TOP', contentFrame, 'TOP', 0, yOffset)
-	cfHeader:SetJustifyH('CENTER')
+----------------------------------------------------------------------------------------------------
+-- Ask once, when it first matters: a helper the player left off is offered the first time it
+-- would have done something (first vendor, first quest, first whisper, first summon)
+----------------------------------------------------------------------------------------------------
 
-	yOffset = yOffset - 20
-	local cfBox = CreateFrame('EditBox', nil, contentFrame, 'InputBoxTemplate')
-	cfBox:SetSize(contentFrame:GetWidth() - 80, 20)
-	cfBox:SetPoint('TOP', contentFrame, 'TOP', 0, yOffset)
-	cfBox:SetAutoFocus(false)
-	cfBox:SetText('https://www.curseforge.com/members/wutname1/projects')
-	cfBox:SetCursorPosition(0)
-	cfBox:SetScript('OnEditFocusGained', function(self)
-		self:HighlightText()
+local FIRST_USE = {
+	MERCHANT_SHOW = { helper = 'autosell:Gray', ask = 'Sell gray junk for you?' },
+	QUEST_DETAIL = { helper = 'questtools:accept', ask = 'Accept and turn in quests for you?' },
+	CHAT_MSG_WHISPER = { helper = 'messenger:whispers', ask = 'Keep whispers as conversations in Messenger?' },
+	CONFIRM_SUMMON = { helper = 'convenience:autoAcceptSummon', ask = 'Accept summons for you?' },
+}
+
+---@param event string
+local function AskOnce(event)
+	local trigger = FIRST_USE[event]
+	local item = trigger and helperByKey[trigger.helper]
+	local hub = LibAT and LibAT.Setup and LibAT.Setup.Hub
+	if not item or not hub or SUI.DB.SetupWizard.FirstLaunch or InCombatLockdown() then
+		return
+	end
+	local asked = SUI.DB.SetupWizard.Asked or {}
+	SUI.DB.SetupWizard.Asked = asked
+	if asked[trigger.helper] then
+		return
+	end
+	local ok, on = pcall(item.get)
+	if not ok or on then
+		return
+	end
+	asked[trigger.helper] = true
+	local text = L[trigger.ask] .. ' ' .. (item.caption or '') .. ' ' .. L['You can change this later in /sui.']
+	hub:ShowToast(text, L['Turn on'], function()
+		helperChoice[item.key] = true
+		ApplyHelper(item, true)
+	end, { duration = 30 })
+end
+
+function module:WatchFirstUse()
+	if module.firstUseWatcher then
+		return
+	end
+	local watcher = CreateFrame('Frame')
+	for event in pairs(FIRST_USE) do
+		watcher:RegisterEvent(event)
+	end
+	watcher:SetScript('OnEvent', function(_, event)
+		AskOnce(event)
 	end)
-	cfBox:SetScript('OnEscapePressed', function(self)
-		self:ClearFocus()
-	end)
+	module.firstUseWatcher = watcher
+end
 
-	contentFrame:SetHeight(math.abs(yOffset) + 40)
+function module:RegisterHelpersStep()
+	module.registration:AddStep({
+		id = 'helpers',
+		kind = 'toggles',
+		name = L['Helpers'],
+		title = L['What should SpartanUI do for you?'],
+		text = L['These act on their own while you play, so each one says what it will do. Turn on only what you want; change them any time in /sui.'],
+		order = 50,
+		scope = 'profile',
+		noBulk = true,
+		hidden = function()
+			return not module:IsStartingFresh() or next(helperByKey) == nil
+		end,
+		groups = function()
+			local groups = {}
+			for _, group in ipairs(HELPER_GROUPS) do
+				local items = helperItems[group.id]
+				if items and #items > 0 then
+					groups[#groups + 1] = { title = L[group.title], items = items }
+				end
+			end
+			return groups
+		end,
+		get = function(key)
+			local item = helperByKey[key]
+			return item ~= nil and HelperValue(item)
+		end,
+		set = function(key, value)
+			local item = helperByKey[key]
+			if item then
+				helperChoice[key] = value and true or false
+				ApplyHelper(item, value and true or false)
+			end
+		end,
+		-- A new profile keeps the recommended switches the player saw, even untouched ones
+		onLeave = function()
+			if not module.freshProfile then
+				return
+			end
+			for key, item in pairs(helperByKey) do
+				if helperChoice[key] == nil then
+					helperChoice[key] = item.recommended == true
+					ApplyHelper(item, helperChoice[key])
+				end
+			end
+		end,
+	})
 end
 
 SUI.Setup = module

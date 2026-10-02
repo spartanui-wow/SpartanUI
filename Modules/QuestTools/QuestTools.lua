@@ -462,43 +462,46 @@ function module:CreateQuestFramePanels()
 end
 
 function module:RegisterSetupWizardPage()
-	local reg = SUI.Setup and SUI.Setup.registration
-	if not reg or reg:GetStep('questtools') then
+	if not (SUI.Setup and SUI.Setup.AddHelpers) then
 		return
 	end
-
-	local items = {
-		{ key = 'AcceptGeneralQuests', title = L['Accept quests'] },
-		{ key = 'TurnInEnabled', title = L['Turn in completed quests'] },
-		{ key = 'AutoGossip', title = L['Auto gossip'] },
-		{ key = 'AutoGossipSafeMode', title = L['Auto gossip safe mode'] },
-		{ key = 'lootreward', title = L['Auto select quest reward'] },
-		{ key = 'autoequip', title = L['Auto equip upgrade quest rewards'], caption = L['Based on iLVL'] },
-	}
-	-- Campaign quests only exist on the current game
-	if SUI.IsRetail then
-		table.insert(items, 6, { key = 'DoCampainQuests', title = L['Accept/Complete Campaign Quests'] })
-	end
-	for _, item in ipairs(items) do
-		item.recommended = module.DBDefaults and module.DBDefaults[item.key] == true
-	end
-
-	reg:AddStep({
-		id = 'questtools',
-		kind = 'toggles',
-		name = L['Quest Tools'],
-		title = L['Quest Tools'],
-		text = L['Automatically accept and turn in quests.'] .. ' ' .. L['Holding ALT while talking to a NPC will temporarily disable the auto turnin module.'],
-		order = 51,
-		hidden = function()
-			return SUI:IsModuleDisabled('QuestTools')
-		end,
-		items = items,
-		get = function(key)
-			return DB[key] and true or false
-		end,
-		set = function(key, value)
-			DB[key] = value
-		end,
+	SUI.Setup:AddHelpers('quests', {
+		{
+			key = 'questtools:accept',
+			title = L['Accept and turn in quests for you'],
+			caption = L['Hold Alt while talking to someone to do it yourself.'],
+			module = 'QuestTools',
+			get = function()
+				return DB.AcceptGeneralQuests and DB.TurnInEnabled and true or false
+			end,
+			set = function(value)
+				DB.AcceptGeneralQuests = value
+				DB.TurnInEnabled = value
+			end,
+		},
+		{
+			key = 'questtools:reward',
+			title = L['Pick the best quest reward'],
+			caption = L['Chooses the reward worth the most gold when none is an upgrade.'],
+			module = 'QuestTools',
+			get = function()
+				return DB.lootreward and true or false
+			end,
+			set = function(value)
+				DB.lootreward = value
+			end,
+		},
+		{
+			key = 'questtools:equip',
+			title = L['Wear reward upgrades right away'],
+			caption = L['Only when the item level is higher than what you wear.'],
+			module = 'QuestTools',
+			get = function()
+				return DB.autoequip and true or false
+			end,
+			set = function(value)
+				DB.autoequip = value
+			end,
+		},
 	})
 end

@@ -1186,29 +1186,6 @@ function UF:RegisterSetupWizardPages()
 		return
 	end
 
-	-- The older preview images draw the frames small inside a 512x256 file; crop each to its art
-	local PREVIEW_CROPS = {
-		Style_Frames_Arcane = { 0.059, 0.479, 0.035, 0.418 },
-		Style_Frames_ArcaneRed = { 0.059, 0.479, 0.035, 0.418 },
-		Style_Frames_Classic = { 0, 0.848, 0.102, 0.93 },
-		Style_Frames_Digital = { 0.07, 0.877, 0.051, 0.949 },
-		Style_Frames_Fel = { 0.07, 0.877, 0.051, 0.949 },
-		Style_Frames_Midnight_Shadow = { 0.016, 0.521, 0.098, 0.363 },
-		Style_Frames_Midnight_Void = { 0.016, 0.521, 0.098, 0.363 },
-		Style_Frames_Minimal = { 0.045, 0.877, 0.113, 0.828 },
-		Style_Frames_Transparent = { 0.025, 0.881, 0.109, 0.391 },
-		Style_Frames_Tribal = { 0.082, 0.48, 0.09, 0.398 },
-		Style_Frames_War = { 0.07, 0.471, 0.051, 0.418 },
-	}
-
-	---@param image string
-	---@return table
-	local function PreviewArt(image)
-		local file = image:match('([^\\/]+)$') or image
-		file = file:gsub('%.%a+$', '')
-		return { texture = image, texCoord = PREVIEW_CROPS[file] }
-	end
-
 	---Preset cards, sorted by name. The look picked in the previous step is the recommended one.
 	---@return table[]
 	local function BuildPresetCards()
@@ -1218,7 +1195,9 @@ function UF:RegisterSetupWizardPages()
 			cards[#cards + 1] = {
 				value = name,
 				title = def.displayName or name,
-				art = def.setup and def.setup.image and PreviewArt(def.setup.image) or nil,
+				-- Every frame style has a card of its own, named after the style; the page shows the band
+				-- where its frames are
+				art = { texture = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_' .. name, texCoord = { 0, 1, 0.22, 0.72 } },
 				recommended = name == look,
 			}
 		end
@@ -1228,14 +1207,49 @@ function UF:RegisterSetupWizardPages()
 		return cards
 	end
 
-	local step = reg:AddStep({
+	-- Which buffs and debuffs the group frames show. Applied when leaving the page, so it lands on
+	-- the frame style the player ends up with.
+	local role = 'spec'
+	local ROLE_PRESETS = { HEALER = 'healer', TANK = 'tank', DAMAGER = 'dps' }
+	local function SpecRole()
+		local GetSpecialization = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization or _G.GetSpecialization
+		local GetSpecializationRole = C_SpecializationInfo and C_SpecializationInfo.GetSpecializationRole or _G.GetSpecializationRole
+		local spec = GetSpecialization and GetSpecialization()
+		local specRole = spec and GetSpecializationRole and GetSpecializationRole(spec)
+		if not specRole and UnitGroupRolesAssigned then
+			specRole = UnitGroupRolesAssigned('player')
+		end
+		return ROLE_PRESETS[specRole] or 'dps'
+	end
+
+	reg:AddStep({
 		id = 'unitframes',
 		kind = 'look',
-		name = SUI.L['Unit frames'],
+		compact = true,
+		name = SUI.L['Frames'],
 		title = SUI.L['Pick a style for your frames'],
-		text = SUI.L['This sets every frame at once. The next steps change each group on its own.'],
-		order = 30,
+		text = SUI.L['Your health bars, portraits and party frames. They match your look unless you pick another style.'],
+		order = 20.5,
 		scope = 'profile',
+		hidden = function()
+			return not SUI.Setup:IsStartingFresh()
+		end,
+		extra = {
+			title = SUI.L['How do you play?'],
+			text = SUI.L['This decides which buffs and debuffs show on your party and raid frames.'],
+			choices = {
+				{ value = 'spec', title = SUI.L['Use my spec'] },
+				{ value = 'healer', title = SUI.L['Healer'] },
+				{ value = 'tank', title = SUI.L['Tank'] },
+				{ value = 'dps', title = SUI.L['Damage'] },
+			},
+			get = function()
+				return role
+			end,
+			set = function(value)
+				role = value
+			end,
+		},
 		cards = BuildPresetCards,
 		get = function()
 			return UF.Preset:GetActive('player')
@@ -1244,253 +1258,10 @@ function UF:RegisterSetupWizardPages()
 			UF.Preset:ApplyThemeDefaults(value)
 			UF:Update()
 		end,
-	})
-	if not step then
-		return
-	end
-
-	-- Build common settings widgets (width, heights, portrait, buff filter) for a frame group
-	local function BuildFrameSettings(contentFrame, frameName, width)
-		local UI = LibAT.UI
-
-		local function getFrameCS()
-			return UF.CurrentSettings[frameName]
-		end
-		local function getElemCS(elemName)
-			local cs = getFrameCS()
-			return cs and cs.elements and cs.elements[elemName]
-		end
-		local function saveFrameSetting(key, val)
-			local cs = getFrameCS()
-			if cs then
-				cs[key] = val
+		onLeave = function()
+			if UF.AuraPresets then
+				UF.AuraPresets:ApplyPresetToGroups(role == 'spec' and SpecRole() or role, true)
 			end
-			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName][key] = val
-			UF:Update()
-		end
-		local function saveElemSetting(elemName, key, val)
-			local cs = getElemCS(elemName)
-			if cs then
-				cs[key] = val
-			end
-			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elemName][key] = val
-			if UF.Unit[frameName] then
-				UF.Unit[frameName]:ElementUpdate(elemName)
-			end
-		end
-
-		local defs = {
-			frameWidth = {
-				type = 'slider',
-				name = 'Frame Width',
-				order = 1,
-				min = 50,
-				max = 400,
-				step = 1,
-				get = function()
-					local cs = getFrameCS()
-					return cs and cs.width or 200
-				end,
-				set = function(_, val)
-					saveFrameSetting('width', val)
-				end,
-			},
-			healthHeight = {
-				type = 'slider',
-				name = 'Health Bar Height',
-				order = 2,
-				min = 4,
-				max = 60,
-				step = 1,
-				get = function()
-					local cs = getElemCS('Health')
-					return cs and cs.height or 20
-				end,
-				set = function(_, val)
-					saveElemSetting('Health', 'height', val)
-				end,
-			},
-			powerHeight = {
-				type = 'slider',
-				name = 'Power Bar Height',
-				order = 3,
-				min = 2,
-				max = 30,
-				step = 1,
-				get = function()
-					local cs = getElemCS('Power')
-					return cs and cs.height or 8
-				end,
-				set = function(_, val)
-					saveElemSetting('Power', 'height', val)
-				end,
-			},
-			castHeight = {
-				type = 'slider',
-				name = 'Cast Bar Height',
-				order = 4,
-				min = 4,
-				max = 40,
-				step = 1,
-				get = function()
-					local cs = getElemCS('Castbar')
-					return cs and cs.height or 14
-				end,
-				set = function(_, val)
-					saveElemSetting('Castbar', 'height', val)
-				end,
-			},
-			portrait = {
-				type = 'checkbox',
-				name = 'Show Portrait',
-				order = 5,
-				get = function()
-					local cs = getElemCS('Portrait')
-					return cs and cs.enabled or false
-				end,
-				set = function(_, val)
-					saveElemSetting('Portrait', 'enabled', val)
-				end,
-			},
-		}
-
-		-- Only add aura preset selector if system is loaded and frame has auras.
-		-- Both flavors keep buffs and debuffs in their own element now; only
-		-- the names differ.
-		local auraHost = UF.IsModernOUF and 'BuffContainer' or 'Buffs'
-		if UF.AuraPresets and getElemCS(auraHost) then
-			defs.buffFilter = {
-				type = 'dropdown',
-				name = 'Buff/Debuff Filter',
-				order = 6,
-				values = UF.AuraPresets:GetPresetList(),
-				get = function()
-					local buffsMode, debuffsMode
-
-					if UF.IsModernOUF then
-						local buffsCS = getElemCS('BuffContainer')
-						local debuffsCS = getElemCS('DebuffContainer')
-						if not buffsCS or not debuffsCS then
-							return 'custom'
-						end
-						buffsMode = buffsCS.filterMode
-						debuffsMode = debuffsCS.filterMode
-					else
-						local buffsCS = getElemCS('Buffs')
-						local debuffsCS = getElemCS('Debuffs')
-						if not buffsCS or not debuffsCS then
-							return 'custom'
-						end
-						buffsMode = buffsCS.classic and buffsCS.classic.filterMode
-						debuffsMode = debuffsCS.classic and debuffsCS.classic.filterMode
-					end
-
-					local branch = UF.IsModernOUF and 'retail' or 'classic'
-					for key, preset in pairs(UF.AuraPresets.Presets) do
-						local pb = preset.Buffs and preset.Buffs[branch] and preset.Buffs[branch].filterMode
-						local pd = preset.Debuffs and preset.Debuffs[branch] and preset.Debuffs[branch].filterMode
-						if buffsMode == pb and debuffsMode == pd then
-							return key
-						end
-					end
-					return 'custom'
-				end,
-				set = function(_, val)
-					if val ~= 'custom' then
-						UF.AuraPresets:ApplyPreset(frameName, val)
-					end
-				end,
-			}
-		end
-
-		local _, h = UI.BuildWidgets(contentFrame, defs, width)
-		contentFrame:SetHeight(h + 10)
-		return h
-	end
-
-	-- Personal Frames child (player, target, focus, pet)
-	reg:AddStep({
-		id = 'uf-personal',
-		kind = 'custom',
-		name = SUI.L['Personal Frames'],
-		title = SUI.L['Personal Frames'],
-		order = 31,
-		scope = 'profile',
-		cache = false,
-		build = function(contentFrame)
-			local UI = LibAT.UI
-			local width = contentFrame:GetWidth()
-			local totalY = 10
-
-			local groups = {
-				{ leader = 'player', label = 'Player Frame' },
-				{ leader = 'target', label = 'Target Frame' },
-				{ leader = 'focus', label = 'Focus Frame' },
-				{ leader = 'pet', label = 'Pet Frame' },
-			}
-
-			local loadedFrames = UF.Unit:GetFrameList()
-			for _, g in ipairs(groups) do
-				if loadedFrames[g.leader] then
-					local hdr = UI.CreateHeader(contentFrame, g.label)
-					hdr:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-					totalY = totalY + 22
-
-					local inner = CreateFrame('Frame', nil, contentFrame)
-					inner:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-					inner:SetWidth(width)
-					inner:SetHeight(1)
-
-					local leader = g.leader
-					local h = BuildFrameSettings(inner, leader, width)
-					totalY = totalY + h + 20
-				end
-			end
-
-			contentFrame:SetHeight(totalY + 10)
-		end,
-	})
-
-	-- Group Frames child (party, raid, boss, arena)
-	reg:AddStep({
-		id = 'uf-group',
-		kind = 'custom',
-		name = SUI.L['Group Frames'],
-		title = SUI.L['Group Frames'],
-		order = 32,
-		scope = 'profile',
-		cache = false,
-		build = function(contentFrame)
-			local UI = LibAT.UI
-			local width = contentFrame:GetWidth()
-			local totalY = 10
-
-			local groups = {
-				{ leader = 'party', label = 'Party Frames' },
-				{ leader = 'raid25', label = 'Raid Frames' },
-				{ leader = 'boss', label = 'Boss Frames' },
-				{ leader = 'arena', label = 'Arena Frames' },
-			}
-
-			local loadedFrames = UF.Unit:GetFrameList()
-			for _, g in ipairs(groups) do
-				if loadedFrames[g.leader] then
-					local hdr = UI.CreateHeader(contentFrame, g.label)
-					hdr:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-					totalY = totalY + 22
-
-					local inner = CreateFrame('Frame', nil, contentFrame)
-					inner:SetPoint('TOPLEFT', contentFrame, 'TOPLEFT', 0, -totalY)
-					inner:SetWidth(width)
-					inner:SetHeight(1)
-
-					local leader = g.leader
-					local h = BuildFrameSettings(inner, leader, width)
-					totalY = totalY + h + 20
-				end
-			end
-
-			contentFrame:SetHeight(totalY + 10)
 		end,
 	})
 end

@@ -4,7 +4,7 @@ local SUI = SUI
 SUI.ThemePainted.Register({
 	name = 'Atlas',
 	displayName = 'Voyager',
-	description = "Made for WoW Forever: an adventurer's map case in dark leather and bronze, with a runed compass ring around the minimap and a teal sea map behind every window.",
+	description = 'Made for WoW Forever: a leather and bronze map case with a compass-ring minimap',
 	accent = { 0.337, 0.722, 0.710 },
 	narrowCentre = true,
 	-- Its rails rise toward the old centre panel: rebuild a wider middle when the bar joins up

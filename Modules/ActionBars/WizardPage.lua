@@ -178,76 +178,85 @@ function module:RegisterSetupWizardPage()
 		return
 	end
 	local BarSystem = SUI.Handlers.BarSystem
-	local pendingSystem
 	local function Bartender4Installed()
 		return _G.Bartender4 ~= nil or (C_AddOns.DoesAddOnExist and C_AddOns.DoesAddOnExist('Bartender4')) or false
 	end
+	local function Running()
+		return BarSystem:GetActiveSystem() == 'Bartender4' and 'Bartender4' or 'SpartanUI'
+	end
+	local function Detected()
+		local list = {}
+		for _, id in ipairs(self.ImporterOrder) do
+			local importer = self.Importers[id]
+			if importer and importer:IsAvailable() then
+				list[#list + 1] = { id = id, importer = importer }
+			end
+		end
+		return list
+	end
 
-	-- Only asked when there is a real choice: Bartender4 is installed
+	-- One page for everything about bars, shown only when another bar addon is around.
+	-- Nothing changes until the reload at the end, so the card shows the pick, not what runs now.
+	local picked
 	reg:AddStep({
 		id = 'actionbars',
 		kind = 'choice',
-		name = L['Action Bars'],
+		name = L['Action bars'],
 		title = L['Which action bars?'],
-		text = L['SpartanUI has its own action bars. They work on every game version.'],
+		text = L['Two bar addons cannot run together. Your choice applies when you finish setup.'],
 		order = 25,
 		hidden = function()
-			return not Bartender4Installed()
+			return #Detected() == 0 and not Bartender4Installed()
 		end,
-		choices = {
-			{ value = 'SpartanUI', title = L['SpartanUI bars'], caption = L['Bartender4 is turned off.'], recommended = true },
-			{ value = 'Bartender4', title = L['Keep Bartender4'], caption = L['SpartanUI places and sizes the Bartender4 bars.'] },
-		},
-		-- The change waits for the reload at the end, so the card shows the pick, not what runs now
+		choices = function()
+			local choices = {}
+			for i, source in ipairs(Detected()) do
+				local name = source.importer.name
+				choices[#choices + 1] = {
+					value = 'import:' .. source.id,
+					title = (L['SpartanUI bars, with my %s layout']):format(name),
+					caption = (L['Your buttons and key bindings come over. %s is turned off.']):format(name),
+					recommended = i == 1,
+				}
+			end
+			if Bartender4Installed() then
+				choices[#choices + 1] =
+					{ value = 'SpartanUI', title = L['SpartanUI bars, start clean'], caption = L['Bars where your look puts them. Bartender4 is turned off.'], recommended = #choices == 0 }
+				choices[#choices + 1] = { value = 'Bartender4', title = L['Keep Bartender4'], caption = L['SpartanUI places and sizes the Bartender4 bars.'] }
+			end
+			for _, source in ipairs(Detected()) do
+				if source.id ~= 'Bartender4' then
+					choices[#choices + 1] = { value = 'keep:' .. source.id, title = (L['Keep %s']):format(source.importer.name), caption = L['SpartanUI leaves your bars alone.'] }
+				end
+			end
+			return choices
+		end,
 		get = function()
-			return pendingSystem or (BarSystem:GetActiveSystem() == 'Bartender4' and 'Bartender4' or 'SpartanUI')
+			return picked or Running()
 		end,
 		set = function(value, ctx)
-			local current = BarSystem:GetActiveSystem() == 'Bartender4' and 'Bartender4' or 'SpartanUI'
-			pendingSystem = value
-			if value == current then
-				pendingSystem = nil
-				ctx:CancelReload('bars')
-				return
+			picked = value
+			ctx:CancelReload('bars')
+			local importId = value:match('^import:(.+)$')
+			if importId then
+				local importer = self.Importers[importId]
+				ctx:NeedsReload('bars', (L['Bring over your %s bars']):format(importer.name), function()
+					local ok, message = module:RunImport(importId, importer:GetCurrentProfile(), {
+						positions = false,
+						keybinds = true,
+						disableSource = true,
+						skipReload = true,
+					})
+					if not ok and message then
+						SUI:Print(message)
+					end
+				end)
+			elseif (value == 'SpartanUI' or value == 'Bartender4') and value ~= Running() then
+				ctx:NeedsReload('bars', (L['Action bars: %s']):format(value == 'SpartanUI' and L['SpartanUI bars'] or 'Bartender4'), function()
+					BarSystem:SetChosenSystem(value, true)
+				end)
 			end
-			ctx:NeedsReload('bars', (L['Action bars: %s']):format(value == 'SpartanUI' and L['SpartanUI bars'] or 'Bartender4'), function()
-				BarSystem:SetChosenSystem(value, true)
-			end)
 		end,
-	})
-
-	-- Copy a setup from another bar addon that is running now; hidden when there is none
-	local sources = {}
-	for _, id in ipairs(self.ImporterOrder) do
-		local importer = self.Importers[id]
-		sources[#sources + 1] = {
-			id = importer.id or id,
-			title = importer.name,
-			caption = L['Your bars, their buttons and key bindings. Bar positions stay with your look.'],
-			detect = function()
-				return (importer:IsAvailable())
-			end,
-			apply = function()
-				local ok, message = module:RunImport(id, importer:GetCurrentProfile(), {
-					positions = false,
-					keybinds = true,
-					disableSource = true,
-					skipReload = true,
-				})
-				if not ok and message then
-					SUI:Print(message)
-				end
-			end,
-		}
-	end
-	reg:AddStep({
-		id = 'actionbars-import',
-		kind = 'import',
-		name = L['Copy your bars'],
-		title = L['Copy your bars from another addon'],
-		text = L['This happens when you finish setup. The other addon is turned off.'],
-		order = 26,
-		sources = sources,
 	})
 end
 
