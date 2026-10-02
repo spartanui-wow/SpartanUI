@@ -2463,6 +2463,19 @@ function Options:Initialize()
 					end
 					-- Add element option to screen
 					FrameOptSet.args[elementConfig.type].args[elementName] = ElementOptSet
+					-- A bar's text (health numbers, power, cast time) is also listed on the Text tab, where
+					-- players look for it first. Same settings, same handlers: either page changes both.
+					if elementConfig.type == 'StatusBar' and ElementOptSet.args.Text and FrameOptSet.args.Text then
+						FrameOptSet.args.Text.args[elementName .. 'Text'] = {
+							name = (elementConfig.DisplayName and L[elementConfig.DisplayName] or elementName) .. ' ' .. L['text'],
+							desc = ElementOptSet.args.Text.desc,
+							type = 'group',
+							order = 0.5,
+							get = ElementOptSet.get,
+							set = ElementOptSet.set,
+							args = ElementOptSet.args.Text.args,
+						}
+					end
 				end -- else (elementData check)
 			end
 		end -- else (builtFrame check)

@@ -1656,3 +1656,4 @@ L['Copy of %s'] = true
 L['Windows'] = true
 L['Your health bars, portraits and party frames. Picking a look sets these too; pick here to mix a look with other frames.'] = true
 L['How the settings, setup and other SpartanUI windows look. Your screen art stays the same.'] = true
+L['text'] = true

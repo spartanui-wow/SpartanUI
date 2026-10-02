@@ -479,6 +479,54 @@ function module:GetVersionSummary()
 	return table.concat(lines, '\n')
 end
 
+---The path of a settings page as /sui > ... text: each step by its shown name when it has a plain
+---one (the command matches names as well as keys), otherwise by its key
+---@param path string[]
+---@return string
+local function PathCommand(path)
+	local parts = {}
+	local args = SUI.opt.args
+	for _, key in ipairs(path) do
+		local entry = args and args[key]
+		local name = entry and entry.name
+		if type(name) == 'string' and name ~= '' and not name:find('>') then
+			parts[#parts + 1] = name:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', '')
+		else
+			parts[#parts + 1] = tostring(key)
+		end
+		args = entry and entry.args
+	end
+	return '/sui > ' .. table.concat(parts, ' > ')
+end
+
+-- Shift or Ctrl + click a page in the settings window: its /sui > path goes into the chat box, ready to
+-- paste as directions for someone else
+local pathACD = LibStub('AceConfigDialog-3.0-SUI', true)
+if pathACD and pathACD.RegisterCallback then
+	pathACD.RegisterCallback(module, 'GroupSelected', function(_, appName, path)
+		if appName ~= 'SpartanUI' or not (IsShiftKeyDown() or IsControlKeyDown()) or type(path) ~= 'table' or #path == 0 then
+			return
+		end
+		local text = PathCommand(path)
+		-- Never touch the chat box while chat is locked down in an encounter: print it instead
+		if C_ChatInfo and C_ChatInfo.InChatMessagingLockdown and C_ChatInfo.InChatMessagingLockdown() then
+			SUI:Print(text)
+			return
+		end
+		local Util = ChatFrameUtil
+		local GetActive = (Util and Util.GetActiveWindow) or ChatEdit_GetActiveWindow
+		local OpenChat = (Util and Util.OpenChat) or ChatFrame_OpenChat
+		local editBox = GetActive and GetActive()
+		if editBox then
+			editBox:SetText(text)
+		elseif OpenChat then
+			OpenChat(text, DEFAULT_CHAT_FRAME)
+		else
+			SUI:Print(text)
+		end
+	end)
+end
+
 function module:OnEnable()
 	if not SUI:GetModule('Artwork', true) then
 		SUI.opt.args.General.args['style'].args['OverallStyle'].disabled = true
