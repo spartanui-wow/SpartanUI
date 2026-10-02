@@ -312,38 +312,40 @@ end
 SUI:MigrateProfileData()
 
 local function reloaduiWindow()
-	local UI = LibAT.UI
-	local popup = UI.CreateWindow({
+	local Kit = LibAT.UI.Kit
+	-- A small dialog: no crest above it, buttons in the footer
+	local popup = Kit:CreateShell({
 		name = 'SUI_ReloadUI',
-		title = '|cffffffffSpartan|cffe21f1fUI|r - Reload UI',
+		title = '|cffffffffSpartan|cffe21f1fUI|r - ' .. SUI.L['Reload UI'],
 		width = 400,
-		height = 100,
-		hidePortrait = true,
+		height = 150,
+		footer = true,
+		crest = false,
+		strata = 'DIALOG',
 	})
+	popup:ClearAllPoints()
 	popup:SetPoint('TOP', UIParent, 'TOP', 0, -20)
-	popup:SetFrameStrata('DIALOG')
 
-	-- Message
-	local message = UI.CreateLabel(popup, 'A reload of your UI is required.', 'GameFontNormalLarge')
-	message:SetPoint('CENTER', popup.Body, 'CENTER', 0, 0)
+	local message = popup.Body:CreateFontString(nil, 'OVERLAY')
+	Kit:SetFont(message, 13)
+	message:SetPoint('LEFT', popup.Body, 'LEFT', 4, 0)
+	message:SetPoint('RIGHT', popup.Body, 'RIGHT', -4, 0)
+	message:SetText(SUI.L['A reload of your UI is required.'])
+	Kit:Track(message, function(_, config)
+		message:SetTextColor(config.colors.text[1], config.colors.text[2], config.colors.text[3])
+	end)
 
-	-- Buttons
-	UI.CreateActionButtons(popup, {
-		{
-			text = 'CLOSE',
-			width = 80,
-			onClick = function()
-				popup:Hide()
-			end,
-		},
-		{
-			text = 'RELOAD UI',
-			width = 180,
-			onClick = function()
-				SUI:SafeReloadUI()
-			end,
-		},
-	}, 5, 5, 5)
+	local padding = Kit:GetKitFor(popup).layout.barPadding
+	local reload = Kit:CreateButton(popup.Footer, SUI.L['Reload UI'], 'primary', 120)
+	reload:SetPoint('RIGHT', popup.Footer, 'RIGHT', -padding, 0)
+	reload:SetScript('OnClick', function()
+		SUI:SafeReloadUI()
+	end)
+	local close = Kit:CreateButton(popup.Footer, CLOSE or SUI.L['Close'], 'secondary', 90)
+	close:SetPoint('RIGHT', reload, 'LEFT', -6, 0)
+	close:SetScript('OnClick', function()
+		popup:Hide()
+	end)
 
 	popup:Hide()
 	SUI.reloaduiWindow = popup
