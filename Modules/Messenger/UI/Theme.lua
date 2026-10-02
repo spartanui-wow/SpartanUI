@@ -109,6 +109,9 @@ local ICONS = {
 	dot = 14,
 	check = 15,
 	sidebar = 16,
+	bell = 17,
+	bellOff = 18,
+	at = 19,
 }
 
 ---@param texture Texture

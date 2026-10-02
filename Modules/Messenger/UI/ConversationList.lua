@@ -79,6 +79,15 @@ local function CreateRow(list)
 	row.section = T.Text(row, 'small', T.color.faint)
 	row.section:SetPoint('BOTTOMLEFT', 12, 5)
 
+	-- Bell with a slash (no alerts) or @ (only when named), only when not every message
+	row.alertBg = row:CreateTexture(nil, 'ARTWORK', nil, 1)
+	row.alertBg:SetSize(16, 16)
+	T.SetIcon(row.alertBg, 'dot')
+	row.alertBg:Hide()
+	row.alert = row:CreateTexture(nil, 'ARTWORK', nil, 2)
+	row.alert:SetSize(18, 18)
+	row.alert:Hide()
+
 	row.dot = row:CreateTexture(nil, 'ARTWORK')
 	row.dot:SetSize(8, 8)
 	row.dot:SetPoint('LEFT', 12, 0)
@@ -472,6 +481,26 @@ function List:PaintRow(row, convo)
 	row.avatar:ClearAllPoints()
 	row.badge:ClearAllPoints()
 	row.name:ClearAllPoints()
+	row.alert:ClearAllPoints()
+	row.alertBg:Hide()
+	local level = M:AlertLevel(convo)
+	local hasAlertIcon = level ~= 'all'
+	if hasAlertIcon then
+		T.SetIcon(row.alert, level == 'none' and 'bellOff' or 'at')
+		local c = T.color.muted
+		row.alert:SetVertexColor(c[1], c[2], c[3])
+	end
+	row.alert:SetShown(hasAlertIcon)
+	-- Unread lines that will not alert are counted in grey; under "only my name", named lines keep the color
+	local function PaintBadge()
+		if level == 'mentions' and (convo.mentionUnread or 0) > 0 then
+			row.badge:SetCount(convo.mentionUnread, r, g, b)
+		elseif level ~= 'all' then
+			row.badge:SetCount(convo.unread, T.color.faint[1], T.color.faint[2], T.color.faint[3])
+		else
+			row.badge:SetCount(convo.unread, r, g, b)
+		end
+	end
 	if self.mode == 'icons' then
 		row.avatar:SetPoint('CENTER')
 		row.badge:SetPoint('CENTER', row.avatar, 'TOPRIGHT', -2, -2)
@@ -479,11 +508,15 @@ function List:PaintRow(row, convo)
 		row.time:Hide()
 		row.pin:Hide()
 		row.preview:Hide()
-		if convo.muted then
-			row.badge:SetCount(convo.unread, T.color.faint[1], T.color.faint[2], T.color.faint[3])
-		else
-			row.badge:SetCount(convo.unread, r, g, b)
+		if hasAlertIcon then
+			row.alertBg:ClearAllPoints()
+			row.alertBg:SetPoint('CENTER', row.avatar, 'BOTTOMLEFT', 3, 3)
+			local bg = T.color.list
+			row.alertBg:SetVertexColor(bg[1], bg[2], bg[3], 1)
+			row.alertBg:Show()
+			row.alert:SetPoint('CENTER', row.alertBg, 'CENTER')
 		end
+		PaintBadge()
 		return
 	end
 	local slim = self.mode == 'slim'
@@ -501,21 +534,35 @@ function List:PaintRow(row, convo)
 		end
 		row.time:SetPoint('RIGHT', -8, 0)
 		row.preview:SetPoint('LEFT', row.name, 'RIGHT', 8, 0)
-		row.preview:SetPoint('RIGHT', row.time, 'LEFT', -8, 0)
+		if hasAlertIcon then
+			row.alert:SetPoint('RIGHT', row.time, 'LEFT', -2, 0)
+			row.preview:SetPoint('RIGHT', row.alert, 'LEFT', -4, 0)
+		else
+			row.preview:SetPoint('RIGHT', row.time, 'LEFT', -8, 0)
+		end
 	else
 		row.avatar:SetPoint('LEFT', 12, 0)
 		row.badge:SetPoint('BOTTOMRIGHT', -12, 8)
-		row.name:SetPoint('TOPLEFT', row.avatar, 'TOPRIGHT', 10, 0)
-		row.name:SetPoint('RIGHT', row.pin, 'LEFT', -4, 0)
 		row.time:SetPoint('TOPRIGHT', -12, -8)
+		-- Right to left on line one: time, alert icon, pin, then the name takes what is left
+		local edge = row.time
+		if hasAlertIcon then
+			row.alert:SetPoint('RIGHT', edge, 'LEFT', -1, 0)
+			edge = row.alert
+		end
+		row.pin:ClearAllPoints()
+		row.pin:SetPoint('RIGHT', edge, 'LEFT', -3, 0)
+		if convo.pinned then
+			edge = row.pin
+		end
+		row.name:SetPoint('TOPLEFT', row.avatar, 'TOPRIGHT', 10, 0)
+		row.name:SetPoint('RIGHT', edge, 'LEFT', -4, 0)
 		row.preview:SetPoint('BOTTOMLEFT', row.avatar, 'BOTTOMRIGHT', 10, 0)
 		row.preview:SetPoint('RIGHT', row.badge, 'LEFT', -6, 0)
 	end
 
 	row.name:SetText(M:GetTitle(convo))
-	if convo.muted then
-		T.SetColor(row.name, T.color.faint)
-	elseif M.Store.IsRoomKey(convo.key) then
+	if M.Store.IsRoomKey(convo.key) then
 		row.name:SetTextColor(r, g, b)
 	else
 		row.name:SetTextColor(T.NameColor(presence.class or convo.class))
@@ -536,11 +583,7 @@ function List:PaintRow(row, convo)
 		end
 	end
 
-	if convo.muted then
-		row.badge:SetCount(convo.unread, T.color.faint[1], T.color.faint[2], T.color.faint[3])
-	else
-		row.badge:SetCount(convo.unread, r, g, b)
-	end
+	PaintBadge()
 	row.section:Hide()
 end
 
@@ -549,6 +592,8 @@ end
 ---@param entry table
 function List:PaintSuggestion(row, entry)
 	row.selectedBg:Hide()
+	row.alert:Hide()
+	row.alertBg:Hide()
 	row.avatar:Hide()
 	row.badge:Hide()
 	row.pin:Hide()
@@ -613,6 +658,8 @@ function List:Render()
 		elseif entry.section then
 			row.convo = nil
 			row.dot:Hide()
+			row.alert:Hide()
+			row.alertBg:Hide()
 			row:SetHeight(SECTION_H)
 			row.selectedBg:Hide()
 			row.avatar:Hide()

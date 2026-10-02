@@ -14,6 +14,7 @@ local L = M.L
 ---@field sendType? string SendChatMessage chat type
 ---@field initial string Avatar letter for rooms
 ---@field events table<string, boolean> event -> true when the event is the player's own message echo
+---@field public? boolean Open to everyone nearby or in the channel: alerts are rate limited
 
 ---@type MessengerKind[]
 M.Kinds = {
@@ -40,10 +41,10 @@ M.Kinds = {
 		initial = 'I',
 		events = { CHAT_MSG_INSTANCE_CHAT = false, CHAT_MSG_INSTANCE_CHAT_LEADER = false },
 	},
-	{ key = 'SAY', label = L['Say'], group = 'rooms', colorType = 'SAY', sendType = 'SAY', initial = 'S', events = { CHAT_MSG_SAY = false } },
-	{ key = 'YELL', label = L['Yell'], group = 'rooms', colorType = 'YELL', sendType = 'YELL', initial = 'Y', events = { CHAT_MSG_YELL = false } },
-	{ key = 'EMOTE', label = L['Emotes'], group = 'rooms', colorType = 'EMOTE', sendType = 'EMOTE', initial = 'E', events = { CHAT_MSG_EMOTE = false } },
-	{ key = 'CHANNEL', label = L['Channels'], group = 'rooms', colorType = 'CHANNEL', sendType = 'CHANNEL', initial = '#', events = { CHAT_MSG_CHANNEL = false } },
+	{ key = 'SAY', label = L['Say'], group = 'rooms', public = true, colorType = 'SAY', sendType = 'SAY', initial = 'S', events = { CHAT_MSG_SAY = false } },
+	{ key = 'YELL', label = L['Yell'], group = 'rooms', public = true, colorType = 'YELL', sendType = 'YELL', initial = 'Y', events = { CHAT_MSG_YELL = false } },
+	{ key = 'EMOTE', label = L['Emotes'], group = 'rooms', public = true, colorType = 'EMOTE', sendType = 'EMOTE', initial = 'E', events = { CHAT_MSG_EMOTE = false } },
+	{ key = 'CHANNEL', label = L['Channels'], group = 'rooms', public = true, colorType = 'CHANNEL', sendType = 'CHANNEL', initial = '#', events = { CHAT_MSG_CHANNEL = false } },
 }
 
 M.KindByKey = {}
@@ -99,7 +100,8 @@ M.defaults = {
 		onWhisper = 'alert',
 		alerts = {
 			people = { sound = true, toast = true, flash = true },
-			rooms = { sound = false, toast = false, flash = false },
+			rooms = { sound = false, toast = true, flash = false },
+			publicCooldown = 300,
 			holdInCombat = true,
 			mentions = true,
 			mentionWords = '',

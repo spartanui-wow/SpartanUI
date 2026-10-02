@@ -22,6 +22,53 @@ local AddIgnore = (C_FriendList and C_FriendList.AddIgnore) or AddIgnore
 ---@param convo MessengerConversation
 ---@param context? 'popout'
 ---@return MessengerMenuItem[]
+local LEVEL_ICON = { all = 'bell', mentions = 'at', none = 'bellOff' }
+
+---Menu entries for how a conversation alerts. People have no "only my name" level: every
+---whisper is to the player.
+---@param convo MessengerConversation
+---@return table[]
+function CP.AlertItems(convo)
+	local key = convo.key
+	local level = M:AlertLevel(convo)
+	local kind = M.KindByKey[convo.kind]
+	local items = {}
+	local function add(text, value)
+		items[#items + 1] = {
+			text = text,
+			checked = level == value,
+			onClick = function()
+				M:SetAlertLevel(key, value)
+			end,
+		}
+	end
+	if kind and kind.public then
+		add(L['Alert me, at most every 5 minutes'], 'all')
+	else
+		add(L['Alert me for every message'], 'all')
+	end
+	if M.Store.IsRoomKey(key) then
+		add(L['Only when someone says my name'], 'mentions')
+	end
+	add(L['No alerts'], 'none')
+	return items
+end
+
+---@param convo MessengerConversation
+---@return string tooltip, string icon
+function CP.AlertSummary(convo)
+	local level = M:AlertLevel(convo)
+	local kind = M.KindByKey[convo.kind]
+	if level == 'none' then
+		return L['No alerts'], LEVEL_ICON.none
+	elseif level == 'mentions' then
+		return L['Alerts only when someone says your name'], LEVEL_ICON.mentions
+	elseif kind and kind.public then
+		return L['Alerts for new messages, at most every 5 minutes'], LEVEL_ICON.all
+	end
+	return L['Alerts for every message'], LEVEL_ICON.all
+end
+
 function CP.ConversationMenu(convo, context)
 	local key = convo.key
 	local Store = M.Store
@@ -80,13 +127,10 @@ function CP.ConversationMenu(convo, context)
 			Store:SetFlag(key, 'pinned', not convo.pinned)
 		end,
 	})
-	table.insert(items, {
-		text = L['Mute alerts'],
-		checked = convo.muted == true,
-		onClick = function()
-			Store:SetFlag(key, 'muted', not convo.muted)
-		end,
-	})
+	for i, item in ipairs(CP.AlertItems(convo)) do
+		item.divider = i == 1
+		table.insert(items, item)
+	end
 	if context ~= 'popout' then
 		table.insert(items, {
 			text = L['Open in its own window'],
@@ -218,10 +262,19 @@ function CP.Create(parent, showHeader)
 		end)
 		header.pin:SetPoint('RIGHT', header.popout, 'LEFT', -2, 0)
 
+		-- The bell shows how this conversation alerts and changes it in one click
+		header.bell = W.IconButton(header, 'bell', 24, L['Alerts'], function(btn)
+			local convo = pane.key and M.Store:Get(pane.key)
+			if convo then
+				W.OpenMenu(btn, CP.AlertItems(convo))
+			end
+		end)
+		header.bell:SetPoint('RIGHT', header.pin, 'LEFT', -2, 0)
+
 		header.title = T.Text(header, 'name')
 		T.Bump(header.title, 2)
 		header.title:SetPoint('TOPLEFT', header.avatar, 'TOPRIGHT', 10, 1)
-		header.title:SetPoint('RIGHT', header.pin, 'LEFT', -8, 0)
+		header.title:SetPoint('RIGHT', header.bell, 'LEFT', -8, 0)
 
 		-- Double-clicking the name gives it a nickname; right-clicking a player's name opens the
 		-- game's own player menu (invite, add friend, report)
@@ -249,12 +302,7 @@ function CP.Create(parent, showHeader)
 
 		header.subtitle = T.Text(header, 'meta', T.color.muted)
 		header.subtitle:SetPoint('BOTTOMLEFT', header.avatar, 'BOTTOMRIGHT', 10, 0)
-		header.subtitle:SetPoint('RIGHT', header.pin, 'LEFT', -8, 0)
-
-		header.muted = header:CreateTexture(nil, 'ARTWORK')
-		header.muted:SetSize(14, 14)
-		T.SetIcon(header.muted, 'mute')
-		header.muted:SetVertexColor(T.color.faint[1], T.color.faint[2], T.color.faint[3])
+		header.subtitle:SetPoint('RIGHT', header.bell, 'LEFT', -8, 0)
 	end
 
 	-- Restriction notice
@@ -348,8 +396,8 @@ function Pane:UpdateHeader()
 		header.pin:Hide()
 		header.popout:Hide()
 		header.more:Hide()
+		header.bell:Hide()
 		header.nameButton:Hide()
-		header.muted:Hide()
 		return
 	end
 	local presence = M.Contacts:GetPresence(convo)
@@ -375,9 +423,12 @@ function Pane:UpdateHeader()
 	header.pin.tooltip = convo.pinned and L['Unpin'] or L['Pin to top']
 	header.popout:Show()
 	header.more:Show()
-	header.muted:ClearAllPoints()
-	header.muted:SetPoint('LEFT', header.title, 'LEFT', math.min(header.title:GetStringWidth(), header.title:GetWidth()) + 6, 0)
-	header.muted:SetShown(convo.muted == true)
+	local summary, icon = CP.AlertSummary(convo)
+	header.bell:SetIconName(icon)
+	header.bell:SetTint(M:AlertLevel(convo) == 'all' and T.color.muted or T.color.text)
+	header.bell.tooltip = summary
+	header.bell.hint = L['Click to change.']
+	header.bell:Show()
 end
 
 ---Turns the name at the top into a text box for a nickname. Enter or clicking away saves,

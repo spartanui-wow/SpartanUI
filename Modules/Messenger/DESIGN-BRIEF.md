@@ -26,5 +26,5 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 - Empty conversation: "No messages with {name} yet."
 - Restricted: amber strip "Some messages are hidden during this fight. They will show up here when it ends."
 - Offline / AFK / DND: presence dot on avatar plus a muted system line in the log.
-- Muted conversation: dimmed name, grey chip, no sound or toast.
+- Alert levels (2026-10-02): every message (default), only when someone says my name (channels), or no alerts. The name keeps its color; a muted-grey glyph at the row's right edge says why it is quiet (@ for name-only, bell with a slash for none), and unread lines that will not alert are counted on a grey chip. The header bell shows the level and changes it in one click. Busy public chats (Say, Yell, Emotes, numbered channels) pop up at most once every 5 minutes unless read; a pop-up still on screen keeps counting, and a line with the player's name always alerts.
 - Pinned: pinned group at top of the list.

@@ -25,7 +25,8 @@ local U = M.Util
 ---@field unread number
 ---@field last number
 ---@field pinned? boolean
----@field muted? boolean
+---@field alert? 'mentions'|'none' Alert level; nil means every message
+---@field mentionUnread? number Unread lines that say the player's name
 ---@field closed? boolean
 
 ---@class Messenger.Store
@@ -146,8 +147,12 @@ function S:Add(key, msg, quiet)
 	end
 	if msg.o and not quiet then
 		convo.unread = 0
+		convo.mentionUnread = nil
 	elseif not quiet and not msg.o and not msg.sys and not M:IsViewing(key) then
 		convo.unread = (convo.unread or 0) + 1
+		if msg.mn then
+			convo.mentionUnread = (convo.mentionUnread or 0) + 1
+		end
 	end
 	M:Fire('MESSAGE', key, msg)
 	M:Fire('LIST_CHANGED')
@@ -157,15 +162,20 @@ end
 ---@param key string
 function S:MarkRead(key)
 	local convo = self:Get(key)
-	if convo and convo.unread and convo.unread > 0 then
+	if not convo then
+		return
+	end
+	convo.mentionUnread = nil
+	if convo.unread and convo.unread > 0 then
 		convo.unread = 0
 		M:Fire('LIST_CHANGED')
 		M:Fire('UNREAD_CHANGED')
 	end
+	M:Fire('READ', key)
 end
 
 ---@param key string
----@param flag 'pinned'|'muted'|'closed'
+---@param flag 'pinned'|'closed'
 ---@param value boolean|nil
 function S:SetFlag(key, flag, value)
 	local convo = self:Get(key)
@@ -175,6 +185,7 @@ function S:SetFlag(key, flag, value)
 	convo[flag] = value or nil
 	if flag == 'closed' and value then
 		convo.unread = 0
+		convo.mentionUnread = nil
 	end
 	M:Fire('CONVO_CHANGED', key)
 	M:Fire('LIST_CHANGED')
@@ -266,8 +277,9 @@ function S:TotalUnread()
 	local total = 0
 	for _, tbl in ipairs({ People(), Rooms() }) do
 		for _, convo in pairs(tbl) do
-			if not convo.muted and self:IsVisible(convo) then
-				total = total + (convo.unread or 0)
+			local level = M:AlertLevel(convo)
+			if level ~= 'none' and self:IsVisible(convo) then
+				total = total + ((level == 'mentions' and convo.mentionUnread or convo.unread) or 0)
 			end
 		end
 	end
@@ -332,7 +344,7 @@ end
 ---@return MessengerConversation|nil
 function S:NextUnread()
 	for _, convo in ipairs(self:List('unread')) do
-		if not convo.muted then
+		if M:AlertLevel(convo) ~= 'none' then
 			return convo
 		end
 	end
@@ -423,6 +435,18 @@ function S:RepairSquashedNames()
 		char.surnamesRepaired = true
 		for _, convo in pairs(Rooms()) do
 			RepairLines(convo)
+		end
+	end
+end
+
+---Older versions only had "mute"; it is the "No alerts" level now.
+function S:MigrateAlerts()
+	for _, tbl in ipairs({ People(), Rooms() }) do
+		for _, convo in pairs(tbl) do
+			if convo.muted then
+				convo.alert = 'none'
+				convo.muted = nil
+			end
 		end
 	end
 end

@@ -281,6 +281,19 @@ end
 -- Alert rules
 ----------------------------------------------------------------------------------------------------
 
+local publicAlertAt = {}
+
+---@param key string
+---@return boolean
+local function HasCard(key)
+	for _, card in ipairs(active) do
+		if card.key == key and card:IsShown() then
+			return true
+		end
+	end
+	return false
+end
+
 local function PlayTell()
 	if GetTime() - lastSound < 1 then
 		return
@@ -295,7 +308,11 @@ end
 ---@param kind MessengerKind
 local function OnIncoming(key, msg, kind)
 	local convo = M.Store:Get(key)
-	if not convo or convo.muted or msg.sys then
+	if not convo or msg.sys then
+		return
+	end
+	local level = M:AlertLevel(convo)
+	if level == 'none' or (level == 'mentions' and not msg.mn) then
 		return
 	end
 	local alerts = M.settings.alerts
@@ -312,6 +329,21 @@ local function OnIncoming(key, msg, kind)
 		return
 	end
 
+	-- Busy public chats pop up once, then stay quiet for a few minutes unless the player reads
+	-- them; a pop-up still on screen keeps counting instead
+	local quiet = false
+	if kind.public and not msg.mn then
+		local last = publicAlertAt[key]
+		if last and GetTime() - last < (alerts.publicCooldown or 300) then
+			if not HasCard(key) then
+				return
+			end
+			quiet = true
+		else
+			publicAlertAt[key] = GetTime()
+		end
+	end
+
 	if kind.group == 'people' and M.settings.onWhisper == 'open' and not M.UI.Deck:IsShown() then
 		M:Open(key, false)
 		if cfg.sound then
@@ -320,10 +352,10 @@ local function OnIncoming(key, msg, kind)
 		return
 	end
 
-	if cfg.sound then
+	if cfg.sound and not quiet then
 		PlayTell()
 	end
-	if cfg.flash and FlashClientIcon then
+	if cfg.flash and not quiet and FlashClientIcon then
 		FlashClientIcon()
 	end
 	if cfg.toast then
@@ -462,12 +494,22 @@ function A:ShowNotice(title, body)
 	})
 end
 
+---Whether a pop-up for this conversation is on screen.
+---@param key string
+---@return boolean
+function A:IsShowing(key)
+	return HasCard(key)
+end
+
 function A:Enable()
 	if not anchor then
 		BuildAnchor()
 	end
 	if not self.listening then
 		self.listening = true
+		M:On('READ', function(key)
+			publicAlertAt[key] = nil
+		end)
 		M:On('INCOMING', function(...)
 			if M.enabled then
 				OnIncoming(...)

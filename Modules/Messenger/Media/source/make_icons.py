@@ -1,4 +1,4 @@
-"""Messenger icon atlas: 16 white glyphs, 32px cells, 2px strokes, 8x supersampled.
+"""Messenger icon atlas: white glyphs, 32px cells, 2px strokes, 8x supersampled.
 
 Output: Modules/Messenger/Media/Icons.tga (256x128 = 8 x 4 cells, RGBA, uncompressed) and
 images/chatbox/messenger.png for the SpartanUI chat header.
@@ -14,7 +14,7 @@ W = 2.0 * SS  # stroke width in supersampled px
 
 ORDER = ['close', 'plus', 'gear', 'search', 'pin', 'popout', 'dock', 'more',
          'send', 'chevron', 'mute', 'invite', 'bubble', 'info', 'dot', 'check',
-         'sidebar']
+         'sidebar', 'bell', 'bellOff', 'at']
 
 
 def p(x, y):
@@ -43,6 +43,15 @@ def disc(d, cx, cy, rad):
 
 def rect(d, x0, y0, x1, y1):
     line(d, [(x0, y0), (x1, y0), (x1, y1), (x0, y1), (x0, y0)])
+
+
+BELL = [(9, 21), (11, 19), (11, 14), (12, 11.2), (14, 9.4), (16, 8.9), (18, 9.4), (20, 11.2), (21, 14), (21, 19), (23, 21), (9, 21)]
+
+
+def bell(d):
+    line(d, BELL)
+    line(d, [(16, 7.2), (16, 8.9)])
+    line(d, [(14.2, 24), (17.8, 24)])
 
 
 def draw(name, d):
@@ -85,6 +94,18 @@ def draw(name, d):
         disc(d, 16, 16, 14)
     elif name == 'check':
         line(d, [(9, 16), (14, 21), (23, 11)])
+    elif name == 'bell':
+        bell(d)
+    elif name == 'bellOff':
+        bell(d)
+        # Cut a gap around the slash so it reads as a separate stroke
+        d.line([p(8, 7), p(25, 24)], fill=0, width=int(W * 2.4))
+        line(d, [(8.5, 7.5), (24.5, 23.5)])
+    elif name == 'at':
+        ring(d, 15.2, 16, 3.1)
+        line(d, [(18.4, 12.6), (18.4, 17.6), (19.4, 19.3), (21.3, 19.4), (22.9, 17.6), (23.6, 15.4)])
+        r = 7.7 * SS
+        d.arc((16 * SS - r, 16 * SS - r, 16 * SS + r, 16 * SS + r), 62, 352, fill=255, width=int(W))
     elif name == 'sidebar':
         rect(d, 8, 9, 24, 23); line(d, [(14, 9), (14, 23)])
         line(d, [(10.5, 13), (11.5, 13)]); line(d, [(10.5, 16.5), (11.5, 16.5)])

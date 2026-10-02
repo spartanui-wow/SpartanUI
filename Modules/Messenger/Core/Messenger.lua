@@ -41,6 +41,27 @@ function M:GetRealTitle(convo)
 	return convo.name or convo.key
 end
 
+---How a conversation alerts: 'all' (every message), 'mentions' (only lines that say the
+---player's name) or 'none'.
+---@param convo MessengerConversation|nil
+---@return 'all'|'mentions'|'none'
+function M:AlertLevel(convo)
+	return convo and convo.alert or 'all'
+end
+
+---@param key string
+---@param level 'all'|'mentions'|'none'
+function M:SetAlertLevel(key, level)
+	local convo = Store:Get(key)
+	if not convo then
+		return
+	end
+	convo.alert = level ~= 'all' and level or nil
+	self:Fire('CONVO_CHANGED', key)
+	self:Fire('LIST_CHANGED')
+	self:Fire('UNREAD_CHANGED')
+end
+
 ---Nicknames for people are kept for the whole account; nicknames for channels belong to the
 ---character, like the channels themselves.
 ---@param key string
@@ -107,6 +128,7 @@ function M:Enable()
 	end
 	self.enabled = true
 	Store:RepairSquashedNames()
+	Store:MigrateAlerts()
 	Store:Prune()
 	self.Contacts:Enable()
 	self.Router:Enable()

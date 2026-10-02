@@ -380,6 +380,12 @@ function M:BuildOptionsTable()
 						end,
 					},
 					roomsHeader = { type = 'header', order = 10, name = L['Channels'] },
+					roomsNote = {
+						type = 'description',
+						order = 10.5,
+						name = L['Busy public chats (General, Trade, Say) pop up at most once every 5 minutes, unless you read them. A line with your name always alerts. Pick a different level for any conversation with the bell at the top of the chat.']
+							.. '\n',
+					},
 					roomsSound = {
 						type = 'toggle',
 						order = 11,
