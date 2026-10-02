@@ -78,8 +78,7 @@ local function MenuTarget(contextData)
 	if not name then
 		return nil
 	end
-	local server = U.Str(contextData.server)
-	local full = server and (name .. '-' .. server:gsub('%s', '')) or U.FullName(name)
+	local full = U.JoinName(name, contextData.server or contextData.surname)
 	if not full or U.SameName(full, U.PlayerFullName()) then
 		return nil
 	end

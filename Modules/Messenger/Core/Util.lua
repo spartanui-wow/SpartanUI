@@ -63,6 +63,16 @@ end
 
 local playerRealm
 
+---True on clients where characters have a first and last name and no realm (WoW Forever).
+---Names there contain a space, and "First-Last" means the same character.
+---@return boolean
+function U.SurnameNames()
+	if RegionalUniqueNamesEnabled and RegionalUniqueNamesEnabled() == true then
+		return true
+	end
+	return WOW_PROJECT_ID ~= nil and WOW_PROJECT_ID == (WOW_PROJECT_CAMELOT or 18)
+end
+
 ---@return string
 function U.PlayerRealm()
 	if not playerRealm or playerRealm == '' then
@@ -82,6 +92,10 @@ function U.FullName(name)
 	if not name then
 		return nil
 	end
+	if U.SurnameNames() then
+		name = U.Trim((name:gsub('%-', ' '):gsub('%s+', ' ')))
+		return name ~= '' and name or nil
+	end
 	name = name:gsub('%s', '')
 	if name:find('-', 1, true) then
 		return name
@@ -97,6 +111,9 @@ end
 ---@param full string
 ---@return string
 function U.DisplayName(full)
+	if U.SurnameNames() then
+		return full
+	end
 	local name, realm = full:match('^([^%-]+)%-(.+)$')
 	if name and realm == U.PlayerRealm() then
 		return name
@@ -107,11 +124,50 @@ end
 ---@param full string
 ---@return string
 function U.ShortName(full)
+	if U.SurnameNames() then
+		return full
+	end
 	return full:match('^([^%-]+)') or full
+end
+
+---Joins a character name with its realm (or, on first-and-last-name clients, its surname).
+---@param name string
+---@param realm string|nil
+---@return string|nil
+function U.JoinName(name, realm)
+	realm = U.Str(realm)
+	if U.SurnameNames() then
+		if realm and not strlower(name):find(strlower(realm), 1, true) then
+			name = name .. ' ' .. realm
+		end
+		return U.FullName(name)
+	end
+	if realm then
+		return name .. '-' .. realm:gsub('%s', '')
+	end
+	return U.FullName(name)
+end
+
+---Whether typed text could be a character name: one word, Name-Realm, or on first-and-last-name
+---clients up to two words.
+---@param text string
+---@return boolean
+function U.LooksLikeName(text)
+	if text == '' or text:find('[#|]') then
+		return false
+	end
+	if U.SurnameNames() then
+		return text:find('^[^%s%-]+[%s%-]?[^%s%-]*$') ~= nil
+	end
+	return not text:find('%s') or text:find('-', 1, true) ~= nil
 end
 
 ---@return string
 function U.PlayerFullName()
+	if U.SurnameNames() then
+		local name, surname = UnitNameUnmodified('player')
+		return U.JoinName(name, surname) or name
+	end
 	local name, realm = UnitFullName('player')
 	if not realm or realm == '' then
 		realm = U.PlayerRealm()

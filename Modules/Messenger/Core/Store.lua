@@ -339,6 +339,94 @@ function S:NextUnread()
 	return nil
 end
 
+----------------------------------------------------------------------------------------------------
+-- One-time repair: first-and-last names saved before Messenger understood them
+----------------------------------------------------------------------------------------------------
+
+---Older versions removed the space from "First Last" names and added a realm, so they were saved
+---as "FirstLast-Realm". A name with a dash and no space cannot be a real name on these clients.
+---The surname starts at the last capital letter that follows a small one.
+---@param name any
+---@return any
+local function Unsquash(name)
+	if type(name) ~= 'string' or name:find(' ', 1, true) or not name:find('-', 1, true) then
+		return name
+	end
+	local base = name:match('^([^%-]+)%-') or name
+	local first, last = base:match('^(.*%l)(%u[^%u]*)$')
+	if first then
+		return first .. ' ' .. last
+	end
+	return base
+end
+
+---@param convo MessengerConversation
+local function RepairLines(convo)
+	for _, msg in ipairs(convo.msgs) do
+		msg.s = Unsquash(msg.s)
+	end
+end
+
+---Fixes saved names once per account (conversations with people) and per character (channels).
+---Only runs on clients with first-and-last names.
+function S:RepairSquashedNames()
+	if not U.SurnameNames() then
+		return
+	end
+	local global, char = M.db.global, M.db.char
+	if not global.surnamesRepaired then
+		global.surnamesRepaired = true
+		local people = People()
+		local moves = {}
+		for key, convo in pairs(people) do
+			RepairLines(convo)
+			if convo.kind == 'WHISPER' then
+				local target = Unsquash(convo.target)
+				if target ~= convo.target then
+					moves[#moves + 1] = { from = key, to = S.CharKey(target), target = target }
+				end
+			end
+		end
+		for _, move in ipairs(moves) do
+			local convo = people[move.from]
+			people[move.from] = nil
+			convo.target = move.target
+			convo.name = move.target
+			local existing = people[move.to]
+			if existing then
+				-- Both spellings were in use: keep one conversation with every line in time order
+				for _, msg in ipairs(convo.msgs) do
+					existing.msgs[#existing.msgs + 1] = msg
+				end
+				table.sort(existing.msgs, function(a, b)
+					return (a.t or 0) < (b.t or 0)
+				end)
+				existing.unread = (existing.unread or 0) + (convo.unread or 0)
+				existing.last = math.max(existing.last or 0, convo.last or 0)
+			else
+				convo.key = move.to
+				people[move.to] = convo
+			end
+			if char.lastKey == move.from then
+				char.lastKey = move.to
+			end
+			if char.popouts[move.from] then
+				char.popouts[move.to] = char.popouts[move.to] or char.popouts[move.from]
+				char.popouts[move.from] = nil
+			end
+		end
+		if #moves > 0 then
+			M.log.info(string.format('Repaired %d saved first-and-last names', #moves))
+		end
+	end
+	if not char.surnamesRepaired then
+		char.surnamesRepaired = true
+		for _, convo in pairs(Rooms()) do
+			RepairLines(convo)
+		end
+	end
+end
+
 ---Drops old history according to settings. Runs once at login.
 function S:Prune()
 	local history = M.settings.history

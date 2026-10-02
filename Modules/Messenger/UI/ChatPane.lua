@@ -46,7 +46,7 @@ function CP.ConversationMenu(convo, context)
 	elseif convo.kind == 'BN_WHISPER' then
 		local entry = M.Contacts:GetBNetByTag(convo.target or '')
 		if entry and entry.character then
-			local who = entry.realm and (entry.character .. '-' .. entry.realm:gsub('%s', '')) or entry.character
+			local who = U.JoinName(entry.character, entry.realm) or entry.character
 			table.insert(items, {
 				text = L['Invite to group'],
 				onClick = function()

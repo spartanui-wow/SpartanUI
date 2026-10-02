@@ -62,6 +62,7 @@ function M:Enable()
 		return
 	end
 	self.enabled = true
+	Store:RepairSquashedNames()
 	Store:Prune()
 	self.Contacts:Enable()
 	self.Router:Enable()

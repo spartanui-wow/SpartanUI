@@ -578,7 +578,7 @@ function D:Suggestions(typed, quiet)
 		end
 	end
 	local channelName = M.Rooms:Find(typed)
-	if not quiet and not exactPerson and not channelName and not typed:find('[%s#]') and not typed:find('^%d+$') then
+	if not quiet and not exactPerson and not channelName and U.LooksLikeName(typed) and not typed:find('^%d+$') then
 		out[#out + 1] = { name = typed, detail = L['Whisper'], message = true, key = PersonKey(typed) }
 	end
 	for i = 1, math.min(#people, MAX_PEOPLE) do
@@ -628,8 +628,8 @@ function D:StartConversation(text)
 			return
 		end
 	end
-	-- Names have no spaces (only realms, as in Name-Argent Dawn): anything else was a search
-	if not text:find('%s') or text:find('-', 1, true) then
+	-- Anything that cannot be a character name was a search
+	if U.LooksLikeName(text) then
 		M:OpenWhisper(text, true)
 	end
 end
