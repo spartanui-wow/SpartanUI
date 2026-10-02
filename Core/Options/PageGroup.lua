@@ -2,16 +2,39 @@
 local SUI = SUI
 local Style = SUI.UI.Style
 
--- A tab group without tabs: the options window's sidebar picks the page. Shows the page title
--- over its content. AceConfigDialog treats it as a TabGroup (baseType).
+-- A tab group without tabs: the options window's sidebar is its tree and picks the page. Shows
+-- the page title over its content. AceConfigDialog treats it as a TabGroup (baseType).
+-- Values are tree paths joined with "\001", the same unique values a TreeGroup uses, and the
+-- status table keeps the selected value and which tree entries are open (status.groups).
 
-local Type, Version = 'SUI-PageGroup', 1
+local Type, Version = 'SUI-PageGroup', 2
 local AceGUI = LibStub and LibStub('AceGUI-3.0', true)
 if not AceGUI or (AceGUI:GetWidgetVersion(Type) or 0) >= Version then
 	return
 end
 
 local HEADER = 38
+local SEP = '\001'
+
+---Find a tree entry by its unique value
+---@return table|nil entry
+local function FindEntry(list, value)
+	local node, entry = list, nil
+	for key in (value .. SEP):gmatch('(.-)' .. SEP) do
+		entry = nil
+		for _, candidate in ipairs(node or {}) do
+			if candidate.value == key then
+				entry = candidate
+				break
+			end
+		end
+		if not entry then
+			return nil
+		end
+		node = entry.children
+	end
+	return entry
+end
 
 local methods = {
 	OnAcquire = function(self)
@@ -34,11 +57,22 @@ local methods = {
 
 	SelectTab = function(self, value)
 		local status = self.status or self.localstatus
-		local found
-		for _, tab in ipairs(self.tablist or {}) do
-			if tab.value == value then
-				found = tab
+		local found = value and FindEntry(self.tablist or {}, value)
+		-- A page with nothing of its own opens its first sub-page
+		while found and found.empty and found.children do
+			local child
+			for _, candidate in ipairs(found.children) do
+				if not candidate.disabled then
+					child = candidate
+					break
+				end
 			end
+			if not child then
+				break
+			end
+			self:SetExpanded(value, true)
+			value = value .. SEP .. child.value
+			found = child
 		end
 		status.selected = value
 		self.titletext:SetText(found and found.text or '')
@@ -55,6 +89,21 @@ local methods = {
 	GetSelected = function(self)
 		local status = self.status or self.localstatus
 		return status.selected
+	end,
+
+	---@param value string
+	---@return boolean
+	IsExpanded = function(self, value)
+		local status = self.status or self.localstatus
+		return status.groups and status.groups[value] and true or false
+	end,
+
+	---@param value string
+	---@param expanded boolean
+	SetExpanded = function(self, value, expanded)
+		local status = self.status or self.localstatus
+		status.groups = status.groups or {}
+		status.groups[value] = expanded and true or nil
 	end,
 
 	BuildTabs = function(self) end,
@@ -98,9 +147,13 @@ local function Constructor()
 	rule:SetHeight(Style:PixelSize(frame))
 	rule:SetVertexColor(unpack(Style.color.line))
 
+	-- Settings never draw over the title or outside the window, whatever its size
 	local content = CreateFrame('Frame', nil, frame)
 	content:SetPoint('TOPLEFT', 0, -HEADER)
 	content:SetPoint('BOTTOMRIGHT', 0, 0)
+	if content.SetClipsChildren then
+		content:SetClipsChildren(true)
+	end
 
 	local widget = {
 		frame = frame,

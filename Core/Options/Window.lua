@@ -2,12 +2,13 @@
 local SUI = SUI
 local L = SUI.L
 local Style = SUI.UI.Style
+local W = SUI.UI.OptionWidgets
 
 -- SpartanUI's options window. AceConfigDialog fills the content area; the window adds a
--- sidebar that picks the top level page, a search box, a preview panel beside it (the Stage),
--- and a footer for actions. Its frame, bars and panels come from the active window kit.
+-- sidebar with the tree of pages and sub-pages, a search box, a preview panel beside it (the
+-- Stage), and a footer for actions. Its frame, bars and panels come from the active window kit.
 
-local Type, Version = 'SUI-Window', 1
+local Type, Version = 'SUI-Window', 2
 local AceGUI = LibStub and LibStub('AceGUI-3.0', true)
 if not AceGUI or (AceGUI:GetWidgetVersion(Type) or 0) >= Version then
 	return
@@ -17,6 +18,10 @@ local SIDEBAR = 196
 -- Space between the content panel's edge and the settings inside it
 local CONTENT_PAD = 10
 local NAV_HEIGHT = 26
+local SUB_HEIGHT = 22
+local INDENT = 12
+local SEP = '\001'
+-- Small enough for any screen, large enough that the sidebar, page title and footer never meet
 local MIN_W, MIN_H = 760, 460
 -- Room the settings keep when a preview panel opens beside them
 local STAGE_GAP = 4
@@ -47,6 +52,11 @@ local function PaintNav(button)
 		button.bar:Hide()
 		local tc = button.disabled and c.faint or (button.hovered and c.text or c.muted)
 		button.label:SetTextColor(tc[1], tc[2], tc[3])
+	end
+	local toggle = button.toggle
+	if toggle and toggle:IsShown() then
+		local gc = toggle.hovered and c.text or c.muted
+		toggle.glyph:SetColor(gc[1], gc[2], gc[3], 1)
 	end
 end
 
@@ -85,6 +95,28 @@ local function CreateNavButton(window)
 			self.onClick(self)
 		end
 	end)
+
+	-- Opens and closes a page's sub-pages without selecting it
+	local toggle = CreateFrame('Button', nil, button)
+	toggle:SetSize(18, 18)
+	toggle:SetPoint('RIGHT', -6, 0)
+	toggle.glyph = W:CreatePlusMinus(toggle)
+	toggle.glyph.anchor:SetPoint('CENTER', toggle, 'CENTER', 0, 0)
+	toggle:SetScript('OnEnter', function(self)
+		self.hovered = true
+		PaintNav(button)
+	end)
+	toggle:SetScript('OnLeave', function(self)
+		self.hovered = false
+		PaintNav(button)
+	end)
+	toggle:SetScript('OnClick', function()
+		if button.onToggle then
+			button.onToggle(button)
+		end
+	end)
+	toggle:Hide()
+	button.toggle = toggle
 	return button
 end
 
@@ -97,6 +129,7 @@ local methods = {
 		self.frame:SetParent(UIParent)
 		self.frame:SetFrameStrata('FULLSCREEN_DIALOG')
 		self.frame:SetFrameLevel(100)
+		self:RaiseFooter()
 		self:SetTitle()
 		self:ApplyStatus()
 		self:SetStageWidth(0)
@@ -133,6 +166,11 @@ local methods = {
 	end,
 
 	SetStatusText = function(self, text) end,
+
+	---The footer sits above the settings so its buttons are never covered
+	RaiseFooter = function(self)
+		self.footer:SetFrameLevel(self.frame:GetFrameLevel() + 30)
+	end,
 
 	Hide = function(self)
 		self.frame:Hide()
@@ -197,48 +235,121 @@ local methods = {
 		end
 	end,
 
-	---Show the top level pages in the sidebar
-	---@param tabs table[] { value, text, disabled }
+	---Show the tree of pages in the sidebar
+	---@param tabs table[] { value, text, disabled, empty?, children? }
 	---@param page table The page group that shows the selected page
 	SetNavigation = function(self, tabs, page)
 		self.navTabs = tabs
 		self.page = page
 		if not self.searching then
-			self:RefreshNav()
+			self:RefreshNav(true)
 		end
 	end,
 
-	RefreshNav = function(self)
-		local tabs = self.navTabs or {}
+	---Rows of the sidebar tree that are on show: every page, and the sub-pages of open pages
+	---@return table[] rows { entry, value, level, hasChildren, expanded }
+	GetNavRows = function(self)
+		local rows = {}
+		local page = self.page
+		local function Add(list, level, parent)
+			for _, entry in ipairs(list) do
+				local value = parent and (parent .. SEP .. entry.value) or entry.value
+				local hasChildren = entry.children ~= nil and #entry.children > 0
+				local expanded = hasChildren and page ~= nil and page:IsExpanded(value)
+				rows[#rows + 1] = { entry = entry, value = value, level = level, hasChildren = hasChildren, expanded = expanded }
+				if expanded then
+					Add(entry.children, level + 1, value)
+				end
+			end
+		end
+		Add(self.navTabs or {}, 1)
+		return rows
+	end,
+
+	---Select a sidebar entry: open its sub-pages and show its settings
+	---@param row table
+	SelectNav = function(self, row)
+		local page = self.page
+		if not page then
+			return
+		end
+		-- A page with nothing of its own just opens and closes
+		if row.hasChildren and row.entry.empty and row.expanded then
+			page:SetExpanded(row.value, false)
+			self:RefreshNav()
+			return
+		end
+		if row.hasChildren then
+			page:SetExpanded(row.value, true)
+		end
+		page:SelectTab(row.value)
+		self:RefreshNav(true)
+	end,
+
+	---@param reveal? boolean Scroll the sidebar so the selected entry is in view
+	RefreshNav = function(self, reveal)
+		local rows = self:GetNavRows()
 		local selected = self.page and self.page:GetSelected()
-		for i, tab in ipairs(tabs) do
+		local y, selectedTop, selectedBottom = 0, nil, nil
+		for i, row in ipairs(rows) do
 			local button = self.navButtons[i] or CreateNavButton(self)
 			self.navButtons[i] = button
+			local height = row.level == 1 and NAV_HEIGHT or SUB_HEIGHT
 			button:ClearAllPoints()
-			button:SetPoint('TOPLEFT', self.navList, 'TOPLEFT', 0, -(i - 1) * NAV_HEIGHT)
+			button:SetPoint('TOPLEFT', self.navList, 'TOPLEFT', 0, -y)
 			button:SetPoint('RIGHT', self.navList, 'RIGHT', 0, 0)
-			button:SetHeight(NAV_HEIGHT)
+			button:SetHeight(height)
+			Style:SetFont(button.label, row.level == 1 and 12 or 11)
 			button.label:ClearAllPoints()
-			button.label:SetPoint('LEFT', 14, 0)
-			button.label:SetPoint('RIGHT', -8, 0)
-			button.label:SetText(tab.text)
+			button.label:SetPoint('LEFT', 14 + (row.level - 1) * INDENT, 0)
+			button.label:SetPoint('RIGHT', row.hasChildren and -26 or -8, 0)
+			button.label:SetText(row.entry.text)
 			button.sub:SetText('')
-			button.value = tab.value
-			button.disabled = tab.disabled
-			button.selected = tab.value == selected
+			button.value = row.value
+			button.row = row
+			button.disabled = row.entry.disabled
+			button.selected = row.value == selected
 			button.onClick = function(btn)
+				self:SelectNav(btn.row)
+			end
+			button.onToggle = function(btn)
 				if self.page then
-					self.page:SelectTab(btn.value)
+					self.page:SetExpanded(btn.row.value, not btn.row.expanded)
 					self:RefreshNav()
 				end
 			end
+			button.toggle:SetShown(row.hasChildren)
+			button.toggle.glyph:SetExpanded(row.expanded)
 			button:Show()
 			PaintNav(button)
+			if button.selected then
+				selectedTop, selectedBottom = y, y + height
+			end
+			y = y + height
 		end
-		for i = #tabs + 1, #self.navButtons do
+		for i = #rows + 1, #self.navButtons do
 			self.navButtons[i]:Hide()
 		end
-		self.navList:SetHeight(math.max(1, #tabs * NAV_HEIGHT))
+		self.navList:SetHeight(math.max(1, y))
+		self:ClampNavScroll(reveal and selectedTop, selectedBottom)
+	end,
+
+	---Keep the sidebar scroll in range, optionally bringing a span of the list into view
+	---@param top? number
+	---@param bottom? number
+	ClampNavScroll = function(self, top, bottom)
+		local scroll = self.navScroll
+		local view = scroll:GetHeight() or 0
+		local maxScroll = math.max(0, (self.navList:GetHeight() or 0) - view)
+		local value = scroll:GetVerticalScroll() or 0
+		if top and bottom and view > 0 then
+			if top < value then
+				value = top
+			elseif bottom > value + view then
+				value = bottom - view
+			end
+		end
+		scroll:SetVerticalScroll(math.max(0, math.min(maxScroll, value)))
 	end,
 
 	---Show search results in the sidebar
@@ -252,14 +363,18 @@ local methods = {
 			button:SetPoint('TOPLEFT', self.navList, 'TOPLEFT', 0, -(i - 1) * (NAV_HEIGHT + 10))
 			button:SetPoint('RIGHT', self.navList, 'RIGHT', 0, 0)
 			button:SetHeight(NAV_HEIGHT + 10)
+			Style:SetFont(button.label, 12)
 			button.label:ClearAllPoints()
 			button.label:SetPoint('TOPLEFT', 14, -5)
 			button.label:SetPoint('RIGHT', -8, 0)
 			button.label:SetText(result.text)
 			button.sub:SetText(result.sub or '')
+			button.row = nil
 			button.disabled = false
 			button.selected = false
 			button.onClick = result.onClick
+			button.onToggle = nil
+			button.toggle:Hide()
 			button:Show()
 			PaintNav(button)
 		end
@@ -268,6 +383,7 @@ local methods = {
 		end
 		self.noResults:SetShown(#results == 0)
 		self.navList:SetHeight(math.max(1, #results * (NAV_HEIGHT + 10)))
+		self.navScroll:SetVerticalScroll(0)
 	end,
 
 	ClearSearch = function(self)
@@ -276,7 +392,7 @@ local methods = {
 		if self.searchBox:GetText() ~= '' then
 			self.searchBox:SetText('')
 		end
-		self:RefreshNav()
+		self:RefreshNav(true)
 	end,
 }
 
@@ -382,6 +498,10 @@ local function Constructor()
 	end)
 	navScroll:SetScript('OnSizeChanged', function(self, width)
 		navList:SetWidth(width or SIDEBAR - 1)
+		local maxScroll = math.max(0, navList:GetHeight() - (self:GetHeight() or 0))
+		if self:GetVerticalScroll() > maxScroll then
+			self:SetVerticalScroll(maxScroll)
+		end
 	end)
 
 	local noResults = Style:CreateText(sidebar, 11, Style.color.faint)
@@ -404,6 +524,10 @@ local function Constructor()
 	contentPanel:SetPoint('TOPLEFT', sidebar, 'TOPRIGHT', 12, 0)
 	contentPanel:SetPoint('BOTTOMRIGHT', frame.Body, 'BOTTOMRIGHT')
 	LibAT.UI.Kit:SkinPanel(contentPanel, { elevation = 1, shadow = false })
+	-- Settings stay inside the panel at any window size; pages scroll inside it
+	if contentPanel.SetClipsChildren then
+		contentPanel:SetClipsChildren(true)
+	end
 
 	local content = CreateFrame('Frame', nil, contentPanel)
 	content:SetPoint('TOPLEFT', CONTENT_PAD, -CONTENT_PAD)
@@ -424,6 +548,7 @@ local function Constructor()
 		frame = frame,
 		header = header,
 		sidebar = sidebar,
+		contentPanel = contentPanel,
 		searchBox = searchBox,
 		navScroll = navScroll,
 		navList = navList,
@@ -500,6 +625,7 @@ local function Constructor()
 	end)
 
 	local registered = AceGUI:RegisterAsContainer(widget)
+	registered:RaiseFooter()
 	registered:SetStageWidth(0)
 	return registered
 end

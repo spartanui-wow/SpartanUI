@@ -8,7 +8,7 @@
 --  * callbacks: GroupSelected(appName, path), OptionSet(appName, info, ...), FeedComplete(appName, path, scroll),
 --    ControlFocused(appName, path, control)
 --  * per-app frame type (SetFrameType), per-app widget types (SetWidgetMap)
---  * a "pages" root mode where the window's own sidebar picks the top level group
+--  * a "pages" root mode where the window's own sidebar is the group tree
 --  * a rendered control index (GetControl) and Navigate(appName, groupPath, optionKey)
 --  * options flagged advanced = true fold into a "More settings" expander when the app maps one
 
@@ -525,8 +525,8 @@ function AceConfigDialog:SelectGroup(appName, ...)
 	for n = 1, select("#",...) do
 		local key = select(n, ...)
 
-		-- SUI: a pages root selects like a tab group
-		if group.childGroups == "tab" or group.childGroups == "select" or IsPagesRoot(appName, options, group) then
+		-- SUI: a pages root selects like a tree root (the window's sidebar is its tree)
+		if group.childGroups == "tab" or group.childGroups == "select" then
 			--if this is a tab or select group, select the group
 			status.selected = key
 			--children of this group are no longer extra levels of a tree
@@ -1149,6 +1149,48 @@ local function BuildGroups(group, options, path, appName, recurse)
 	del(keySort)
 	del(opts)
 	return tree
+end
+
+-- SUI: a page that only holds sub-pages is marked empty, so the sidebar can open its first sub-page
+local function HasOwnContent(group, options, path, appName)
+	local function Scan(args)
+		for k, v in pairs(args) do
+			if type(v) == "table" and (v.type ~= "group" or pickfirstset(v.dialogInline, v.guiInline, v.inline, false)) then
+				path[#path + 1] = k
+				local hidden = CheckOptionHidden(v, options, path, appName)
+				path[#path] = nil
+				if not hidden then
+					return true
+				end
+			end
+		end
+		return false
+	end
+	if group.args and Scan(group.args) then
+		return true
+	end
+	if group.plugins then
+		for _, t in pairs(group.plugins) do
+			if Scan(t) then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+-- SUI: flag sidebar tree entries whose group has nothing of its own to show
+local function MarkEmptyPages(entries, group, options, path, appName)
+	for i = 1, #entries do
+		local entry = entries[i]
+		local child = entry.children and GetSubOption(group, entry.value)
+		if child then
+			path[#path + 1] = entry.value
+			entry.empty = not HasOwnContent(child, options, path, appName)
+			MarkEmptyPages(entry.children, child, options, path, appName)
+			path[#path] = nil
+		end
+	end
 end
 
 local function InjectInfo(control, options, option, path, rootframe, appName)
@@ -1809,6 +1851,10 @@ function AceConfigDialog:FeedGroup(appName,options,container,rootframe,path, isR
 	if not parenttype then
 		parenttype = "tree"
 	end
+	-- SUI: top level pages are nodes of the window's sidebar tree, so their sub-groups are too
+	if parenttype == "sui-pages" then
+		parenttype = "tree"
+	end
 
 	--check if the group has child groups
 	local hasChildGroups
@@ -1912,7 +1958,7 @@ function AceConfigDialog:FeedGroup(appName,options,container,rootframe,path, isR
 
 			container:AddChild(selectGroup)
 
-		-- SUI: pages root, a tab group without tabs; the window's sidebar selects the page
+		-- SUI: pages root, a tab group without tabs; the window's sidebar tree selects the page
 		elseif grouptype == "sui-pages" then
 			local pageType = MapType(appName, "PageGroup")
 			if pageType == "PageGroup" then pageType = "TabGroup" end
@@ -1928,7 +1974,10 @@ function AceConfigDialog:FeedGroup(appName,options,container,rootframe,path, isR
 			page.width = "fill"
 			page.height = "fill"
 
-			local tabs = BuildGroups(group, options, path, appName)
+			-- SUI: the whole group tree, so sub-groups get their own sidebar entries (the stock
+			-- TabGroup fallback only understands top level values)
+			local tabs = BuildGroups(group, options, path, appName, pageType ~= "TabGroup")
+			MarkEmptyPages(tabs, group, options, path, appName)
 			page:SetTabs(tabs)
 			page:SetUserData("tablist", tabs)
 
