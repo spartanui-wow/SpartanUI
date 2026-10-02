@@ -5,4 +5,5 @@
 	<Script file="Ace3.lua" />
 	<Script file="Blizzard\GameMenu.lua" />
 	<Script file="Blizzard\Base.lua" />
+	<Script file="Blizzard\ColorPicker.lua" />
 </Ui>
