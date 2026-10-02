@@ -1,3 +1,4 @@
+local _, ns = ...
 ---@class SUI.UF
 local UF = SUI.UF
 
@@ -10,6 +11,7 @@ local previews = {} -- previews[frameName] = { frames = {}, showing = false }
 -- Elements to build on preview frames (visual-only elements)
 -- Order matches the real builder order (player.lua) so relative positioning works
 local PREVIEW_ELEMENTS = {
+	'SpartanArt',
 	'FrameBackground',
 	'Name',
 	'Health',
@@ -474,6 +476,11 @@ local function BuildPreviewElements(preview, frameName)
 			if not preview.built[elementName] then
 				UF.Elements:Build(preview, elementName, db)
 				preview.built[elementName] = true
+				-- oUF never enables elements on the stand-in, so give the art its drawing hook here
+				if elementName == 'SpartanArt' and preview.SpartanArt and ns.SpartanArtForceUpdate then
+					preview.SpartanArt.__owner = preview
+					preview.SpartanArt.ForceUpdate = ns.SpartanArtForceUpdate
+				end
 			end
 			if preview[elementName] then
 				preview[elementName].DB = db

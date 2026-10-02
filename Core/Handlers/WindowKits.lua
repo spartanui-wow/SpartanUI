@@ -59,6 +59,16 @@ local function PaintedAssets(folder)
 	}
 end
 
+---A painted look's kit: the shared frame pieces plus the crest mounted on the frame's top edge
+---@param folder string
+---@param crest? { width: number, height: number, overlap: number } a crest of another shape
+local function LookAssets(folder, crest)
+	local assets = PaintedAssets(folder)
+	crest = crest or { width = 128, height = 64, overlap = 20 }
+	assets.crest = { texture = ROOT .. folder .. '\\crest.png', width = crest.width, height = crest.height, overlap = crest.overlap }
+	return assets
+end
+
 -- Painted kits keep their title and footer bars inside the frame's beam
 local PAINTED_LAYOUT = { barInset = 9, sideInset = 18, dividerHeight = 16 }
 
@@ -303,6 +313,90 @@ function WindowKits:Register()
 			secondary = { top = Hex('263440'), bottom = Hex('17222b'), edge = Hex('526b7e'), text = Hex('ddebf5') },
 		},
 		assets = PaintedAssets('transparent'),
+	})
+
+	-- Painted look: boughs
+	Register('boughs', {
+		name = 'Grove',
+		layout = PAINTED_LAYOUT,
+		backdropAspect = 2,
+		backdropDim = 0.32,
+		windowSurfaceAlpha = 0.1,
+		materialAlpha = 0.12,
+		colors = {
+			surface = { [0] = Hex('141D18', 0.94), [1] = Hex('1B2420', 0.88), [2] = Hex('263025', 0.94), [3] = Hex('303C30', 0.98) },
+			bar = Hex('1B2420', 0.92),
+			text = Hex('E7EAD8'),
+			secondary = Hex('BCC8B2'),
+			muted = Hex('8E9C87'),
+			trim = Hex('7C7051'),
+			trimHi = Hex('A8956C'),
+			path = Hex('4C5E49'),
+			pathAhead = Hex('7FAC92'),
+			tick = Hex('A8956C'),
+		},
+		button = {
+			primary = { top = Hex('8BB69B'), bottom = Hex('63896F'), edge = Hex('A6C4A6'), text = Hex('132119') },
+			secondary = { top = Hex('354331'), bottom = Hex('222D23'), edge = Hex('7D7254'), text = Hex('E7EAD8') },
+		},
+		-- The branches' tie rests on the top edge
+		assets = LookAssets('boughs', { width = 128, height = 64, overlap = 4 }),
+	})
+
+	-- Painted look: meridian
+	Register('meridian', {
+		name = 'Observatory',
+		layout = PAINTED_LAYOUT,
+		backdropAspect = 2,
+		backdropDim = 0.32,
+		windowSurfaceAlpha = 0.1,
+		materialAlpha = 0.12,
+		colors = {
+			surface = { [0] = Hex('17211F', 0.94), [1] = Hex('202B28', 0.88), [2] = Hex('293431', 0.94), [3] = Hex('111917', 0.98) },
+			bar = Hex('202B28', 0.92),
+			text = Hex('E7E5D5'),
+			secondary = Hex('BCC7BF'),
+			muted = Hex('899B91'),
+			trim = Hex('8D7B58'),
+			trimHi = Hex('BBA77C'),
+			path = Hex('465650'),
+			pathAhead = Hex('89B5AC'),
+			tick = Hex('BBA77C'),
+		},
+		button = {
+			primary = { top = Hex('9FC4BB'), bottom = Hex('789E95'), edge = Hex('BBA77C'), text = Hex('17211F') },
+			secondary = { top = Hex('293431'), bottom = Hex('17211F'), edge = Hex('8D7B58'), text = Hex('E7E5D5') },
+		},
+		-- Its crest is a low crescent: sit it on the top edge rather than sinking it into the title bar
+		assets = LookAssets('meridian', { width = 128, height = 64, overlap = 8 }),
+	})
+
+	-- Painted look: atlas
+	Register('atlas', {
+		name = 'Voyager',
+		layout = PAINTED_LAYOUT,
+		backdropAspect = 2,
+		backdropDim = 0.32,
+		windowSurfaceAlpha = 0.1,
+		materialAlpha = 0.12,
+		colors = {
+			surface = { [0] = Hex('211C18', 0.94), [1] = Hex('28211B', 0.88), [2] = Hex('393028', 0.94), [3] = Hex('171411', 0.98) },
+			bar = Hex('28211B', 0.92),
+			text = Hex('F1E3C7'),
+			secondary = Hex('CDBB9D'),
+			muted = Hex('94836C'),
+			trim = Hex('99714A'),
+			trimHi = Hex('C79560'),
+			path = Hex('735538'),
+			pathAhead = Hex('3B3026'),
+			tick = Hex('56B8B5'),
+		},
+		button = {
+			primary = { top = Hex('348D91'), bottom = Hex('1B555D'), edge = Hex('99714A'), text = Hex('F1E3C7') },
+			secondary = { top = Hex('393028'), bottom = Hex('211C18'), edge = Hex('99714A'), text = Hex('F1E3C7') },
+		},
+		-- A wide crest that rests on the frame's top edge rather than hanging into the window
+		assets = LookAssets('atlas', { width = 160, height = 40, overlap = 12 }),
 	})
 
 	-- Digital has no painted art: 1px light lines over deep blue

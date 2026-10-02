@@ -695,6 +695,12 @@ local function BuildGeneralOptions()
 				type = 'toggle',
 				order = 15.1,
 			},
+			themeButtonArt = {
+				name = L["Use the look's button frames"],
+				desc = L['Some looks bring their own frame for every action button. Turn this off to keep the plain buttons.'],
+				type = 'toggle',
+				order = 15.15,
+			},
 			spellCastVFX = {
 				name = L['Spell cast animations'],
 				type = 'toggle',

@@ -4,7 +4,8 @@ local ArtPositions = { ['full'] = 'Full frame skin', ['top'] = 'Top', ['bg'] = '
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
-	local unitName = frame.unitOnCreate
+	-- Preview stand-ins carry the real frame's name separately
+	local unitName = frame._realFrameName or frame.unitOnCreate
 
 	local SpartanArt = CreateFrame('Frame', nil, frame)
 	SpartanArt:SetFrameStrata('BACKGROUND')

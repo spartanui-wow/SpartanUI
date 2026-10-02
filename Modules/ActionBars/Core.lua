@@ -161,6 +161,7 @@ local DBDefaults = {
 	tooltip = 'enabled',
 	showCooldownText = true,
 	hideBorder = false,
+	themeButtonArt = true,
 	spellCastVFX = true,
 	assistedHighlight = true,
 	checkSelfCast = true,

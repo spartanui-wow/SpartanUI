@@ -104,6 +104,9 @@ function module:OnInitialize()
 		'ModernFlat',
 		'HealerGrid',
 		'ClassicDark',
+		'Atlas',
+		'Boughs',
+		'Meridian',
 	}
 
 	local function DisplayName(skin)

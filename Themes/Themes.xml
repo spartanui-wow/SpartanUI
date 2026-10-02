@@ -15,4 +15,8 @@
 	<Script file="ModernFlat\Style.lua"/>
 	<Script file="HealerGrid\Style.lua"/>
 	<Script file="ClassicDark\Style.lua"/>
+	<Script file="Painted.lua"/>
+	<Script file="Atlas\Style.lua"/>
+	<Script file="Boughs\Style.lua"/>
+	<Script file="Meridian\Style.lua"/>
 </Ui>

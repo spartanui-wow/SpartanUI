@@ -9,6 +9,7 @@ ignore:
   - "openspec"
   - ".context"
   - "Modules/Messenger/Media/source"
+  - "tools"
 
 manual-changelog:
   filename: CHANGELOG.md

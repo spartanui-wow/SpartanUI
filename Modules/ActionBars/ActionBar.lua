@@ -379,6 +379,7 @@ function module:UpdateActionBarConfig(bar)
 	end
 
 	local flyoutDirection = bar:GetFlyoutDirection()
+	local themeSkin = self:GetThemeButtonSkin()
 	for i, button in ipairs(bar.buttons) do
 		local scale = button:GetScale()
 		if not scale or scale <= 0 then
@@ -400,7 +401,7 @@ function module:UpdateActionBarConfig(bar)
 				hotkey = not db.hotkeyText,
 				equipped = not db.showEquipped,
 				-- Cropped icons drop Blizzard's rounded frame, as Bartender4's zoom does
-				border = global.hideBorder or db.zoom,
+				border = global.hideBorder or db.zoom or themeSkin ~= nil,
 			},
 			keyBoundTarget = self:GetActionButtonBinding(bar.id, i),
 			keyBoundClickButton = 'Keybind',
@@ -433,6 +434,7 @@ function module:UpdateActionBarConfig(bar)
 		button:SetAttribute('checkfocuscast', global.checkFocusCast and true or nil)
 		button:SetAttribute('checkmouseovercast', db.mouseoverCast and true or nil)
 		button:SetAttribute('*unit2', global.rightClickSelfCast and 'player' or nil)
+		self:SkinThemeButton(button, themeSkin)
 	end
 end
 

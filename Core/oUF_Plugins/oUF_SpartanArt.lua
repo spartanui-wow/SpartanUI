@@ -18,12 +18,118 @@ The `Badge` sub-widget has to be on a lower sub-layer than the `PvP` texture.
 		VertexColor = {0, 0, 0, .6},
 		position = {Pos table},
 		scale = 1,
+		slice = { (optional) nine-slice art that follows the frame's size
+			file = { width, height },          texture pixels
+			margins = { left, right, top, bottom }, texture pixels kept at their size (corners and edges)
+			scale = .61,                        UI units per texture pixel
+			insets = { left, right, top, bottom }, UI units the art reaches past the frame's edges
+			mirror = false,                     flip left and right (the target side)
+		},
 	}
 --]]
 local _, ns = ...
 local oUF = ns.oUF
 
 local ArtPositions = { 'top', 'bg', 'bottom', 'full' }
+
+-- Nine-slice art: nine textures cut from one picture. Corners keep their size, edges stretch one
+-- way and the centre both ways, so the art follows the frame when its width or height changes.
+local SLICE_POINTS = {
+	{ 'TOPLEFT', 'TOP', 'TOPRIGHT' },
+	{ 'LEFT', 'CENTER', 'RIGHT' },
+	{ 'BOTTOMLEFT', 'BOTTOM', 'BOTTOMRIGHT' },
+}
+
+---@param element table
+---@param pos string
+---@param artObj Texture
+---@return Texture[]
+local function GetSlices(element, pos, artObj)
+	element.slices = element.slices or {}
+	local slices = element.slices[pos]
+	if not slices then
+		slices = {}
+		local layer, sublevel = artObj:GetDrawLayer()
+		for i = 1, 9 do
+			slices[i] = element:CreateTexture(nil, layer, nil, sublevel)
+		end
+		element.slices[pos] = slices
+	end
+	return slices
+end
+
+---@param element table
+---@param pos string
+local function HideSlices(element, pos)
+	local slices = element.slices and element.slices[pos]
+	if slices then
+		for i = 1, 9 do
+			slices[i]:Hide()
+		end
+	end
+end
+
+---Draw the art as nine pieces stretched over the frame plus its insets
+---@param self table unit frame
+---@param element table
+---@param pos string
+---@param artObj Texture
+---@param path string|number
+---@param slice table
+---@param alpha number
+local function DrawSliced(self, element, pos, artObj, path, slice, alpha)
+	artObj:Hide()
+	local slices = GetSlices(element, pos, artObj)
+	local fw, fh = slice.file.width, slice.file.height
+	local m, inset, scale = slice.margins, slice.insets, slice.scale
+	-- Texture columns and rows: u/v edges of the three bands
+	local u = { 0, m.left / fw, (fw - m.right) / fw, 1 }
+	local v = { 0, m.top / fh, (fh - m.bottom) / fh, 1 }
+	local widths = { m.left * scale, nil, m.right * scale }
+	if slice.mirror then
+		widths = { m.right * scale, nil, m.left * scale }
+	end
+	local heights = { m.top * scale, nil, m.bottom * scale }
+	for row = 1, 3 do
+		for col = 1, 3 do
+			local tex = slices[(row - 1) * 3 + col]
+			tex:SetTexture(path)
+			local u1, u2
+			if slice.mirror then
+				-- Screen column col shows texture column 4 - col, flipped
+				u1, u2 = u[5 - col], u[4 - col]
+			else
+				u1, u2 = u[col], u[col + 1]
+			end
+			tex:SetTexCoord(u1, u2, v[row], v[row + 1])
+			tex:SetAlpha(alpha)
+			tex:ClearAllPoints()
+			tex:Show()
+		end
+	end
+	local function S(row, col)
+		return slices[(row - 1) * 3 + col]
+	end
+	-- Corners sit on the frame's corners pushed out by the insets
+	S(1, 1):SetPoint('TOPLEFT', self, 'TOPLEFT', -inset.left, inset.top)
+	S(1, 3):SetPoint('TOPRIGHT', self, 'TOPRIGHT', inset.right, inset.top)
+	S(3, 1):SetPoint('BOTTOMLEFT', self, 'BOTTOMLEFT', -inset.left, -inset.bottom)
+	S(3, 3):SetPoint('BOTTOMRIGHT', self, 'BOTTOMRIGHT', inset.right, -inset.bottom)
+	for _, corner in ipairs({ { 1, 1 }, { 1, 3 }, { 3, 1 }, { 3, 3 } }) do
+		S(corner[1], corner[2]):SetSize(widths[corner[2]], heights[corner[1]])
+	end
+	-- Edges and centre fill the space between the corners
+	S(1, 2):SetPoint('TOPLEFT', S(1, 1), 'TOPRIGHT')
+	S(1, 2):SetPoint('BOTTOMRIGHT', S(1, 3), 'BOTTOMLEFT')
+	S(3, 2):SetPoint('TOPLEFT', S(3, 1), 'TOPRIGHT')
+	S(3, 2):SetPoint('BOTTOMRIGHT', S(3, 3), 'BOTTOMLEFT')
+	S(2, 1):SetPoint('TOPLEFT', S(1, 1), 'BOTTOMLEFT')
+	S(2, 1):SetPoint('BOTTOMRIGHT', S(3, 1), 'TOPRIGHT')
+	S(2, 3):SetPoint('TOPLEFT', S(1, 3), 'BOTTOMLEFT')
+	S(2, 3):SetPoint('BOTTOMRIGHT', S(3, 3), 'TOPRIGHT')
+	S(2, 2):SetPoint('TOPLEFT', S(1, 1), 'BOTTOMRIGHT')
+	S(2, 2):SetPoint('BOTTOMRIGHT', S(3, 3), 'TOPLEFT')
+end
 
 local function Update(self, event, unit)
 	if unit and unit ~= self.unit then
@@ -51,7 +157,19 @@ local function Update(self, event, unit)
 		if element.ArtSettings then
 			local ArtSettings = element.ArtSettings[pos]
 
-			if artObj and artObj.ArtData and ArtSettings and ArtSettings.enabled and ArtSettings.graphic ~= '' then
+			if artObj and artObj.ArtData and ArtSettings and ArtSettings.enabled and ArtSettings.graphic ~= '' and artObj.ArtData.slice then
+				local ArtData = artObj.ArtData
+				local path = ArtData.path
+				if type(path) == 'function' then
+					path = path(self, pos)
+				end
+				local alpha = (ArtSettings.alpha or ArtData.alpha) or 1
+				if ArtData.PVPAlpha and not ArtSettings.alpha then
+					alpha = (UnitIsPVP(unit) and 1) or ArtData.PVPAlpha
+				end
+				DrawSliced(self, element, pos, artObj, path, ArtData.slice, alpha)
+			elseif artObj and artObj.ArtData and ArtSettings and ArtSettings.enabled and ArtSettings.graphic ~= '' then
+				HideSlices(element, pos)
 				local ArtData = artObj.ArtData
 
 				-- -- setup a bg width
@@ -130,9 +248,11 @@ local function Update(self, event, unit)
 				artObj:Show()
 			elseif artObj then
 				artObj:Hide()
+				HideSlices(element, pos)
 			end
 		else
 			artObj:Hide()
+			HideSlices(element, pos)
 		end
 	end
 
@@ -161,6 +281,8 @@ end
 local function ForceUpdate(element)
 	return Path(element.__owner, 'ForceUpdate', element.__owner.unit)
 end
+-- The options preview draws the art on a stand-in frame that oUF never enables
+ns.SpartanArtForceUpdate = ForceUpdate
 
 local function Enable(self)
 	local element = self.SpartanArt

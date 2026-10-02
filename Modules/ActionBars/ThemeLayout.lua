@@ -165,6 +165,70 @@ function module:ApplyThemeLayout()
 	for _, bar in pairs(self.bars) do
 		self:ApplyThemeToBar(bar, positions, scales)
 	end
+	self:ApplyThemeButtonSkin()
+end
+
+----------------------------------------------------------------------------------------------------
+-- Theme button frames
+----------------------------------------------------------------------------------------------------
+
+-- A theme can draw its own frame around every action button: theme data
+-- buttonSkin = { texture = path, size = 1.3 } (size is the frame's size relative to the button).
+-- The frame is sized from the button itself, so it follows whatever size the player picks.
+
+---The active theme's button frame, unless the player turned it off or Masque skins the buttons
+---@return table|nil
+function module:GetThemeButtonSkin()
+	if not self.CurrentSettings or not self.CurrentSettings.themeButtonArt then
+		return nil
+	end
+	if self.CurrentSettings.masque and LibStub('Masque', true) then
+		return nil
+	end
+	local style = SUI:IsModuleEnabled('Artwork') and SUI:GetActiveStyle()
+	local data = style and SUI.ThemeRegistry and SUI.ThemeRegistry:GetData(style)
+	local skin = data and data.buttonSkin
+	if type(skin) == 'table' and skin.texture then
+		return skin
+	end
+	return nil
+end
+
+---Draw (or remove) the theme's frame on one action button
+---@param button Button
+---@param skin table|nil
+function module:SkinThemeButton(button, skin)
+	local frame = button.SUIThemeFrame
+	if not skin then
+		if frame then
+			frame:Hide()
+		end
+		return
+	end
+	if not frame then
+		-- Above the icon, under the hotkey, count and macro text
+		frame = button:CreateTexture(nil, 'OVERLAY', nil, -1)
+		button.SUIThemeFrame = frame
+	end
+	local width, height = button:GetSize()
+	local size = skin.size or 1.3
+	frame:SetTexture(skin.texture)
+	frame:ClearAllPoints()
+	frame:SetPoint('CENTER', button, 'CENTER', 0, 0)
+	frame:SetSize(width * size, height * size)
+	frame:SetAlpha(skin.alpha or 1)
+	frame:Show()
+end
+
+---Theme switches change the button frame; the config is pushed again when the frame changes
+---because Blizzard's own rounded frame is hidden under a theme's frame
+function module:ApplyThemeButtonSkin()
+	local skin = self:GetThemeButtonSkin()
+	local key = skin and skin.texture or ''
+	if key ~= self.themeButtonSkinKey then
+		self.themeButtonSkinKey = key
+		self:UpdateButtonConfig()
+	end
 end
 
 ---Frames registered with MoveIt, for the "move bars" button.
