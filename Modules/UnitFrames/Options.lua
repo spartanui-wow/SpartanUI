@@ -1763,26 +1763,6 @@ function Options:Initialize()
 				type = 'group',
 				order = 0.1,
 				args = {
-					TestMode = {
-						name = L['Test Mode'],
-						desc = L['Show all unit frames with player data so you can see how they look while configuring'],
-						type = 'toggle',
-						width = 'full',
-						order = 0.5,
-						disabled = function()
-							return InCombatLockdown()
-						end,
-						get = function()
-							return UF.TestMode:IsActive()
-						end,
-						set = function(_, val)
-							if val then
-								UF.TestMode:EnableAll()
-							else
-								UF.TestMode:DisableAll()
-							end
-						end,
-					},
 					ResetUFSettings = {
 						name = L['Reset to base style (Revert customizations)'],
 						type = 'execute',

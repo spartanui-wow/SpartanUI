@@ -1290,7 +1290,13 @@
     "GetBNPlayerLink",
     "CovenantMissionFrame",
     "MAX_ACCOUNT_MACROS",
-    "CompactUnitFrame_SetUnit"
+    "CompactUnitFrame_SetUnit",
+    "ChatFrameUtil",
+    "NUM_PET_ACTION_SLOTS",
+    "ActionButton_UpdateRangeIndicator",
+    "HasMultiCastActionBar",
+    "LEAVE_VEHICLE",
+    "CALENDAR_WEEKDAY_NAMES"
   ],
   "Lua.workspace.ignoreDir": [".vscode", "libs/*"],
   "Lua.diagnostics.enable": true,

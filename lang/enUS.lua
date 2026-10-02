@@ -1460,6 +1460,7 @@ L['Power type colors'] = true
 L['Preview in place'] = true
 L['Show hidden parts'] = true
 L['Shift+click to hide it from the preview'] = true
+L['Press Alt for the part underneath (%d of %d)'] = true
 L['Parts you hid from this preview with Shift+click. Your frame settings are not changed.'] = true
 L['Reset width'] = true
 L['Put every frame you moved back in its default place.'] = true

@@ -311,6 +311,117 @@ function Stage:SetCollapsed(value)
 	self:Refresh(true)
 end
 
+----------------------------------------------------------------------------------------------------
+-- Click areas
+----------------------------------------------------------------------------------------------------
+
+-- The click areas under the cursor (topmost first) and the one Alt has stepped down to
+local hover = { stack = {}, depth = 1 }
+
+---@param region Button
+---@param highlighted boolean
+local function PaintBorder(region, highlighted)
+	local r, g, b = Style:GetAccent()
+	if highlighted then
+		region.border:SetColor(r, g, b, 1)
+		region.border:SetShown(true)
+	elseif region.selected then
+		region.border:SetColor(r, g, b, 0.9)
+		region.border:SetShown(true)
+	else
+		region.border:SetShown(false)
+	end
+end
+
+---Every shown click area under the cursor, topmost first
+---@return Button[]
+local function RegionsUnderCursor()
+	local list = {}
+	for i = 1, usedRegions do
+		local region = regions[i]
+		if region:IsShown() and region:IsMouseOver() then
+			list[#list + 1] = region
+		end
+	end
+	table.sort(list, function(a, b)
+		return a:GetFrameLevel() > b:GetFrameLevel()
+	end)
+	return list
+end
+
+---The click area a click on `region` acts on: the one Alt stepped down to, or the region itself
+---@param region Button
+---@return Button
+local function Picked(region)
+	if hover.owner == region and hover.stack[hover.depth] then
+		return hover.stack[hover.depth]
+	end
+	return region
+end
+
+local function ClearHover()
+	for _, region in ipairs(hover.stack) do
+		PaintBorder(region, false)
+	end
+	hover.owner = nil
+	hover.stack = {}
+	hover.depth = 1
+end
+
+local function ShowHover()
+	local owner = hover.owner
+	if not owner then
+		return
+	end
+	local picked = Picked(owner)
+	for _, region in ipairs(hover.stack) do
+		PaintBorder(region, region == picked)
+	end
+	PaintBorder(picked, true)
+	local target = picked.target
+	if not target.label then
+		GameTooltip:Hide()
+		return
+	end
+	GameTooltip:SetOwner(owner, 'ANCHOR_TOP')
+	GameTooltip:SetText(target.label, 1, 1, 1)
+	GameTooltip:AddLine(L['Click to change these settings'], nil, nil, nil, true)
+	if target.onShiftClick then
+		GameTooltip:AddLine(L['Shift+click to hide it from the preview'], nil, nil, nil, true)
+	end
+	if #hover.stack > 1 then
+		GameTooltip:AddLine(string.format(L['Press Alt for the part underneath (%d of %d)'], hover.depth, #hover.stack), 0.55, 0.8, 1, true)
+	end
+	GameTooltip:Show()
+end
+
+-- Alt steps down through the parts stacked under the cursor, then back to the top one
+local altWatcher = CreateFrame('Frame')
+altWatcher:RegisterEvent('MODIFIER_STATE_CHANGED')
+altWatcher:SetScript('OnEvent', function(_, _, key, down)
+	if down ~= 1 or (key ~= 'LALT' and key ~= 'RALT') then
+		return
+	end
+	local owner = hover.owner
+	if not owner or not owner:IsVisible() or not owner:IsMouseOver() then
+		return
+	end
+	local current = Picked(owner)
+	for _, region in ipairs(hover.stack) do
+		PaintBorder(region, false)
+	end
+	-- The cursor may have moved since it entered; look again
+	hover.stack = RegionsUnderCursor()
+	local index = 0
+	for i, region in ipairs(hover.stack) do
+		if region == current then
+			index = i
+		end
+	end
+	hover.depth = #hover.stack > 0 and (index % #hover.stack + 1) or 1
+	ShowHover()
+end)
+
 ---Clickable area over part of the preview
 ---@param frame Frame
 ---@param target {path: string[], option?: string, label?: string, onShiftClick?: fun()}
@@ -335,21 +446,17 @@ local function Region(frame, target)
 			StartPan(window.stage)
 		end)
 		region:SetScript('OnEnter', function(self)
-			local r, g, b = Style:GetAccent()
-			self.border:SetColor(r, g, b, 1)
-			self.border:SetShown(true)
-			if self.target.label then
-				GameTooltip:SetOwner(self, 'ANCHOR_TOP')
-				GameTooltip:SetText(self.target.label, 1, 1, 1)
-				GameTooltip:AddLine(L['Click to change these settings'], nil, nil, nil, true)
-				if self.target.onShiftClick then
-					GameTooltip:AddLine(L['Shift+click to hide it from the preview'], nil, nil, nil, true)
-				end
-				GameTooltip:Show()
+			ClearHover()
+			hover.owner = self
+			hover.stack = RegionsUnderCursor()
+			if #hover.stack == 0 then
+				hover.stack = { self }
 			end
+			ShowHover()
 		end)
 		region:SetScript('OnLeave', function(self)
-			self.border:SetShown(self.selected and true or false)
+			ClearHover()
+			PaintBorder(self, false)
 			GameTooltip:Hide()
 		end)
 		region:SetScript('OnClick', function(self)
@@ -357,14 +464,15 @@ local function Region(frame, target)
 				self.dragged = nil
 				return
 			end
-			if IsShiftKeyDown() and self.target.onShiftClick then
+			local target = Picked(self).target
+			if IsShiftKeyDown() and target.onShiftClick then
 				GameTooltip:Hide()
-				self.target.onShiftClick()
+				target.onShiftClick()
 				Stage:MarkDirty()
 				return
 			end
 			local ACD = LibStub('AceConfigDialog-3.0-SUI')
-			ACD:Navigate(APP, self.target.path, self.target.option)
+			ACD:Navigate(APP, target.path, target.option)
 		end)
 		regions[usedRegions] = region
 	end
@@ -437,6 +545,7 @@ function Stage:Refresh(resize)
 		window:SetStageWidth(PANEL_WIDTH)
 	end
 
+	ClearHover()
 	for i = 1, #regions do
 		regions[i]:Hide()
 	end
