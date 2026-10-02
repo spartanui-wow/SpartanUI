@@ -15,10 +15,11 @@ local Style = SUI.UI.Style
 ---@field Footer? fun(self, ctx: SUI.OptionsWindow.StageContext): {text: string, tooltip?: string, func: fun()}|nil Optional button shown at the bottom of the panel
 ---@field Close? fun(self) Called when the options window closes
 ---@field Action? fun(self, ctx: SUI.OptionsWindow.StageContext): {text: string, tooltip?: string, active?: boolean, func: fun()}|nil Optional button shown in the panel header
+---@field zoomable? boolean The player can zoom with the mouse wheel and drag the preview around
 
 ---@class SUI.OptionsWindow.StageContext
 ---@field path string[] Selected options path
----@field canvas Frame Frame to draw into
+---@field canvas Frame Frame to draw into (sized like the panel; zoom and dragging move it as a whole)
 ---@field Region fun(frame: Frame, target: {path: string[], option?: string, label?: string, onShiftClick?: fun()})
 
 ---@class SUI.OptionsWindow.Stage
@@ -39,6 +40,9 @@ local collapsed = false
 local dirty = false
 local regions = {}
 local usedRegions = 0
+local views = {} -- zoom and drag per page: views[key] = { zoom, x, y }
+local NO_VIEW = { zoom = 1, x = 0, y = 0 }
+local MAX_ZOOM = 4
 
 ---@param provider SUI.OptionsWindow.StageProvider
 function Stage:Register(provider)
@@ -83,6 +87,96 @@ local function SamePath(a, b)
 		end
 	end
 	return true
+end
+
+----------------------------------------------------------------------------------------------------
+-- Zoom and drag
+----------------------------------------------------------------------------------------------------
+
+---The zoom and drag of the page being shown (each unit frame keeps its own while the window is open)
+---@return table view
+local function CurrentView()
+	if not current or not current.zoomable then
+		return NO_VIEW
+	end
+	local key = table.concat(currentPath, '', 1, math.min(#currentPath, 2))
+	views[key] = views[key] or { zoom = 1, x = 0, y = 0 }
+	return views[key]
+end
+
+---Move and scale the drawing layer to the current view
+---@param stage table
+local function ApplyView(stage)
+	local view = CurrentView()
+	local canvas, layer = stage.canvas, stage.view
+	local width, height = canvas:GetSize()
+	-- Keep part of the preview on screen however far it is dragged
+	view.x = math.max(-width * view.zoom / 2, math.min(width * view.zoom / 2, view.x))
+	view.y = math.max(-height * view.zoom / 2, math.min(height * view.zoom / 2, view.y))
+	layer:SetSize(math.max(1, width), math.max(1, height))
+	layer:SetScale(view.zoom)
+	layer:ClearAllPoints()
+	-- Offsets are in the layer's own (zoomed) units
+	layer:SetPoint('CENTER', canvas, 'CENTER', view.x / view.zoom, view.y / view.zoom)
+	if stage.resetView then
+		stage.resetView:SetShown(view ~= NO_VIEW and (view.zoom ~= 1 or view.x ~= 0 or view.y ~= 0))
+	end
+end
+
+---Cursor position relative to the canvas center, in canvas units
+local function CursorOffset(canvas)
+	local scale = canvas:GetEffectiveScale()
+	local x, y = GetCursorPosition()
+	local cx, cy = canvas:GetCenter()
+	return x / scale - (cx or 0), y / scale - (cy or 0)
+end
+
+---Zoom in or out around the cursor
+---@param stage table
+---@param delta number
+local function Zoom(stage, delta)
+	local view = CurrentView()
+	if view == NO_VIEW then
+		return
+	end
+	local old = view.zoom
+	view.zoom = math.max(1, math.min(MAX_ZOOM, old * (delta > 0 and 1.25 or 0.8)))
+	if view.zoom == 1 then
+		view.x, view.y = 0, 0
+	else
+		-- The point under the cursor stays under the cursor
+		local mx, my = CursorOffset(stage.canvas)
+		local factor = view.zoom / old
+		view.x = mx - (mx - view.x) * factor
+		view.y = my - (my - view.y) * factor
+	end
+	ApplyView(stage)
+end
+
+-- Drags the preview while the left button is held
+local panner = CreateFrame('Frame')
+panner:Hide()
+panner:SetScript('OnUpdate', function(self)
+	if not IsMouseButtonDown('LeftButton') then
+		self:Hide()
+		return
+	end
+	local x, y = CursorOffset(self.stage.canvas)
+	self.view.x = self.startX + x - self.cursorX
+	self.view.y = self.startY + y - self.cursorY
+	ApplyView(self.stage)
+end)
+
+---@param stage table
+local function StartPan(stage)
+	local view = CurrentView()
+	if view == NO_VIEW then
+		return
+	end
+	panner.stage, panner.view = stage, view
+	panner.cursorX, panner.cursorY = CursorOffset(stage.canvas)
+	panner.startX, panner.startY = view.x, view.y
+	panner:Show()
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -157,6 +251,37 @@ function Stage:Setup(window)
 	end
 	stage.canvas = canvas
 
+	-- Previews draw on this layer, so zooming and dragging never need a redraw
+	local layer = CreateFrame('Frame', nil, canvas)
+	layer:SetPoint('CENTER')
+	layer:SetSize(1, 1)
+	stage.view = layer
+	canvas:SetScript('OnSizeChanged', function()
+		ApplyView(stage)
+	end)
+	canvas:EnableMouseWheel(true)
+	canvas:SetScript('OnMouseWheel', function(_, delta)
+		Zoom(stage, delta)
+	end)
+	canvas:EnableMouse(true)
+	canvas:SetScript('OnMouseDown', function(_, button)
+		if button == 'LeftButton' then
+			StartPan(stage)
+		end
+	end)
+
+	local resetView = Style:CreateButton(canvas, L['Reset zoom'], nil, function()
+		local view = CurrentView()
+		view.zoom, view.x, view.y = 1, 0, 0
+		ApplyView(stage)
+	end)
+	resetView:SetHeight(20)
+	resetView:FitText()
+	resetView:SetPoint('TOPRIGHT', canvas, 'TOPRIGHT', -6, -6)
+	resetView:SetFrameLevel(canvas:GetFrameLevel() + 900)
+	resetView:Hide()
+	stage.resetView = resetView
+
 	local footer = Style:CreateButton(canvas, '', nil, function(self)
 		if self.onAction then
 			self.onAction()
@@ -200,6 +325,15 @@ local function Region(frame, target)
 		region = CreateFrame('Button', nil, window.stage.canvas)
 		region.border = Style:CreateBorder(region)
 		region.border:SetShown(false)
+		region:RegisterForDrag('LeftButton')
+		region:SetScript('OnMouseDown', function(self)
+			self.dragged = nil
+		end)
+		region:SetScript('OnDragStart', function(self)
+			self.dragged = true
+			GameTooltip:Hide()
+			StartPan(window.stage)
+		end)
 		region:SetScript('OnEnter', function(self)
 			local r, g, b = Style:GetAccent()
 			self.border:SetColor(r, g, b, 1)
@@ -219,6 +353,10 @@ local function Region(frame, target)
 			GameTooltip:Hide()
 		end)
 		region:SetScript('OnClick', function(self)
+			if self.dragged then
+				self.dragged = nil
+				return
+			end
 			if IsShiftKeyDown() and self.target.onShiftClick then
 				GameTooltip:Hide()
 				self.target.onShiftClick()
@@ -279,7 +417,7 @@ function Stage:Refresh(resize)
 		resize = true
 	end
 
-	local ctx = { path = currentPath, canvas = stage.canvas, Region = Region }
+	local ctx = { path = currentPath, canvas = stage.view, Region = Region }
 	local wanted = provider and (provider:GetHeight(ctx) or 0) > 0
 	if not wanted then
 		self:HideProvider()
@@ -303,6 +441,8 @@ function Stage:Refresh(resize)
 		regions[i]:Hide()
 	end
 	usedRegions = 0
+	ApplyView(stage)
+	stage.hint:SetText(provider.zoomable and L['Click a part to change it. Scroll to zoom, drag to move.'] or L['Click a part to jump to its settings'])
 	provider:Render(ctx)
 
 	local footerInfo = provider.Footer and provider:Footer(ctx)
