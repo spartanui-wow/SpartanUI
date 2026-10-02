@@ -1370,6 +1370,10 @@ L['Unitframe Presets'] = true
 L['Click a part to jump to its settings'] = true
 L['Click a part to change it. Scroll to zoom, drag to move.'] = true
 L['Reset zoom'] = true
+L['Messenger: your whispers as conversations'] = true
+L['Every whisper and Battle.net chat gets its own conversation, with its history, nicknames, pop-out windows and an alert when a group chat says your name. Already use another whisper addon? Turn it off and Messenger takes over.'] =
+	true
+L['Open Messenger'] = true
 L['Reload UI'] = true
 L['A reload of your UI is required.'] = true
 L["What's new"] = true

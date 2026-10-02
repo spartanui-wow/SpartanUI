@@ -12,9 +12,11 @@ function module:OnEnable()
 	local heroes = SUI.WhatsNewHeroes or {}
 	for _, release in ipairs(SUI.Changelog) do
 		local hero = heroes[release.version]
+		-- A list of heroes is titled by its first one
+		local lead = hero and (hero[1] or hero)
 		local first = release.lines and release.lines[1]
 		reg:AddWhatsNew(release.version, {
-			title = (hero and hero.title) or (first and first.text) or ('SpartanUI ' .. release.version),
+			title = (lead and lead.title) or (first and first.text) or ('SpartanUI ' .. release.version),
 			date = release.date,
 			lines = release.lines,
 			fixes = release.fixes,
