@@ -426,6 +426,38 @@ function WindowKits:Register()
 	return true
 end
 
+---Every window look, sorted by name, for pickers
+---@return {id: string, name: string}[]
+function WindowKits:GetList()
+	local list = {}
+	local Kit = LibAT and LibAT.UI and LibAT.UI.Kit
+	if Kit then
+		for id, config in pairs(Kit.registry) do
+			list[#list + 1] = { id = id, name = config.name or id }
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.name < b.name
+	end)
+	return list
+end
+
+---The window look the player picked; 'auto' follows the main look. Saved account-wide by Lib's AddonTools.
+---@return string
+function WindowKits:GetChoice()
+	if LibAT and LibAT.Setup and LibAT.Setup.GetKit then
+		return LibAT.Setup:GetKit()
+	end
+	return 'auto'
+end
+
+---@param id string a kit id, or 'auto'
+function WindowKits:SetChoice(id)
+	if LibAT and LibAT.Setup and LibAT.Setup.SetKit then
+		LibAT.Setup:SetKit(id)
+	end
+end
+
 ---Which kit the active theme wears. War follows the player's faction.
 ---@return string
 function WindowKits:GetActiveId()

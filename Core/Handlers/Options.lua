@@ -87,6 +87,33 @@ function module:OnInitialize()
 					args = {},
 				},
 				description3 = { type = 'header', name = L['Unitframe Presets'], order = 29 },
+				description4 = { type = 'header', name = L['Window look'], order = 90 },
+				WindowLook = {
+					name = L['Window look'],
+					desc = L['How the settings, setup and other SpartanUI windows look. "Match my look" follows the art style you picked.'],
+					type = 'select',
+					order = 91,
+					values = function()
+						local values = { auto = L['Match my look'] }
+						for _, kit in ipairs(SUI.WindowKits:GetList()) do
+							values[kit.id] = kit.name
+						end
+						return values
+					end,
+					sorting = function()
+						local order = { 'auto' }
+						for _, kit in ipairs(SUI.WindowKits:GetList()) do
+							order[#order + 1] = kit.id
+						end
+						return order
+					end,
+					get = function()
+						return SUI.WindowKits:GetChoice()
+					end,
+					set = function(_, val)
+						SUI.WindowKits:SetChoice(val)
+					end,
+				},
 			},
 		},
 	}
