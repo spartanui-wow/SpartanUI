@@ -17,7 +17,17 @@ local SIZES = {
 	look = { artHeight = 88, minWidth = 165, maxColumns = 4, cardHeight = 150, spacing = 10 },
 	compact = { artHeight = 46, minWidth = 165, maxColumns = 4, cardHeight = 84, spacing = 8 },
 	swatch = { artHeight = 64, minWidth = 165, maxColumns = 4, cardHeight = 104, spacing = 8 },
+	-- Larger tiles, three across, for a closer look
+	['look-large'] = { artHeight = 140, minWidth = 210, maxColumns = 3, cardHeight = 205, spacing = 12 },
+	['compact-large'] = { artHeight = 72, minWidth = 210, maxColumns = 3, cardHeight = 112, spacing = 10 },
+	['swatch-large'] = { artHeight = 100, minWidth = 210, maxColumns = 3, cardHeight = 142, spacing = 10 },
 }
+
+-- Settings pages start with small tiles (more at once); the player can switch to larger ones.
+-- Saved for the whole account.
+local function LargeTiles()
+	return SUI and SUI.DBG and SUI.DBG.largeCardTiles and true or false
+end
 
 local WHITE = 'Interface\\Buttons\\WHITE8X8'
 
@@ -159,15 +169,39 @@ local function Render(self)
 	if not data or not Kit then
 		return
 	end
-	local size = data.size or 'look'
-	if not self.grid or self.gridSize ~= size then
+	local size = (data.size or 'look') .. (LargeTiles() and '-large' or '')
+	self.grids = self.grids or {}
+	if self.gridSize ~= size then
 		if self.grid then
 			self.grid:Hide()
 		end
-		self.grid = Kit:CreateCardGrid(self.frame, SIZES[size] or SIZES.look)
-		self.grid:SetPoint('TOPLEFT', self.frame, 'TOPLEFT', 0, 0)
+		-- One grid per size, kept for when the player switches back
+		if not self.grids[size] then
+			self.grids[size] = Kit:CreateCardGrid(self.frame, SIZES[size] or SIZES.look)
+			self.grids[size]:SetPoint('TOPLEFT', self.frame, 'TOPLEFT', 0, -26)
+		end
+		self.grid = self.grids[size]
 		self.gridSize = size
 	end
+	if not self.sizeToggle then
+		self.sizeToggle = Kit:CreateTextButton(self.frame)
+		self.sizeToggle:SetPoint('TOPRIGHT', self.frame, 'TOPRIGHT', -4, -2)
+		local owner = self
+		self.sizeToggle:SetScript('OnClick', function()
+			if SUI and SUI.DBG then
+				SUI.DBG.largeCardTiles = not LargeTiles() or nil
+			end
+			Render(owner)
+			if owner.parent and owner.parent.DoLayout then
+				owner.parent:DoLayout()
+			end
+		end)
+	end
+	self.sizeToggle:SetLabel(LargeTiles() and 'Show more at once' or 'Show larger tiles')
+	if self.sizeToggle.ApplyColor then
+		self.sizeToggle:ApplyColor()
+	end
+	self.sizeToggle:Show()
 	local grid = self.grid
 	local cards = type(data.cards) == 'function' and data.cards() or data.cards or {}
 	local list = {}
@@ -210,7 +244,7 @@ local function Render(self)
 		end
 	end
 	grid:Show()
-	local height = grid:Layout(math.max(self.frame:GetWidth() or 0, 340))
+	local height = grid:Layout(math.max(self.frame:GetWidth() or 0, 340)) + 26
 	self:SetHeight(math.max(height, 20))
 end
 
