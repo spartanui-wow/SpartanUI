@@ -19,6 +19,8 @@ The paintings only need to be close. This script:
 - darkens the button beds and the unit frame's bar window so buttons and bars read
 - clears anything painted far outside the bar's body, where the game world must show
 - splits the bottom bar into Bottom-Left.png and Bottom-Right.png
+- writes StatusBar.png (groove with a dark middle, drawn behind the bar fill) and StatusBar-Frame.png
+  (the same groove with its middle cut out, drawn over the fill)
 - cuts the portrait opening out of portrait_mount.png (the ring and the piece joining it to the plate,
   see mount.py) into UnitFrame-Mount.png, drawn behind the plate at a fixed size so a taller frame
   never stretches it; the plate itself is always UnitFrame-NoPortrait.png
@@ -306,6 +308,9 @@ def enforce_statusbar(src, out_dir, bed):
     groove = mask_from(img.size, lambda d: d.rectangle([8, 8, 503, 23], fill=255), blur=1.0)
     img = darken(img, groove, bed, 0.6)
     img.save(os.path.join(out_dir, 'StatusBar.png'))
+    # The same groove with its middle cut out, drawn over the fill so the fill shows through
+    window = mask_from(img.size, lambda d: d.rectangle([8, 8, 503, 23], fill=255), blur=0.6)
+    cut(img, window).save(os.path.join(out_dir, 'StatusBar-Frame.png'))
     return []
 
 

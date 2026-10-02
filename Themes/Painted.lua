@@ -800,6 +800,8 @@ local function StatusBars(name, root)
 			size = { bar.width, bar.height },
 			Position = 'CENTER,' .. SocketName(name, 'Status' .. key) .. ',CENTER,0,0',
 			bgTexture = root .. 'StatusBar.png',
+			-- Drawn over the fill on classic clients: the groove's frame with its middle cut out
+			overlayTexture = root .. 'StatusBar-Frame.png',
 			texCords = key == 'Right' and { 1, 0, 0, 1 } or { 0, 1, 0, 1 },
 			alpha = 1,
 			-- Both bars fill left to right (the classic-client default fills the left one from the centre)

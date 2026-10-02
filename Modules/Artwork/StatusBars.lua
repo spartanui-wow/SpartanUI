@@ -121,6 +121,7 @@ end
 
 ---@class SUI.Style.Settings.StatusBars
 ---@field bgTexture? string
+---@field overlayTexture? string frame-only picture drawn over the fill (classic clients); defaults to bgTexture
 local StyleSettingsBase = {
 	size = { 400, 15 },
 	alpha = 1,
@@ -1323,8 +1324,10 @@ function module:factory_Classic()
 		statusbar.bg:SetAllPoints(statusbar)
 		statusbar.bg:SetTexCoord(unpack(StyleSetting.texCords))
 
+		-- Drawn over the fill: a look whose groove picture has a solid middle gives a frame-only
+		-- picture here (overlayTexture), or the fill would be hidden under it
 		statusbar.overlay = statusbar:CreateTexture(nil, 'OVERLAY')
-		statusbar.overlay:SetTexture(StyleSetting.bgImg or StyleSetting.bgTexture or '')
+		statusbar.overlay:SetTexture(StyleSetting.overlayTexture or StyleSetting.bgImg or StyleSetting.bgTexture or '')
 		statusbar.overlay:SetAllPoints(statusbar.bg)
 		statusbar.overlay:SetTexCoord(unpack(StyleSetting.texCords))
 
@@ -1551,7 +1554,7 @@ function module:SetActiveStyle_Classic(style)
 
 			-- Update overlay texture
 			if newStyle.bgTexture or newStyle.bgImg then
-				statusbar.overlay:SetTexture(newStyle.bgImg or newStyle.bgTexture)
+				statusbar.overlay:SetTexture(newStyle.overlayTexture or newStyle.bgImg or newStyle.bgTexture)
 				if newStyle.texCords then
 					statusbar.overlay:SetTexCoord(unpack(newStyle.texCords))
 				end
