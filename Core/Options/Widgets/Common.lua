@@ -206,14 +206,17 @@ end
 
 function PlusMinusMixin:Layout()
 	local px = Style:PixelSize(self.parent)
-	local arm = 7 * px
+	-- Two pixels thick: a one-pixel line on a row that lands between screen pixels can vanish,
+	-- leaving a plus that reads as "|"
+	local line = 2 * px
+	local arm = 8 * px
 	self.anchor:SetSize(arm, arm)
 	self.across:ClearAllPoints()
 	self.across:SetPoint('CENTER', self.anchor)
-	self.across:SetSize(arm, px)
+	self.across:SetSize(arm, line)
 	self.down:ClearAllPoints()
 	self.down:SetPoint('CENTER', self.anchor)
-	self.down:SetSize(px, arm)
+	self.down:SetSize(line, arm)
 end
 
 ---@param parent Frame
