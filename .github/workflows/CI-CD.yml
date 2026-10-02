@@ -32,6 +32,9 @@ jobs:
       - name: Add Changelog to Run Summary
         run: cat CHANGELOG.md >> $GITHUB_STEP_SUMMARY
 
+      - name: Write the What's new history into the addon
+        run: python3 tools/whatsnew/build.py
+
       - name: Package and release
         uses: BigWigsMods/packager@master
 

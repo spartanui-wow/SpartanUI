@@ -48,5 +48,7 @@
 		</Anchors>
 	</Frame>
 
+	<Script file="WhatsNew\Changelog.lua" />
+	<Script file="WhatsNew\Heroes.lua" />
 	<Script file="WhatsNew.lua" />
 </Ui>
