@@ -591,6 +591,7 @@ function module:ModifyMinimapLayout()
 end
 
 function module:UpdateMinimapSize()
+	local oldWidth, oldHeight = Minimap:GetSize()
 	-- Set size of Minimap
 	if module.Settings.size then
 		Minimap:SetSize(unpack(module.Settings.size))
@@ -622,8 +623,13 @@ function module:UpdateMinimapSize()
 		Minimap.overlay:SetAllPoints(Minimap)
 	end
 
-	-- Force minimap to refresh and re-render after size changes
-	-- We delay this slightly to ensure the size changes have taken effect
+	-- Force minimap to refresh and re-render after size changes. The refresh briefly changes the
+	-- zoom, which shows as a flicker, so skip it when the size did not change (this runs every
+	-- 30 seconds). We delay this slightly to ensure the size changes have taken effect
+	local width, height = Minimap:GetSize()
+	if math.abs(width - oldWidth) < 0.01 and math.abs(height - oldHeight) < 0.01 then
+		return
+	end
 	C_Timer.After(0.1, function()
 		module:UpdateMinimapShape()
 
@@ -660,7 +666,10 @@ end
 
 function module:UpdateMinimapShape()
 	-- Set Minimap shape
-	Minimap:SetMaskTexture(module.Settings.shape == 'square' and 'Interface\\BUTTONS\\WHITE8X8' or 'Interface\\AddOns\\SpartanUI\\images\\minimap\\circle-overlay')
+	local mask = module.Settings.shape == 'square' and 'Interface\\BUTTONS\\WHITE8X8' or 'Interface\\AddOns\\SpartanUI\\images\\minimap\\circle-overlay'
+	local maskChanged = module.appliedMask ~= mask
+	module.appliedMask = mask
+	Minimap:SetMaskTexture(mask)
 
 	-- Setup Minimap overlay
 	if not Minimap.overlay then
@@ -671,14 +680,16 @@ function module:UpdateMinimapShape()
 	end
 	Minimap.overlay:SetShown(module.Settings.shape == 'square')
 
-	-- Force minimap to re-render with new mask
-	local currentZoom = Minimap:GetZoom()
-	if currentZoom > 0 then
-		Minimap:SetZoom(currentZoom - 1)
-		Minimap:SetZoom(currentZoom)
-	else
-		Minimap:SetZoom(1)
-		Minimap:SetZoom(0)
+	-- Force minimap to re-render with a new mask (only when it changed: this runs every 30 seconds)
+	if maskChanged then
+		local currentZoom = Minimap:GetZoom()
+		if currentZoom > 0 then
+			Minimap:SetZoom(currentZoom - 1)
+			Minimap:SetZoom(currentZoom)
+		else
+			Minimap:SetZoom(1)
+			Minimap:SetZoom(0)
+		end
 	end
 
 	-- Setup GetMinimapShape function

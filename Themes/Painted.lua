@@ -566,11 +566,10 @@ function Painted.GetVariant(name)
 	return variant == 'corner' and 'corner' or 'docked'
 end
 
----The minimap module centres its holder, which is taller than the map (room for the zone text)
----and holds the map at the client's own offset. Measure where the map sits inside its holder and
----anchor the holder to the socket so the map's centre lands on it. The map's place inside the
----holder does not change when the holder moves, so this gives the same answer whenever it runs,
----even before the game has settled positions after a move.
+---The minimap module hangs its holder (taller than the map, with room for the zone text) from the
+---top left of its mover, and re-attaches it there on every refresh. Measure where the map sits below
+---the holder's top left and put the MOVER there, so the module's own refreshes land the map's centre
+---on the socket. The map's place inside the holder does not change when the holder moves or grows.
 ---@param name string
 function Painted.AlignMinimap(name)
 	if Painted.active ~= name or InCombatLockdown() then
@@ -578,24 +577,57 @@ function Painted.AlignMinimap(name)
 	end
 	local socket = _G[SocketName(name, 'Minimap')]
 	local holder = _G.SUI_Minimap
-	if not socket or not holder or not Minimap then
+	local mover = holder and holder.mover
+	if not socket or not holder or not mover or not holder.position or not Minimap then
 		return
 	end
 	local MoveIt = SUI:GetModule('MoveIt', true)
 	if MoveIt and MoveIt.IsMoved and MoveIt:IsMoved('Minimap') then
 		return
 	end
+	-- In a vehicle the module hangs the map from its vehicle spot instead
+	local _, holderAnchor = holder:GetPoint(1)
+	if holderAnchor and holderAnchor == _G.SUI_CustomMover_VehicleMinimapPosition then
+		return
+	end
 	local mx, my = Minimap:GetCenter()
-	local hx, hy = holder:GetCenter()
-	if not mx or not hx then
+	local left, top = holder:GetLeft(), holder:GetTop()
+	if not mx or not left then
 		return
 	end
 	local scale = holder:GetEffectiveScale()
-	local mapScale = Minimap:GetEffectiveScale()
-	local rx = (mx * mapScale - hx * scale) / scale
-	local ry = (my * mapScale - hy * scale) / scale
-	holder:ClearAllPoints()
-	holder:SetPoint('CENTER', socket, 'CENTER', -rx, -ry)
+	local ox = mx * Minimap:GetEffectiveScale() / scale - left
+	local oy = my * Minimap:GetEffectiveScale() / scale - top
+	-- Mover offsets are in the mover's own units
+	local ratio = scale / mover:GetEffectiveScale()
+	local x, y = -ox * ratio, -oy * ratio
+	local data = SUI.ThemeRegistry:GetData(name)
+	local settings = data and data.minimap
+	if settings then
+		settings.position = ('TOPLEFT,%s,CENTER,%.2f,%.2f'):format(SocketName(name, 'Minimap'), x, y)
+		local module = SUI:GetModule('Minimap', true)
+		-- The player's own position wins. Read without touching: the saved settings fill in empty
+		-- entries on lookup, and an empty position table breaks the minimap module.
+		local custom = module and module.DB and rawget(module.DB, 'customSettings')
+		custom = custom and rawget(custom, name)
+		local customPos = custom and rawget(custom, 'position')
+		if type(customPos) == 'table' and next(customPos) == nil then
+			custom.position = nil
+			customPos = nil
+		end
+		if customPos then
+			return
+		end
+		if module and module.Settings then
+			module.Settings.position = settings.position
+		end
+	end
+	local point, relativeTo, _, px, py = mover:GetPoint(1)
+	if holderAnchor == mover and point == 'TOPLEFT' and relativeTo == socket and math.abs((px or 0) - x) < 0.5 and math.abs((py or 0) - y) < 0.5 then
+		return
+	end
+	holder:position('TOPLEFT', socket, 'CENTER', x, y, false, true)
+	holder:position()
 end
 
 local alignQueued = {}
@@ -772,7 +804,7 @@ end
 ---@param name string
 ---@param root string
 ---@return table
-local function Minimap(name)
+local function MinimapSettings(name)
 	local position = 'CENTER,' .. SocketName(name, 'Minimap') .. ',CENTER,0,0'
 	local size = { L.minimap.size, L.minimap.size }
 	if SUI.BlizzAPI.HasModernMinimap() then
@@ -874,7 +906,7 @@ function Painted.Register(spec)
 				},
 				barPositions = positions,
 				barScales = scales,
-				minimap = Minimap(name),
+				minimap = MinimapSettings(name),
 				buttonSkin = { texture = root .. 'Button.png', size = L.buttonFrame },
 				statusBars = StatusBars(name, root),
 				slidingTrays = {
@@ -945,6 +977,15 @@ function Painted.Register(spec)
 						end
 					end)
 				end
+			end
+			-- The game can also resize the map after login; follow it
+			local map = _G.Minimap
+			if map and map.HookScript then
+				map:HookScript('OnSizeChanged', function()
+					if Painted.active then
+						Painted.QueueAlignMinimap(Painted.active)
+					end
+				end)
 			end
 		end
 		Painted.ApplyVariant(name, root)
