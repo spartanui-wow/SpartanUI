@@ -64,6 +64,41 @@ local function Build(frame, DB)
 	frame.Portrait = Portrait3D
 end
 
+-- A portrait beside the frame is outside the unit button, so clicking it did nothing. Widening the
+-- frame's own click area over the portrait makes it target on left click and open the unit menu on
+-- right click, like the rest of the frame. The area of a secure frame can only change out of combat.
+local pendingHitRects = {}
+local hitRectWatcher
+
+---Make the frame clickable this far past each edge (0 to stop at the frame)
+---@param frame table unit frame
+---@param left number
+---@param right number
+---@param top number
+---@param bottom number
+function UF:SetPortraitHitRect(frame, left, right, top, bottom)
+	if not frame.SetHitRectInsets then
+		return
+	end
+	if InCombatLockdown() then
+		pendingHitRects[frame] = { left, right, top, bottom }
+		if not hitRectWatcher then
+			hitRectWatcher = CreateFrame('Frame')
+			hitRectWatcher:SetScript('OnEvent', function(self)
+				self:UnregisterEvent('PLAYER_REGEN_ENABLED')
+				for pendingFrame, insets in pairs(pendingHitRects) do
+					pendingFrame:SetHitRectInsets(-insets[1], -insets[2], -insets[3], -insets[4])
+				end
+				wipe(pendingHitRects)
+			end)
+		end
+		hitRectWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
+		return
+	end
+	pendingHitRects[frame] = nil
+	frame:SetHitRectInsets(-left, -right, -top, -bottom)
+end
+
 ---@param frame table
 local function Update(frame)
 	local DB = frame.Portrait.DB
@@ -78,7 +113,23 @@ local function Update(frame)
 		clickOverlay:ClearAllPoints()
 	end
 	if not DB.enabled then
+		if not frame.isPreview then
+			UF:SetPortraitHitRect(frame, 0, 0, 0, 0)
+		end
 		return
+	end
+
+	-- Click area over the portrait (not for the options preview, which is no unit button); looks
+	-- that place the portrait themselves set their own afterwards
+	if not frame.isPreview then
+		local reach = frame.Portrait2D:GetWidth() * (DB.scale or 1)
+		if DB.position == 'left' then
+			UF:SetPortraitHitRect(frame, reach, 0, 0, 0)
+		elseif DB.position == 'right' then
+			UF:SetPortraitHitRect(frame, 0, reach, 0, 0)
+		else
+			UF:SetPortraitHitRect(frame, 0, 0, 0, 0)
+		end
 	end
 
 	if DB.position == 'left' then

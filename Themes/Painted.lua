@@ -275,6 +275,13 @@ local function PlacePortrait(frame)
 		portrait:SetSize(spot.size, spot.size)
 		portrait:SetPoint('CENTER', frame, edge, x, 0)
 	end
+	-- Clicking the portrait (and its mount) targets and opens the menu like the frame itself
+	local enabled = frame.DB.elements.Portrait and frame.DB.elements.Portrait.enabled ~= false
+	if not frame.isPreview and SUI.UF and SUI.UF.SetPortraitHitRect then
+		local reach = enabled and (-spot.x + spot.size / 2) or 0
+		local tall = enabled and math.max(0, spot.size / 2 - frame:GetHeight() / 2) or 0
+		SUI.UF:SetPortraitHitRect(frame, unit == 'player' and reach or 0, unit == 'target' and reach or 0, tall, tall)
+	end
 	local model = frame.Portrait3D
 	local db = frame.DB.elements.Portrait
 	if model and db and db.enabled ~= false and db.type == '3D' then
