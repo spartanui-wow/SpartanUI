@@ -373,7 +373,8 @@ end
 ---@param colors table theme colors
 ---@param isTarget boolean
 ---@return table
-local function UnitFrame(name, colors, isTarget)
+local function UnitFrame(name, spec, isTarget)
+	local colors = spec.colors
 	local Flat = SUI.ThemeFlat
 	local frame = Flat.Frame({
 		width = L.frames.width,
@@ -413,7 +414,8 @@ local function UnitFrame(name, colors, isTarget)
 	else
 		Flat.Auras(elements, nil, { number = 8, size = 26, anchor = 'TOPLEFT', relativePoint = 'BOTTOMLEFT', growthx = 'RIGHT', growthy = 'DOWN', y = -below })
 	end
-	local nameX = L.frames.inset.side + 2
+	-- A look whose name strip ends in ornaments keeps the name clear of them
+	local nameX = spec.nameInset or (L.frames.inset.side + 2)
 	elements.Name = {
 		enabled = true,
 		textSize = 12,
@@ -425,7 +427,8 @@ local function UnitFrame(name, colors, isTarget)
 			relativeTo = 'Frame',
 			relativePoint = isTarget and 'TOPRIGHT' or 'TOPLEFT',
 			x = isTarget and -nameX or nameX,
-			y = 2,
+			-- Looks without a name strip show the name just above the plate's top border
+			y = spec.nameAbove and 7 or 2,
 		},
 	}
 	return frame
@@ -830,6 +833,8 @@ end
 ---@field kit string window kit id
 ---@field colors { frameBg: number[], frameBorder: number[] }
 ---@field narrowCentre? boolean close up the bar's centre when the minimap is top right
+---@field nameInset? number how far the name sits from the frame's edge (default just inside the window)
+---@field nameAbove? boolean the plate has no name strip: the name sits above the plate's top border
 
 ---Register a painted look
 ---@param spec SUI.ThemePainted.Spec
@@ -864,8 +869,8 @@ function Painted.Register(spec)
 			local positions, scales = BarLayout(name)
 			return {
 				frames = {
-					player = UnitFrame(name, spec.colors, false),
-					target = UnitFrame(name, spec.colors, true),
+					player = UnitFrame(name, spec, false),
+					target = UnitFrame(name, spec, true),
 				},
 				barPositions = positions,
 				barScales = scales,

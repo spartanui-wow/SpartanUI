@@ -6,6 +6,8 @@ SUI.ThemePainted.Register({
 	displayName = 'Grove',
 	description = 'One old tree branching into many futures: dark living wood, moss and small leaves around a forest-lens minimap.',
 	accent = { 0.498, 0.675, 0.573 },
+	-- The plate has no name strip; the name sits above it
+	nameAbove = true,
 	kit = 'boughs',
 	colors = {
 		frameBg = { 0.078, 0.118, 0.098, 0.95 },
