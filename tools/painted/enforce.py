@@ -33,6 +33,7 @@ It prints a short report; a warning means the painting misses part of the layout
 
 import argparse
 import math
+import re
 import os
 
 from PIL import Image, ImageChops, ImageDraw, ImageFilter
@@ -106,7 +107,29 @@ def join_halves(img, m, cut):
         draw.line([(i, 0), (i, m.h)], fill=int(255 * (i + 1) / (feather + 1)))
     right.putalpha(ImageChops.multiply(right.getchannel('A'), ramp))
     out.alpha_composite(right, (int(round(centre)) - feather, 0))
-    return out
+    return bridge_centre(out, m)
+
+
+BRIDGE = 16  # art units each side of the centre rebuilt from the join's edge columns (a look's
+# Style.lua can widen it with narrowBridge, when its rails rise near the old centre panel)
+
+
+def bridge_centre(img, m):
+    """Cover the join by stretching the bar across it: every column in the band is a blend of the
+    column just left of it and the column just right of it. The two halves are mirror images, so
+    rails, grooves and edges run straight through with no seam or knot."""
+    import numpy as np
+
+    a = np.asarray(img).astype(np.float32)
+    centre = int(round(m.w / 2))
+    half = int(round(BRIDGE_UNITS * m.s))
+    x0, x1 = centre - half, centre + half
+    left = a[:, x0 - 1, :]
+    right = a[:, x1, :]
+    for i, x in enumerate(range(x0, x1)):
+        t = (i + 0.5) / (x1 - x0)
+        a[:, x, :] = left * (1 - t) + right * t
+    return Image.fromarray(a.clip(0, 255).astype(np.uint8))
 
 
 def narrow_centre(img, m):
@@ -190,6 +213,7 @@ def enforce_bottom(src, out_dir, bed, closed=False, narrow=False):
 
 
 NARROW = False
+BRIDGE_UNITS = BRIDGE
 
 
 def enforce_bottom_closed(src, out_dir, bed):
@@ -343,6 +367,10 @@ def main():
     if theme:
         style = open(os.path.join(ROOT, 'Themes', theme, 'Style.lua'), encoding='utf-8').read()
         NARROW = 'narrowCentre = true' in style
+        found = re.search(r'narrowBridge = (\d+)', style)
+        if found:
+            global BRIDGE_UNITS
+            BRIDGE_UNITS = int(found.group(1))
     else:
         NARROW = args.narrow
     bed = tuple(int(v) for v in args.bed.split(','))
