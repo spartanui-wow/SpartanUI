@@ -524,10 +524,8 @@ local function Constructor()
 	contentPanel:SetPoint('TOPLEFT', sidebar, 'TOPRIGHT', 12, 0)
 	contentPanel:SetPoint('BOTTOMRIGHT', frame.Body, 'BOTTOMRIGHT')
 	LibAT.UI.Kit:SkinPanel(contentPanel, { elevation = 1, shadow = false })
-	-- Settings stay inside the panel at any window size; pages scroll inside it
-	if contentPanel.SetClipsChildren then
-		contentPanel:SetClipsChildren(true)
-	end
+	-- Pages scroll inside the panel (their scroll frames keep settings inside it). The panel itself
+	-- must not clip its children: in game that hid the whole page.
 
 	local content = CreateFrame('Frame', nil, contentPanel)
 	content:SetPoint('TOPLEFT', CONTENT_PAD, -CONTENT_PAD)

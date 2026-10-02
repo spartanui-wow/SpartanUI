@@ -147,13 +147,9 @@ local function Constructor()
 	rule:SetHeight(Style:PixelSize(frame))
 	rule:SetVertexColor(unpack(Style.color.line))
 
-	-- Settings never draw over the title or outside the window, whatever its size
 	local content = CreateFrame('Frame', nil, frame)
 	content:SetPoint('TOPLEFT', 0, -HEADER)
 	content:SetPoint('BOTTOMRIGHT', 0, 0)
-	if content.SetClipsChildren then
-		content:SetClipsChildren(true)
-	end
 
 	local widget = {
 		frame = frame,
