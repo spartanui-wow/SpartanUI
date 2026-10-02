@@ -189,6 +189,7 @@ function module:Options()
 		name = L['Artwork Options'],
 		type = 'group',
 		order = 10,
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Minimal'),
 		args = {
 			HideCenterGraphic = {
 				name = L['Hide center graphic'],

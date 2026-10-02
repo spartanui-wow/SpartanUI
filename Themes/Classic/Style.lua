@@ -324,6 +324,7 @@ local function Options()
 	SUI.opt.args.Artwork.args['ActionBar'] = {
 		name = L['ActionBar Settings'],
 		type = 'group',
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Classic'),
 		desc = L['ActionBarConfDesc'],
 		args = {
 			Allenable = {
@@ -569,6 +570,7 @@ local function Options()
 	SUI.opt.args.Artwork.args['popup'] = {
 		name = L['Popup Animations'],
 		type = 'group',
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Classic'),
 		desc = L['Toggle popup bar animations'],
 		args = {
 			popup1anim = {
@@ -666,6 +668,7 @@ local function Options()
 		name = L['Artwork Options'],
 		type = 'group',
 		order = 10,
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Classic'),
 		args = {
 			Color = {
 				name = L['Artwork Color'],

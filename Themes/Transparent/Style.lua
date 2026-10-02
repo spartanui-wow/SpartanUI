@@ -11,6 +11,7 @@ local function Options()
 		name = L['Artwork Options'],
 		type = 'group',
 		order = 10,
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Transparent'),
 		args = {
 			Color = {
 				name = L['Artwork Color'],

@@ -72,6 +72,7 @@ local function ArtworkOptions()
 		name = 'Midnight',
 		type = 'group',
 		order = 10,
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Midnight'),
 		args = {
 			Variant = {
 				name = 'Midnight',
@@ -132,7 +133,7 @@ function module:OnInitialize()
 			apiVersion = 1,
 			description = 'Modern, clean interface with focus on readability and well-spaced aura icons',
 			setup = {
-				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Midnight.png',
+				image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight',
 			},
 			applicableTo = { player = true, target = true, pet = true, focus = true, boss = true, arena = true, raid = true, raid10 = true, raid25 = true, raid40 = true, party = true },
 			variants = {
@@ -769,7 +770,7 @@ function module:OnInitialize()
 		displayName = 'Midnight Void',
 		apiVersion = 1,
 		description = 'Black bars with class-colored missing health',
-		setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Void.png' },
+		setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Void' },
 		applicableTo = allFrameGroups,
 		variantGroup = 'Midnight',
 	}, function()
@@ -778,7 +779,7 @@ function module:OnInitialize()
 			frames = frameConfigs,
 			unitframes = {
 				displayName = 'Midnight Void',
-				setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Void.png' },
+				setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Void' },
 			},
 		}
 	end)
@@ -789,7 +790,7 @@ function module:OnInitialize()
 		displayName = 'Midnight Shadow',
 		apiVersion = 1,
 		description = 'Class-colored bars with dark missing health',
-		setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Shadow.png' },
+		setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Shadow' },
 		applicableTo = allFrameGroups,
 		variantGroup = 'Midnight',
 	}, function()
@@ -798,7 +799,7 @@ function module:OnInitialize()
 			frames = frameConfigs,
 			unitframes = {
 				displayName = 'Midnight Shadow',
-				setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Shadow.png' },
+				setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Midnight_Shadow' },
 			},
 		}
 	end)

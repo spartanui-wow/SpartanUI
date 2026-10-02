@@ -40,6 +40,7 @@ local function Options()
 		name = L['Artwork Options'],
 		type = 'group',
 		order = 10,
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Arcane'),
 		args = {
 			Variant = {
 				name = 'Arcane',

@@ -219,6 +219,7 @@ function module:Options()
 		name = L['Artwork Options'],
 		type = 'group',
 		order = 10,
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Gale'),
 		args = {
 			UseClassColors = {
 				name = L['Use Class Colors'],

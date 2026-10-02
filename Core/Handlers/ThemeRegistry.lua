@@ -258,6 +258,27 @@ function ThemeRegistry:IsSubTheme(themeName)
 	return entry ~= nil and entry.variantGroup ~= nil
 end
 
+---True while this look is the one in use (a variant counts as its look)
+---@param themeName string
+---@return boolean
+function ThemeRegistry:IsActiveLook(themeName)
+	local style = SUI:GetActiveStyle()
+	if style == themeName then
+		return true
+	end
+	local entry = style and registry[style]
+	return entry ~= nil and entry.variantGroup == themeName
+end
+
+---Settings that belong to one look only: hide them while another look is in use
+---@param themeName string
+---@return fun(): boolean
+function ThemeRegistry:HiddenUnlessActive(themeName)
+	return function()
+		return not ThemeRegistry:IsActiveLook(themeName)
+	end
+end
+
 ---Returns the stored active variant id, falling back to the first declared variant.
 ---@param themeName string
 ---@return string|nil

@@ -45,6 +45,7 @@ local function Options()
 		name = L['Fel style'],
 		type = 'group',
 		order = 10,
+		hidden = SUI.ThemeRegistry:HiddenUnlessActive('Fel'),
 		args = {
 			Variant = {
 				name = 'Fel',
@@ -275,7 +276,6 @@ end
 
 function module:OnDisable()
 	artFrame:Hide()
-	SUI.opt.args.Artwork.args.Fel.hidden = true
 	UnregisterStateDriver(SUI_Art_Fel, 'visibility')
 end
 
