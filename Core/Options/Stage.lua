@@ -12,11 +12,14 @@ local Style = SUI.UI.Style
 ---@field GetHeight fun(self, ctx: SUI.OptionsWindow.StageContext): number Height wanted (0 = nothing to show)
 ---@field Render fun(self, ctx: SUI.OptionsWindow.StageContext) Draw or refresh the preview
 ---@field Hide? fun(self) Hide everything the provider drew
+---@field Footer? fun(self, ctx: SUI.OptionsWindow.StageContext): {text: string, tooltip?: string, func: fun()}|nil Optional button shown at the bottom of the panel
+---@field Close? fun(self) Called when the options window closes
+---@field Action? fun(self, ctx: SUI.OptionsWindow.StageContext): {text: string, tooltip?: string, active?: boolean, func: fun()}|nil Optional button shown in the panel header
 
 ---@class SUI.OptionsWindow.StageContext
 ---@field path string[] Selected options path
 ---@field canvas Frame Frame to draw into
----@field Region fun(frame: Frame, target: {path: string[], option?: string, label?: string})
+---@field Region fun(frame: Frame, target: {path: string[], option?: string, label?: string, onShiftClick?: fun()})
 
 ---@class SUI.OptionsWindow.Stage
 local Stage = {}
@@ -126,6 +129,17 @@ function Stage:Setup(window)
 	toggle:SetPoint('RIGHT', header, 'RIGHT', -10, 0)
 	stage.toggle = toggle
 
+	local action = Style:CreateButton(header, '', nil, function(self)
+		if self.onAction then
+			self.onAction()
+			Stage:MarkDirty()
+		end
+	end)
+	action:SetHeight(20)
+	action:SetPoint('RIGHT', toggle, 'LEFT', -6, 0)
+	action:Hide()
+	stage.action = action
+
 	-- Sits in the window's title bar while the panel is hidden
 	local reopen = Style:CreateButton(window.header, L['Show preview'], nil, function()
 		Stage:SetCollapsed(false)
@@ -143,8 +157,25 @@ function Stage:Setup(window)
 	end
 	stage.canvas = canvas
 
+	local footer = Style:CreateButton(canvas, '', nil, function(self)
+		if self.onAction then
+			self.onAction()
+			Stage:MarkDirty()
+		end
+	end)
+	footer:SetHeight(20)
+	footer:SetPoint('BOTTOM', canvas, 'BOTTOM', 0, 6)
+	footer:SetFrameLevel(canvas:GetFrameLevel() + 900)
+	footer:Hide()
+	stage.footer = footer
+
 	window.frame:HookScript('OnHide', function()
 		Stage:HideProvider()
+		for _, provider in ipairs(providers) do
+			if provider.Close then
+				provider:Close()
+			end
+		end
 	end)
 end
 
@@ -157,7 +188,7 @@ end
 
 ---Clickable area over part of the preview
 ---@param frame Frame
----@param target {path: string[], option?: string, label?: string}
+---@param target {path: string[], option?: string, label?: string, onShiftClick?: fun()}
 local function Region(frame, target)
 	local window = GetWindow()
 	if not window or not frame or not frame:IsShown() then
@@ -177,6 +208,9 @@ local function Region(frame, target)
 				GameTooltip:SetOwner(self, 'ANCHOR_TOP')
 				GameTooltip:SetText(self.target.label, 1, 1, 1)
 				GameTooltip:AddLine(L['Click to change these settings'], nil, nil, nil, true)
+				if self.target.onShiftClick then
+					GameTooltip:AddLine(L['Shift+click to hide it from the preview'], nil, nil, nil, true)
+				end
 				GameTooltip:Show()
 			end
 		end)
@@ -185,6 +219,12 @@ local function Region(frame, target)
 			GameTooltip:Hide()
 		end)
 		region:SetScript('OnClick', function(self)
+			if IsShiftKeyDown() and self.target.onShiftClick then
+				GameTooltip:Hide()
+				self.target.onShiftClick()
+				Stage:MarkDirty()
+				return
+			end
 			local ACD = LibStub('AceConfigDialog-3.0-SUI')
 			ACD:Navigate(APP, self.target.path, self.target.option)
 		end)
@@ -210,6 +250,10 @@ end
 ----------------------------------------------------------------------------------------------------
 
 function Stage:HideProvider()
+	local window = GetWindow()
+	if window and window.stage.footer then
+		window.stage.footer:Hide()
+	end
 	if current and current.Hide then
 		current:Hide()
 	end
@@ -260,6 +304,31 @@ function Stage:Refresh(resize)
 	end
 	usedRegions = 0
 	provider:Render(ctx)
+
+	local footerInfo = provider.Footer and provider:Footer(ctx)
+	local footer = stage.footer
+	if footerInfo then
+		footer.onAction = footerInfo.func
+		footer:SetText(footerInfo.text)
+		footer:SetTooltip(footerInfo.tooltip)
+		footer:Show()
+	else
+		footer:Hide()
+	end
+
+	local actionInfo = provider.Action and provider:Action(ctx)
+	local action = stage.action
+	if actionInfo then
+		action.onAction = actionInfo.func
+		action:SetText(actionInfo.text)
+		action:SetTooltip(actionInfo.tooltip)
+		action:SetActive(actionInfo.active)
+		action:Show()
+		stage.hint:SetPoint('RIGHT', action, 'LEFT', -6, 0)
+	else
+		action:Hide()
+		stage.hint:SetPoint('RIGHT', stage.header, 'RIGHT', -10, 0)
+	end
 end
 
 ---@param path string[]

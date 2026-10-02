@@ -156,6 +156,11 @@ function TestMode:Toggle(frameName)
 	isGlobalActive = UF.PreviewFrame:IsActive()
 end
 
+---Bring the active flag back in line with what is on screen
+function TestMode:Sync()
+	isGlobalActive = UF.PreviewFrame:IsActive()
+end
+
 ---Enable test mode for all spawned frames
 function TestMode:EnableAll()
 	if InCombatLockdown() then
