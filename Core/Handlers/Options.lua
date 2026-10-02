@@ -429,10 +429,16 @@ function module:OnInitialize()
 					if submodule.Override then
 						return false
 					end
+					-- Modules that are switched some other way (action bars pick a bar system)
+					if submodule.ModuleToggle then
+						return submodule.ModuleToggle.get()
+					end
 					return SUI:IsModuleEnabled(name)
 				end,
 				set = function(info, val)
-					if val then
+					if submodule.ModuleToggle then
+						submodule.ModuleToggle.set(val)
+					elseif val then
 						SUI:EnableModule(submodule)
 					else
 						SUI:DisableModule(submodule)
@@ -598,6 +604,28 @@ function module:BuildFooter()
 		Lib.AceCD:Close('SpartanUI')
 	end, true)
 	close:SetPoint('RIGHT', footer, 'RIGHT', -padding, 0)
+
+	local WhatsNew = LibAT and LibAT.Setup and LibAT.Setup.WhatsNew
+	if WhatsNew and WhatsNew.Open then
+		local whatsNew = Style:CreateButton(footer, L["What's new"], nil, function()
+			WhatsNew:Open()
+			-- The settings window sits on a higher layer; lift What's new over it while it is open
+			local shown = WhatsNew.window
+			if shown then
+				if not shown.suiLifted then
+					shown.suiLifted = true
+					local strata = shown:GetFrameStrata()
+					shown:HookScript('OnHide', function(self)
+						self:SetFrameStrata(strata)
+					end)
+				end
+				shown:SetFrameStrata(window.frame:GetFrameStrata())
+				shown:Raise()
+			end
+		end)
+		whatsNew:SetPoint('RIGHT', close, 'LEFT', -6, 0)
+		buttons[#buttons + 1] = whatsNew
+	end
 
 	-- Text can measure 0 before the font is drawn once; size the buttons again when shown
 	footer:HookScript('OnShow', function()

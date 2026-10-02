@@ -1370,6 +1370,7 @@ L['Unitframe Presets'] = true
 L['Click a part to jump to its settings'] = true
 L['Click a part to change it. Scroll to zoom, drag to move.'] = true
 L['Reset zoom'] = true
+L["What's new"] = true
 L['Click to change these settings'] = true
 L['Hide preview'] = true
 L['Preview'] = true

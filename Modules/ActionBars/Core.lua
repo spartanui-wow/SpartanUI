@@ -6,7 +6,16 @@ local L = SUI.L
 local module = SUI:NewModule('ActionBars')
 module.DisplayName = L['Action Bars']
 module.description = 'SpartanUI action bars, pet, stance, bag and menu bars'
-module.HideModule = true
+-- The module list's switch picks the bar system: off gives the bars back to Blizzard, on draws
+-- SpartanUI's own bars. Both reload the UI.
+module.ModuleToggle = {
+	get = function()
+		return SUI.Handlers.BarSystem:GetChosenSystem() ~= 'WoW'
+	end,
+	set = function(enabled)
+		SUI.Handlers.BarSystem:SetChosenSystem(enabled and 'SpartanUI' or 'WoW')
+	end,
+}
 
 -- Logical bar keys are shared with the Bartender4 handler so theme positions, theme
 -- scales and saved mover positions carry over when switching between the two systems.
