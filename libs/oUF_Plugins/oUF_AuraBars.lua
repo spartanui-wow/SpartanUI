@@ -16,7 +16,7 @@ local UnitIsEnemy = UnitIsEnemy
 local UnitReaction = UnitReaction
 local GameTooltip = GameTooltip
 
-local isRetail = WOW_PROJECT_ID == (WOW_PROJECT_MAINLINE or 1)
+local isRetail = WOW_PROJECT_ID == (WOW_PROJECT_MAINLINE or 1) or (UnitAura == nil and C_UnitAuras ~= nil and C_UnitAuras.GetAuraSlots ~= nil)
 local canaccessvalue = canaccessvalue
 local GetAuraDuration = C_UnitAuras and C_UnitAuras.GetAuraDuration
 local GetAuraSlots = C_UnitAuras and C_UnitAuras.GetAuraSlots
