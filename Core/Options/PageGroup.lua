@@ -75,6 +75,18 @@ local methods = {
 			found = child
 		end
 		status.selected = value
+		-- The open page shows where it sits: every group above it is open, and so is the page itself
+		-- when it has sub-pages (opening on General shows General's pages)
+		if found then
+			local path
+			for key in (value .. SEP):gmatch('(.-)' .. SEP) do
+				path = path and (path .. SEP .. key) or key
+				local entry = FindEntry(self.tablist or {}, path)
+				if entry and entry.children then
+					self:SetExpanded(path, true)
+				end
+			end
+		end
 		self.titletext:SetText(found and found.text or '')
 		if found then
 			self:Fire('OnGroupSelected', value)
