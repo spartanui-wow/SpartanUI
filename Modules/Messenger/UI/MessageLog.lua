@@ -332,6 +332,11 @@ function ML.Create(parent)
 		wipe(heightCache)
 		log:Rebuild(true)
 	end)
+	M:On('ALIASES_CHANGED', function()
+		if log.key then
+			log:Rebuild(true)
+		end
+	end)
 	M:On('SETTINGS_CHANGED', function()
 		wipe(displayCache)
 		wipe(heightCache)
@@ -602,14 +607,14 @@ function Log:SenderLabel(msg)
 	end
 	if msg.s then
 		local r, g, b = T.NameColor(msg.cl)
-		local display = U.DisplayName(msg.s)
+		local display = M:PersonLabel(msg.s)
 		return '|Hplayer:' .. msg.s .. '|h' .. display .. '|h', r, g, b
 	end
 	if convo then
 		local presence = M.Contacts:GetPresence(convo)
 		local r, g, b = T.NameColor(presence.class or convo.class)
 		if convo.kind == 'WHISPER' then
-			return '|Hplayer:' .. convo.target .. '|h' .. convo.name .. '|h', r, g, b
+			return '|Hplayer:' .. convo.target .. '|h' .. M:GetTitle(convo) .. '|h', r, g, b
 		end
 		return M:GetTitle(convo), r, g, b
 	end

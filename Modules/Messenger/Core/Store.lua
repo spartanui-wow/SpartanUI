@@ -278,7 +278,7 @@ end
 ---@param query string lower case
 ---@return boolean
 local function Matches(convo, query)
-	if strlower(convo.name or ''):find(query, 1, true) then
+	if strlower(convo.name or ''):find(query, 1, true) or strlower(M:GetAlias(convo.key) or ''):find(query, 1, true) then
 		return true
 	end
 	local msgs = convo.msgs

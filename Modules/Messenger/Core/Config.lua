@@ -122,11 +122,13 @@ M.defaults = {
 	},
 	global = {
 		people = {},
+		aliases = {},
 		introShown = false,
 	},
 	char = {
 		defaultKeyOffered = false,
 		rooms = {},
+		aliases = {},
 		popouts = {},
 	},
 }

@@ -25,6 +25,13 @@ end
 ---@param convo MessengerConversation
 ---@return string
 function M:GetTitle(convo)
+	return self:GetAlias(convo.key) or self:GetRealTitle(convo)
+end
+
+---The conversation's own name, ignoring any nickname the player gave it.
+---@param convo MessengerConversation
+---@return string
+function M:GetRealTitle(convo)
 	if convo.kind == 'BN_WHISPER' and convo.target then
 		local entry = self.Contacts:GetBNetByTag(convo.target)
 		if entry and entry.accountName then
@@ -32,6 +39,43 @@ function M:GetTitle(convo)
 		end
 	end
 	return convo.name or convo.key
+end
+
+---Nicknames for people are kept for the whole account; nicknames for channels belong to the
+---character, like the channels themselves.
+---@param key string
+---@return table
+function M:AliasTable(key)
+	return self.Store.IsRoomKey(key) and self.db.char.aliases or self.db.global.aliases
+end
+
+---@param key string Conversation key
+---@return string|nil
+function M:GetAlias(key)
+	local alias = key and self:AliasTable(key)[key]
+	return alias ~= '' and alias or nil
+end
+
+---Sets or (with nil, empty text or the real name) removes a nickname.
+---@param key string
+---@param alias string|nil
+function M:SetAlias(key, alias)
+	alias = alias and U.Trim(alias) or ''
+	local convo = Store:Get(key)
+	if alias == '' or (convo and alias == self:GetRealTitle(convo)) then
+		alias = nil
+	end
+	self:AliasTable(key)[key] = alias
+	self:Fire('CONVO_CHANGED', key)
+	self:Fire('LIST_CHANGED')
+	self:Fire('ALIASES_CHANGED')
+end
+
+---How a player is named on a message line: their nickname, or their name.
+---@param full string Name-Realm
+---@return string
+function M:PersonLabel(full)
+	return self:GetAlias(Store.CharKey(full)) or U.DisplayName(full)
 end
 
 ---@param host MessengerHost

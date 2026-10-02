@@ -56,9 +56,26 @@ function CP.ConversationMenu(convo, context)
 		end
 	end
 
+	local alias = M:GetAlias(key)
+	table.insert(items, {
+		text = alias and L['Change nickname'] or L['Set a nickname'],
+		divider = #items > 0,
+		onClick = function()
+			M:Open(key, false)
+			M.UI.Deck.pane:EditNickname()
+		end,
+	})
+	if alias then
+		table.insert(items, {
+			text = L['Remove nickname'],
+			onClick = function()
+				M:SetAlias(key, nil)
+			end,
+		})
+	end
 	table.insert(items, {
 		text = convo.pinned and L['Unpin'] or L['Pin to top'],
-		divider = #items > 0,
+		divider = true,
 		onClick = function()
 			Store:SetFlag(key, 'pinned', not convo.pinned)
 		end,
@@ -206,19 +223,25 @@ function CP.Create(parent, showHeader)
 		header.title:SetPoint('TOPLEFT', header.avatar, 'TOPRIGHT', 10, 1)
 		header.title:SetPoint('RIGHT', header.pin, 'LEFT', -8, 0)
 
-		-- Right-clicking the name opens the game's own player menu (invite, add friend, report)
+		-- Double-clicking the name gives it a nickname; right-clicking a player's name opens the
+		-- game's own player menu (invite, add friend, report)
 		header.nameButton = CreateFrame('Button', nil, header)
 		header.nameButton:SetPoint('TOPLEFT', header.title, 'TOPLEFT')
 		header.nameButton:SetPoint('BOTTOMRIGHT', header.title, 'BOTTOMRIGHT')
-		header.nameButton:RegisterForClicks('RightButtonUp')
-		header.nameButton:SetScript('OnClick', function()
+		header.nameButton:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+		header.nameButton:SetScript('OnClick', function(_, button)
 			local convo = pane.key and M.Store:Get(pane.key)
-			if convo and convo.kind == 'WHISPER' and convo.target then
+			if button == 'RightButton' and convo and convo.kind == 'WHISPER' and convo.target then
 				SetItemRef('player:' .. convo.target, '[' .. convo.name .. ']', 'RightButton', DEFAULT_CHAT_FRAME)
 			end
 		end)
+		header.nameButton:SetScript('OnDoubleClick', function()
+			pane:EditNickname()
+		end)
 		header.nameButton:SetScript('OnEnter', function(self)
-			W.ShowTip(self, L['Right-click for player options'])
+			local convo = pane.key and M.Store:Get(pane.key)
+			local hint = convo and convo.kind == 'WHISPER' and L['Right-click for player options'] or nil
+			W.ShowTip(self, L['Double-click to set a nickname'], hint)
 		end)
 		header.nameButton:SetScript('OnLeave', function()
 			GameTooltip:Hide()
@@ -330,7 +353,7 @@ function Pane:UpdateHeader()
 		return
 	end
 	local presence = M.Contacts:GetPresence(convo)
-	header.nameButton:SetShown(convo.kind == 'WHISPER')
+	header.nameButton:SetShown(true)
 	header.avatar:SetConversation(convo, presence)
 	header.avatar:SetRingColor(T.color.header)
 	header.avatar:Show()
@@ -340,7 +363,13 @@ function Pane:UpdateHeader()
 	else
 		header.title:SetTextColor(T.NameColor(presence.class or convo.class))
 	end
-	header.subtitle:SetText(M.Contacts:Describe(convo))
+	local detail = M.Contacts:Describe(convo)
+	if M:GetAlias(convo.key) then
+		-- Under a nickname, keep the real name in view
+		local real = M:GetRealTitle(convo)
+		detail = detail ~= '' and (real .. '  -  ' .. detail) or real
+	end
+	header.subtitle:SetText(detail)
 	header.pin:Show()
 	header.pin:SetTint(convo.pinned and T.color.text or T.color.muted)
 	header.pin.tooltip = convo.pinned and L['Unpin'] or L['Pin to top']
@@ -351,8 +380,69 @@ function Pane:UpdateHeader()
 	header.muted:SetShown(convo.muted == true)
 end
 
+---Turns the name at the top into a text box for a nickname. Enter or clicking away saves,
+---Escape cancels, and an empty box goes back to the real name.
+function Pane:EditNickname()
+	local header = self.header
+	local convo = self.key and M.Store:Get(self.key)
+	if not self.showHeader or not convo then
+		return
+	end
+	local edit = header.nickname
+	if not edit then
+		edit = CreateFrame('EditBox', nil, header)
+		edit:SetPoint('LEFT', header.title, 'LEFT', -4, 0)
+		edit:SetPoint('RIGHT', header.title, 'RIGHT')
+		edit:SetAutoFocus(false)
+		edit:SetMaxLetters(48)
+		edit:SetTextInsets(4, 4, 0, 0)
+		T.Fill(edit, T.color.input)
+		edit.focusLine = T.Line(edit, 'BOTTOM', T.color.focus)
+		edit.hint = T.Text(edit, 'meta', T.color.faint)
+		edit.hint:SetPoint('TOPLEFT', edit, 'BOTTOMLEFT', 4, -2)
+		edit.hint:SetText(L['Enter to save, Escape to cancel. Leave empty for the real name.'])
+		local function Finish(save)
+			if not edit:IsShown() then
+				return
+			end
+			local key = edit.key
+			edit:Hide()
+			edit:ClearFocus()
+			header.title:Show()
+			header.subtitle:Show()
+			if save and key then
+				M:SetAlias(key, edit:GetText())
+			end
+		end
+		edit:SetScript('OnEnterPressed', function()
+			Finish(true)
+		end)
+		edit:SetScript('OnEscapePressed', function()
+			Finish(false)
+		end)
+		edit:SetScript('OnEditFocusLost', function()
+			Finish(true)
+		end)
+		edit.Finish = Finish
+		header.nickname = edit
+	end
+	local face, size, flags = header.title:GetFont()
+	edit:SetFont(face or STANDARD_TEXT_FONT, size or T.BaseSize(), flags or '')
+	edit:SetHeight((size or T.BaseSize()) + 8)
+	edit.key = self.key
+	edit:SetText(M:GetAlias(self.key) or M:GetRealTitle(convo))
+	header.title:Hide()
+	header.subtitle:Hide()
+	edit:Show()
+	edit:SetFocus()
+	edit:HighlightText()
+end
+
 ---@param key string|nil
 function Pane:SetConversation(key)
+	if self.header.nickname and self.header.nickname:IsShown() then
+		self.header.nickname.Finish(true)
+	end
 	self.key = key
 	self:UpdateHeader()
 	self:UpdateBanner()
