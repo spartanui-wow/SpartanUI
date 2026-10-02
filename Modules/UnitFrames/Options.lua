@@ -396,26 +396,33 @@ function Options:AddGeneral(OptionSet)
 	}
 end
 
----Add per-frame preview toggle to a frame's option set
+---Add a button that puts the frame width back to the look's own width
 ---@param frameName string
----@param OptionSet AceConfig.OptionsTable
-function Options:AddPreviewToggle(frameName, OptionSet)
-	OptionSet.args.General.args.PreviewToggle = {
-		name = L['Preview this frame'],
-		desc = L['Show this frame with player data so you can see how it looks'],
-		type = 'toggle',
-		order = 0,
-		width = 'full',
-		disabled = function()
-			return InCombatLockdown()
+---@param args table Option args that hold the width option
+---@param order number
+local function AddWidthReset(frameName, args, order)
+	args.resetWidth = {
+		name = L['Reset width'],
+		desc = L["Put this frame's width back to the width the current look uses"],
+		type = 'execute',
+		order = order,
+		hidden = function()
+			return UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].width == nil
 		end,
-		get = function()
-			return UF.TestMode:IsFrameForced(frameName)
-		end,
-		set = function()
-			UF.TestMode:Toggle(frameName)
+		func = function()
+			UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].width = nil
+			UF:Update()
+			LibStub('AceConfigRegistry-3.0'):NotifyChange('SpartanUI')
 		end,
 	}
+end
+
+---Add the width reset button to both places a frame's width is shown
+---@param frameName string
+---@param OptionSet AceConfig.OptionsTable
+function Options:AddWidthResets(frameName, OptionSet)
+	AddWidthReset(frameName, OptionSet.args.General.args.General.args, 2.1)
+	AddWidthReset(frameName, OptionSet.args.StatusBar.args, 0.1)
 end
 
 ---Add position controls to the General tab of a per-frame options page.
@@ -2103,7 +2110,7 @@ function Options:Initialize()
 			UF.Unit[frameName]:UpdateAll()
 		end)
 		Options:AddGeneral(FrameOptSet)
-		Options:AddPreviewToggle(frameName, FrameOptSet)
+		Options:AddWidthResets(frameName, FrameOptSet)
 		Options:AddPosition(frameName, FrameOptSet)
 		Options:AddAuraPresets(frameName, FrameOptSet)
 
@@ -2125,7 +2132,19 @@ function Options:Initialize()
 					local elementConfig = elementData.config
 
 					local ElementSettings = UF.CurrentSettings[frameName].elements[elementName]
-					local UserSetting = UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName]
+					-- Read through to the frame's current look on every use: picking another look changes
+					-- where the player's changes are saved, and these options outlive that change
+					local function LiveUserSetting()
+						return UF.DB.UserSettings[UF:GetPresetForFrame(frameName)][frameName].elements[elementName]
+					end
+					local UserSetting = setmetatable({}, {
+						__index = function(_, key)
+							return LiveUserSetting()[key]
+						end,
+						__newindex = function(_, key, value)
+							LiveUserSetting()[key] = value
+						end,
+					})
 
 					---@type AceConfig.OptionsTable
 					local ElementOptSet = {
@@ -2150,7 +2169,7 @@ function Options:Initialize()
 								type = 'execute',
 								order = 1.5,
 								hidden = function()
-									return not SUI.Options:hasChanges(UserSetting, UF.Unit.defaultConfigs[frameName].elements[elementName])
+									return not SUI.Options:hasChanges(LiveUserSetting(), UF.Unit.defaultConfigs[frameName].elements[elementName])
 								end,
 								func = function()
 									-- Reset the element's settings to default
@@ -2223,11 +2242,15 @@ function Options:Initialize()
 								FilterSet = function() end
 							else
 								-- Classic: full rules-based filtering via classic sub-table
-								local classicSettings = ElementSettings.classic or ElementSettings
-								local classicRules = classicSettings.rules or {}
-								local classicUserSetting = UserSetting.classic or UserSetting
+								local function ClassicSettings()
+									return ElementSettings.classic or ElementSettings
+								end
+								local function ClassicUserSetting()
+									return UserSetting.classic or UserSetting
+								end
 
 								FilterGet = function(info, key)
+									local classicRules = ClassicSettings().rules or {}
 									if info[#info - 1] == 'duration' then
 										return classicRules.duration and classicRules.duration[info[#info]] or false
 									else
@@ -2235,6 +2258,9 @@ function Options:Initialize()
 									end
 								end
 								FilterSet = function(info, key, val)
+									local classicSettings = ClassicSettings()
+									local classicUserSetting = ClassicUserSetting()
+									local classicRules = classicSettings.rules or {}
 									if info[#info - 1] == 'duration' then
 										if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
 											return
@@ -2292,8 +2318,12 @@ function Options:Initialize()
 							}
 
 							-- Whitelist/Blacklist uses classic sub-table
-							local wlClassicSettings = ElementSettings.classic or ElementSettings
-							local wlClassicUserSetting = UserSetting.classic or UserSetting
+							local function WLSettings()
+								return ElementSettings.classic or ElementSettings
+							end
+							local function WLUserSetting()
+								return UserSetting.classic or UserSetting
+							end
 
 							local spellDelete = {
 								type = 'execute',
@@ -2305,6 +2335,7 @@ function Options:Initialize()
 								func = function(info)
 									local id = tonumber(info[#info])
 									local mode = info[#info - 2]
+									local wlClassicSettings, wlClassicUserSetting = WLSettings(), WLUserSetting()
 
 									--Remove Setting
 									if wlClassicSettings[mode] then
@@ -2324,7 +2355,7 @@ function Options:Initialize()
 								local spellsOpt = ElementOptSet.args[mode].args.spells.args
 								table.wipe(spellsOpt)
 
-								local modeTable = wlClassicSettings[mode] or {}
+								local modeTable = WLSettings()[mode] or {}
 								for spellID, _ in pairs(modeTable) do
 									spellsOpt[spellID .. 'label'] = spellLabel
 									spellsOpt[tostring(spellID)] = spellDelete
@@ -2350,6 +2381,7 @@ function Options:Initialize()
 								end
 
 								local mode = info[#info - 1]
+								local wlClassicSettings, wlClassicUserSetting = WLSettings(), WLUserSetting()
 								wlClassicSettings[mode] = wlClassicSettings[mode] or {}
 								wlClassicSettings[mode][spellId] = true
 								wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}

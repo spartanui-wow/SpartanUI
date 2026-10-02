@@ -106,7 +106,15 @@ end
 local function Options(unitName, OptionSet, DB)
 	local L = SUI.L
 	local ElementSettings = UF.CurrentSettings[unitName].elements.AuraWatch
-	local UserSetting = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraWatch
+	-- Resolved on every use: picking another look changes where the player's changes are saved
+	local UserSetting = setmetatable({}, {
+		__index = function(_, key)
+			return UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraWatch[key]
+		end,
+		__newindex = function(_, key, value)
+			UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraWatch[key] = value
+		end,
+	})
 
 	-- Remove Basic Filters (not used by AuraWatch)
 	OptionSet.args.Filters = nil

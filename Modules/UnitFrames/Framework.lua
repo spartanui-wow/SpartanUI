@@ -383,8 +383,29 @@ local function MigrateAuraContainers()
 	end
 end
 
+---Copy fresh settings into the existing tables, keeping each table the same object
+---@param old table
+---@param new table
+local function Refill(old, new)
+	for k in pairs(old) do
+		if new[k] == nil then
+			old[k] = nil
+		end
+	end
+	for k, v in pairs(new) do
+		if type(v) == 'table' and type(old[k]) == 'table' then
+			Refill(old[k], v)
+		else
+			old[k] = v
+		end
+	end
+end
+
 ---Load and merge settings per-frame based on each frame's active preset
 local function LoadDB()
+	-- Options and frames hold on to these tables, so a reload refills them instead of replacing them
+	local previous = UF.CurrentSettings
+
 	-- Step 1: Start with hardcoded defaults for all frames
 	UF.CurrentSettings = SUI:MergeData({}, UF.Unit.defaultConfigs)
 
@@ -437,6 +458,11 @@ local function LoadDB()
 			-- Migration bridge: apply old 'raid' user settings to tier-specific keys
 			UF.CurrentSettings[frameName] = SUI:MergeData(UF.CurrentSettings[frameName], userSettings['raid'], true)
 		end
+	end
+
+	if previous and next(previous) then
+		Refill(previous, UF.CurrentSettings)
+		UF.CurrentSettings = previous
 	end
 
 	SpartanUI.UFdefaultConfigs = UF.Unit.defaultConfigs

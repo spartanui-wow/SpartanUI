@@ -505,12 +505,13 @@ local function Options(unitName, OptionSet)
 		end
 		FilterSet = function() end
 	else
-		local classicSettings = ElementSettings.classic or ElementSettings
-		local classicRules = classicSettings.rules or {}
-		local userAuraBars = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars
-		local classicUserSetting = userAuraBars.classic or userAuraBars
+		local function ClassicUserSetting()
+			local userAuraBars = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars
+			return userAuraBars.classic or userAuraBars
+		end
 
 		FilterGet = function(info, key)
+			local classicRules = (ElementSettings.classic or ElementSettings).rules or {}
 			if info[#info - 1] == 'duration' then
 				return classicRules.duration and classicRules.duration[info[#info]] or false
 			else
@@ -519,6 +520,9 @@ local function Options(unitName, OptionSet)
 		end
 
 		FilterSet = function(info, key, val)
+			local classicSettings = ElementSettings.classic or ElementSettings
+			local classicRules = classicSettings.rules or {}
+			local classicUserSetting = ClassicUserSetting()
 			if info[#info - 1] == 'duration' then
 				if (info[#info] == 'minTime') and classicRules.duration and key > classicRules.duration.maxTime then
 					return
@@ -546,10 +550,6 @@ local function Options(unitName, OptionSet)
 	UF.Options:AddAuraFilters(unitName, OptionSet, FilterSet, FilterGet)
 
 	-- Add whitelist/blacklist options (Classic only - already guarded in AddAuraWhitelistBlacklist)
-	local wlClassicSettings = ElementSettings.classic or ElementSettings
-	local wlUserAuraBars = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars
-	local wlClassicUserSetting = wlUserAuraBars.classic or wlUserAuraBars
-
 	local additem = function(info, input)
 		local spellId
 		if type(input) == 'string' then
@@ -570,6 +570,9 @@ local function Options(unitName, OptionSet)
 		end
 
 		local mode = info[#info - 1]
+		local wlClassicSettings = ElementSettings.classic or ElementSettings
+		local wlUserAuraBars = UF.DB.UserSettings[UF:GetPresetForFrame(unitName)][unitName].elements.AuraBars
+		local wlClassicUserSetting = wlUserAuraBars.classic or wlUserAuraBars
 		wlClassicSettings[mode] = wlClassicSettings[mode] or {}
 		wlClassicSettings[mode][spellId] = true
 		wlClassicUserSetting[mode] = wlClassicUserSetting[mode] or {}
