@@ -1,4 +1,5 @@
 local UF = SUI.UF
+local canAccess = SUI.BlizzAPI.canaccessvalue
 
 -- Forward declaration: Build and Update call this before its definition below.
 local GetDefaultWatched
@@ -58,18 +59,24 @@ local function Build(frame, DB)
 
 		-- Hide when unit is in a different phase
 		if DB.hideWhenPhased and unit and UnitPhaseReason then
-			local phaseReason = UnitIsPlayer(unit) and UnitIsConnected(unit) and UnitPhaseReason(unit) or nil
-			if phaseReason then
-				button:Hide()
-				return
+			local isPlayer = UnitIsPlayer(unit)
+			local connected = UnitIsConnected(unit)
+			if canAccess(isPlayer) and canAccess(connected) and isPlayer and connected then
+				local phaseReason = UnitPhaseReason(unit)
+				if canAccess(phaseReason) and phaseReason then
+					button:Hide()
+					return
+				end
 			end
 		end
 
 		-- Hide when unit is out of range (only works for party/raid members)
-		if DB.hideWhenOutOfRange and unit and UnitIsConnected(unit) and UnitInParty(unit) then
-			local inRange = UnitInRange(unit)
-			if not SUI.BlizzAPI or SUI.BlizzAPI.canaccessvalue(inRange) then
-				if not inRange then
+		if DB.hideWhenOutOfRange and unit then
+			local connected = UnitIsConnected(unit)
+			local inParty = UnitInParty(unit)
+			if canAccess(connected) and canAccess(inParty) and connected and inParty then
+				local inRange = UnitInRange(unit)
+				if canAccess(inRange) and not inRange then
 					button:Hide()
 					return
 				end
