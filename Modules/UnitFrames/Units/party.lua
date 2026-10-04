@@ -16,7 +16,7 @@ local elementList = {
 	UF.IsModernOUF and 'CustomAuras',
 	'ClassIcon',
 	'RaidTargetIndicator',
-	'TargetIndicator',
+	'TargetHighlight',
 	'ThreatIndicator',
 	'Range',
 	'Fader',
@@ -393,7 +393,7 @@ local Settings = {
 			},
 			size = 15,
 		},
-		TargetIndicator = {
+		TargetHighlight = {
 			enabled = true,
 			ShowTarget = true,
 			mode = 'border',
@@ -408,7 +408,6 @@ local Settings = {
 				size = 2,
 				color = { 1, 1, 0, 1 },
 				sides = { top = true, bottom = true, left = true, right = true },
-				displayLevel = 5,
 			},
 		},
 		DefensiveIndicator = {

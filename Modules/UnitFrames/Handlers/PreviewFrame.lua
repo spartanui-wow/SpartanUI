@@ -25,6 +25,7 @@ local PREVIEW_ELEMENTS = {
 	'RestingIndicator',
 	'CombatIndicator',
 	'ReadyCheckIndicator',
+	'TargetHighlight',
 }
 
 -- Indicators are normally shown by game state (in combat, resting, raid mark). The preview
@@ -654,6 +655,7 @@ local function CreatePreviewFrame(frameName, index)
 	-- Mock data
 	f.mockData = UF.TestMode.GetMockData(index)
 	f.isPreview = true
+	f.previewIndex = index
 
 	-- BackgroundBorder instance tracking
 	f._bgInstanceID = 'Preview_' .. frameName .. '_' .. index

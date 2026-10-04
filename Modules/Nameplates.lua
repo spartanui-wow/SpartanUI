@@ -49,7 +49,7 @@ local ElementList = {
 	'Name',
 	'Runes',
 	'ClassPower',
-	'TargetIndicator',
+	'TargetHighlight',
 }
 ---@type table<SUI.UF.Elements.list, SUI.UF.Elements.Settings>
 local ElementDefaults = {
@@ -310,7 +310,7 @@ local NamePlateFactory = function(frame, unit)
 		BuildElement(frame, 'Castbar')
 		frame.Castbar:SetWidth(module.DB.width)
 
-		BuildElement(frame, 'TargetIndicator')
+		BuildElement(frame, 'TargetHighlight')
 		BuildElement(frame, 'WidgetXPBar')
 
 		BuildElement(frame, 'PvPIndicator')
@@ -828,7 +828,7 @@ function module:OnInitialize()
 					y = -2,
 				},
 			},
-			TargetIndicator = {
+			TargetHighlight = {
 				enabled = true,
 				ShowTarget = true,
 				mode = 'texture',
@@ -843,7 +843,6 @@ function module:OnInitialize()
 					size = 2,
 					color = { 1, 1, 0, 1 },
 					sides = { top = true, bottom = true, left = true, right = true },
-					displayLevel = 5,
 				},
 			},
 		},
@@ -852,6 +851,14 @@ function module:OnInitialize()
 	module.DB = module.Database.profile ---@type SUI.NamePlates.Settings
 
 	SUI.DBM:RegisterSequentialProfileRefresh(module)
+
+	-- The target indicator element was renamed TargetHighlight
+	local savedElements = rawget(module.DB, 'elements')
+	local oldIndicator = savedElements and rawget(savedElements, 'TargetIndicator')
+	if type(oldIndicator) == 'table' then
+		savedElements.TargetHighlight = SUI:MergeData(rawget(savedElements, 'TargetHighlight'), oldIndicator, true)
+		savedElements.TargetIndicator = nil
+	end
 
 	-- Migrate old settings
 	if SUI.DB.Nameplates then

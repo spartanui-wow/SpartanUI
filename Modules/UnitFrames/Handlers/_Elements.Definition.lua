@@ -103,6 +103,7 @@ local ElementTextData = {
 ---|"ResurrectIndicator"
 ---|"Runes"
 ---|"SpartanArt"
+---|"TargetHighlight"
 ---|"StatusText"
 ---|"SUI_RaidGroup"
 ---|"ThreatIndicator"
@@ -136,6 +137,7 @@ local ElementTextData = {
 ---@field RareElite ElementProps
 ---@field ReadyCheckIndicator ElementProps
 ---@field RestingIndicator ElementProps
+---@field TargetHighlight ElementProps
 ---@field ResurrectIndicator ElementProps
 ---@field Runes ElementProps
 ---@field SpartanArt ElementProps

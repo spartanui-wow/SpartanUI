@@ -20,6 +20,7 @@ local elementList = {
 	UF.IsModernOUF and 'CustomAuras',
 	'ClassIcon',
 	'RaidTargetIndicator',
+	'TargetHighlight',
 	'Range',
 	'Fader',
 	'PVPSpecIcon',

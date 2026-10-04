@@ -469,9 +469,36 @@ local function LoadDB()
 	SpartanUI.UFCurrentSettings = UF.CurrentSettings
 end
 
+---The target indicator element was renamed TargetHighlight (oUF now ships its own
+---TargetIndicator). Move each frame's saved changes to the new name.
+local function MigrateTargetHighlight()
+	if UF.DB._targetHighlightMigrated then
+		return
+	end
+	for _, presetSettings in pairs(UF.DB.UserSettings or {}) do
+		if type(presetSettings) == 'table' then
+			for _, frameSettings in pairs(presetSettings) do
+				local elements = type(frameSettings) == 'table' and rawget(frameSettings, 'elements')
+				local old = type(elements) == 'table' and rawget(elements, 'TargetIndicator')
+				if type(old) == 'table' then
+					old.targetColor = nil
+					if type(old.border) == 'table' then
+						old.border.displayLevel = nil
+					end
+					elements.TargetHighlight = SUI:MergeData(rawget(elements, 'TargetHighlight'), old, true)
+					elements.TargetIndicator = nil
+				end
+			end
+		end
+	end
+	UF.DB._targetHighlightMigrated = true
+end
+
 ---Bring the active profile's unit frame data up to the current format.
 ---Every step is guarded, so it is safe to run again on a profile switch.
 local function MigrateProfile()
+	MigrateTargetHighlight()
+
 	-- Migrate from legacy single-style to per-frame presets
 	MigrateFromLegacy()
 

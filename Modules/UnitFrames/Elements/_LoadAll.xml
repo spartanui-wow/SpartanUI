@@ -50,7 +50,7 @@
 	<Script file="StatusText.lua"/>
 	<Script file="SUI_RaidGroup.lua"/>
 	<Script file="SummonIndicator.lua"/>
-	<Script file="TargetIndicator.lua"/>
+	<Script file="TargetHighlight.lua"/>
 	<Script file="ThreatIndicator.lua"/>
 	<!-- <Script file="Totems.lua"/> TODO: 12.0.5 check on status of these https://github.com/oUF-wow/oUF/issues/767 -->
 	<Script file="WidgetXPBar.lua"/>

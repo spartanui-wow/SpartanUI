@@ -13,6 +13,7 @@ end
 -- Large parts first: later parts get the higher click layer
 local PARTS = {
 	'FrameBackground',
+	'TargetHighlight',
 	'Portrait',
 	'Health',
 	'Power',

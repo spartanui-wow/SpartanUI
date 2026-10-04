@@ -14,6 +14,7 @@ local elementList = {
 	UF.IsModernOUF and 'DebuffContainer',
 	UF.IsModernOUF and 'CustomAuras',
 	'RaidTargetIndicator',
+	'TargetHighlight',
 	'Range',
 	'Fader',
 	'ThreatIndicator',

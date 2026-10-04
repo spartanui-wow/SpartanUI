@@ -87,7 +87,7 @@ libs\oUF_Classic\oUF_Wrath.xml [AllowLoadGameType wrath, cata, mists]
 # oUF Plugins - SpartanUI maintained
 Core\oUF_Plugins\HotsListing.lua
 Core\oUF_Plugins\Tags.lua [AllowLoadGameType mainline]
-Core\oUF_Plugins\TargetIndicator.lua
+Core\oUF_Plugins\TargetHighlight.lua
 Core\oUF_Plugins\LevelSkull.lua
 Core\oUF_Plugins\RareElite.lua
 Core\oUF_Plugins\SUI_RaidGroup.lua
