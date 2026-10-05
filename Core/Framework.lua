@@ -351,6 +351,60 @@ local function reloaduiWindow()
 	SUI.reloaduiWindow = popup
 end
 
+---This character's profile key, worked out the way AceDB does, or nil while the client does not
+---know the character's name yet
+---@return string|nil
+local function LiveCharacterKey()
+	local unknown = _G.UNKNOWNOBJECT or 'Unknown'
+	local name, surname = UnitNameUnmodified('player')
+	if not name or name == '' or name == unknown then
+		return nil
+	end
+	if RegionalUniqueNamesEnabled and RegionalUniqueNamesEnabled() then
+		return surname and (name .. ' ' .. tostring(surname)) or name
+	end
+	return name .. ' - ' .. GetRealmName()
+end
+
+---On a new character's first login some clients (WoW Forever) do not know the character's name
+---when saved variables load, so AceDB files the character under "Unknown": a profile every new
+---character then shares, already set up by the first one. Once the name is known, give this
+---character its own profile (or keep the one the player picked) and forget the placeholder.
+---@return boolean settled true when there is nothing left to fix
+function SUI:ClaimCharacterProfile()
+	local db = SUI.SpartanUIDB
+	local placeholder = db and db.keys and db.keys.char
+	local unknown = _G.UNKNOWNOBJECT or 'Unknown'
+	if type(placeholder) ~= 'string' or not (placeholder == unknown or placeholder:find('^' .. unknown .. ' %- ')) then
+		return true
+	end
+	local live = LiveCharacterKey()
+	if not live then
+		return false
+	end
+	local keys = db.sv.profileKeys
+	if db:GetCurrentProfile() == placeholder then
+		db:SetProfile(live)
+	elseif keys then
+		keys[live] = db:GetCurrentProfile()
+	end
+	if keys then
+		keys[placeholder] = nil
+	end
+	db.keys.char = live
+	-- The placeholder profile only held other characters' first sessions; drop it once nobody uses it
+	local inUse = false
+	for _, profile in pairs(keys or {}) do
+		if profile == placeholder then
+			inUse = true
+		end
+	end
+	if not inUse and db.sv.profiles and db.sv.profiles[placeholder] then
+		db:DeleteProfile(placeholder, true)
+	end
+	return true
+end
+
 function SUI:OnInitialize()
 	if not SpartanUICharDB then
 		SpartanUICharDB = {}
@@ -358,6 +412,20 @@ function SUI:OnInitialize()
 	SUI.CharDB = SpartanUICharDB
 
 	SUI.SpartanUIDB = SUI.Lib.AceDB:New('SpartanUIDB', DBdefaults)
+	-- Before anything reads the profile or listens for profile changes, so a switch here is free
+	if not SUI:ClaimCharacterProfile() then
+		-- Still nameless: switch once the world loads, like a profile change from the options
+		local waiter = CreateFrame('Frame')
+		waiter:RegisterEvent('PLAYER_ENTERING_WORLD')
+		waiter:SetScript('OnEvent', function(self)
+			if SUI:ClaimCharacterProfile() then
+				self:UnregisterAllEvents()
+				if SUI.Setup and SUI.DB and SUI.DB.SetupWizard then
+					SUI.Setup.freshProfile = SUI.DB.SetupWizard.FirstLaunch == true
+				end
+			end
+		end)
+	end
 
 	-- SUI.DB Access
 	SUI.DBG = SUI.SpartanUIDB.global
