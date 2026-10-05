@@ -218,7 +218,10 @@ local function RegisterSetupWizardPages()
 		hidden = function()
 			return not SUI.Setup:IsStartingFresh()
 		end,
-		onLeave = function()
+		onLeave = function(ctx)
+			if ctx and ctx.closing then
+				return
+			end
 			SUI.Setup:EnsureWelcomeDone()
 		end,
 		cards = BuildLookCards(),

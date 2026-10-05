@@ -356,7 +356,11 @@ function module:RegisterWelcomeSteps()
 				end)
 			end,
 		},
-		onLeave = function()
+		-- Closing the window (or the game closing it) is not passing the welcome
+		onLeave = function(ctx)
+			if ctx and ctx.closing then
+				return
+			end
 			module:OnLeaveWelcome(welcomeMode == 'fresh')
 		end,
 	})
@@ -649,8 +653,8 @@ function module:RegisterHelpersStep()
 			end
 		end,
 		-- A new profile keeps the recommended switches the player saw, even untouched ones
-		onLeave = function()
-			if not module.freshProfile then
+		onLeave = function(ctx)
+			if (ctx and ctx.closing) or not module.freshProfile then
 				return
 			end
 			for key, item in pairs(helperByKey) do
