@@ -69,10 +69,8 @@ function Overlay.New(parent)
 	edge:SetWidth(2)
 	self.edge = edge
 
-	clip:SetScript('OnSizeChanged', function(_, width)
-		if width and canaccess(width) and width > 0 then
-			marker:SetWidth(width)
-		end
+	clip:SetScript('OnSizeChanged', function()
+		self:FitWidth()
 	end)
 
 	local window = CreateFrame('Frame', nil, parent)
@@ -126,10 +124,8 @@ function Overlay:Attach(bar, iconAnchor, iconPoint, iconRelative, x, y, look)
 		marker:SetPoint('RIGHT', fill, 'RIGHT')
 	end
 	marker:SetReverseFill(not reversed)
-	local width = bar:GetWidth()
-	if width and canaccess(width) and width > 0 then
-		marker:SetWidth(width)
-	end
+	self.width = nil
+	self:FitWidth()
 
 	marker:SetStatusBarTexture(SUI.UF:FindStatusBarTexture(look.texture))
 	local c = look.color
@@ -172,6 +168,21 @@ function Overlay:Attach(bar, iconAnchor, iconPoint, iconRelative, x, y, look)
 	end
 end
 
+---Size the marker to the health bar. Measured on the clip frame: a health bar holding a secret
+---value can report its own size as secret, the clip frame laid over it never holds one.
+---@return number|nil width
+function Overlay:FitWidth()
+	local width = self.clip:GetWidth()
+	if width and canaccess(width) and width > 0 then
+		if width ~= self.width then
+			self.width = width
+			self.marker:SetWidth(width)
+		end
+		return width
+	end
+	return nil
+end
+
 ---Draw: `health` and `maxHealth` may be secret, `remaining` is a plain number
 ---@param health number
 ---@param maxHealth number
@@ -183,6 +194,8 @@ function Overlay:Show(health, maxHealth, remaining)
 	self.marker:SetMinMaxValues(0, maxHealth)
 	self.marker:SetValue(remaining)
 	self.clip:Show()
+	-- A hidden frame may not have been sized yet
+	self:FitWidth()
 	if self.showIcon then
 		self.killBar:SetMinMaxValues(0, health)
 		self.killBar:SetValue(remaining)
