@@ -184,8 +184,20 @@ function MoveIt:SetMoverScale(mover, value)
 	end
 	value = value or mover.defaultScale or 1
 	value = math.max(0.25, math.min(3, value))
+	-- A frame scales around its anchor point, so anything placed with an offset drifts as it grows.
+	-- Keep its centre where it was on screen and save that spot.
+	local cx, cy = mover:GetCenter()
+	local oldScale = mover:GetEffectiveScale()
 	mover:SetScale(value)
 	mover.parent:SetScale(value)
+	local nx, ny = mover:GetCenter()
+	local point, anchor, relativePoint, x, y = mover:GetPoint(1)
+	if cx and nx and point then
+		local ratio = oldScale / mover:GetEffectiveScale()
+		mover:ClearAllPoints()
+		mover:SetPoint(point, anchor, relativePoint, (x or 0) + cx * ratio - nx, (y or 0) + cy * ratio - ny)
+		self:SaveMover(mover)
+	end
 	if math.abs(value - (mover.defaultScale or 1)) < 0.001 then
 		self.DB.movers[mover.name].AdjustedScale = nil
 	else

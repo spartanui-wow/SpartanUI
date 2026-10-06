@@ -2654,6 +2654,18 @@ function module:RefreshButtonBag()
 	end
 end
 
+---The map is drawn by MinimapCluster, which is not inside our holder. Keep it at the mover's scale so
+---the map is exactly what the mover shows, and scaling the mover scales the map.
+local function MatchClusterScale()
+	local mover = SUIMinimap.mover
+	if not mover or InCombatLockdown() or not SUI:IsAddonDisabled('SexyMap') then
+		return
+	end
+	if math.abs(MinimapCluster:GetScale() - mover:GetScale()) > 0.001 then
+		MinimapCluster:SetScale(mover:GetScale())
+	end
+end
+
 function module:CreateMover()
 	-- Ensure SUIMinimap has a size before creating the mover
 	if SUIMinimap:GetWidth() == 0 or SUIMinimap:GetHeight() == 0 then
@@ -2662,6 +2674,12 @@ function module:CreateMover()
 	end
 
 	MoveIt:CreateMover(SUIMinimap, 'Minimap')
+	-- The mover scales the holder; the map follows
+	if not SUIMinimap.SUI_ScaleHooked then
+		SUIMinimap.SUI_ScaleHooked = true
+		hooksecurefunc(SUIMinimap, 'SetScale', MatchClusterScale)
+	end
+	MatchClusterScale()
 end
 
 function module:SwitchMinimapPosition(inVehicle)
@@ -2847,9 +2865,12 @@ function module:UpdateScale()
 		local scale = max(SUI.DB.scale, 0.01)
 		if SUIMinimap.scale then
 			SUIMinimap:scale(scale)
-			MinimapCluster:SetScale(scale)
 		else
 			SUIMinimap:SetScale(scale)
+		end
+		if SUIMinimap.mover then
+			MatchClusterScale()
+		else
 			MinimapCluster:SetScale(scale)
 		end
 	end
