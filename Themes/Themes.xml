@@ -20,4 +20,6 @@
 	<Script file="Atlas\Style.lua"/>
 	<Script file="Boughs\Style.lua"/>
 	<Script file="Meridian\Style.lua"/>
+	<Script file="Shard\Style.lua"/>
+	<Script file="Lamina\Style.lua"/>
 </Ui>

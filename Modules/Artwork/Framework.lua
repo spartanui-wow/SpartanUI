@@ -105,8 +105,9 @@ end
 
 -- Looks offered in setup, newest first; the rest follow in the order players pick them most
 -- Popular first, then new, then the rest
-local SETUP_LOOKS = { 'War', 'Classic', 'Atlas', 'Boughs', 'Meridian', 'ModernFlat', 'HealerGrid', 'ClassicDark', 'Midnight', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }
-local SETUP_TAGS = { Atlas = 'New', Boughs = 'New', Meridian = 'New', ModernFlat = 'New', HealerGrid = 'New', ClassicDark = 'New', War = 'Popular', Classic = 'Popular' }
+local SETUP_LOOKS =
+	{ 'War', 'Classic', 'Shard', 'Lamina', 'Atlas', 'Boughs', 'Meridian', 'ModernFlat', 'HealerGrid', 'ClassicDark', 'Midnight', 'Fel', 'Digital', 'Arcane', 'Minimal', 'Tribal', 'Transparent' }
+local SETUP_TAGS = { Shard = 'New', Lamina = 'New', Atlas = 'New', Boughs = 'New', Meridian = 'New', ModernFlat = 'New', HealerGrid = 'New', ClassicDark = 'New', War = 'Popular', Classic = 'Popular' }
 
 ---Setup cards for every look, built from the theme registry
 ---@return table[]

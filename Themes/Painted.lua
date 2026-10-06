@@ -614,6 +614,54 @@ function Painted.GetVariant(name)
 	return variant == 'corner' and 'corner' or 'docked'
 end
 
+-- Looks registered with cornerMinimapScale show the top right map (and its bezel) that much larger
+Painted.cornerScale = {}
+
+---How much larger the map is drawn than the layout's size, for the look's current variant
+---@param name string
+---@return number
+function Painted.MinimapScale(name)
+	if Painted.GetVariant(name) == 'corner' then
+		return Painted.cornerScale[name] or 1
+	end
+	return 1
+end
+
+-- Art units the top right map grows past its scaled size, so it meets the bezel's inner edge
+Painted.cornerPad = {}
+
+---The map's size for the look's current variant, in art units
+---@param name string
+---@return number
+function Painted.MinimapSize(name)
+	local size = L.minimap.size * Painted.MinimapScale(name)
+	if Painted.GetVariant(name) == 'corner' then
+		size = size + (Painted.cornerPad[name] or 0)
+	end
+	return size
+end
+
+---The top right bezel rides on the map itself, so it follows the map wherever the player moves or
+---scales it. Its size keeps the painted ratio to the map's real size on screen.
+---@param name string
+function Painted.FitBezel(name)
+	local art = _G['SUI_Art_' .. name]
+	local bezel = art and art.MinimapBezel
+	local map = _G.Minimap
+	if not bezel or not map or Painted.GetVariant(name) ~= 'corner' then
+		return
+	end
+	local width = map:GetWidth()
+	if not width or width <= 0 then
+		return
+	end
+	local mapSize = width * map:GetEffectiveScale() / bezel:GetParent():GetEffectiveScale()
+	local size = L.cornerMinimap.bezel * Painted.MinimapScale(name) * mapSize / Painted.MinimapSize(name)
+	bezel:ClearAllPoints()
+	bezel:SetPoint('CENTER', map, 'CENTER', 0, 0)
+	bezel:SetSize(size, size)
+end
+
 ---The minimap module hangs its holder (taller than the map, with room for the zone text) from the
 ---top left of its mover, and re-attaches it there on every refresh. Measure where the map sits below
 ---the holder's top left and put the MOVER there, so the module's own refreshes land the map's centre
@@ -690,14 +738,32 @@ function Painted.QueueAlignMinimap(name)
 	C_Timer.After(0, function()
 		alignQueued[name] = nil
 		Painted.AlignMinimap(name)
+		if Painted.active == name then
+			Painted.FitBezel(name)
+		end
 	end)
 end
 
 ---@param name string
 local function RefreshMinimap(name)
 	local module = SUI:GetModule('Minimap', true)
-	if module and module.UpdatePosition and not InCombatLockdown() then
-		module:UpdatePosition()
+	if module and not InCombatLockdown() then
+		-- The map's size follows the variant, unless the player set a size of their own. The module
+		-- rebuilds its settings from the look's data on every refresh, so the size goes there too.
+		local custom = module.DB and rawget(module.DB, 'customSettings')
+		custom = custom and rawget(custom, name)
+		local size = Painted.MinimapSize(name)
+		local data = SUI.ThemeRegistry:GetData(name)
+		if data and data.minimap then
+			data.minimap.size = { size, size }
+		end
+		if module.Settings and module.UpdateMinimapSize and not (custom and rawget(custom, 'size')) then
+			module.Settings.size = { size, size }
+			module:UpdateMinimapSize()
+		end
+		if module.UpdatePosition then
+			module:UpdatePosition()
+		end
 	end
 	Painted.AlignMinimap(name)
 end
@@ -773,6 +839,9 @@ function Painted.ApplyVariant(name, root)
 	art.Left:SetTexture(root .. 'Bottom-Left' .. suffix .. '.png')
 	art.Right:SetTexture(root .. 'Bottom-Right' .. suffix .. '.png')
 	local socket = _G[SocketName(name, 'Minimap')]
+	local scale = Painted.MinimapScale(name)
+	socket:SetSize(Painted.MinimapSize(name), Painted.MinimapSize(name))
+	art.MinimapBezel:SetSize(L.cornerMinimap.bezel * scale, L.cornerMinimap.bezel * scale)
 	socket:ClearAllPoints()
 	if corner then
 		socket:SetPoint('TOPRIGHT', UIParent, 'TOPRIGHT', L.cornerMinimap.x, L.cornerMinimap.y)
@@ -783,6 +852,7 @@ function Painted.ApplyVariant(name, root)
 	end
 	if Painted.active == name then
 		RefreshMinimap(name)
+		Painted.FitBezel(name)
 	end
 end
 
@@ -854,7 +924,7 @@ end
 ---@return table
 local function MinimapSettings(name)
 	local position = 'CENTER,' .. SocketName(name, 'Minimap') .. ',CENTER,0,0'
-	local size = { L.minimap.size, L.minimap.size }
+	local size = { Painted.MinimapSize(name), Painted.MinimapSize(name) }
 	if SUI.BlizzAPI.HasModernMinimap() then
 		return {
 			position = position,
@@ -928,8 +998,18 @@ function Painted.Register(spec)
 
 	Painted.narrow[name] = spec.narrowCentre or nil
 	Painted.inner[name] = spec.portraits == 'inner' or nil
+	Painted.cornerScale[name] = spec.cornerMinimapScale
+	Painted.cornerPad[name] = spec.cornerMinimapPad
 
 	function module:OnInitialize()
+		-- The first variant is the look's default
+		local variants = {
+			{ id = 'docked', label = SUI.L['Minimap in the bar'] },
+			{ id = 'corner', label = SUI.L['Minimap top right'] },
+		}
+		if spec.defaultVariant == 'corner' then
+			variants[1], variants[2] = variants[2], variants[1]
+		end
 		SUI.ThemeRegistry:Register({
 			name = name,
 			displayName = spec.displayName,
@@ -939,10 +1019,7 @@ function Painted.Register(spec)
 			accent = spec.accent,
 			kit = spec.kit,
 			applicableTo = { player = true, target = true },
-			variants = {
-				{ id = 'docked', label = SUI.L['Minimap in the bar'] },
-				{ id = 'corner', label = SUI.L['Minimap top right'] },
-			},
+			variants = variants,
 			variantCallback = function()
 				Painted.ApplyVariant(name, root)
 			end,
@@ -1027,6 +1104,15 @@ function Painted.Register(spec)
 						end
 					end)
 				end
+			end
+			-- Scaling the map's mover scales its holder; the bezel follows
+			local holder = _G.SUI_Minimap
+			if holder then
+				hooksecurefunc(holder, 'SetScale', function()
+					if Painted.active then
+						Painted.QueueAlignMinimap(Painted.active)
+					end
+				end)
 			end
 			-- The game can also resize the map after login; follow it
 			local map = _G.Minimap

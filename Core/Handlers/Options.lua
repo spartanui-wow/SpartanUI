@@ -213,6 +213,8 @@ function module:OnInitialize()
 		'Atlas',
 		'Boughs',
 		'Meridian',
+		'Shard',
+		'Lamina',
 	}
 
 	local function DisplayName(skin)

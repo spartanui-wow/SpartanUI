@@ -107,19 +107,20 @@ def draw_buttons(canvas, sc, lay, images, shift=0, theme=None):
                     d.rectangle(inner, outline=(shade + 40, shade + 30, shade + 10, 255), width=1)
 
 
-def draw_minimap(canvas, sc, lay, images=None, corner=False):
+def draw_minimap(canvas, sc, lay, images=None, corner=False, corner_scale=1, corner_pad=0):
     mm = lay['minimap']
     if corner:
-        # Socket's top right corner at the screen's top right plus the layout offset
+        # Socket's top right corner at the screen's top right plus the layout offset; looks with
+        # cornerMinimapScale draw the map and bezel that much larger (Painted.MinimapScale)
         c = lay['cornerMinimap']
         right = sc.w + c['x'] * sc.px
         top = -c['y'] * sc.px
-        size = mm['size'] * sc.px
+        size = (mm['size'] * corner_scale + corner_pad) * sc.px
         box = [right - size, top, right, top + size]
         bezel_path = images and os.path.join(images, 'Minimap.png')
         if bezel_path and os.path.exists(bezel_path):
             cx, cy = (box[0] + box[2]) / 2, (box[1] + box[3]) / 2
-            half = c['bezel'] * sc.px / 2
+            half = c['bezel'] * corner_scale * sc.px / 2
             paste_scaled(canvas, Image.open(bezel_path).convert('RGBA'), [cx - half, cy - half, cx + half, cy + half])
     else:
         box = sc.rect(mm['x'] - mm['size'] / 2, mm['y'] - mm['size'] / 2, mm['x'] + mm['size'] / 2, mm['y'] + mm['size'] / 2)
@@ -180,29 +181,34 @@ def draw_plate(canvas, sc, lay, image, left, bottom, width, height, mirrored=Fal
             paste_scaled(canvas, tile, sc.rect(dx[col], dy[row + 1], dx[col + 1], dy[row]))
 
 
-def draw_unitframe(canvas, sc, lay, images, unit, portrait=True, spec=None):
+def draw_unitframe(canvas, sc, lay, images, unit, portrait=True, spec=None, inner=False):
     spec = spec or {}
     plate_info = lay['plate']
     frames = lay['frames']
     spot = frames[unit]
     width, height = frames['width'], lay['frameHeight']
-    left, bottom = spot['x'] - width / 2, spot['y'] - height / 2
+    # Inner portraits face the minimap, so both frames move out (Painted.FrameSpot)
+    x = spot['x'] + ((-1 if spot['x'] < 0 else 1) * frames['innerShift'] if inner else 0)
+    left, bottom = x - width / 2, spot['y'] - height / 2
     top = bottom + height
     is_target = unit == 'target'
+    # The ring sits on the frame's right end for the target, or for the player with inner portraits
+    # (Painted.PortraitEdge); the picture has its ring on the left, so a right-end ring is mirrored
+    ring_right = is_target != inner
     path = os.path.join(images, 'UnitFrame-NoPortrait.png')
     mount = lay['mount']
     mount_path = os.path.join(images, 'UnitFrame-Mount.png')
     if portrait and os.path.exists(mount_path):
         # Mount uses the plate's picture scale; PlacePortrait sizes the face separately.
         art = Image.open(mount_path).convert('RGBA')
-        if is_target:
+        if ring_right:
             art = art.transpose(Image.FLIP_LEFT_RIGHT)
         size = mount['file'] * plate_info['width'] / plate_info['file']['width']
-        rx = left + mount['x'] if not is_target else left + width - mount['x']
+        rx = left + mount['x'] if not ring_right else left + width - mount['x']
         ry = bottom + height / 2
         paste_scaled(canvas, art, sc.rect(rx - size / 2, ry - size / 2, rx + size / 2, ry + size / 2))
     if os.path.exists(path):
-        draw_plate(canvas, sc, lay, Image.open(path).convert('RGBA'), left, bottom, width, height, is_target)
+        draw_plate(canvas, sc, lay, Image.open(path).convert('RGBA'), left, bottom, width, height, ring_right)
     d = ImageDraw.Draw(canvas)
     # Bars, inset inside the plate's window: power along the
     # bottom, health over everything above it, the cast bar over the power bar
@@ -223,7 +229,7 @@ def draw_unitframe(canvas, sc, lay, images, unit, portrait=True, spec=None):
         return
     # Round portrait
     p = lay['mount']
-    cx = left + p['x'] if not is_target else left + width - p['x']
+    cx = left + p['x'] if not ring_right else left + width - p['x']
     cy = bottom + height / 2
     size = int(round(p['size'] * sc.px))
     pcx, pcy = sc.pt(cx, cy)
@@ -241,7 +247,7 @@ def draw_unitframe(canvas, sc, lay, images, unit, portrait=True, spec=None):
     canvas.alpha_composite(face, (box[0], box[1]))
 
 
-def render(images, out, size, bg=None, accent=(150, 110, 230), variant='docked', portrait=True, narrow=False, theme=None):
+def render(images, out, size, bg=None, accent=(150, 110, 230), variant='docked', portrait=True, narrow=False, theme=None, inner=False):
     lay = layout()
     sc = Screen(*size)
     canvas = background(size, bg)
@@ -255,19 +261,20 @@ def render(images, out, size, bg=None, accent=(150, 110, 230), variant='docked',
         img = Image.open(path).convert('RGBA')
         x1 = -art['halfWidth'] if side == 'left' else 0
         paste_scaled(canvas, img, sc.rect(x1, 0, x1 + art['halfWidth'], art['height']))
-    draw_minimap(canvas, sc, lay, images, corner)
-    nc = lay['narrowCentre']
-    shift = nc['plaque'] - nc['keep'] if corner and narrow else 0
     from layout import ROOT, theme_from_images, theme_spec
 
     look = theme or theme_from_images(images)
     spec = theme_spec(look)
+    draw_minimap(canvas, sc, lay, images, corner, spec.get('cornerMinimapScale', 1) or 1, spec.get('cornerMinimapPad', 0) or 0)
+    nc = lay['narrowCentre']
+    shift = nc['plaque'] - nc['keep'] if corner and narrow else 0
     style = os.path.join(ROOT, 'Themes', look, 'Style.lua') if look else None
     narrow_look = bool(style and os.path.exists(style) and 'narrowCentre = true' in open(style, encoding='utf-8').read())
     draw_statusbars(canvas, sc, lay, images, accent, shift, narrow_look)
     draw_buttons(canvas, sc, lay, images, shift, look)
+    inner = inner or spec.get('portraits') == 'inner'
     for unit in ('player', 'target'):
-        draw_unitframe(canvas, sc, lay, images, unit, portrait, spec)
+        draw_unitframe(canvas, sc, lay, images, unit, portrait, spec, inner)
     canvas.convert('RGB').save(out)
     return out
 
@@ -282,9 +289,10 @@ def main():
     parser.add_argument('--variant', default='docked', choices=('docked', 'corner'))
     parser.add_argument('--noportrait', action='store_true')
     parser.add_argument('--narrow', action='store_true', help='the look closes up its centre with the minimap top right')
+    parser.add_argument('--inner', action='store_true', help="portrait rings on the frames' inner ends, facing the minimap (portraits = 'inner')")
     args = parser.parse_args()
     size = tuple(int(v) for v in args.size.lower().split('x'))
-    render(args.images, args.out, size, args.background, tuple(int(v) for v in args.accent.split(',')), args.variant, not args.noportrait, args.narrow)
+    render(args.images, args.out, size, args.background, tuple(int(v) for v in args.accent.split(',')), args.variant, not args.noportrait, args.narrow, None, args.inner)
     print(args.out)
 
 

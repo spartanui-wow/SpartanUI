@@ -399,6 +399,60 @@ function WindowKits:Register()
 		assets = LookAssets('atlas', { width = 160, height = 40, overlap = 12 }),
 	})
 
+	-- Painted look: shard
+	Register('shard', {
+		name = 'Shard',
+		layout = PAINTED_LAYOUT,
+		backdropAspect = 2,
+		backdropDim = 0.32,
+		windowSurfaceAlpha = 0.1,
+		materialAlpha = 0.12,
+		colors = {
+			surface = { [0] = Hex('10161A', 0.94), [1] = Hex('181E22', 0.88), [2] = Hex('232A2E', 0.94), [3] = Hex('30363A', 0.98) },
+			bar = Hex('141B20', 0.92),
+			text = Hex('F5F2E8'),
+			secondary = Hex('C4CFD5'),
+			muted = Hex('929EA5'),
+			trim = Hex('626C71'),
+			trimHi = Hex('99A2A6'),
+			path = Hex('66737B'),
+			pathAhead = Hex('303A40'),
+			tick = Hex('A4B0B6'),
+		},
+		button = {
+			primary = { top = Hex('66767F'), bottom = Hex('39474F'), edge = Hex('99A2A6'), text = Hex('F5F2E8') },
+			secondary = { top = Hex('303A40'), bottom = Hex('181F24'), edge = Hex('626C71'), text = Hex('E6E9E8') },
+		},
+		assets = LookAssets('shard', { width = 128, height = 64, overlap = 16 }),
+	})
+
+	-- Painted look: lamina
+	Register('lamina', {
+		name = 'Lamina',
+		layout = PAINTED_LAYOUT,
+		backdropAspect = 2,
+		backdropDim = 0.32,
+		windowSurfaceAlpha = 0.1,
+		materialAlpha = 0.12,
+		colors = {
+			surface = { [0] = Hex('10161A', 0.94), [1] = Hex('181F23', 0.88), [2] = Hex('252C30', 0.94), [3] = Hex('30363A', 0.98) },
+			bar = Hex('141B20', 0.92),
+			text = Hex('F5F2E8'),
+			secondary = Hex('B5C4CB'),
+			muted = Hex('859399'),
+			trim = Hex('626C71'),
+			trimHi = Hex('99A2A6'),
+			path = Hex('68777F'),
+			pathAhead = Hex('303B42'),
+			tick = Hex('AAB6BD'),
+		},
+		button = {
+			primary = { top = Hex('56656E'), bottom = Hex('303D45'), edge = Hex('99A2A6'), text = Hex('F5F2E8') },
+			secondary = { top = Hex('30393F'), bottom = Hex('192127'), edge = Hex('626C71'), text = Hex('DCE3E6') },
+		},
+		assets = LookAssets('lamina', { width = 128, height = 64, overlap = 18 }),
+	})
+
 	-- Digital has no painted art: 1px light lines over deep blue
 	Register('digital', {
 		name = 'Digital',
