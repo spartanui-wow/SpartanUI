@@ -41,6 +41,7 @@
 	<!-- Load UnitFrames -->
 	<Include file="UnitFrames\Load.xml"/>
 	<Script file="Nameplates.lua" />
+	<Include file="LastTick\Load.xml" />
 
 	<!-- Load Housing Endeavor (Retail only - files self-check SUI.IsRetail) -->
 	<Script file="HousingEndeavor\HousingEndeavor.lua" />
