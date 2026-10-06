@@ -1542,6 +1542,7 @@ L['Hide'] = true
 L["Lib's DataBar"] = true
 L['Info bars'] = true
 L['Matches your SpartanUI look and changes with it.'] = true
+L['The bar from the %s look. It stays the same when you change your SpartanUI look.'] = true
 L['Action bars: %s'] = true
 L['Artwork options'] = true
 L['Bartender4 is turned off.'] = true

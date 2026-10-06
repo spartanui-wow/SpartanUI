@@ -1141,45 +1141,47 @@ function module:OnInitialize()
 			blizzMovers = {
 				['VehicleLeaveButton'] = 'BOTTOM,SpartanUI,BOTTOM,0,195',
 			},
-			barPositions = SUI.IsRetail and {
-				['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,104',
-				['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,47',
-				--
-				['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,104',
-				['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,47',
-				--
-				['BT4Bar5'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-835,10',
-				['BT4Bar6'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,835,10',
-				--
-				['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				--
-				['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
-				['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				--
-				['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,282,138',
-				['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,628,168',
-			} or {
-				['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,82',
-				['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,35',
-				--
-				['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,81',
-				['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,35',
-				--
-				['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
-				['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
-				--
-				['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
-				--
-				['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
-				['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
-				--
-				['BT4BarMicroMenu'] = SUI.IsTBC and 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,159' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,144',
-				['BT4BarBagBar'] = SUI.IsMOP and 'BOTTOM,SUI_BottomAnchor,BOTTOM,660,163' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,620,163',
-			},
+			barPositions = SUI.IsRetail
+					and {
+						['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,104',
+						['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,47',
+						--
+						['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,104',
+						['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,445,47',
+						--
+						['BT4Bar5'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-835,10',
+						['BT4Bar6'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,835,10',
+						--
+						['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+						['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+						--
+						['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
+						['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+						['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+						--
+						['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,282,138',
+						['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,628,168',
+					}
+				or {
+					['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,82',
+					['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-359,35',
+					--
+					['BT4Bar3'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,81',
+					['BT4Bar4'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,358,35',
+					--
+					['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-5,7',
+					['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,5,7',
+					--
+					['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+					['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,130',
+					--
+					['BT4BarStanceBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-240,138',
+					['BT4BarPetBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+					['MultiCastActionBarFrame'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-570,165',
+					--
+					['BT4BarMicroMenu'] = SUI.IsTBC and 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,159' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,304,144',
+					['BT4BarBagBar'] = SUI.IsMOP and 'BOTTOM,SUI_BottomAnchor,BOTTOM,660,163' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,620,163',
+				},
 			barScales = {
 				['BT4Bar5'] = SUI.IsRetail and 0.63 or 0.75,
 				['BT4Bar6'] = SUI.IsRetail and 0.63 or 0.75,
@@ -1277,6 +1279,7 @@ function module:OnInitialize()
 					xOffset = -10,
 				},
 			},
+			dataBars = SUI.ThemeDataBars.DataBars('classic'),
 			statusBars = {
 				Left = {
 					size = { 370, 32 },

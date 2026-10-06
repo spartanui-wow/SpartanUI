@@ -247,6 +247,7 @@ function module:OnInitialize()
 						},
 					},
 				},
+				dataBars = SUI.ThemeDataBars.DataBars('arcane'),
 				statusBars = { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) },
 			}
 		end
@@ -266,6 +267,7 @@ function module:OnInitialize()
 		variantGroup = 'Arcane',
 	}, function()
 		return {
+			dataBars = SUI.ThemeDataBars.DataBars('arcanered'),
 			frames = {
 				player = {
 					elements = {

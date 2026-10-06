@@ -82,6 +82,7 @@ function module:OnInitialize()
 						position = { 'TOPLEFT,Minimap,TOPLEFT,-38,41', 'BOTTOMRIGHT,Minimap,BOTTOMRIGHT,47,-44' },
 					},
 				},
+				dataBars = SUI.ThemeDataBars.DataBars('digital'),
 				statusBars = {
 					Left = {
 						bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\StatusBar',

@@ -179,26 +179,11 @@ function module:OnInitialize()
 						collapsed = false,
 					},
 				},
-				dataBars = {
-					look = {
-						font = { size = 11 },
-						highlight = { 0.33, 0.16, 0.45, 0.35 },
-						bar = {
-							background = { show = true, color = { 0, 0, 0, 0.8 } },
-							art = {
-								atlas = {
-									left = 'midnight-scenario-barframe-borderleft',
-									center = 'midnight-scenario-barframe-bordercenter',
-									right = 'midnight-scenario-barframe-borderright',
-									capWidth = 31,
-								},
-							},
-						},
-					},
+				dataBars = SUI.ThemeDataBars.DataBars('midnight', {
 					bars = {
 						main = { position = 'TOP,UIParent,TOP,0,-2', width = 700, height = 22 },
 					},
-				},
+				}),
 				statusBars = {
 					Left = {
 						size = { 370, 20 },

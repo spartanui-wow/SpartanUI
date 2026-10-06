@@ -86,6 +86,9 @@ Painted.LAYOUT = {
 		cast = 12,
 		-- How far the bars sit inside the plate's window, clear of its painted border
 		inset = { side = 4, top = 2, bottom = 4 },
+		-- Looks with the portraits on the inner ends (facing the minimap) move both frames out by
+		-- this much, so the rings clear the minimap dome
+		innerShift = 40,
 	},
 	-- The portrait mount: the ring and the piece joining it to the plate, one 256 x 256 picture at the
 	-- plate's scale, centred on the portrait and drawn behind the plate at a fixed size (x from the
@@ -164,6 +167,44 @@ function Painted.PastPortrait()
 	return -L.mount.x + L.mount.size / 2 + 8 + 6
 end
 
+-- Looks registered with portraits = 'inner' put the rings on the ends facing the minimap
+Painted.inner = {}
+
+---The frame edge a look's portrait ring sits on: the outer ends (player left, target right), or the
+---inner ends for looks registered with portraits = 'inner'
+---@param name string look id
+---@param unit 'player'|'target'
+---@return 'LEFT'|'RIGHT'
+function Painted.PortraitEdge(name, unit)
+	local inner = Painted.inner[name]
+	if unit == 'player' then
+		return inner and 'RIGHT' or 'LEFT'
+	end
+	return inner and 'LEFT' or 'RIGHT'
+end
+
+---Centre of a look's player or target frame in art units
+---@param name string look id
+---@param unit 'player'|'target'
+---@return number x
+---@return number y
+function Painted.FrameSpot(name, unit)
+	local spot = L.frames[unit]
+	local shift = Painted.inner[name] and L.frames.innerShift or 0
+	return spot.x + (spot.x < 0 and -shift or shift), spot.y
+end
+
+---How far the pet and target-of-target frames sit from the player and target frames' outer ends:
+---past the ring when it is there, else just past the plate
+---@param name string look id
+---@return number
+function Painted.PastOuterEnd(name)
+	if Painted.inner[name] then
+		return L.plate.width - L.plate.left - L.frames.width + 8
+	end
+	return Painted.PastPortrait()
+end
+
 ---How far the plate reaches below the player and target frames
 ---@return number
 function Painted.PlateBelow()
@@ -224,6 +265,7 @@ local PORTRAIT_MASK = 'Interface\\CHARACTERFRAME\\TempPortraitAlphaMask'
 ---Is this frame one of the painted look's own player or target frames?
 ---@param frame table unit frame
 ---@return string|nil unit 'player' or 'target'
+---@return string|nil look the look whose art the frame wears
 local function PaintedUnit(frame)
 	local unit = frame._realFrameName or frame.unitOnCreate
 	if unit ~= 'player' and unit ~= 'target' then
@@ -234,7 +276,7 @@ local function PaintedUnit(frame)
 	if not frame.isPreview and (not Painted.active or graphic ~= Painted.active) then
 		return nil
 	end
-	return unit
+	return unit, graphic or Painted.active
 end
 
 ---Where the bars sit inside the plate's window, clear of its painted border
@@ -262,13 +304,13 @@ local MODEL_SIZE = 0.9
 
 ---@param frame table unit frame
 local function PlacePortrait(frame)
-	local unit = PaintedUnit(frame)
+	local unit, look = PaintedUnit(frame)
 	if not unit then
 		return
 	end
 	local spot = L.mount
-	local x = unit == 'player' and spot.x or -spot.x
-	local edge = unit == 'player' and 'LEFT' or 'RIGHT'
+	local edge = Painted.PortraitEdge(look, unit)
+	local x = edge == 'LEFT' and spot.x or -spot.x
 	local portrait = frame.Portrait2D
 	if portrait then
 		portrait:ClearAllPoints()
@@ -280,7 +322,7 @@ local function PlacePortrait(frame)
 	if not frame.isPreview and SUI.UF and SUI.UF.SetPortraitHitRect then
 		local reach = enabled and (-spot.x + spot.size / 2) or 0
 		local tall = enabled and math.max(0, spot.size / 2 - frame:GetHeight() / 2) or 0
-		SUI.UF:SetPortraitHitRect(frame, unit == 'player' and reach or 0, unit == 'target' and reach or 0, tall, tall)
+		SUI.UF:SetPortraitHitRect(frame, edge == 'LEFT' and reach or 0, edge == 'RIGHT' and reach or 0, tall, tall)
 	end
 	local model = frame.Portrait3D
 	local db = frame.DB.elements.Portrait
@@ -399,7 +441,8 @@ local function UnitFrame(name, spec, isTarget)
 	-- Above the plate art (level 2); the cast bar above the power bar it covers
 	elements.Power.FrameLevel = 4
 	elements.Castbar.FrameLevel = 6
-	elements.Portrait = { enabled = true, type = '2D', position = isTarget and 'right' or 'left' }
+	local edge = Painted.PortraitEdge(name, isTarget and 'target' or 'player')
+	elements.Portrait = { enabled = true, type = '2D', position = edge == 'RIGHT' and 'right' or 'left' }
 	-- The mount uses the art's bottom piece: the frame code tints every element's bg as a bar background
 	elements.SpartanArt = { full = { enabled = true, graphic = name }, bottom = { enabled = true, graphic = name } }
 	-- Auras sit outside the plate: buffs above it, debuffs below it
@@ -436,13 +479,16 @@ end
 
 ---The plate art for one side, cut in nine so it follows the frame's width and bar heights.
 ---Frames with the portrait turned off get the plate without a ring.
+---@param name string look id
 ---@param root string image folder
----@param isTarget boolean
+---@param unit 'player'|'target'
 ---@return table
-local function Plate(root, isTarget)
+local function Plate(name, root, unit)
 	local plate = L.plate
 	local right = plate.width - plate.left - L.frames.width
 	local bottom = plate.height - plate.top - Painted.FrameHeight()
+	-- The picture has its ring on the left; a ring on the frame's right end draws it mirrored
+	local mirrored = Painted.PortraitEdge(name, unit) == 'RIGHT'
 	return {
 		-- Always the plate without a ring: the ring is its own piece (Ring), so stretching the plate
 		-- for taller bars never stretches the ring
@@ -452,12 +498,12 @@ local function Plate(root, isTarget)
 			margins = plate.slice,
 			scale = plate.width / plate.file.width,
 			insets = {
-				left = isTarget and right or plate.left,
-				right = isTarget and plate.left or right,
+				left = mirrored and right or plate.left,
+				right = mirrored and plate.left or right,
 				top = plate.top,
 				bottom = bottom,
 			},
-			mirror = isTarget,
+			mirror = mirrored,
 		},
 	}
 end
@@ -465,10 +511,12 @@ end
 ---The portrait mount: the ring and the piece joining it to the plate, drawn behind the plate at a
 ---fixed size and centred on the portrait, so taller bars never stretch it. It shows only while the
 ---portrait does.
+---@param name string look id
 ---@param root string image folder
----@param isTarget boolean
+---@param unit 'player'|'target'
 ---@return table
-local function Mount(root, isTarget)
+local function Mount(name, root, unit)
+	local mirrored = Painted.PortraitEdge(name, unit) == 'RIGHT'
 	local size = L.mount.file * L.plate.width / L.plate.file.width
 	-- The texture's outer edge, from the frame's portrait-side edge
 	local offset = L.mount.x - size / 2
@@ -483,8 +531,8 @@ local function Mount(root, isTarget)
 		width = size,
 		-- Square
 		heightScale = 1,
-		TexCoord = isTarget and { 1, 0, 0, 1 } or { 0, 1, 0, 1 },
-		position = { anchor = isTarget and 'RIGHT' or 'LEFT', x = isTarget and -offset or offset, y = 0 },
+		TexCoord = mirrored and { 1, 0, 0, 1 } or { 0, 1, 0, 1 },
+		position = { anchor = mirrored and 'RIGHT' or 'LEFT', x = mirrored and -offset or offset, y = 0 },
 	}
 end
 
@@ -550,8 +598,8 @@ function Painted.CreateArtwork(name, root)
 		Socket(art, name, 'Status' .. key, bar.x, bar.y, bar.width, bar.height)
 	end
 	for _, unit in ipairs({ 'player', 'target' }) do
-		local spot = L.frames[unit]
-		Socket(art, name, unit, spot.x, spot.y, L.frames.width, Painted.FrameHeight())
+		local x, y = Painted.FrameSpot(name, unit)
+		Socket(art, name, unit, x, y, L.frames.width, Painted.FrameHeight())
 	end
 end
 
@@ -879,6 +927,7 @@ function Painted.Register(spec)
 	CreateFrame('Frame', 'SUI_Art_' .. name, SpartanUI)
 
 	Painted.narrow[name] = spec.narrowCentre or nil
+	Painted.inner[name] = spec.portraits == 'inner' or nil
 
 	function module:OnInitialize()
 		SUI.ThemeRegistry:Register({
@@ -908,6 +957,7 @@ function Painted.Register(spec)
 				barScales = scales,
 				minimap = MinimapSettings(name),
 				buttonSkin = { texture = root .. 'Button.png', size = L.buttonFrame },
+				dataBars = SUI.ThemeDataBars.DataBars(name:lower()),
 				statusBars = StatusBars(name, root),
 				slidingTrays = {
 					left = { enabled = true, collapsed = false },
@@ -918,21 +968,21 @@ function Painted.Register(spec)
 						full = {
 							perUnit = true,
 							UnitFrameCallback = Painted.UnitFrameCallback,
-							player = Plate(root, false),
-							target = Plate(root, true),
+							player = Plate(name, root, 'player'),
+							target = Plate(name, root, 'target'),
 						},
 						bottom = {
 							perUnit = true,
-							player = Mount(root, false),
-							target = Mount(root, true),
+							player = Mount(name, root, 'player'),
+							target = Mount(name, root, 'target'),
 						},
 					},
 					positions = {
 						player = 'CENTER,' .. SocketName(name, 'player') .. ',CENTER,0,0',
 						target = 'CENTER,' .. SocketName(name, 'target') .. ',CENTER,0,0',
-						-- Pet and target of target sit outside the plates, past the portrait rings
-						pet = 'BOTTOMRIGHT,SUI_UF_player,BOTTOMLEFT,' .. -Painted.PastPortrait() .. ',' .. -Painted.PlateBelow(),
-						targettarget = 'BOTTOMLEFT,SUI_UF_target,BOTTOMRIGHT,' .. Painted.PastPortrait() .. ',' .. -Painted.PlateBelow(),
+						-- Pet and target of target sit outside the plates' outer ends
+						pet = 'BOTTOMRIGHT,SUI_UF_player,BOTTOMLEFT,' .. -Painted.PastOuterEnd(name) .. ',' .. -Painted.PlateBelow(),
+						targettarget = 'BOTTOMLEFT,SUI_UF_target,BOTTOMRIGHT,' .. Painted.PastOuterEnd(name) .. ',' .. -Painted.PlateBelow(),
 					},
 					displayName = spec.displayName,
 					setup = { image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_' .. name },

@@ -184,6 +184,7 @@ function module:OnInitialize()
 					['BT4BarMicroMenu'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,250,151',
 					['BT4BarBagBar'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,661,174',
 				},
+				dataBars = SUI.ThemeDataBars.DataBars('fel'),
 				statusBars = {
 					Left = {
 						bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Fel\\Images\\StatusBar.png',

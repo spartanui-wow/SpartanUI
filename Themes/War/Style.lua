@@ -221,19 +221,7 @@ function module:OnInitialize()
 					['player'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOM,-45,250',
 				},
 			},
-			dataBars = {
-				look = {
-					font = { size = 11 },
-					textColor = { 1, 0.82, 0, 1 },
-					bar = {
-						art = {
-							texture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\StatusBar-' .. UnitFactionGroup('player'),
-							texCoord = { 0.0546875, 0.9140625, 0.5555555555555556, 0 },
-							alpha = 0.9,
-						},
-					},
-				},
-			},
+			dataBars = SUI.ThemeDataBars.DataBars(SUI.ThemeDataBars.WarId()),
 			statusBars = {
 				Left = {
 					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\StatusBar-' .. UnitFactionGroup('Player'),

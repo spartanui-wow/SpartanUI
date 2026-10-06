@@ -38,14 +38,12 @@ local function ThemeSpec()
 	return (data and data.dataBars) or {}
 end
 
----DataBar theme built from the active SpartanUI theme, font and accent
----@return table
-function module:BuildTheme()
-	local style = SUI:GetActiveStyle()
-	local spec = ThemeSpec()
-	local look = SUI:CopyData({}, spec.look or {})
+---A theme `look` with SpartanUI's DataBar font and the accent filled in
+---@param source table|nil
+---@return table look
+local function BuildLook(source)
+	local look = SUI:CopyData({}, source or {})
 	local r, g, b = SUI.UI.Style:GetAccent()
-
 	look.font = look.font or {}
 	look.font.face = SUI.Font:GetFont('DataBar')
 	look.font.size = (look.font.size or 11) + (SUI.Font.DB and SUI.Font.DB.Modules.DataBar.Size or 0)
@@ -53,7 +51,41 @@ function module:BuildTheme()
 	look.labelColor = look.labelColor or { r, g, b, 1 }
 	look.highlight = look.highlight or { r, g, b, 0.22 }
 	look.bar = look.bar or {}
+	return look
+end
 
+---One DataBar look per painted strip, so a player can keep any strip whatever SpartanUI look they use
+---@return table[] definitions
+function module:BuildStripThemes()
+	local list = {}
+	for index, strip in ipairs(SUI.ThemeDataBars.list) do
+		list[index] = {
+			id = THEME_ID .. '-' .. strip.id,
+			name = 'SpartanUI: ' .. strip.name,
+			description = SUI.ThemeDataBars.Description(strip),
+			order = 10 + index,
+			base = 'default',
+			look = BuildLook(SUI.ThemeDataBars.Look(strip.id)),
+		}
+	end
+	return list
+end
+
+---Send the matching look and every strip look to DataBar
+---@param api table
+function module:UpdateThemes(api)
+	api:UpdateTheme(self:BuildTheme())
+	for _, definition in ipairs(self:BuildStripThemes()) do
+		api:UpdateTheme(definition)
+	end
+end
+
+---DataBar theme built from the active SpartanUI theme, font and accent
+---@return table
+function module:BuildTheme()
+	local style = SUI:GetActiveStyle()
+	local spec = ThemeSpec()
+	local look = BuildLook(spec.look)
 	-- Themes whose art color the player can change pass that color on to the bar edge
 	if look.accent == 'Color.Art' then
 		local art = SUI.ThemeRegistry:GetSetting(style, 'Color.Art')
@@ -188,7 +220,7 @@ function module:Refresh()
 	if not api then
 		return
 	end
-	api:UpdateTheme(self:BuildTheme())
+	self:UpdateThemes(api)
 	if InCombatLockdown() then
 		self.pendingPlacement = true
 		return
@@ -203,7 +235,7 @@ function module:OnInitialize()
 		return
 	end
 	-- Registered before DataBar starts, so a player who already uses this theme never sees another one first
-	API():UpdateTheme(self:BuildTheme())
+	self:UpdateThemes(API())
 end
 
 function module:OnEnable()
@@ -251,7 +283,7 @@ function module:OnEnable()
 		self.DB.adopted = true
 	end
 
-	api:UpdateTheme(self:BuildTheme())
+	self:UpdateThemes(api)
 	RebuildSlots()
 	api:SetHost(host)
 end

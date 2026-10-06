@@ -183,6 +183,8 @@ function module:OnInitialize()
 						image = 'Interface\\AddOns\\SpartanUI\\images\\setup\\Style_Frames_Transparent',
 					},
 				},
+				-- No strip and no background: just the text, like the rest of this look
+				dataBars = { base = 'minimal' },
 				statusBars = { Left = SUI:CopyTable({}, StatusBarsSettings), Right = SUI:CopyTable({}, StatusBarsSettings) },
 			}
 		end

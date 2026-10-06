@@ -63,7 +63,7 @@ local SUI = SUI
 ---@field GetSetting fun(self: SUI.ThemeRegistry, themeName: string, key: string): any
 ---@field SetSetting fun(self: SUI.ThemeRegistry, themeName: string, key: string, value: any)
 
----Lib's DataBar settings for a theme
+---Lib's DataBar settings for a theme. Art looks build theirs with `SUI.ThemeDataBars.DataBars(id)` (Themes/DataBarArt.lua).
 ---@class SUI.ThemeRegistry.DataBars
 ---@field look? table DataBar `look` block (font size, textColor, highlight, bar art); `accent = 'Color.Art'` passes the theme's art color on
 ---@field base? string DataBar theme id the look builds on (default 'default')

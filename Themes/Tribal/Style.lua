@@ -141,6 +141,7 @@ function module:OnInitialize()
 					position = 'CENTER,Minimap,CENTER,0,0',
 				},
 			},
+			dataBars = SUI.ThemeDataBars.DataBars('tribal'),
 			statusBars = {
 				Left = {
 					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\Tribal\\Images\\StatusBar',
