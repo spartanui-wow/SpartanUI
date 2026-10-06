@@ -22,5 +22,8 @@ local ACD = Options:Register('SpartanUI', {
 		end
 		return table.concat(parts, '  ')
 	end,
+	footer = function(holder, window, close)
+		SUI:GetModule('Handler.Options'):BuildFooter(holder, window, close)
+	end,
 })
 ACD.AdvancedLabel = L['More settings']

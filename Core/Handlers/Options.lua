@@ -545,32 +545,23 @@ function module:OnEnable()
 	end, 'Displays SUI Help screen')
 end
 
-function module:ConfigOpened(name)
-	if name ~= 'SpartanUI' then
-		return
-	end
-	module:BuildFooter()
-end
-
----Buttons along the bottom of the options window
-function module:BuildFooter()
-	local window = Lib.AceCD and Lib.AceCD.OpenFrames and Lib.AceCD.OpenFrames['SpartanUI']
-	if not window or not window.footer or window.footerBuilt then
-		return
-	end
-	window.footerBuilt = true
+---SpartanUI's buttons along the bottom of the settings window. The window is shared with other
+---addons and adds its own Close button; these only show while SpartanUI's settings are open.
+---@param holder Frame Footer area for SpartanUI's buttons
+---@param window table The settings window
+---@param close Button The window's Close button, at the right end
+function module:BuildFooter(holder, window, close)
 	local Style = SUI.UI.Style
-	local footer = window.footer
 	local padding = LibAT.UI.Kit:GetActive().layout.barPadding
 	local previous
 	local buttons = {}
 
 	local function Add(text, onClick, primary)
-		local button = Style:CreateButton(footer, text, nil, onClick, primary)
+		local button = Style:CreateButton(holder, text, nil, onClick, primary)
 		if previous then
 			button:SetPoint('LEFT', previous, 'RIGHT', 6, 0)
 		else
-			button:SetPoint('LEFT', footer, 'LEFT', padding, 0)
+			button:SetPoint('LEFT', holder, 'LEFT', padding, 0)
 		end
 		previous = button
 		buttons[#buttons + 1] = button
@@ -585,44 +576,34 @@ function module:BuildFooter()
 			end
 		end)
 	end
+	-- These open windows of their own; RunAbove keeps them in front of the settings
 	if LibAT and LibAT.Logger and LibAT.Logger.ToggleWindow then
 		Add(L['Logs'], function()
-			LibAT.Logger.ToggleWindow()
+			window:RunAbove(LibAT.Logger.ToggleWindow)
 		end)
 	end
 	local ProfileHandler = SUI:GetModule('Handler.Profiles', true) ---@type SUI.Handler.Profiles
 	if ProfileHandler then
 		Add(L['Import settings'], function()
-			ProfileHandler:ImportUI()
-			Lib.AceCD:Close('SpartanUI')
+			window:RunAbove(function()
+				ProfileHandler:ImportUI()
+			end)
 		end)
 		Add(L['Export settings'], function()
-			ProfileHandler:ExportUI()
-			Lib.AceCD:Close('SpartanUI')
+			window:RunAbove(function()
+				ProfileHandler:ExportUI()
+			end)
 		end)
 	end
 
-	local close = Style:CreateButton(footer, CLOSE or L['Close'], 90, function()
-		Lib.AceCD:Close('SpartanUI')
-	end, true)
-	close:SetPoint('RIGHT', footer, 'RIGHT', -padding, 0)
-
 	local WhatsNew = LibAT and LibAT.Setup and LibAT.Setup.WhatsNew
 	if WhatsNew and WhatsNew.Open then
-		local whatsNew = Style:CreateButton(footer, L["What's new"], nil, function()
-			WhatsNew:Open()
-			-- The settings window sits on a higher layer; lift What's new over it while it is open
-			local shown = WhatsNew.window
-			if shown then
-				if not shown.suiLifted then
-					shown.suiLifted = true
-					local strata = shown:GetFrameStrata()
-					shown:HookScript('OnHide', function(self)
-						self:SetFrameStrata(strata)
-					end)
-				end
-				shown:SetFrameStrata(window.frame:GetFrameStrata())
-				shown:Raise()
+		local whatsNew = Style:CreateButton(holder, L["What's new"], nil, function()
+			window:RunAbove(function()
+				WhatsNew:Open()
+			end)
+			if WhatsNew.window then
+				window:LiftAbove(WhatsNew.window)
 			end
 		end)
 		whatsNew:SetPoint('RIGHT', close, 'LEFT', -6, 0)
@@ -630,7 +611,7 @@ function module:BuildFooter()
 	end
 
 	-- Text can measure 0 before the font is drawn once; size the buttons again when shown
-	footer:HookScript('OnShow', function()
+	holder:HookScript('OnShow', function()
 		for _, button in ipairs(buttons) do
 			button:FitText()
 		end
@@ -641,6 +622,7 @@ function module:BuildFooter()
 		end
 	end)
 end
+
 function module:PLAYER_REGEN_ENABLED()
 	module:ToggleOptions()
 end
@@ -664,11 +646,6 @@ function module:ToggleOptions(pages)
 
 	local ACD = Lib.AceCD
 	if ACD then
-		if not ACD.OpenHookedSUI then
-			hooksecurefunc(Lib.AceCD, 'Open', module.ConfigOpened)
-			ACD.OpenHookedSUI = true
-		end
-
 		ACD[mode](ACD, 'SpartanUI')
 	end
 
@@ -677,8 +654,6 @@ function module:ToggleOptions(pages)
 	end
 
 	if mode == 'Open' and frame then
-		module:BuildFooter()
-
 		if ACD and pages and #pages > 0 then
 			-- Check if the navigation path exists and provide feedback if it doesn't
 			local pathExists = true
@@ -849,7 +824,6 @@ function Options:OpenTo(path, optionKey)
 	if not module:GetConfigWindow() then
 		ACD:Open('SpartanUI')
 	end
-	module:BuildFooter()
 	if path and #path > 0 then
 		if ACD.Navigate then
 			ACD:Navigate('SpartanUI', path, optionKey)
