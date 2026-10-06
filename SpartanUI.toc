@@ -33,7 +33,6 @@ Core\LibATStub.lua
 # GENERAL LIBRARIES - SHARED (all versions)
 # ============================================
 libs\Ace3\Ace3.xml
-libs\AceConfigDialog-3.0-SUI\AceConfigDialog-3.0-SUI.lua
 libs\LibDataBroker\LibDataBroker-1.1.lua
 libs\LibDBIcon-1.0\lib.xml
 

@@ -2,37 +2,25 @@
 local SUI = SUI
 local L = SUI.L
 
--- Route the SpartanUI options through the SUI window and widgets. Widget types that are not
--- registered fall back to the stock AceGUI ones inside AceConfigDialog-3.0-SUI.
+-- Show the SpartanUI options in the shared settings window from Lib's AddonTools, with the helm
+-- and the game and version after the name.
 
-local ACD = LibStub('AceConfigDialog-3.0-SUI', true)
-if not ACD then
+local Options = LibAT and LibAT.UI and LibAT.UI.Options
+if not Options then
 	return
 end
 
-ACD:SetFrameType('SpartanUI', 'SUI-Window', true)
-ACD:SetWidgetMap('SpartanUI', {
-	CheckBox = 'SUI-Switch',
-	Slider = 'SUI-Slider',
-	EditBox = 'SUI-EditBox',
-	NumberEditBox = 'SUI-EditBox',
-	MultiLineEditBox = 'SUI-MultiLineEditBox',
-	Keybinding = 'SUI-Keybinding',
-	LSM30_Font = 'SUI-Media-Font',
-	LSM30_Statusbar = 'SUI-Media-Statusbar',
-	LSM30_Background = 'SUI-Media-Background',
-	LSM30_Border = 'SUI-Media-Border',
-	LSM30_Sound = 'SUI-Media-Sound',
-	Button = 'SUI-Button',
-	Heading = 'SUI-Heading',
-	ColorPicker = 'SUI-ColorPicker',
-	Dropdown = 'SUI-Dropdown',
-	Segmented = 'SUI-Segmented',
-	Expander = 'SUI-Expander',
-	InlineGroup = 'SUI-InlineGroup',
-	ScrollFrame = 'SUI-ScrollFrame',
-	TabGroup = 'SUI-TabGroup',
-	TreeGroup = 'SUI-TreeGroup',
-	PageGroup = 'SUI-PageGroup',
+local ACD = Options:Register('SpartanUI', {
+	title = '|cffffffffSpartan|cffe21f1fUI|r',
+	logo = 'Interface\\AddOns\\SpartanUI\\images\\Menu\\SUILogo_white.png',
+	version = function()
+		local parts = {}
+		for _, value in ipairs({ SUI.wowVersion, SUI.Version, SUI.releaseType }) do
+			if value and value ~= '' then
+				parts[#parts + 1] = value
+			end
+		end
+		return table.concat(parts, '  ')
+	end,
 })
 ACD.AdvancedLabel = L['More settings']

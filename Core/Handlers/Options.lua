@@ -509,7 +509,7 @@ end
 
 -- Shift or Ctrl + click a page in the settings window: its /sui > path goes into the chat box, ready to
 -- paste as directions for someone else
-local pathACD = LibStub('AceConfigDialog-3.0-SUI', true)
+local pathACD = LibStub('AceConfigDialog-3.0-LibAT', true)
 if pathACD and pathACD.RegisterCallback then
 	pathACD.RegisterCallback(module, 'GroupSelected', function(_, appName, path)
 		if appName ~= 'SpartanUI' or not (IsShiftKeyDown() or IsControlKeyDown()) or type(path) ~= 'table' or #path == 0 then

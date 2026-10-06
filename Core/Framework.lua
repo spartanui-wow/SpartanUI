@@ -125,7 +125,7 @@ SUI.AddLib = function(name, libaray, silent)
 end
 
 SUI.AddLib('AceC', 'AceConfig-3.0')
-SUI.AddLib('AceCD', 'AceConfigDialog-3.0-SUI')
+SUI.AddLib('AceCD', 'AceConfigDialog-3.0-LibAT')
 SUI.AddLib('AceDB', 'AceDB-3.0')
 SUI.AddLib('AceDBO', 'AceDBOptions-3.0')
 SUI.AddLib('AceGUI', 'AceGUI-3.0')

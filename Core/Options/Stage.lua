@@ -69,7 +69,7 @@ local function Match(path)
 end
 
 local function GetWindow()
-	local ACD = LibStub('AceConfigDialog-3.0-SUI', true)
+	local ACD = LibStub('AceConfigDialog-3.0-LibAT', true)
 	local window = ACD and ACD.OpenFrames[APP]
 	if window and window.stage then
 		return window
@@ -471,7 +471,7 @@ local function Region(frame, target)
 				Stage:MarkDirty()
 				return
 			end
-			local ACD = LibStub('AceConfigDialog-3.0-SUI')
+			local ACD = LibStub('AceConfigDialog-3.0-LibAT')
 			ACD:Navigate(APP, target.path, target.option)
 		end)
 		regions[usedRegions] = region
@@ -601,7 +601,7 @@ function Stage:MarkDirty()
 	driver:Show()
 end
 
-local ACD = LibStub('AceConfigDialog-3.0-SUI', true)
+local ACD = LibStub('AceConfigDialog-3.0-LibAT', true)
 if ACD and ACD.RegisterCallback then
 	ACD.RegisterCallback(Stage, 'GroupSelected', function(_, appName, path)
 		if appName == APP then

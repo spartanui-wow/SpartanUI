@@ -1,10 +1,12 @@
 -- LibAT Dependency Stub
--- Shows a popup if Libs-AddonTools is not installed
+-- Shows a popup if Libs-AddonTools is not installed, or is too old for this SpartanUI
 -- This file uses ONLY raw WoW API (no Ace3, no LibAT)
 
-if LibAT then
+-- The settings window and its controls live in Libs-AddonTools
+if LibAT and LibAT.UI and LibAT.UI.Options then
 	return
 end
+local outdated = LibAT ~= nil
 
 local frame = CreateFrame('Frame')
 frame:RegisterEvent('PLAYER_LOGIN')
@@ -25,13 +27,17 @@ frame:SetScript('OnEvent', function(self)
 	popup.TitleBg:SetHeight(30)
 	popup.title = popup:CreateFontString(nil, 'OVERLAY', 'GameFontHighlight')
 	popup.title:SetPoint('TOPLEFT', popup.TitleBg, 'TOPLEFT', 5, -3)
-	popup.title:SetText('|cffffffffSpartan|cffe21f1fUI|r - Missing Dependency')
+	popup.title:SetText('|cffffffffSpartan|cffe21f1fUI|r - ' .. (outdated and 'Update Needed' or 'Missing Dependency'))
 
 	-- Message
 	local msg = popup:CreateFontString(nil, 'OVERLAY', 'GameFontNormal')
 	msg:SetPoint('TOP', popup, 'TOP', 0, -45)
 	msg:SetWidth(440)
-	msg:SetText('Please download Libs-AddonTools.\nDue to issues with auto-updaters it was moved out of the main SpartanUI install.')
+	if outdated then
+		msg:SetText('Please update Libs-AddonTools.\nThis version of SpartanUI needs a newer copy to show its settings.')
+	else
+		msg:SetText('Please download Libs-AddonTools.\nDue to issues with auto-updaters it was moved out of the main SpartanUI install.')
+	end
 
 	-- URL edit box (pre-selected for easy copy)
 	local editBox = CreateFrame('EditBox', nil, popup, 'InputBoxTemplate')

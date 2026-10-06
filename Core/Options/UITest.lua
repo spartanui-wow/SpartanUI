@@ -236,7 +236,7 @@ end
 local window, container
 
 local function Open()
-	local ACD = LibStub('AceConfigDialog-3.0-SUI', true)
+	local ACD = LibStub('AceConfigDialog-3.0-LibAT', true)
 	local AceGUI = LibStub('AceGUI-3.0', true)
 	if not ACD or not AceGUI then
 		return
