@@ -9,6 +9,7 @@ end
 local module = SUI:NewModule('MiniTom') ---@type SUI.Module
 module.DisplayName = 'MiniTom'
 module.description = 'Enables /way command to set a waypoint on your map'
+module.ConflictsWith = { 'TomTom' }
 local HBD = LibStub('HereBeDragons-2.0')
 
 ---@class MiniTomDB
@@ -149,7 +150,7 @@ function module:OnInitialize()
 
 	-- Register profile change callbacks
 	SUI.DBM:RegisterSequentialProfileRefresh(module)
-	if SUI:IsAddonEnabled('TomTom') then
+	if #SUI:GetModuleConflicts(module) > 0 then
 		module.Override = true
 	end
 end

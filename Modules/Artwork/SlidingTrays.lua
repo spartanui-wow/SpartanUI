@@ -15,6 +15,7 @@ local trayIDs = {
 	'left',
 	'right',
 }
+local TRAY_X = { left = -300, right = 300 }
 
 -- Bars the active bar system places in the trays, by the key themes use for them
 local trayBars = {
@@ -340,8 +341,13 @@ function module:SlidingTrays(StyleSettings)
 		module:ApplyTrayCoordinates(key, trayImage)
 	end
 
-	module.Trays.left:SetPoint('TOP', SUI_TopAnchor, 'TOP', -300, 0)
-	module.Trays.right:SetPoint('TOP', SUI_TopAnchor, 'TOP', 300, 0)
+	for _, key in ipairs(trayIDs) do
+		local tray = module.Trays[key]
+		if not tray.mover then
+			tray:ClearAllPoints()
+			tray:SetPoint('TOP', SUI_TopAnchor, 'TOP', TRAY_X[key], 0)
+		end
+	end
 
 	-- Update tray sizes from database settings
 	module:UpdateTraySizes()
@@ -349,11 +355,19 @@ function module:SlidingTrays(StyleSettings)
 	-- Add trays to MoveIt system after initial positioning to avoid taint
 	if SUI.MoveIt then
 		for _, key in ipairs(trayIDs) do
-			if module.Trays[key] then
+			local tray = module.Trays[key]
+			if tray then
 				-- Set dirty dimensions for proper mover sizing
-				module.Trays[key].dirtyWidth = module.Trays[key]:GetWidth()
-				module.Trays[key].dirtyHeight = module.Trays[key]:GetHeight()
-				SUI.MoveIt:CreateMover(module.Trays[key], 'MenuTray_' .. key, key:gsub('^%l', string.upper) .. ' Menu Tray', nil, 'Menu Trays')
+				tray.dirtyWidth = tray:GetWidth()
+				tray.dirtyHeight = tray:GetHeight()
+				SUI.MoveIt:CreateMover(tray, 'MenuTray_' .. key, key:gsub('^%l', string.upper) .. ' Menu Tray', nil, 'Menu Trays')
+				-- CreateMover pins a new mover to the screen's top edge, because SUI_TopAnchor sits inside
+				-- SpartanUI's scaled frame. Hang it on SUI_TopAnchor so the tray follows the top offset
+				-- (bars stuck to the top of the screen). A tray the player moved keeps their spot.
+				if tray.position then
+					tray:position('TOP', SUI_TopAnchor, 'TOP', TRAY_X[key], 0, false, true)
+					tray:position()
+				end
 			end
 		end
 	end

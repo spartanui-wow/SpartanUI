@@ -99,6 +99,13 @@ function M:PersonLabel(full)
 	return self:GetAlias(Store.CharKey(full)) or U.DisplayName(full)
 end
 
+---Shows messages as 'lines' (names over each group) or 'bubbles' (phone style).
+---@param style 'lines'|'bubbles'
+function M:SetMessageStyle(style)
+	self.settings.messageStyle = style
+	self:Fire('SETTINGS_CHANGED')
+end
+
 ---@param host MessengerHost
 function M:Initialize(host)
 	self.host = host
@@ -107,6 +114,7 @@ function M:Initialize(host)
 		self.log = host.logger
 	end
 	self.defaults.profile.minimap.hide = host.minimapHiddenByDefault and true or false
+	-- Every character starts on the one shared "Default" profile, so settings are made once per account
 	self.db = LibStub('AceDB-3.0'):New(host.savedVariable, self.defaults, true)
 	self.settings = self.db.profile
 

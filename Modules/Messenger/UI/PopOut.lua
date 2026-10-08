@@ -26,14 +26,26 @@ local function Saved(key)
 	return saved
 end
 
+---Moves a region's alpha halfway to the target each step.
+---@param region Region
+---@param target number
+local function Ease(region, target)
+	local alpha = region:GetAlpha()
+	if math.abs(alpha - target) > 0.01 then
+		region:SetAlpha(alpha + (target - alpha) * 0.5)
+	else
+		region:SetAlpha(target)
+	end
+end
+
 local function Build()
 	count = count + 1
 	local win = W.Window('MessengerPopOut' .. count, 260, 220)
 	tinsert(UISpecialFrames, win:GetName())
 
 	local title = CreateFrame('Frame', nil, win)
-	title:SetPoint('TOPLEFT')
-	title:SetPoint('TOPRIGHT')
+	title:SetPoint('TOPLEFT', win.inner)
+	title:SetPoint('TOPRIGHT', win.inner)
 	title:SetHeight(T.Metrics().title - 2)
 	T.Fill(title, T.color.header, 'BACKGROUND', 1)
 	W.DragHandle(title, win)
@@ -71,7 +83,7 @@ local function Build()
 
 	win.pane = M.ChatPane.Create(win, false)
 	win.pane:SetPoint('TOPLEFT', title, 'BOTTOMLEFT')
-	win.pane:SetPoint('BOTTOMRIGHT')
+	win.pane:SetPoint('BOTTOMRIGHT', win.inner)
 
 	function win:OnGeometryChanged()
 		if not self.key then
@@ -116,11 +128,13 @@ local function Build()
 		local show = not (saved and saved.overlay) or self:IsMouseOver() or focused or menuOpen
 		local target = show and 1 or 0
 		for _, region in ipairs(chrome) do
-			local alpha = region:GetAlpha()
-			if math.abs(alpha - target) > 0.01 then
-				region:SetAlpha(alpha + (target - alpha) * 0.5)
-			else
-				region:SetAlpha(target)
+			Ease(region, target)
+		end
+		-- A skin's frame fades too; its background stays so the messages stay readable
+		if self.skin then
+			Ease(self.skin.FrameArt, target)
+			for _, edge in ipairs(self.skin.Rim) do
+				Ease(edge, target)
 			end
 		end
 	end)
@@ -166,6 +180,12 @@ function P:Open(key, focus)
 	win.grip:SetAlpha(1)
 	win.edge:SetAlpha(1)
 	win.shadow:SetAlpha(1)
+	if win.skin then
+		win.skin.FrameArt:SetAlpha(1)
+		for _, edge in ipairs(win.skin.Rim) do
+			edge:SetAlpha(1)
+		end
+	end
 	win:ApplyAlpha()
 	win:Show()
 	M.UI.Fade:Kick()
@@ -244,13 +264,15 @@ function P:Restore()
 	end
 end
 
-M:On('LIST_CHANGED', function()
+local function RefreshTitles()
 	M:Defer('popout-titles', function()
 		for _, win in pairs(open) do
 			win:UpdateTitle()
 		end
 	end)
-end)
+end
+M:On('LIST_CHANGED', RefreshTitles)
+M:On('SKIN_CHANGED', RefreshTitles)
 M:On('FONTS_CHANGED', function()
 	for _, win in ipairs(pool) do
 		win.titleBar:SetHeight(T.Metrics().title - 2)

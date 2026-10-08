@@ -6,6 +6,8 @@ local L = SUI.L
 local module = SUI:NewModule('Chatbox', 'AceHook-3.0')
 module.DisplayName = 'Chatbox'
 module.description = 'Lightweight quality of life chat improvements'
+-- Other chat addons; while one is on this module stays off (setup's conflicts page offers the choice)
+module.ConflictsWith = { 'Chatter', 'BasicChatMods', 'Prat-3.0', 'Chattynator', 'ChatEditBoxExtender' }
 module.logger = {}
 
 -- Shared state accessible from other files
@@ -200,14 +202,12 @@ function module:OnInitialize()
 		return
 	end
 
-	local ChatAddons = { 'Chatter', 'BasicChatMods', 'Prat-3.0', 'Chattynator', 'ChatEditBoxExtender' }
-	for _, addonName in pairs(ChatAddons) do
-		if SUI:IsAddonEnabled(addonName) then
-			SUI:Print('Chat module disabling ' .. addonName .. ' Detected')
-			module.Override = true
-			module:CleanupOverride()
-			return
-		end
+	local conflicts = SUI:GetModuleConflicts(module)
+	if #conflicts > 0 then
+		SUI:Print('Chat module disabling ' .. conflicts[1] .. ' Detected')
+		module.Override = true
+		module:CleanupOverride()
+		return
 	end
 
 	module.ChatLevelLog = {}

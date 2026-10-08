@@ -21,7 +21,19 @@ local GROUP_WINDOW = 300
 local PAGE = 150
 local GM_ICON = '|TInterface\\ChatFrame\\UI-ChatIcon-Blizz:12:20:0:0:32:16:4:28:0:16|t '
 
+-- Bubble style
+local BUBBLE_X = 10
+local BUBBLE_Y = 6
+local BUBBLE_GAP = 2
+local BUBBLE_MAX = 0.78
+local SMALL_CORNER = 4
+local AVATAR = 22
+local AVATAR_GAP = 6
+local CLASS_ICONS = 'Interface\\TargetingFrame\\UI-Classes-Circles'
+local CLASS_CROP = 0.08
+
 local heightCache = setmetatable({}, { __mode = 'k' })
+local bubbleCache = setmetatable({}, { __mode = 'k' })
 local displayCache = setmetatable({}, { __mode = 'k' })
 
 ---@param msg table
@@ -147,16 +159,33 @@ local function CreateRow(log)
 	row.lineL:SetHeight(px)
 	row.lineR:SetHeight(px)
 
+	row.bubble = M.Bubble.Create(row)
+
+	row.avatar = row:CreateTexture(nil, 'ARTWORK')
+	row.avatar:SetSize(AVATAR, AVATAR)
+	local mask = row:CreateMaskTexture()
+	mask:SetTexture(M.mediaPath .. 'Circle', 'CLAMPTOBLACKADDITIVE', 'CLAMPTOBLACKADDITIVE')
+	mask:SetAllPoints(row.avatar)
+	row.avatar:AddMaskTexture(mask)
+	row.avatarLetter = T.Text(row, 'small')
+	row.avatarLetter:SetPoint('CENTER', row.avatar, 'CENTER', 0, 0)
+	row.avatarLetter:SetJustifyH('CENTER')
+
 	row:SetScript('OnHyperlinkClick', OnLinkClick)
 	row:SetScript('OnHyperlinkEnter', OnLinkEnter)
 	row:SetScript('OnHyperlinkLeave', OnLinkLeave)
 	row:SetScript('OnEnter', function(self)
-		if self.item and self.item.kind == 'msg' then
+		local item = self.item
+		if item and item.kind == 'msg' then
 			self.hl:Show()
-			if not self.item.head then
-				self.hoverTime:SetText(U.Clock(self.item.msg.t))
+			if not item.head then
+				self.hoverTime:SetText(U.Clock(item.msg.t))
 				self.hoverTime:Show()
 			end
+		elseif item and item.kind == 'bubble' and not item.tail then
+			-- Times show under the last bubble of a run; the others show theirs beside the bubble
+			self.hoverTime:SetText(U.Clock(item.msg.t))
+			self.hoverTime:Show()
 		end
 	end)
 	row:SetScript('OnLeave', function(self)
@@ -170,7 +199,7 @@ local function CreateRow(log)
 		end
 		if item.kind == 'more' and button == 'LeftButton' then
 			self.log:ShowEarlier()
-		elseif item.kind == 'msg' and button == 'RightButton' then
+		elseif (item.kind == 'msg' or item.kind == 'bubble' or item.kind == 'emote') and button == 'RightButton' then
 			self.log:MessageMenu(self, item.msg)
 		end
 	end)
@@ -194,6 +223,15 @@ local function ResetRow(row)
 	row.lineR:SetHeight(T.Pixel())
 	row.hl:Hide()
 	row.hoverTime:Hide()
+	row.hoverTime:ClearAllPoints()
+	row.hoverTime:SetPoint('TOPRIGHT', -GUTTER - 4, -1)
+	-- Bubbles move the time and the name; the line style expects them back in place
+	row.time:ClearAllPoints()
+	row.time:SetPoint('LEFT', row.name, 'RIGHT', 8, 0)
+	row.bubble:Hide()
+	row.avatar:Hide()
+	row.avatarLetter:Hide()
+	row.body:SetJustifyH('LEFT')
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -335,7 +373,13 @@ function ML.Create(parent)
 	end)
 	M:On('FONTS_CHANGED', function()
 		wipe(heightCache)
+		wipe(bubbleCache)
 		log:Rebuild(true)
+	end)
+	M:On('COLORS_CHANGED', function()
+		if log.key and log:IsVisible() then
+			log:Render()
+		end
 	end)
 	M:On('ALIASES_CHANGED', function()
 		if log.key then
@@ -345,6 +389,7 @@ function ML.Create(parent)
 	M:On('SETTINGS_CHANGED', function()
 		wipe(displayCache)
 		wipe(heightCache)
+		wipe(bubbleCache)
 		log:Rebuild(true)
 	end)
 	return log
@@ -522,6 +567,15 @@ function Log:Rebuild(keepBottom)
 	end
 	self.empty:Hide()
 
+	if M.settings.messageStyle == 'bubbles' then
+		self:BuildBubbles(convo, metaH, nameH)
+		if atBottom then
+			self.offset = math.max(0, self.total - self:GetHeight())
+		end
+		self:Render()
+		return
+	end
+
 	local isRoom = M.Store.IsRoomKey(convo.key)
 	local msgs = convo.msgs
 	local first = math.max(1, #msgs - self.renderCount + 1)
@@ -593,6 +647,233 @@ function Log:Rebuild(keepBottom)
 		self.offset = math.max(0, self.total - self:GetHeight())
 	end
 	self:Render()
+end
+
+---Lays the log out as bubbles: the player's on the right, everyone else's on the left, and a run
+---of messages from one person drawn as one group with the time under its last bubble.
+---@param convo MessengerConversation
+---@param metaH number
+---@param nameH number
+function Log:BuildBubbles(convo, metaH, nameH)
+	local items = self.items
+	local isRoom = M.Store.IsRoomKey(convo.key)
+	local size = T.BaseSize()
+	local lane = self.bodyWidth
+	local avatarW = isRoom and (AVATAR + AVATAR_GAP) or 0
+	local maxMine = math.floor(lane * BUBBLE_MAX) - BUBBLE_X * 2
+	local maxTheirs = math.floor((lane - avatarW) * BUBBLE_MAX) - BUBBLE_X * 2
+	local msgs = convo.msgs
+	local first = math.max(1, #msgs - self.renderCount + 1)
+	local me = UnitName('player')
+
+	-- What each line is, and where each run from one person starts
+	local entries = {}
+	if first > 1 then
+		entries[1] = { kind = 'more' }
+	end
+	local prev, prevDay
+	for i = first, #msgs do
+		local msg = msgs[i]
+		local day = U.DayKey(msg.t or 0)
+		if day ~= prevDay then
+			entries[#entries + 1] = { kind = 'day', label = U.DayLabel(msg.t or 0) }
+			prevDay = day
+			prev = nil
+		end
+		if msg == self.newMarker then
+			entries[#entries + 1] = { kind = 'new' }
+			prev = nil
+		end
+		if msg.sys or msg.em then
+			entries[#entries + 1] = { kind = msg.sys and 'sys' or 'emote', msg = msg }
+			prev = nil
+		else
+			local head = not prev or not SameSender(prev, msg) or (msg.t - prev.t) > GROUP_WINDOW
+			entries[#entries + 1] = { kind = 'bubble', msg = msg, mine = msg.o and true or false, head = head, room = isRoom }
+			prev = msg
+		end
+	end
+	for i, entry in ipairs(entries) do
+		if entry.kind == 'bubble' then
+			local nextEntry = entries[i + 1]
+			entry.tail = not nextEntry or nextEntry.kind ~= 'bubble' or nextEntry.head
+		end
+	end
+
+	local y = 8
+	local lastKind
+	for _, entry in ipairs(entries) do
+		local kind = entry.kind
+		local msg = entry.msg
+		if kind == 'more' then
+			entry.h = metaH + 16
+		elseif kind == 'day' then
+			entry.h = metaH + 18
+		elseif kind == 'new' then
+			self.markerY = y
+			entry.h = metaH + 10
+		elseif kind == 'sys' then
+			local cache = heightCache[msg]
+			if not (cache and cache.w == lane and cache.s == size) then
+				cache = { w = lane, s = size, h = Measure(self.measureMeta, msg.x or '', lane - 18) }
+				heightCache[msg] = cache
+			end
+			entry.h = cache.h + 10
+		elseif kind == 'emote' then
+			-- Same text and width as the line style, so the two share measurements
+			local cache = heightCache[msg]
+			if not (cache and cache.w == lane and cache.s == size) then
+				local text = (msg.s and U.DisplayName(msg.s) or '') .. ' ' .. DisplayText(msg)
+				cache = { w = lane, s = size, h = Measure(self.measure, text, lane) }
+				heightCache[msg] = cache
+			end
+			entry.bodyH = cache.h
+			entry.h = cache.h + 10
+		else
+			local textW = entry.mine and maxMine or maxTheirs
+			local cache = bubbleCache[msg]
+			if not (cache and cache.w == textW and cache.s == size) then
+				local fs = self.measure
+				local h = Measure(fs, DisplayText(msg), textW)
+				local w = fs:GetUnboundedStringWidth()
+				if w > textW then
+					w = fs.GetWrappedWidth and fs:GetWrappedWidth() or textW
+				end
+				cache = { w = textW, s = size, h = h, bw = math.min(textW, math.ceil(w) + 1) }
+				bubbleCache[msg] = cache
+			end
+			entry.textW = textW
+			entry.bodyH = cache.h
+			entry.bubbleW = cache.bw + BUBBLE_X * 2
+			entry.bubbleH = cache.h + BUBBLE_Y * 2
+			if entry.head then
+				entry.gap = lastKind == 'bubble' and GROUP_GAP or 4
+			else
+				entry.gap = BUBBLE_GAP
+			end
+			-- Names over runs in channels, and over the player's own when an alt sent them
+			entry.labelH = 0
+			if entry.head and ((isRoom and not entry.mine) or (entry.mine and msg.a and msg.a ~= me)) then
+				entry.labelH = nameH + 3
+			end
+			entry.h = entry.gap + entry.labelH + entry.bubbleH + (entry.tail and (metaH + 4) or 0)
+		end
+		entry.y = y
+		items[#items + 1] = entry
+		y = y + entry.h
+		lastKind = kind
+	end
+	self.total = y + 10
+end
+
+---The round picture beside the last bubble of someone's run in a channel: their class, or the
+---first letter of their name on their bubble color.
+---@param row Frame
+---@param msg table
+---@param r number
+---@param g number
+---@param b number
+local function DrawAvatar(row, msg, r, g, b)
+	local avatar = row.avatar
+	avatar:ClearAllPoints()
+	avatar:SetPoint('BOTTOMRIGHT', row.bubble.box, 'BOTTOMLEFT', -AVATAR_GAP, 0)
+	local coords = msg.cl and CLASS_ICON_TCOORDS and CLASS_ICON_TCOORDS[msg.cl]
+	if coords then
+		local l, rt, t, bt = coords[1], coords[2], coords[3], coords[4]
+		local dx, dy = (rt - l) * CLASS_CROP, (bt - t) * CLASS_CROP
+		avatar:SetTexture(CLASS_ICONS)
+		avatar:SetTexCoord(l + dx, rt - dx, t + dy, bt - dy)
+		avatar:SetVertexColor(1, 1, 1, 1)
+	else
+		avatar:SetTexture(T.WHITE)
+		avatar:SetTexCoord(0, 1, 0, 1)
+		avatar:SetVertexColor(r, g, b, 1)
+		local name = msg.s and U.ShortName(msg.s) or '?'
+		row.avatarLetter:SetText(strupper(name:match('^[%z\1-\127\194-\244][\128-\191]*') or '?'))
+		row.avatarLetter:Show()
+	end
+	avatar:Show()
+end
+
+---@param row Frame
+---@param item table
+---@param convo MessengerConversation|nil
+function Log:RenderBubble(row, item, convo)
+	local msg = item.msg
+	local mine = item.mine
+	local box = row.bubble.box
+	local top = item.gap + item.labelH
+	box:ClearAllPoints()
+	if mine then
+		box:SetPoint('TOPRIGHT', row, 'TOPRIGHT', -(GUTTER + 6), -top)
+	else
+		box:SetPoint('TOPLEFT', row, 'TOPLEFT', PAD_X + (item.room and (AVATAR + AVATAR_GAP) or 0), -top)
+	end
+
+	-- Round corners, except the sender's side inside a run, which stays tight
+	local big = math.floor((self.lineH or 14) / 2 + BUBBLE_Y)
+	local upper = item.head and big or SMALL_CORNER
+	local lower = item.tail and big or SMALL_CORNER
+	local radii = mine and { big, upper, big, lower } or { upper, big, lower, big }
+	row.bubble:Layout(item.bubbleW, item.bubbleH, radii)
+
+	local r, g, b
+	if convo then
+		if mine then
+			r, g, b = M.Colors:Mine(convo)
+		else
+			r, g, b = M.Colors:Theirs(convo, (M.Colors:SenderKey(convo, msg)))
+		end
+	end
+	local fr, fg, fb
+	if r then
+		fr, fg, fb = T.BubbleFill(r, g, b)
+	else
+		fr, fg, fb = T.color.bubble[1], T.color.bubble[2], T.color.bubble[3]
+	end
+	row.bubble:SetColor(fr, fg, fb, 1)
+
+	row.body:ClearAllPoints()
+	row.body:SetPoint('TOPLEFT', box, 'TOPLEFT', BUBBLE_X, -BUBBLE_Y)
+	row.body:SetWidth(item.textW)
+	row.body:SetHeight(item.bodyH + 2)
+	T.SetColor(row.body, T.color.text)
+	row.body:SetText(DisplayText(msg))
+	row.body:Show()
+
+	if item.labelH > 0 then
+		local label, lr, lg, lb = self:SenderLabel(msg)
+		row.name:SetText(label)
+		row.name:SetTextColor(lr, lg, lb)
+		row.name:ClearAllPoints()
+		if mine then
+			row.name:SetPoint('BOTTOMRIGHT', box, 'TOPRIGHT', -4, 3)
+		else
+			row.name:SetPoint('BOTTOMLEFT', box, 'TOPLEFT', 4, 3)
+		end
+		row.name:Show()
+	end
+
+	if item.tail then
+		row.time:SetText(U.Clock(msg.t))
+		row.time:ClearAllPoints()
+		if mine then
+			row.time:SetPoint('TOPRIGHT', box, 'BOTTOMRIGHT', -4, -3)
+		else
+			row.time:SetPoint('TOPLEFT', box, 'BOTTOMLEFT', 4, -3)
+		end
+		row.time:Show()
+		if item.room and not mine then
+			DrawAvatar(row, msg, fr, fg, fb)
+		end
+	else
+		row.hoverTime:ClearAllPoints()
+		if mine then
+			row.hoverTime:SetPoint('RIGHT', box, 'LEFT', -8, 0)
+		else
+			row.hoverTime:SetPoint('LEFT', box, 'RIGHT', 8, 0)
+		end
+	end
 end
 
 ---@param msg table
@@ -685,6 +966,27 @@ function Log:Render()
 				row.body:SetHeight(item.bodyH + 2)
 				row.body:SetText(text)
 				row.body:Show()
+			elseif item.kind == 'bubble' or item.kind == 'emote' then
+				local msg = item.msg
+				if msg.mn or msg == self.flashMsg then
+					local wash = msg == self.flashMsg and T.color.found or T.color.mention
+					row.mention:SetVertexColor(wash[1], wash[2], wash[3], wash[4])
+					row.mention:Show()
+				end
+				if item.kind == 'bubble' then
+					self:RenderBubble(row, item, convo)
+				else
+					-- Emotes read as a line about the room, centered like the day separators
+					local er, eg, eb = T.KindColor({ kind = 'EMOTE' })
+					row.body:ClearAllPoints()
+					row.body:SetPoint('TOPLEFT', PAD_X, -5)
+					row.body:SetWidth(self.bodyWidth)
+					row.body:SetHeight(item.bodyH + 2)
+					row.body:SetJustifyH('CENTER')
+					row.body:SetTextColor(er, eg, eb)
+					row.body:SetText(self:SenderLabel(msg) .. ' ' .. DisplayText(msg))
+					row.body:Show()
+				end
 			elseif item.kind == 'day' then
 				row.label:SetText(item.label)
 				T.SetColor(row.label, T.color.faint)
@@ -767,6 +1069,16 @@ function Log:Render()
 	end
 end
 
+local function MenuAtCursor()
+	local dropdown = _G.MessengerDropDown
+	if dropdown and dropdown:IsShown() then
+		local x, y = GetCursorPosition()
+		local scale = dropdown:GetEffectiveScale()
+		dropdown:ClearAllPoints()
+		dropdown:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', x / scale, y / scale)
+	end
+end
+
 ---Right-click menu on a message.
 ---@param row Frame
 ---@param msg table
@@ -787,12 +1099,41 @@ function Log:MessageMenu(row, msg)
 			end,
 		})
 	end
-	W.OpenMenu(row, items)
-	local dropdown = _G.MessengerDropDown
-	if dropdown then
-		local x, y = GetCursorPosition()
-		local scale = dropdown:GetEffectiveScale()
-		dropdown:ClearAllPoints()
-		dropdown:SetPoint('TOPLEFT', UIParent, 'BOTTOMLEFT', x / scale, y / scale)
+	local convo = self.key and M.Store:Get(self.key)
+	local bubbles = M.settings.messageStyle == 'bubbles'
+	if convo and bubbles and not msg.em then
+		if msg.o then
+			table.insert(items, {
+				text = L['Your bubble color...'],
+				divider = true,
+				onClick = function()
+					M.ChatPane.MyColorMenu(row, convo)
+					MenuAtCursor()
+				end,
+			})
+		else
+			local key = M.Colors:SenderKey(convo, msg)
+			if key then
+				local name = msg.s and M:PersonLabel(msg.s) or M:GetTitle(convo)
+				table.insert(items, {
+					text = string.format(L['Bubble color for %s...'], name),
+					divider = true,
+					onClick = function()
+						M.ChatPane.PersonColorMenu(row, convo, key, name)
+						MenuAtCursor()
+					end,
+				})
+			end
+		end
 	end
+	table.insert(items, {
+		text = L['Show messages as bubbles'],
+		checked = bubbles,
+		divider = not (convo and bubbles and not msg.em),
+		onClick = function()
+			M:SetMessageStyle(bubbles and 'lines' or 'bubbles')
+		end,
+	})
+	W.OpenMenu(row, items)
+	MenuAtCursor()
 end

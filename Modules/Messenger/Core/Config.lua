@@ -89,8 +89,18 @@ M.defaults = {
 			y = 60,
 			alpha = 0.94,
 			pinned = false,
+			-- 'default' (Messenger's own look), 'auto' (same as the host's windows) or a window look id
+			skin = 'default',
 		},
 		fontSize = 13,
+		-- 'lines' (names over each group) or 'bubbles' (phone style)
+		messageStyle = 'lines',
+		bubbles = {
+			-- 'chat' (the color of the chat you are in), a palette id or { r, g, b }
+			mine = 'chat',
+			-- 'auto' (grey in private chats, a color per person in channels), 'color' or 'grey'
+			others = 'auto',
+		},
 		listMode = 'auto',
 		timeFormat = 'auto',
 		replyKey = true,
@@ -125,7 +135,11 @@ M.defaults = {
 	global = {
 		people = {},
 		aliases = {},
+		colors = {},
+		bnetChars = {},
 		introShown = false,
+		-- The first-run picks (message style, list size) were made or skipped on this account
+		styleChosen = false,
 	},
 	char = {
 		defaultKeyOffered = false,

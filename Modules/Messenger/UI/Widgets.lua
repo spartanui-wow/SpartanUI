@@ -305,6 +305,12 @@ local function CloseMenu()
 end
 W.CloseMenu = CloseMenu
 
+---The frame the last menu opened from, so a menu entry can open a follow-up menu in its place.
+---@return Frame|nil
+function W.LastMenuOwner()
+	return menu and menu.owner
+end
+
 local function BuildMenu()
 	menu = CreateFrame('Frame', 'MessengerDropDown', UIParent)
 	menu:SetFrameStrata('FULLSCREEN_DIALOG')
@@ -342,6 +348,10 @@ local function MenuRow(index)
 	row.check:SetSize(14, 14)
 	row.check:SetPoint('LEFT', 8, 0)
 	T.SetIcon(row.check, 'check')
+	row.swatch = row:CreateTexture(nil, 'ARTWORK')
+	row.swatch:SetSize(14, 14)
+	row.swatch:SetPoint('LEFT', 8, 0)
+	row.swatch:SetTexture(M.mediaPath .. 'Circle')
 	row.text = T.Text(row, 'body')
 	row.text:SetPoint('LEFT', 26, 0)
 	row.divider = T.Line(row, 'TOP')
@@ -370,6 +380,8 @@ end
 ---@field disabled? boolean
 ---@field danger? boolean
 ---@field divider? boolean Draw a separator above this item
+---@field swatch? number[] A round color sample { r, g, b } in front of the text; a check then sits on the right
+---@field note? boolean Quiet text that cannot be clicked, such as a heading
 
 ---Opens a menu under an anchor. Clicking elsewhere or pressing Escape closes it.
 ---@param anchor Frame
@@ -388,12 +400,22 @@ function W.OpenMenu(anchor, items)
 		local row = MenuRow(i)
 		row.item = item
 		row.text:SetText(item.text)
-		local color = item.disabled and T.color.faint or (item.danger and T.color.danger or T.color.text)
+		local color = item.note and T.color.muted or item.disabled and T.color.faint or (item.danger and T.color.danger or T.color.text)
 		T.SetColor(row.text, color)
 		row.check:SetShown(item.checked == true)
 		row.check:SetVertexColor(T.color.text[1], T.color.text[2], T.color.text[3])
+		row.check:ClearAllPoints()
+		if item.swatch then
+			row.check:SetPoint('RIGHT', -8, 0)
+			row.swatch:SetVertexColor(item.swatch[1], item.swatch[2], item.swatch[3])
+		else
+			row.check:SetPoint('LEFT', 8, 0)
+		end
+		row.swatch:SetShown(item.swatch ~= nil)
+		row.text:ClearAllPoints()
+		row.text:SetPoint('LEFT', item.note and 10 or 26, 0)
 		row.divider:SetShown(item.divider == true)
-		row:SetEnabled(not item.disabled)
+		row:SetEnabled(not item.disabled and not item.note)
 		if item.divider then
 			y = y - 4
 		end
@@ -402,7 +424,7 @@ function W.OpenMenu(anchor, items)
 		row:SetPoint('TOPRIGHT', 0, y)
 		row:Show()
 		y = y - 22
-		width = math.max(width, row.text:GetStringWidth() + 40)
+		width = math.max(width, row.text:GetStringWidth() + (item.swatch and 58 or 40))
 	end
 	for i = #items + 1, #menu.rows do
 		menu.rows[i]:Hide()
@@ -412,6 +434,102 @@ function W.OpenMenu(anchor, items)
 	menu:ClearAllPoints()
 	menu:SetPoint('TOPRIGHT', anchor, 'BOTTOMRIGHT', 0, -2)
 	menu:Show()
+end
+
+----------------------------------------------------------------------------------------------------
+-- Bubble colors
+----------------------------------------------------------------------------------------------------
+
+---Opens the game's color picker. onPick gets { r, g, b }; Cancel puts the old color back.
+---@param r number
+---@param g number
+---@param b number
+---@param onPick fun(color: number[])
+function W.PickColor(r, g, b, onPick)
+	local picker = ColorPickerFrame
+	if not (picker and picker.SetupColorPickerAndShow) then
+		return
+	end
+	local function Changed()
+		local nr, ng, nb = picker:GetColorRGB()
+		onPick({ nr, ng, nb })
+	end
+	picker:SetupColorPickerAndShow({
+		r = r,
+		g = g,
+		b = b,
+		hasOpacity = false,
+		swatchFunc = Changed,
+		cancelFunc = function()
+			onPick({ r, g, b })
+		end,
+	})
+end
+
+---@class MessengerColorMenu
+---@field title? string Heading over the choices
+---@field note? string Quiet line under the heading
+---@field current string|table|nil The saved choice (nil = the default)
+---@field defaultText string
+---@field defaultColor? number[] Source color { r, g, b } of the default; grey when nil
+---@field onPick fun(value: string|table|nil)
+
+---A menu of bubble colors, each with a sample of the bubble it makes.
+---@param anchor Frame
+---@param opts MessengerColorMenu
+function W.OpenColorMenu(anchor, opts)
+	local Colors = M.Colors
+	local function Sample(r, g, b)
+		if not r then
+			return { T.color.bubble[1], T.color.bubble[2], T.color.bubble[3] }
+		end
+		return { T.BubbleFill(r, g, b) }
+	end
+	local items = {}
+	if opts.title then
+		items[#items + 1] = { text = opts.title, note = true }
+	end
+	if opts.note then
+		items[#items + 1] = { text = opts.note, note = true }
+	end
+	local current = opts.current
+	local default = opts.defaultColor
+	items[#items + 1] = {
+		text = opts.defaultText,
+		divider = #items > 0,
+		checked = current == nil,
+		swatch = Sample(default and default[1], default and default[2], default and default[3]),
+		onClick = function()
+			opts.onPick(nil)
+		end,
+	}
+	for _, color in ipairs(Colors.Palette) do
+		items[#items + 1] = {
+			text = color.label,
+			checked = current == color.id,
+			swatch = Sample(color.r, color.g, color.b),
+			onClick = function()
+				opts.onPick(color.id)
+			end,
+		}
+	end
+	local custom = type(current) == 'table' and current or nil
+	if ColorPickerFrame and ColorPickerFrame.SetupColorPickerAndShow then
+		items[#items + 1] = {
+			text = M.L['Pick any color...'],
+			checked = custom ~= nil,
+			swatch = custom and Sample(custom[1], custom[2], custom[3]) or nil,
+			divider = true,
+			onClick = function()
+				local r, g, b = Colors.Resolve(current)
+				if not r and default then
+					r, g, b = default[1], default[2], default[3]
+				end
+				W.PickColor(r or 0.5, g or 0.5, b or 0.54, opts.onPick)
+			end,
+		}
+	end
+	W.OpenMenu(anchor, items)
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -498,6 +616,39 @@ end
 -- Window chrome shared by the deck and pop-outs
 ----------------------------------------------------------------------------------------------------
 
+local windows = setmetatable({}, { __mode = 'k' })
+
+---A window look's frame behind a window's content, without the title bar, close button, crest or footer.
+---@param win Frame
+---@param Kit table
+local function BuildSkin(win, Kit)
+	local skin = CreateFrame('Frame', nil, win)
+	skin:SetAllPoints()
+	Kit:DressShell(skin, { titleBar = false, close = false, crest = false, footer = false })
+	-- Behind the window's panels, with the painted frame over their edges
+	local level = win:GetFrameLevel()
+	skin:SetFrameLevel(level)
+	skin.VisualRoot:SetFrameLevel(level)
+	skin.FrameArt:SetFrameLevel(level + 40)
+	win.skin = skin
+	Kit:Track(skin, function(_, config)
+		if T.SkinId() == 'default' then
+			return
+		end
+		T.ApplySkin(config)
+		-- Content stays inside the frame's beam
+		local border = config.assets.windowBorder
+		local inset = 1
+		if border and border.pieces then
+			inset = math.max(config.layout.barInset or 0, border.edgeSize or 1)
+		end
+		win.inner:ClearAllPoints()
+		win.inner:SetPoint('TOPLEFT', inset, -inset)
+		win.inner:SetPoint('BOTTOMRIGHT', -inset, inset)
+		win:ApplyAlpha()
+	end)
+end
+
 ---@param name string Global frame name
 ---@param minW number
 ---@param minH number
@@ -533,10 +684,15 @@ function W.Window(name, minW, minH)
 	win.shadow:SetPoint('TOPLEFT', -3, 3)
 	win.shadow:SetPoint('BOTTOMRIGHT', 3, -4)
 
+	-- Content anchors here, so a skin's frame can take the edge of the window
+	win.inner = CreateFrame('Frame', nil, win)
+	win.inner:SetAllPoints()
+
 	local grip = CreateFrame('Button', nil, win)
 	grip:SetSize(14, 14)
-	grip:SetPoint('BOTTOMRIGHT', -2, 2)
-	grip:SetFrameLevel(win:GetFrameLevel() + 20)
+	grip:SetPoint('BOTTOMRIGHT', win.inner, 'BOTTOMRIGHT', -2, 2)
+	-- Above a skin's painted frame
+	grip:SetFrameLevel(win:GetFrameLevel() + 45)
 	grip:SetNormalTexture('Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Up')
 	grip:SetHighlightTexture('Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Highlight')
 	grip:SetPushedTexture('Interface\\ChatFrame\\UI-ChatIM-SizeGrabber-Down')
@@ -555,10 +711,65 @@ function W.Window(name, minW, minH)
 	function win:ApplyAlpha()
 		local a = T.Alpha() * (self.opacity or 1)
 		self.bg:SetVertexColor(T.color.window[1], T.color.window[2], T.color.window[3], a)
+		local skin = self.skin
+		if skin and skin:IsShown() and skin.kitConfig then
+			-- The kit's own solidity, scaled by the player's background setting
+			local ground = skin.kitConfig.colors.surface[0]
+			skin.Surface:SetVertexColor(ground[1], ground[2], ground[3], a * (ground[4] or 1))
+		end
 	end
-	win:ApplyAlpha()
+
+	---Draws the window in the chosen skin: Messenger's own flat look, or a window look's frame.
+	function win:ApplySkin()
+		local id = T.SkinId()
+		local Kit = T.Kit()
+		if id == 'default' or not Kit then
+			self.bg:Show()
+			self.edge:Show()
+			self.shadow:Show()
+			if self.skin then
+				self.skin:Hide()
+			end
+			self.inner:ClearAllPoints()
+			self.inner:SetAllPoints()
+			self:ApplyAlpha()
+			return
+		end
+		self.bg:Hide()
+		self.edge:Hide()
+		self.shadow:Hide()
+		if not self.skin then
+			BuildSkin(self, Kit)
+		end
+		local wasShown = self.skin:IsShown()
+		self.skin:Show()
+		if self.skin.skinId ~= id then
+			self.skin.skinId = id
+			Kit:SetFrameKit(self.skin, id)
+		elseif not wasShown then
+			self.skin:ApplyKit()
+		else
+			self:ApplyAlpha()
+		end
+	end
+
+	windows[win] = true
+	win:ApplySkin()
 	return win
 end
+
+---Redraws every Messenger window in the chosen skin.
+function W.ApplySkin()
+	if T.SkinId() == 'default' then
+		T.ApplySkin(nil)
+	end
+	for win in pairs(windows) do
+		win:ApplySkin()
+	end
+end
+
+-- A profile switch can bring a different skin
+M:On('SETTINGS_CHANGED', W.ApplySkin)
 
 ---Stores a frame's position in a settings table.
 ---@param frame Frame

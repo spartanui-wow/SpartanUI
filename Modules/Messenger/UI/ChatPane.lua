@@ -69,6 +69,43 @@ function CP.AlertSummary(convo)
 	return L['Alerts for every message'], LEVEL_ICON.all
 end
 
+---Bubble colors for one person. key is their color key (see Messenger.Colors).
+---@param anchor Frame
+---@param convo MessengerConversation The conversation the menu was opened in
+---@param key string
+---@param name string
+function CP.PersonColorMenu(anchor, convo, key, name)
+	local Colors = M.Colors
+	local r, g, b = Colors:DefaultTheirs(convo, key)
+	W.OpenColorMenu(anchor, {
+		title = string.format(L['Bubble color for %s'], name),
+		note = Colors.IsAccountKey(key) and L['Used on all of their characters'] or nil,
+		current = Colors:Get(key),
+		defaultText = r and L['Automatic'] or L['Default (grey)'],
+		defaultColor = r and { r, g, b } or nil,
+		onPick = function(value)
+			Colors:Set(key, value)
+		end,
+	})
+end
+
+---The player's own bubble color.
+---@param anchor Frame
+---@param convo MessengerConversation|nil
+function CP.MyColorMenu(anchor, convo)
+	local mine = M.settings.bubbles.mine
+	W.OpenColorMenu(anchor, {
+		title = L['Your bubble color'],
+		current = mine ~= 'chat' and mine or nil,
+		defaultText = L['Color of the chat you are in'],
+		defaultColor = { T.KindColor(convo) },
+		onPick = function(value)
+			M.settings.bubbles.mine = value or 'chat'
+			M:Fire('COLORS_CHANGED')
+		end,
+	})
+end
+
 function CP.ConversationMenu(convo, context)
 	local key = convo.key
 	local Store = M.Store
@@ -117,6 +154,18 @@ function CP.ConversationMenu(convo, context)
 			text = L['Remove nickname'],
 			onClick = function()
 				M:SetAlias(key, nil)
+			end,
+		})
+	end
+	local colorKey = M.settings.messageStyle == 'bubbles' and M.Colors:ConversationKey(convo)
+	if colorKey then
+		table.insert(items, {
+			text = L['Bubble color...'],
+			onClick = function()
+				local anchor = W.LastMenuOwner()
+				if anchor then
+					CP.PersonColorMenu(anchor, convo, colorKey, M:GetTitle(convo))
+				end
 			end,
 		})
 	end

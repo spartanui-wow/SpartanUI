@@ -1084,6 +1084,17 @@ function module:OnEnable()
 	end
 end
 
+function module:SetupVehicleUI()
+	if SUI:GetArtworkSetting('VehicleUI') then
+		RegisterStateDriver(artFrame, 'visibility', '[overridebar][vehicleui] hide; show')
+	end
+end
+
+function module:RemoveVehicleUI()
+	UnregisterStateDriver(artFrame, 'visibility')
+	artFrame:Show()
+end
+
 function module:OnDisable()
 	artFrame:Hide()
 	UnregisterStateDriver(artFrame, 'visibility')

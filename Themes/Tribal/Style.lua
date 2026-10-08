@@ -219,9 +219,8 @@ function module:SetupVehicleUI()
 end
 
 function module:RemoveVehicleUI()
-	if SUI:GetArtworkSetting('VehicleUI') then
-		UnregisterStateDriver(SUI_Art_Tribal, 'visibility')
-	end
+	UnregisterStateDriver(SUI_Art_Tribal, 'visibility')
+	SUI_Art_Tribal:Show()
 end
 
 function module:CreateArtwork()

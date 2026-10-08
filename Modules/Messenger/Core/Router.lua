@@ -159,6 +159,14 @@ function R:Record(event, text, sender, guid, bnID, flags, channelBase, channelSt
 		local fields = { kind = 'WHISPER', name = U.DisplayName(full), target = full }
 		if not outgoing then
 			fields.class = U.ClassFromGUID(guid)
+			-- A Battle.net friend on a character we have not seen them on yet
+			local readable = U.Str(guid)
+			if readable and C_BattleNet and C_BattleNet.GetAccountInfoByGUID and not M.Colors:TagFor(full) then
+				local ok, account = pcall(C_BattleNet.GetAccountInfoByGUID, readable)
+				if ok and account then
+					M.Colors:Link(full, account.battleTag)
+				end
+			end
 		end
 		Store:Ensure(key, fields)
 	elseif kind.key == 'BN_WHISPER' then

@@ -54,6 +54,7 @@ function module:OnInitialize()
 		-- The step list shows chapters; each module's steps join one here
 		chapters = {
 			welcome = L['Welcome'],
+			conflicts = L['Conflicts'],
 			theme = L['Look'],
 			unitframes = L['Look'],
 			['artwork-options'] = L['Look'],
@@ -152,6 +153,7 @@ function module:OnInitialize()
 	end
 
 	self:RegisterWelcomeSteps()
+	self:RegisterConflictsStep()
 	self:RegisterHelpersStep()
 end
 
@@ -289,6 +291,132 @@ function module:GetProfileChoices(forSharing)
 	return list
 end
 
+----------------------------------------------------------------------------------------------------
+-- Conflicts: parts of SpartanUI that stay off because another addon does the same job
+----------------------------------------------------------------------------------------------------
+
+local conflictChoice = {} ---@type table<string, boolean>
+
+---An addon's name as its list shows it, without color codes or icons
+---@param addon string
+---@return string
+local function AddonTitle(addon)
+	local title = C_AddOns.GetAddOnMetadata(addon, 'Title') or addon
+	title = title:gsub('|c%x%x%x%x%x%x%x%x', ''):gsub('|r', ''):gsub('|T.-|t', ''):gsub('^%s+', ''):gsub('%s+$', '')
+	return title ~= '' and title or addon
+end
+
+---@param addons string[]
+---@return string
+local function AddonList(addons)
+	local titles = {}
+	for i, addon in ipairs(addons) do
+		titles[i] = AddonTitle(addon)
+	end
+	return table.concat(titles, ', ')
+end
+
+---SpartanUI parts that step aside for another addon the player has on, by name. A part the player
+---turned off themselves is not a conflict.
+---@return {name: string, module: table, addons: string[]}[]
+function module:GetConflicts()
+	local list = {}
+	local disabled = SUI.DB.DisabledModules or {}
+	for name, submodule in SUI:IterateModules() do
+		if submodule.ConflictsWith and not disabled[name] then
+			local addons = SUI:GetModuleConflicts(submodule)
+			if #addons > 0 then
+				list[#list + 1] = { name = name, module = submodule, addons = addons }
+			end
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.name < b.name
+	end)
+	return list
+end
+
+---How many addons in all overlap with a part of SpartanUI
+---@return number
+local function ConflictAddonCount()
+	local count = 0
+	for _, conflict in ipairs(module:GetConflicts()) do
+		count = count + #conflict.addons
+	end
+	return count
+end
+
+function module:RegisterConflictsStep()
+	local reg = module.registration
+	local byName = {}
+
+	reg:AddStep({
+		id = 'conflicts',
+		kind = 'toggles',
+		name = L['Conflicts'],
+		title = L['Detected conflicts'],
+		text = L['These addons do the same job as part of SpartanUI. Only one can run, so that part of SpartanUI stays off. Keep your addon, or switch it off and use SpartanUI.'],
+		order = 15,
+		scope = 'profile',
+		noBulk = true,
+		hidden = function()
+			return #module:GetConflicts() == 0
+		end,
+		groups = function()
+			local items = {}
+			wipe(byName)
+			for _, conflict in ipairs(module:GetConflicts()) do
+				local display = conflict.module.DisplayName or conflict.name
+				local addons = AddonList(conflict.addons)
+				byName[conflict.name] = { display = display, addons = addons, list = conflict.addons }
+				items[#items + 1] = {
+					key = conflict.name,
+					title = (L["Use SpartanUI's %s"]):format(display),
+					caption = (L['%s is on, so this part of SpartanUI is off. Turn this on to switch %s off for this character.']):format(addons, addons),
+				}
+			end
+			return { { items = items } }
+		end,
+		get = function(key)
+			return conflictChoice[key] == true
+		end,
+		set = function(key, value, ctx)
+			conflictChoice[key] = value and true or nil
+			local info = byName[key]
+			if not ctx or not info then
+				return
+			end
+			if value then
+				ctx:NeedsReload('conflict:' .. key, (L["Turn off %s and use SpartanUI's %s"]):format(info.addons, info.display), function()
+					local character = UnitName('player')
+					for _, addon in ipairs(info.list) do
+						C_AddOns.DisableAddOn(addon, character)
+					end
+					-- Saved now, so the game's addon list cannot throw the change away
+					if C_AddOns.SaveAddOns then
+						C_AddOns.SaveAddOns()
+					end
+				end)
+			else
+				ctx:CancelReload('conflict:' .. key)
+			end
+		end,
+		summary = function()
+			local picked = {}
+			for key, on in pairs(conflictChoice) do
+				if on and byName[key] then
+					picked[#picked + 1] = byName[key].display
+				end
+			end
+			if #picked == 0 then
+				return nil
+			end
+			table.sort(picked)
+			return (L['Switching to SpartanUI: %s']):format(table.concat(picked, ', '))
+		end,
+	})
+end
+
 function module:RegisterWelcomeSteps()
 	local reg = module.registration
 
@@ -303,6 +431,21 @@ function module:RegisterWelcomeSteps()
 		-- Nothing to copy or share on a first install: setup opens on the look
 		hidden = function()
 			return not module:HasOtherProfiles()
+		end,
+		-- A fresh start runs SpartanUI's own parts, so point out the ones another addon is keeping off
+		banner = function()
+			if welcomeMode ~= 'fresh' then
+				return nil
+			end
+			local count = ConflictAddonCount()
+			if count == 0 then
+				return nil
+			end
+			return {
+				title = count == 1 and L['1 of your addons does the same job as part of SpartanUI'] or (L['%d of your addons do the same job as parts of SpartanUI']):format(count),
+				text = L['Those parts stay off while your addons run. Click to choose which to keep.'],
+				step = 'conflicts',
+			}
 		end,
 		choices = {
 			{ value = 'fresh', title = L['Start fresh'], caption = L['Pick your look in the next steps.'], recommended = true },

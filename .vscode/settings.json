@@ -1296,7 +1296,13 @@
     "ActionButton_UpdateRangeIndicator",
     "HasMultiCastActionBar",
     "LEAVE_VEHICLE",
-    "CALENDAR_WEEKDAY_NAMES"
+    "CALENDAR_WEEKDAY_NAMES",
+    "QuickKeybindFrame",
+    "UpdateMicroButtons",
+    "ActionBarController_UpdateAll",
+    "ChatFrame_RemoveMessageEventFilter",
+    "ChatFrame_GetMessageEventFilters",
+    "ERR_CHAT_PLAYER_NOT_FOUND_S"
   ],
   "Lua.workspace.ignoreDir": [".vscode", "libs/*"],
   "Lua.diagnostics.enable": true,

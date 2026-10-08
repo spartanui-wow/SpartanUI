@@ -635,6 +635,22 @@ local function BuildGeneralOptions()
 				end,
 			},
 			behaviorHeader = { name = L['Behavior'], type = 'header', order = 10 },
+			blizzardVehicle = {
+				name = L["Use Blizzard's vehicle bar"],
+				desc = L["In vehicles with their own controls, show Blizzard's vehicle bar and hide SpartanUI. Turn this off to keep your SpartanUI bars and artwork, with the vehicle's actions on bar 1."],
+				type = 'toggle',
+				order = 10.5,
+				width = 'full',
+				hidden = function()
+					return _G.OverrideActionBar == nil
+				end,
+				get = function()
+					return SUI:GetArtworkSetting('VehicleUI') == true
+				end,
+				set = function(_, value)
+					SUI.Artwork:SetVehicleUI(value)
+				end,
+			},
 			lockButtons = {
 				name = L['Lock buttons'],
 				desc = L['Stop spells being dragged off the bars by accident. Hold Shift to drag them anyway.'],

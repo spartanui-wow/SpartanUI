@@ -9,6 +9,7 @@ end
 local module = SUI:NewModule('ImprovedLFG')
 module.DisplayName = 'Improved LFG'
 module.description = 'Adds role and rating info to LFG listings'
+module.ConflictsWith = { 'PremadeGroupsFilter' }
 ------------------------------------------
 local FrameStorage = {
 	role = {},
@@ -281,7 +282,7 @@ function module:OnEnable()
 	end
 	hooksecurefunc('LFGListSearchEntry_Update', LFGSearchUpdate)
 
-	if SUI:IsAddonEnabled('PremadeGroupsFilter') then
+	if #SUI:GetModuleConflicts(module) > 0 then
 		module.Override = true
 	end
 end

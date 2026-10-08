@@ -287,7 +287,10 @@ function ThemeRegistry:GetActiveVariant(themeName)
 	if not entry or not entry.variants then
 		return nil
 	end
-	local stored = ThemeRegistry:GetSetting(themeName, 'variant')
+	-- Read the saved choice directly: GetSetting falls back to loading the theme's data, and a
+	-- theme's data callback may ask for its variant (Painted looks size the minimap by it)
+	local userSettings = SUI.DB and SUI.DB.ThemeSettings and SUI.DB.ThemeSettings[themeName]
+	local stored = userSettings and userSettings.variant
 	return stored or entry.variants[1].id
 end
 

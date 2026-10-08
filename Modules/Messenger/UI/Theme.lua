@@ -45,6 +45,37 @@ T.color = {
 	offline = { 0.40, 0.40, 0.42 },
 }
 
+-- Window surfaces a skin may recolor, with the look each one takes from the skin's colors
+local SKINNED = {
+	window = function(c)
+		return c.surface[0], 1
+	end,
+	list = function(c)
+		return c.surface[1]
+	end,
+	header = function(c)
+		return c.bar or c.surface[1]
+	end,
+	popup = function(c)
+		return c.surface[3], 0.98
+	end,
+	line = function(c)
+		return c.trim, 0.35
+	end,
+	edge = function(c)
+		return c.trim, 0.55
+	end,
+	edgeStrong = function(c)
+		return c.trimHi or c.trim, 0.5
+	end,
+}
+
+local DEFAULTS = {}
+for key in pairs(SKINNED) do
+	local color = T.color[key]
+	DEFAULTS[key] = { color[1], color[2], color[3], color[4] }
+end
+
 local FALLBACK_KIND = {
 	WHISPER = { 1, 0.5, 1 },
 	BN_WHISPER = { 0, 1, 0.965 },
@@ -136,6 +167,19 @@ end
 -- Surfaces
 ----------------------------------------------------------------------------------------------------
 
+-- Fills and lines drawn in a color a skin can change, so a new skin repaints them
+local tokenKey = {}
+for key in pairs(SKINNED) do
+	tokenKey[T.color[key]] = key
+end
+local painted = setmetatable({}, { __mode = 'k' })
+
+local function Track(tex, color)
+	if tokenKey[color] then
+		painted[tex] = color
+	end
+end
+
 ---@param parent Frame
 ---@param color table
 ---@param layer? string
@@ -146,6 +190,7 @@ function T.Fill(parent, color, layer, sublevel)
 	tex:SetTexture(WHITE)
 	tex:SetVertexColor(color[1], color[2], color[3], color[4] or 1)
 	tex:SetAllPoints(parent)
+	Track(tex, color)
 	return tex
 end
 
@@ -179,6 +224,7 @@ function T.Line(parent, side, color)
 		tex:SetPoint('BOTTOM' .. side)
 		tex:SetWidth(px)
 	end
+	Track(tex, color)
 	return tex
 end
 
@@ -192,6 +238,81 @@ function T.Border(frame, color)
 		T.Line(frame, 'LEFT', color),
 		T.Line(frame, 'RIGHT', color),
 	}
+end
+
+----------------------------------------------------------------------------------------------------
+-- Skins: Messenger's own look, or a window look from Lib's AddonTools (the same frames the host's
+-- other windows use, without the crest or title plaque on top)
+----------------------------------------------------------------------------------------------------
+
+---@return table|nil
+function T.Kit()
+	return LibAT and LibAT.UI and LibAT.UI.Kit or nil
+end
+
+---The chosen skin: 'default' (Messenger's own), 'auto' (whatever the host's windows use) or a window look id.
+---@return string
+function T.SkinId()
+	local id = M.settings and M.settings.window.skin or 'default'
+	local Kit = T.Kit()
+	if not Kit or (id ~= 'auto' and not Kit.registry[id]) then
+		return 'default'
+	end
+	return id
+end
+
+---Every window look, sorted by name.
+---@return { id: string, name: string }[]
+function T.SkinList()
+	local list = {}
+	local Kit = T.Kit()
+	if Kit then
+		for id, config in pairs(Kit.registry) do
+			list[#list + 1] = { id = id, name = config.name or id }
+		end
+	end
+	table.sort(list, function(a, b)
+		return a.name < b.name
+	end)
+	return list
+end
+
+local function Near(a, b)
+	return math.abs((a or 1) - (b or 1)) < 0.01
+end
+
+local appliedSkin
+
+---Recolors the window surfaces for a window look (nil for Messenger's own). Fills still showing
+---the old color are repainted; ones a state has recolored (a chat-colored rule) are left alone.
+---@param config? table
+function T.ApplySkin(config)
+	if config == appliedSkin then
+		return
+	end
+	appliedSkin = config
+	local old = {}
+	for key, pick in pairs(SKINNED) do
+		local token = T.color[key]
+		old[key] = { token[1], token[2], token[3], token[4] }
+		local source, alpha
+		if config and config.colors then
+			source, alpha = pick(config.colors)
+		end
+		if not source then
+			source = DEFAULTS[key]
+		end
+		token[1], token[2], token[3] = source[1], source[2], source[3]
+		token[4] = alpha or source[4]
+	end
+	for tex, token in pairs(painted) do
+		local was = old[tokenKey[token]]
+		local r, g, b, a = tex:GetVertexColor()
+		if Near(r, was[1]) and Near(g, was[2]) and Near(b, was[3]) and Near(a, was[4]) then
+			tex:SetVertexColor(token[1], token[2], token[3], token[4] or 1)
+		end
+	end
+	M:Fire('SKIN_CHANGED')
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -303,6 +424,32 @@ function T.NameColor(classFile)
 		return r, g, b
 	end
 	return T.color.text[1], T.color.text[2], T.color.text[3]
+end
+
+-- Other people's bubbles when they have no color
+T.color.bubble = { 0.17, 0.17, 0.19 }
+
+local function Linear(c)
+	return c ^ 2.2
+end
+
+---The fill for a bubble of a chosen color: the color laid over the dark window, then darkened
+---until light text (and the game's item and player link colors) stays easy to read on it.
+---@param r number
+---@param g number
+---@param b number
+---@return number r, number g, number b
+function T.BubbleFill(r, g, b)
+	local base = T.color.window
+	local k = 0.55
+	r, g, b = base[1] + (r - base[1]) * k, base[2] + (g - base[2]) * k, base[3] + (b - base[3]) * k
+	local luminance = 0.2126 * Linear(r) + 0.7152 * Linear(g) + 0.0722 * Linear(b)
+	local limit = 0.11
+	if luminance > limit then
+		local scale = (limit / luminance) ^ (1 / 2.2)
+		r, g, b = r * scale, g * scale, b * scale
+	end
+	return r, g, b
 end
 
 ---@param status string|nil

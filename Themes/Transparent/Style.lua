@@ -293,9 +293,8 @@ end
 function module:SetupVehicleUI() end
 
 function module:RemoveVehicleUI()
-	if SUI:GetArtworkSetting('VehicleUI') then
-		UnregisterStateDriver(SUI_Art_Transparent, 'visibility')
-	end
+	UnregisterStateDriver(SUI_Art_Transparent, 'visibility')
+	SUI_Art_Transparent:Show()
 end
 
 function module:SetColor()

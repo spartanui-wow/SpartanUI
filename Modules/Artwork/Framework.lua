@@ -718,8 +718,49 @@ local function VehicleUI()
 				Minimap:Show()
 			end
 		end)
-		RegisterStateDriver(SpartanUI, 'visibility', '[petbattle][overridebar][vehicleui] hide; show')
 	end
+	module:ApplyVehicleUI(true)
+end
+
+---Hide SpartanUI in vehicles only while Blizzard's vehicle bar is in use. Otherwise the art and bars
+---stay up and bar 1 shows the vehicle's actions.
+---@param skipStyle? boolean the look sets itself up when it enables
+function module:ApplyVehicleUI(skipStyle)
+	if InCombatLockdown() then
+		return
+	end
+	local style = not skipStyle and SUI:GetModule('Style.' .. module.CurrentSettings.Style, true)
+	if module.CurrentSettings.VehicleUI then
+		RegisterStateDriver(SpartanUI, 'visibility', '[petbattle][overridebar][vehicleui] hide; show')
+		if style and style.SetupVehicleUI then
+			style:SetupVehicleUI()
+		end
+	else
+		UnregisterStateDriver(SpartanUI, 'visibility')
+		SpartanUI:Show()
+		if style and style.RemoveVehicleUI then
+			style:RemoveVehicleUI()
+		end
+	end
+end
+
+---Use Blizzard's vehicle bar in vehicles, or keep SpartanUI's bars and art up
+---@param value boolean
+function module:SetVehicleUI(value)
+	if InCombatLockdown() then
+		SUI:Print(ERR_NOT_IN_COMBAT)
+		return
+	end
+	SUI.DBM:Set(module, 'VehicleUI', value)
+	if Bartender4 then
+		Bartender4.db.profile.blizzardVehicle = value
+		Bartender4:UpdateBlizzardVehicle()
+	end
+	if SUI.ActionBars and SUI.ActionBars:IsActive() then
+		SUI.ActionBars:UpdateBlizzardVehicle()
+		SUI.ActionBars:ApplyAll()
+	end
+	module:ApplyVehicleUI()
 end
 
 function module:ReloadDB()

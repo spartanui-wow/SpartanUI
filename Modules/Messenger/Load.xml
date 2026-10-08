@@ -7,6 +7,7 @@
 	<Script file="Core\Emoji.lua" />
 	<Script file="Core\Config.lua" />
 	<Script file="Core\Store.lua" />
+	<Script file="Core\Colors.lua" />
 	<Script file="Core\Contacts.lua" />
 	<Script file="Core\Sender.lua" />
 	<Script file="Core\Router.lua" />
@@ -15,11 +16,13 @@
 	<Script file="Core\Integration.lua" />
 	<Script file="UI\Theme.lua" />
 	<Script file="UI\Widgets.lua" />
+	<Script file="UI\Bubble.lua" />
 	<Script file="UI\EmojiPicker.lua" />
 	<Script file="UI\MessageLog.lua" />
 	<Script file="UI\Composer.lua" />
 	<Script file="UI\ChatPane.lua" />
 	<Script file="UI\ConversationList.lua" />
+	<Script file="UI\Welcome.lua" />
 	<Script file="UI\Deck.lua" />
 	<Script file="UI\PopOut.lua" />
 	<Script file="UI\Toast.lua" />

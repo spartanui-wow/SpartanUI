@@ -56,9 +56,8 @@ function module:SetupVehicleUI()
 end
 
 function module:RemoveVehicleUI()
-	if not SUI:GetArtworkSetting('VehicleUI') then
-		UnregisterStateDriver(SUI_Art_Classic, 'visibility')
-	end
+	UnregisterStateDriver(SUI_Art_Classic, 'visibility')
+	SUI_Art_Classic:Show()
 end
 
 local function CreateArtwork()

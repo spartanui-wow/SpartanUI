@@ -190,6 +190,137 @@ function M:BuildOptionsTable()
 							M.UI.Deck:SetListMode(value)
 						end,
 					},
+					skin = {
+						type = 'select',
+						order = 9,
+						width = 'double',
+						name = L['Window style'],
+						desc = L['How the Messenger windows are framed. Messenger keeps its own simple look unless you pick another style.'],
+						hidden = function()
+							return not M.Theme.Kit()
+						end,
+						values = function()
+							local values = {
+								default = L['Messenger (default)'],
+								auto = L['Match my other windows'],
+							}
+							for _, skin in ipairs(M.Theme.SkinList()) do
+								values[skin.id] = skin.name
+							end
+							return values
+						end,
+						sorting = function()
+							local order = { 'default', 'auto' }
+							for _, skin in ipairs(M.Theme.SkinList()) do
+								order[#order + 1] = skin.id
+							end
+							return order
+						end,
+						get = function()
+							return M.Theme.SkinId()
+						end,
+						set = function(_, value)
+							settings().window.skin = value
+							M.Widgets.ApplySkin()
+						end,
+					},
+					messageStyle = {
+						type = 'select',
+						order = 9.1,
+						width = 'double',
+						name = L['Message style'],
+						desc = L['Bubbles look like the messages app on a phone: yours on the right, everyone else on the left. You can also switch by right-clicking any message.'],
+						values = {
+							lines = L['Lines: names over each group of messages'],
+							bubbles = L['Bubbles: yours on the right, theirs on the left'],
+						},
+						sorting = { 'lines', 'bubbles' },
+						get = function()
+							return settings().messageStyle
+						end,
+						set = function(_, value)
+							M:SetMessageStyle(value)
+						end,
+					},
+					myBubble = {
+						type = 'select',
+						order = 9.2,
+						name = L['Your bubble color'],
+						desc = L['The color of the messages you send.'],
+						hidden = function()
+							return settings().messageStyle ~= 'bubbles'
+						end,
+						values = function()
+							local values = { chat = L['Color of the chat you are in'], custom = L['Your own color'] }
+							for _, color in ipairs(M.Colors.Palette) do
+								values[color.id] = color.label
+							end
+							return values
+						end,
+						sorting = function()
+							local order = { 'chat' }
+							for _, color in ipairs(M.Colors.Palette) do
+								order[#order + 1] = color.id
+							end
+							order[#order + 1] = 'custom'
+							return order
+						end,
+						get = function()
+							local mine = settings().bubbles.mine
+							return type(mine) == 'table' and 'custom' or mine
+						end,
+						set = function(_, value)
+							local bubbles = settings().bubbles
+							if value == 'custom' then
+								if type(bubbles.mine) ~= 'table' then
+									local start = M.Colors.ById.blue
+									bubbles.mine = { start.r, start.g, start.b }
+								end
+							else
+								bubbles.mine = value
+							end
+							M:Fire('COLORS_CHANGED')
+						end,
+					},
+					myBubbleCustom = {
+						type = 'color',
+						order = 9.3,
+						name = L['Pick your color'],
+						hidden = function()
+							return settings().messageStyle ~= 'bubbles' or type(settings().bubbles.mine) ~= 'table'
+						end,
+						get = function()
+							local mine = settings().bubbles.mine
+							return mine[1], mine[2], mine[3]
+						end,
+						set = function(_, r, g, b)
+							settings().bubbles.mine = { r, g, b }
+							M:Fire('COLORS_CHANGED')
+						end,
+					},
+					otherBubbles = {
+						type = 'select',
+						order = 9.4,
+						width = 'double',
+						name = L["Other people's bubbles"],
+						desc = L['A color you pick for someone always wins: right-click one of their messages. Colors are kept for your whole account, and Battle.net friends keep theirs on every character they play.'],
+						hidden = function()
+							return settings().messageStyle ~= 'bubbles'
+						end,
+						values = {
+							auto = L['Grey in private chats, a color for each person in channels'],
+							color = L['A color for each person everywhere'],
+							grey = L['Grey everywhere'],
+						},
+						sorting = { 'auto', 'color', 'grey' },
+						get = function()
+							return settings().bubbles.others
+						end,
+						set = function(_, value)
+							settings().bubbles.others = value
+							M:Fire('COLORS_CHANGED')
+						end,
+					},
 					fontSize = {
 						type = 'range',
 						order = 10,

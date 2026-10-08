@@ -14,7 +14,7 @@ module.DisplayName = L['Messenger']
 module.description = 'Whispers and chats as instant-messenger style conversations'
 
 -- Addons that already manage whispers; running two would split conversations between them
-local CONFLICTS = { 'WIM', 'WhisperDeck' }
+module.ConflictsWith = { 'WIM', 'WhisperDeck' }
 
 local HEADER_KEY = 'messenger'
 
@@ -156,10 +156,8 @@ local function RegisterSetupStep()
 end
 
 function module:OnInitialize()
-	for _, addon in ipairs(CONFLICTS) do
-		if SUI:IsAddonEnabled(addon) then
-			module.Override = true
-		end
+	if #SUI:GetModuleConflicts(module) > 0 then
+		module.Override = true
 	end
 
 	M:Initialize({

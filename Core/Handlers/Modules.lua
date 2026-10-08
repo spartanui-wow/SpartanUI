@@ -43,6 +43,20 @@ function SUI:IsModuleEnabled(moduleName)
 	return true
 end
 
+---Addons from a module's ConflictsWith list that are turned on for this character. A module steps
+---aside (Override) while any of them run, and setup lists them on its conflicts page.
+---@param submodule table
+---@return string[] addons
+function SUI:GetModuleConflicts(submodule)
+	local found = {}
+	for _, addon in ipairs(submodule.ConflictsWith or {}) do
+		if SUI:IsAddonEnabled(addon) then
+			found[#found + 1] = addon
+		end
+	end
+	return found
+end
+
 ---@param moduleName AceAddon|string
 ---@return boolean
 function SUI:IsModuleDisabled(moduleName)

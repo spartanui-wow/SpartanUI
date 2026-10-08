@@ -56,6 +56,21 @@ local function RefreshFriends()
 	end
 end
 
+---Ties every WoW character a Battle.net friend has online to their BattleTag, so the colors
+---picked for them follow them to any character.
+---@param friendIndex number
+---@param tag string
+local function LinkCharacters(friendIndex, tag)
+	local count = C_BattleNet.GetFriendNumGameAccounts and C_BattleNet.GetFriendNumGameAccounts(friendIndex) or 0
+	for i = 1, count do
+		local game = C_BattleNet.GetFriendGameAccountInfo(friendIndex, i)
+		local name = game and game.clientProgram == BNET_CLIENT_WOW and U.Str(game.characterName)
+		if name then
+			M.Colors:Link(U.JoinName(name, game.realmName), tag)
+		end
+	end
+end
+
 local function RefreshBNet()
 	wipe(bnet)
 	wipe(bnetById)
@@ -89,6 +104,7 @@ local function RefreshBNet()
 			if entry.id then
 				bnetById[entry.id] = entry
 			end
+			LinkCharacters(i, tag)
 		end
 	end
 end

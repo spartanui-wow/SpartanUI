@@ -1183,9 +1183,9 @@ function Painted.Register(spec)
 	end
 
 	function module:RemoveVehicleUI()
-		if SUI:GetArtworkSetting('VehicleUI') then
-			UnregisterStateDriver(_G['SUI_Art_' .. name], 'visibility')
-		end
+		local art = _G['SUI_Art_' .. name]
+		UnregisterStateDriver(art, 'visibility')
+		art:Show()
 	end
 
 	return module

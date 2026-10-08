@@ -1,7 +1,10 @@
 [
   {
     "base": "Themes\\Arcane\\Images\\DataBar-Blue",
-    "capWidth": 128,
+    "leftWidth": 67,
+    "leftFile": 128,
+    "centerWidth": 157,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -18,11 +21,15 @@
       0.9607843137254902,
       0.18
     ],
-    "contrast": 11.096
+    "contrast": 11.42,
+    "seam": 10.25
   },
   {
     "base": "Themes\\Arcane\\Images\\DataBar-Red",
-    "capWidth": 128,
+    "leftWidth": 70,
+    "leftFile": 128,
+    "centerWidth": 153,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -39,11 +46,15 @@
       0.6627450980392157,
       0.18
     ],
-    "contrast": 10.521
+    "contrast": 10.77,
+    "seam": 10.66
   },
   {
     "base": "Themes\\Classic\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 51,
+    "leftFile": 64,
+    "centerWidth": 231,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -60,11 +71,15 @@
       0.5137254901960784,
       0.18
     ],
-    "contrast": 10.971
+    "contrast": 11.51,
+    "seam": 7.39
   },
   {
     "base": "Themes\\Digital\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 51,
+    "leftFile": 64,
+    "centerWidth": 256,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -81,11 +96,15 @@
       0.9176470588235294,
       0.18
     ],
-    "contrast": 11.263
+    "contrast": 11.45,
+    "seam": 9.91
   },
   {
     "base": "Themes\\Fel\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 54,
+    "leftFile": 64,
+    "centerWidth": 189,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -102,11 +121,15 @@
       0.4745098039215686,
       0.18
     ],
-    "contrast": 13.041
+    "contrast": 13.25,
+    "seam": 11.42
   },
   {
     "base": "Themes\\Tribal\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 54,
+    "leftFile": 64,
+    "centerWidth": 207,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -123,11 +146,15 @@
       0.5725490196078431,
       0.18
     ],
-    "contrast": 11.161
+    "contrast": 11.46,
+    "seam": 11.71
   },
   {
     "base": "Themes\\War\\Images\\DataBar-Alliance",
-    "capWidth": 128,
+    "leftWidth": 51,
+    "leftFile": 64,
+    "centerWidth": 176,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -144,11 +171,15 @@
       0.47058823529411764,
       0.18
     ],
-    "contrast": 12.077
+    "contrast": 12.62,
+    "seam": 5.8
   },
   {
     "base": "Themes\\War\\Images\\DataBar-Horde",
-    "capWidth": 128,
+    "leftWidth": 55,
+    "leftFile": 64,
+    "centerWidth": 185,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -165,11 +196,15 @@
       0.6039215686274509,
       0.18
     ],
-    "contrast": 10.329
+    "contrast": 10.43,
+    "seam": 7.12
   },
   {
     "base": "Themes\\Midnight\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 67,
+    "leftFile": 128,
+    "centerWidth": 239,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -186,11 +221,15 @@
       0.9294117647058824,
       0.18
     ],
-    "contrast": 11.905
+    "contrast": 12.13,
+    "seam": 8.66
   },
   {
     "base": "Themes\\Boughs\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 103,
+    "leftFile": 128,
+    "centerWidth": 182,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -207,11 +246,15 @@
       0.5843137254901961,
       0.18
     ],
-    "contrast": 11.683
+    "contrast": 11.65,
+    "seam": 9.28
   },
   {
     "base": "Themes\\Meridian\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 61,
+    "leftFile": 64,
+    "centerWidth": 180,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -228,11 +271,15 @@
       0.7843137254901961,
       0.18
     ],
-    "contrast": 11.668
+    "contrast": 11.95,
+    "seam": 9.16
   },
   {
     "base": "Themes\\Atlas\\Images\\DataBar",
-    "capWidth": 128,
+    "leftWidth": 45,
+    "leftFile": 64,
+    "centerWidth": 133,
+    "centerFile": 256,
     "textColor": [
       0.96,
       0.95,
@@ -249,6 +296,7 @@
       0.48627450980392156,
       0.18
     ],
-    "contrast": 9.608
+    "contrast": 9.46,
+    "seam": 8.52
   }
 ]

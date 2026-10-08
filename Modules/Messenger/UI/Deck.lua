@@ -120,8 +120,8 @@ function D:Build()
 
 	-- Title strip
 	local title = CreateFrame('Frame', nil, win)
-	title:SetPoint('TOPLEFT')
-	title:SetPoint('TOPRIGHT')
+	title:SetPoint('TOPLEFT', win.inner)
+	title:SetPoint('TOPRIGHT', win.inner)
 	T.Fill(title, T.color.header, 'BACKGROUND', 1)
 	T.Line(title, 'BOTTOM')
 	W.DragHandle(title, win)
@@ -231,7 +231,7 @@ function D:Build()
 
 	local pane = M.ChatPane.Create(win, true)
 	pane:SetPoint('TOPLEFT', list, 'TOPRIGHT')
-	pane:SetPoint('BOTTOMRIGHT')
+	pane:SetPoint('BOTTOMRIGHT', win.inner)
 	pane.composer.onNavigate = function(step)
 		return D:Step(step)
 	end
@@ -251,6 +251,10 @@ function D:Build()
 	self.empty = BuildEmpty(win)
 	self.empty:Hide()
 
+	-- First run on this account: pick how messages and the list look
+	self.welcome = M.Welcome.Create(win)
+	self.welcome:SetFrameLevel(win:GetFrameLevel() + 30)
+
 	self:Layout()
 	win:SetScript('OnSizeChanged', function()
 		D:Layout()
@@ -259,6 +263,9 @@ function D:Build()
 	self:ApplyPin()
 	win:SetScript('OnShow', function()
 		M.db.char.deckOpen = true
+		if M.Welcome.Pending() and not self.welcome:IsShown() then
+			self.welcome:Start()
+		end
 		M.UI.Fade:Kick()
 		M.Contacts:RequestGuild()
 		D:Refresh()
@@ -273,6 +280,13 @@ function D:Build()
 	end)
 
 	M:On('LIST_CHANGED', function()
+		if win:IsShown() then
+			M:Defer('deck-refresh', function()
+				D:Refresh()
+			end)
+		end
+	end)
+	M:On('SKIN_CHANGED', function()
 		if win:IsShown() then
 			M:Defer('deck-refresh', function()
 				D:Refresh()
@@ -392,14 +406,17 @@ function D:Layout()
 		mode = 'slim'
 	end
 	list:ClearAllPoints()
-	list:SetPoint('TOPLEFT', 0, -titleH)
-	list:SetPoint('BOTTOMLEFT', 0, 0)
+	list:SetPoint('TOPLEFT', win.inner, 'TOPLEFT', 0, -titleH)
+	list:SetPoint('BOTTOMLEFT', win.inner, 'BOTTOMLEFT', 0, 0)
 	list:SetWidth(LIST_WIDTH[mode])
 	list:SetMode(mode)
 	self:UpdateListButton()
 	self.empty:ClearAllPoints()
-	self.empty:SetPoint('TOPLEFT', 0, -titleH)
-	self.empty:SetPoint('BOTTOMRIGHT')
+	self.empty:SetPoint('TOPLEFT', win.inner, 'TOPLEFT', 0, -titleH)
+	self.empty:SetPoint('BOTTOMRIGHT', win.inner)
+	self.welcome:ClearAllPoints()
+	self.welcome:SetPoint('TOPLEFT', win.inner, 'TOPLEFT', 0, -titleH)
+	self.welcome:SetPoint('BOTTOMRIGHT', win.inner)
 end
 
 ---Shows the open/close key in the title bar and the close button's tooltip.
@@ -459,7 +476,8 @@ function D:Select(key, focus, force, query)
 		self.pane.log:JumpTo(query)
 	end
 	self.pick:Hide()
-	if focus then
+	-- Typing would land in a message box hidden under the first-run picks
+	if focus and not self.welcome:IsShown() then
 		self.pane:FocusComposer()
 	end
 end

@@ -51,32 +51,12 @@ function module:SetupOptions()
 		get = function(info)
 			return module.CurrentSettings.VehicleUI
 		end,
+		-- SpartanUI's own bars carry this setting in Action Bars > General
+		hidden = function()
+			return SUI.ActionBars and SUI.ActionBars:IsActive()
+		end,
 		set = function(info, val)
-			if InCombatLockdown() then
-				SUI:Print(ERR_NOT_IN_COMBAT)
-				return
-			end
-			SUI.DBM:Set(module, 'VehicleUI', val)
-			--Make sure bartender knows to do it, or not...
-			if Bartender4 then
-				Bartender4.db.profile.blizzardVehicle = val
-				Bartender4:UpdateBlizzardVehicle()
-			end
-			if SUI.ActionBars and SUI.ActionBars:IsActive() then
-				SUI.ActionBars:UpdateBlizzardVehicle()
-				SUI.ActionBars:ApplyAll()
-			end
-
-			local activeStyle = module.CurrentSettings.Style
-			if module.CurrentSettings.VehicleUI then
-				if SUI:GetModule('Style.' .. activeStyle).SetupVehicleUI() ~= nil then
-					SUI:GetModule('Style.' .. activeStyle):SetupVehicleUI()
-				end
-			else
-				if SUI:GetModule('Style.' .. activeStyle).RemoveVehicleUI() ~= nil then
-					SUI:GetModule('Style.' .. activeStyle):RemoveVehicleUI()
-				end
-			end
+			module:SetVehicleUI(val)
 		end,
 	}
 
