@@ -96,6 +96,50 @@ SUIUF.Tags.Methods['SUIHealth'] = SUIHealth
 SUIUF.Tags.Events['SUIPower'] = 'UNIT_MAXPOWER UNIT_POWER_UPDATE'
 SUIUF.Tags.Methods['SUIPower'] = SUIPower
 
+SUIUF.Tags.Events['SUIHealthDeficit'] = 'UNIT_HEALTH UNIT_MAXHEALTH'
+SUIUF.Tags.Methods['SUIHealthDeficit'] = function(unit)
+	if not unit or UnitIsDeadOrGhost(unit) then
+		return ''
+	end
+	local missing = (UnitHealthMax(unit) or 0) - (UnitHealth(unit) or 0)
+	if missing <= 0 then
+		return ''
+	end
+	return '|cffff4444-' .. AbbreviateNumbers(missing) .. '|r'
+end
+
+-- Usage: [SUI_smartlevel] hides the level at max level; [SUI_smartlevel(show)] always shows it
+SUIUF.Tags.Events['SUI_smartlevel'] = 'UNIT_LEVEL PLAYER_LEVEL_UP UNIT_CLASSIFICATION_CHANGED'
+SUIUF.Tags.Methods['SUI_smartlevel'] = function(unit, _, ...)
+	local level = (UnitEffectiveLevel or UnitLevel)(unit)
+	if not level then
+		return nil
+	end
+
+	local classification = UnitClassification(unit)
+	if classification == 'worldboss' then
+		return 'Boss'
+	end
+	if level <= 0 then
+		return '??'
+	end
+
+	local show = false
+	for i = 1, select('#', ...) do
+		if tostring(select(i, ...)) == 'show' then
+			show = true
+		end
+	end
+	if not show and level >= GetMaxPlayerLevel() then
+		return nil
+	end
+
+	if classification == 'elite' or classification == 'rareelite' then
+		return level .. '+'
+	end
+	return tostring(level)
+end
+
 -- LEGACY Health Formatting Tags
 do
 	local listing = {
