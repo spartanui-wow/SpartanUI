@@ -1302,7 +1302,14 @@
     "ActionBarController_UpdateAll",
     "ChatFrame_RemoveMessageEventFilter",
     "ChatFrame_GetMessageEventFilters",
-    "ERR_CHAT_PLAYER_NOT_FOUND_S"
+    "ERR_CHAT_PLAYER_NOT_FOUND_S",
+    "MicroButtonAndBagsBar",
+    "Class_AddSpellToActionBarService",
+    "Tutorials",
+    "TutorialManager",
+    "NPE_LoadUI",
+    "ActionBarController_GetCurrentActionBarState",
+    "LE_ACTIONBAR_STATE_OVERRIDE"
   ],
   "Lua.workspace.ignoreDir": [".vscode", "libs/*"],
   "Lua.diagnostics.enable": true,

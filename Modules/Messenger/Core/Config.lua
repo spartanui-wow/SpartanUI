@@ -126,6 +126,10 @@ M.defaults = {
 		minimap = {
 			hide = false,
 		},
+		-- Sections folded away in the broker icon's hover card
+		launcher = {
+			collapsed = {},
+		},
 		history = {
 			maxMessages = 500,
 			keepDays = 0,

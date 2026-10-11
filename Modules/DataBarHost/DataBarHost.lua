@@ -4,6 +4,7 @@ local MoveIt = SUI.MoveIt
 -- Lib's DataBar is a separate addon. When it is installed, SpartanUI styles its bars to match
 -- the active theme and places the bars a theme has a spot for. DataBar keeps everything else
 -- (plugins, order, tooltips, fading), and the player can take any bar back in DataBar's settings.
+-- SpartanUI also adds two small bars: one under the minimap (on) and one above the chat window (off).
 
 ---@class SUI.Handler.DataBarHost : SUI.Module
 local module = SUI:NewModule('Handler.DataBarHost')
@@ -12,9 +13,16 @@ local THEME_ID = 'spartanui'
 local DEFAULT_WIDTH = 700
 local DEFAULT_HEIGHT = 22
 
+-- Small bars SpartanUI adds to Lib's DataBar. Each slot shows the first plugin on its list the player has.
+local MINIMAP_BAR = 'sui_minimap'
+local CHAT_BAR = 'sui_chat'
+local MINI_HEIGHT = 20
+local MINIMAP_PLUGINS = { "Lib's Social", "Lib's TimePlayed", "Lib's Clock" }
+local CHAT_PLUGINS = { 'LibsMessenger', "Lib's Bags", "Lib's Clock" }
+
 ---@type table<string, Frame>
 local holders = {}
----@type table<string, { position: string, width?: number, height?: number, strata?: string }>
+---@type table<string, { position: string, width?: number, height?: number, strata?: string, label?: string, isAvailable?: fun(): boolean }>
 local slots = {}
 ---@type table<string, { width: number, height: number, strata?: string }>
 local placements = {}
@@ -29,6 +37,143 @@ end
 ---@return string
 local function MoverName(barId)
 	return 'DataBar_' .. barId
+end
+
+---@param value number
+---@return number
+local function Round(value)
+	return math.floor(value + 0.5)
+end
+
+---True when a frame's size and place can be read (not a combat-protected value on Retail)
+---@param ... any
+---@return boolean
+local function Readable(...)
+	for i = 1, select('#', ...) do
+		local value = select(i, ...)
+		if type(value) ~= 'number' or (canaccessvalue and not canaccessvalue(value)) then
+			return false
+		end
+	end
+	return true
+end
+
+---A frame's width in UIParent units, so a bar holder can match it whatever either is scaled to
+---@param frame Frame|nil
+---@param fallback number
+---@return number
+local function ScreenWidth(frame, fallback)
+	local width = frame and frame:GetWidth()
+	if not Readable(width) or width <= 0 then
+		return fallback
+	end
+	return Round(width * frame:GetEffectiveScale() / UIParent:GetEffectiveScale())
+end
+
+---How far under the map the minimap bar sits: below the zone text and coordinates SpartanUI draws
+---there (the minimap holder reaches down past them), or right under the map without them
+---@return number y
+local function MinimapBarOffset()
+	local holder = _G.SUI_Minimap
+	if not Minimap or not holder or not holder:IsShown() then
+		return -2
+	end
+	local mapBottom, holderBottom = Minimap:GetBottom(), holder:GetBottom()
+	if not Readable(mapBottom, holderBottom) then
+		return -2
+	end
+	local uiScale = UIParent:GetEffectiveScale()
+	local gap = mapBottom * Minimap:GetEffectiveScale() / uiScale - holderBottom * holder:GetEffectiveScale() / uiScale
+	if gap > 0 and gap < 120 then
+		return -Round(gap) - 2
+	end
+	return -2
+end
+
+---How far above the chat window the chat bar sits: over its tabs
+---@return number y
+local function ChatBarOffset()
+	local chat, tab = _G.ChatFrame1, _G.ChatFrame1Tab
+	local chatTop, tabTop = chat and chat:GetTop(), tab and tab:GetTop()
+	if Readable(chatTop, tabTop) and tabTop > chatTop then
+		local uiScale = UIParent:GetEffectiveScale()
+		return Round(tabTop * tab:GetEffectiveScale() / uiScale - chatTop * chat:GetEffectiveScale() / uiScale) + 2
+	end
+	return 26
+end
+
+---@param barId string
+---@return boolean
+local function IsBarOn(barId)
+	local api = LibsDataBar and LibsDataBar.API
+	return api ~= nil and api.IsBarEnabled ~= nil and api:IsBarEnabled(barId)
+end
+
+---The small bars SpartanUI adds, as Lib's DataBar definitions. The attach spot is where the bar
+---goes when the player takes it back from SpartanUI in DataBar's settings.
+---@return table<string, table>
+local function MiniBarDefinitions()
+	local definitions = {}
+	if Minimap then
+		definitions[MINIMAP_BAR] = {
+			name = L['Minimap bar'],
+			kind = 'mini',
+			enabled = true,
+			slots = 2,
+			plugins = MINIMAP_PLUGINS,
+			attach = { frame = 'Minimap', side = 'below', y = MinimapBarOffset(), matchWidth = true, hideWithTarget = true },
+			size = { height = MINI_HEIGHT },
+			pluginDefaults = { mode = 'text', showLabel = false },
+		}
+	end
+	if _G.ChatFrame1 then
+		definitions[CHAT_BAR] = {
+			name = L['Chat bar'],
+			kind = 'mini',
+			enabled = false,
+			slots = 3,
+			plugins = CHAT_PLUGINS,
+			attach = { frame = 'ChatFrame1', side = 'above', y = ChatBarOffset(), matchWidth = true },
+			size = { height = MINI_HEIGHT },
+			pluginDefaults = { mode = 'text', showLabel = false },
+		}
+	end
+	return definitions
+end
+
+---Holder spots for the small bars: attached to the map and the chat window, as wide as they are.
+---The movers keep these spots as their default, so resetting a moved bar brings it back here.
+---@return table<string, table>
+local function MiniBarSlots()
+	local list = {}
+	local api = API()
+	if not (api and api.DefineBar) then
+		-- A Lib's DataBar from before small bars
+		return list
+	end
+	if Minimap then
+		list[MINIMAP_BAR] = {
+			position = 'TOP,Minimap,BOTTOM,0,' .. MinimapBarOffset(),
+			width = ScreenWidth(Minimap, 180),
+			height = MINI_HEIGHT,
+			label = L['Minimap bar'],
+			isAvailable = function()
+				return IsBarOn(MINIMAP_BAR)
+			end,
+		}
+	end
+	if _G.ChatFrame1 then
+		list[CHAT_BAR] = {
+			position = 'BOTTOMLEFT,ChatFrame1,TOPLEFT,0,' .. ChatBarOffset(),
+			width = ScreenWidth(_G.ChatFrame1, 430),
+			height = MINI_HEIGHT,
+			label = L['Chat bar'],
+			isAvailable = function()
+				return IsBarOn(CHAT_BAR)
+			end,
+		}
+	end
+	return list
 end
 
 ---The `dataBars` block of the active theme
@@ -125,7 +270,15 @@ local function GetHolder(barId)
 		holder:ClearAllPoints()
 		holder:SetPoint(point, anchor or 'UIParent', relativePoint or point, x, y)
 		if MoveIt then
-			MoveIt:CreateMover(holder, MoverName(barId), L["Lib's DataBar"] .. ' (' .. barId .. ')', nil, L['Info bars'])
+			MoveIt:CreateMover(holder, MoverName(barId), slot.label or (L["Lib's DataBar"] .. ' (' .. barId .. ')'), nil, L['Info bars'])
+			local mover = MoveIt.MoverList[MoverName(barId)]
+			if mover and slot.isAvailable then
+				local isAvailable = slot.isAvailable
+				mover.IsMoverAvailable = function()
+					return isAvailable()
+				end
+				mover.optionsPath = { 'Modules', 'DataBars' }
+			end
 		end
 	end
 	holder:Show()
@@ -161,6 +314,11 @@ local function RebuildSlots()
 			end
 		end
 	end
+	for barId, slot in pairs(MiniBarSlots()) do
+		slots[barId] = slot
+		placements[barId] = { width = slot.width, height = slot.height }
+		before[barId] = nil
+	end
 
 	-- A bar the new theme has no spot for goes back to DataBar's own placement
 	for barId in pairs(before) do
@@ -178,6 +336,12 @@ end
 ---@param barId string
 function host:GetBarPlacement(barId)
 	return placements[barId]
+end
+
+---Bars SpartanUI wants Lib's DataBar to have
+---@return table<string, table>
+function host:GetBarDefinitions()
+	return MiniBarDefinitions()
 end
 
 ---@param barId string
@@ -221,12 +385,111 @@ function module:Refresh()
 		return
 	end
 	self:UpdateThemes(api)
+	self:RefreshPlacements()
+end
+
+---Place the bars again (the map or chat window moved, grew or shrank), without rebuilding the look
+function module:RefreshPlacements()
+	local api = API()
+	if not api then
+		return
+	end
 	if InCombatLockdown() then
 		self.pendingPlacement = true
 		return
 	end
 	RebuildSlots()
 	api:RefreshHost()
+end
+
+---Place the bars again on the next frame; a resize fires many times while the player drags
+function module:QueuePlacementRefresh()
+	if self.placementQueued then
+		return
+	end
+	self.placementQueued = true
+	C_Timer.After(0, function()
+		module.placementQueued = false
+		module:RefreshPlacements()
+	end)
+end
+
+---Follow the map and the chat window the small bars sit next to. Hooks only.
+function module:WatchMiniBarTargets()
+	local function Queue()
+		module:QueuePlacementRefresh()
+	end
+	if Minimap and Minimap.HookScript then
+		Minimap:HookScript('OnSizeChanged', Queue)
+	end
+	if _G.SUI_Minimap then
+		-- The minimap mover scales the map through its holder
+		hooksecurefunc(_G.SUI_Minimap, 'SetScale', Queue)
+	end
+	if _G.ChatFrame1 and _G.ChatFrame1.HookScript then
+		_G.ChatFrame1:HookScript('OnSizeChanged', Queue)
+	end
+	self:RegisterEvent('PLAYER_ENTERING_WORLD', Queue)
+end
+
+---SpartanUI settings for the small bars: turn each one on or off
+function module:BuildOptions()
+	local api = API()
+	if not (api and api.DefineBar and SUI.Options and SUI.opt and SUI.opt.args and SUI.opt.args.Modules) then
+		return
+	end
+	local function BarToggle(barId, name, desc, order)
+		return {
+			type = 'toggle',
+			name = name,
+			desc = desc,
+			width = 'full',
+			order = order,
+			get = function()
+				return IsBarOn(barId)
+			end,
+			set = function(_, value)
+				local api = API()
+				if api then
+					api:SetBarEnabled(barId, value)
+				end
+			end,
+		}
+	end
+	SUI.Options:AddOptions({
+		type = 'group',
+		name = L['Info bars'],
+		args = {
+			intro = {
+				type = 'description',
+				name = L["Small bars from Lib's DataBar. Right-click one to choose what it shows."],
+				fontSize = 'medium',
+				order = 0,
+			},
+			minimap = BarToggle(MINIMAP_BAR, L['Show a bar under the minimap'], L['Shows who is online in your guild and friends list, your time played, or the clock, depending on which addons you have.'], 1),
+			chat = BarToggle(CHAT_BAR, L['Show a bar above the chat window'], L['Shows your messages, bag space and the clock, depending on which addons you have.'], 2),
+			move = {
+				type = 'execute',
+				name = L['Move them'],
+				desc = L['Opens move mode. Reset a bar there to put it back next to the minimap or chat window.'],
+				order = 3,
+				func = function()
+					host:OpenMoveMode(IsBarOn(MINIMAP_BAR) and MINIMAP_BAR or CHAT_BAR)
+				end,
+			},
+			more = {
+				type = 'execute',
+				name = L["More settings in Lib's DataBar"],
+				order = 4,
+				width = 'double',
+				func = function()
+					if LibsDataBar and LibsDataBar.OpenConfig then
+						LibsDataBar:OpenConfig('bars', MINIMAP_BAR)
+					end
+				end,
+			},
+		},
+	}, 'DataBars')
 end
 
 function module:OnInitialize()
@@ -269,7 +532,7 @@ function module:OnEnable()
 	self:RegisterEvent('PLAYER_REGEN_ENABLED', function()
 		if module.pendingPlacement then
 			module.pendingPlacement = false
-			module:Refresh()
+			module:RefreshPlacements()
 		end
 	end)
 
@@ -286,4 +549,6 @@ function module:OnEnable()
 	self:UpdateThemes(api)
 	RebuildSlots()
 	api:SetHost(host)
+	self:WatchMiniBarTargets()
+	self:BuildOptions()
 end

@@ -26,6 +26,7 @@
 	<Script file="UI\Deck.lua" />
 	<Script file="UI\PopOut.lua" />
 	<Script file="UI\Toast.lua" />
+	<Script file="UI\LauncherTip.lua" />
 	<Script file="UI\Launcher.lua" />
 	<Script file="UI\Fade.lua" />
 	<Script file="UI\Controller.lua" />

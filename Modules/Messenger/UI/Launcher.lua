@@ -34,22 +34,15 @@ function Ln:Enable()
 				M:Toggle()
 			end
 		end,
-		OnTooltipShow = function(tooltip)
-			tooltip:AddLine(L['Messenger'], 1, 1, 1)
-			local unread = M.Store:TotalUnread()
-			if unread > 0 then
-				tooltip:AddLine(string.format(L['%d unread messages'], unread), T.color.text[1], T.color.text[2], T.color.text[3])
-			else
-				tooltip:AddLine(L['No unread messages'], T.color.muted[1], T.color.muted[2], T.color.muted[3])
-			end
-			tooltip:AddLine(' ')
-			local key = M:GetToggleKeyText()
-			if key then
-				tooltip:AddLine(string.format(L['Click or press %s to open. Right-click for settings.'], key), T.color.muted[1], T.color.muted[2], T.color.muted[3])
-			else
-				tooltip:AddLine(L['Click to open. Right-click for settings.'], T.color.muted[1], T.color.muted[2], T.color.muted[3])
-			end
+		OnEnter = function(anchor)
+			M.UI.LauncherTip:OnEnter(anchor)
 		end,
+		OnLeave = function(anchor)
+			M.UI.LauncherTip:OnLeave(anchor)
+		end,
+		OnTooltipShow = not M.UI.LauncherTip:IsRich() and function(tooltip)
+			M.UI.LauncherTip:OnTooltipShow(tooltip)
+		end or nil,
 	})
 
 	local Icon = LibStub('LibDBIcon-1.0', true)
@@ -58,6 +51,7 @@ function Ln:Enable()
 		self.icon = Icon
 	end
 
+	M.UI.LauncherTip:Enable()
 	M:On('UNREAD_CHANGED', function()
 		Ln:Update()
 	end)
