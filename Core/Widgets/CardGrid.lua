@@ -1,7 +1,8 @@
 -- SUICardGrid: picture cards for a select option in the settings window, drawn with the same cards
 -- as setup but smaller (four across). Use on a select option:
 --   dialogControl = 'SUICardGrid',
---   arg = { cards = fun(): card[], size = 'look'|'compact'|'swatch', setVariant = fun(value, variant) }
+--   arg = { cards = fun(): card[], size = 'look'|'compact'|'swatch', setVariant = fun(value, variant),
+--           onHover = fun(value|nil) }  -- onHover is optional: the hovered card's value, nil on leave
 -- Cards take the setup card fields: value, title, tag, tagStyle, art, variants, variant, recommended.
 -- values/get/set work as on any select; the option's values only need the card values as keys.
 
@@ -163,6 +164,29 @@ local function DrawWindowPreview(card, kit)
 	p:Show()
 end
 
+-- Hover to try: arg.onHover(value) while the mouse is over a card, arg.onHover(nil) when it
+-- leaves. Cards are pooled, so each is hooked once and told which widget owns it on every render.
+local hoverOwner = setmetatable({}, { __mode = 'k' })
+
+local function CardEnter(card)
+	local owner = hoverOwner[card]
+	local data = owner and owner.customData
+	if data and data.onHover and card.data then
+		owner.hovering = card.data.value
+		data.onHover(card.data.value)
+	end
+end
+
+local function CardLeave(card)
+	local owner = hoverOwner[card]
+	if owner and owner.hovering ~= nil then
+		owner.hovering = nil
+		if owner.customData and owner.customData.onHover then
+			owner.customData.onHover(nil)
+		end
+	end
+end
+
 local function Render(self)
 	local data = self.customData
 	local Kit = LibAT and LibAT.UI and LibAT.UI.Kit
@@ -235,6 +259,11 @@ local function Render(self)
 	grid.opts.onCheck = nil
 	grid:SetCards(list)
 	for _, card in ipairs(grid.cards) do
+		if hoverOwner[card] == nil then
+			card:HookScript('OnEnter', CardEnter)
+			card:HookScript('OnLeave', CardLeave)
+		end
+		hoverOwner[card] = self
 		local selected = card.data.value == self.value
 		card:SetState(selected, not self.disabled, selected and 'In use' or nil)
 		if card.data.kit then
@@ -255,6 +284,10 @@ local methods = {
 		self.disabled = false
 	end,
 	OnRelease = function(self)
+		if self.hovering ~= nil and self.customData and self.customData.onHover then
+			self.customData.onHover(nil)
+		end
+		self.hovering = nil
 		self.value = nil
 		self.customData = nil
 		if self.grid then
