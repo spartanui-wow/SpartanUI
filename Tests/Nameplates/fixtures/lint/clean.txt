@@ -1,0 +1,28 @@
+-- path: Modules/Nameplates/Core/Clean.lua
+-- expect: none
+local _, ns = ...
+local P = ns.Plates
+
+local function Paint(bar, src)
+	local healthSecret = src:HealthSecret()
+	bar:SetMinMaxValues(0, src:HealthMaxSecret())
+	bar:SetValue(healthSecret)
+	if type(src:RaidMarkerSecret()) == 'nil' then
+		return
+	end
+	local nameSecret = src:NameSecret()
+	bar.text:SetText('Target: ' .. nameSecret)
+	if C_Secrets.ShouldAurasBeSecret() then
+		return src:ThreatStatusSecret()
+	end
+	if src.HealthSecret then
+		bar:SetAlphaFromBoolean(src:IsImportantSecret(), 1, 0)
+	end
+	local a, b = 1, 2
+	return a ~= b and '|cffff0000' .. 'red|r'
+end
+
+for _, rowSecret in ipairs({}) do
+	P.bar:SetStatusBarColor(rowSecret, rowSecret, rowSecret)
+end
+P.Paint = Paint

@@ -1,0 +1,4 @@
+-- path: Modules/Nameplates/Core/Colors.lua
+-- expect: secret-use
+local src = ...
+Apply(src:HealthSecret()) -- np-lint: allow secret-use

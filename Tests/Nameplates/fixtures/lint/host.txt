@@ -1,0 +1,9 @@
+-- path: Modules/Nameplates/Core/Bad.lua
+-- expect: host-sui, host-spartanui, host-path, host-global
+local media = 'Interface\AddOns\Something\Media\'
+local function Look()
+	return SUI.DB.Artwork
+end
+-- spartan ui look
+local db = SpartanUIDB
+return media, Look, db

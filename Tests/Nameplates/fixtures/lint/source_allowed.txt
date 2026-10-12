@@ -1,0 +1,6 @@
+-- path: Modules/Nameplates/Engine/Source.lua
+-- expect: none
+local hp = UnitHealth('nameplate1')
+local aura = C_UnitAuras.GetAuraDataByIndex('nameplate1', 1)
+local ok, base = pcall(C_NamePlate.GetNamePlateForUnit, 'target')
+return hp, aura, ok, base

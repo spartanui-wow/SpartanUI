@@ -1,0 +1,6 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<!-- A fixture for the loader suite. <Script file="Core\Ignored.lua" /> inside a comment is skipped -->
+	<Script file="Core\First.lua" />
+	<Include file="Sub\Load.xml" />
+	<Script file="Core\Last.lua" />
+</Ui>

@@ -1,0 +1,5 @@
+-- path: Modules/Nameplates/Core/Colors.lua
+-- expect: none
+local src = ...
+-- np-lint: allow secret-use the target method is always a status bar color setter
+Apply(src:HealthSecret())

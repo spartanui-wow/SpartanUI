@@ -1,0 +1,192 @@
+{
+  "_comment": "Token lint rules for Modules/Nameplates (plan 6.3, Decision 3 and 6). Paths are relative to the SpartanUI folder and use fnmatch (* also crosses folders). Suppress one finding with a same-line or previous-line comment: -- np-lint: allow <rule-id> <reason>. Rules marked suppressible false cannot be suppressed.",
+  "scope": [
+    "Modules/Nameplates/*"
+  ],
+  "extensions": [
+    ".lua",
+    ".xml"
+  ],
+  "rules": [
+    {
+      "id": "host-sui",
+      "kind": "text",
+      "pattern": "\\bSUI(?:[A-Z_][A-Za-z0-9_]*)?\\b",
+      "ignoreCase": false,
+      "exclude": [
+        "Modules/Nameplates/Host/*"
+      ],
+      "suppressible": false,
+      "message": "Only Host/SpartanUI.lua may name SUI; take what you need from the host table"
+    },
+    {
+      "id": "host-spartanui",
+      "kind": "text",
+      "pattern": "spartan[\\s_-]*ui",
+      "ignoreCase": true,
+      "exclude": [
+        "Modules/Nameplates/Host/*"
+      ],
+      "suppressible": false,
+      "message": "Only Host/SpartanUI.lua may name SpartanUI (paths, strings, assets, commands)"
+    },
+    {
+      "id": "host-path",
+      "kind": "text",
+      "pattern": "AddOns[\\\\/]+(?!\\.\\.)[A-Za-z]",
+      "ignoreCase": true,
+      "exclude": [
+        "Modules/Nameplates/Host/*"
+      ],
+      "suppressible": true,
+      "message": "Addon file paths come from host.mediaPath, never a fixed Interface\\AddOns path"
+    },
+    {
+      "id": "host-global",
+      "kind": "identifier",
+      "names": [
+        "SpartanUIDB",
+        "SpartanUICharDB",
+        "SpartanUINameplatesDB",
+        "SUIUF",
+        "LibATStub",
+        "SUICardGrid"
+      ],
+      "exclude": [
+        "Modules/Nameplates/Host/*"
+      ],
+      "suppressible": false,
+      "message": "Host-specific global used in the core"
+    },
+    {
+      "id": "no-print",
+      "kind": "call",
+      "names": [
+        "print"
+      ],
+      "suppressible": false,
+      "message": "Never print(); write to the logger the host hands in"
+    },
+    {
+      "id": "lua51-keyword",
+      "kind": "keyword",
+      "names": [
+        "goto",
+        "continue"
+      ],
+      "suppressible": false,
+      "message": "WoW runs Lua 5.1: no goto or continue; use flags and nested conditions"
+    },
+    {
+      "id": "lua51-operator",
+      "kind": "operator",
+      "operators": [
+        "::",
+        "//",
+        "&",
+        "|",
+        "~",
+        "<<",
+        ">>"
+      ],
+      "suppressible": false,
+      "message": "WoW runs Lua 5.1: no labels, integer division or bitwise operators (use bit.band and friends)"
+    },
+    {
+      "id": "source-only",
+      "kind": "global-ref",
+      "patterns": [
+        "^Unit[A-Z][A-Za-z0-9_]*$",
+        "^C_UnitAuras$"
+      ],
+      "qualified": [
+        "C_NamePlate.GetNamePlateForUnit"
+      ],
+      "allow": [
+        "Modules/Nameplates/Engine/Source.lua"
+      ],
+      "suppressible": false,
+      "message": "Only Engine/Source.lua may read units; go through the Source object"
+    },
+    {
+      "id": "secret-use",
+      "kind": "secret",
+      "suffix": "Secret",
+      "ignorePattern": "^(Should[A-Za-z0-9_]*BeSecret|HasSecret|IsSecret)$",
+      "ignoreQualifiers": [
+        "C_Secrets"
+      ],
+      "sinks": [
+        "SetMinMaxValues",
+        "SetValue",
+        "SetStatusBarColor",
+        "SetTimerDuration",
+        "SetText",
+        "SetFormattedText",
+        "SetTextColor",
+        "SetAlphaFromBoolean",
+        "SetVertexColorFromBoolean",
+        "EvaluateColorFromBoolean",
+        "EvaluateColorValueFromBoolean",
+        "SetSpriteSheetCell",
+        "UnitHealthPercent",
+        "AbbreviateNumbers",
+        "TruncateWhenZero",
+        "GetClassColor",
+        "SetDuration",
+        "SetTimeFromStart",
+        "SetTimeFromEnd",
+        "SetTimeSpan",
+        "type",
+        "canaccessvalue",
+        "canaccessallvalues",
+        "issecretvalue",
+        "hasanysecretvalues"
+      ],
+      "suppressible": true,
+      "message": "A *Secret value may only go straight into an approved sink (Secret.SINKS in Core/Secret.lua, a game API documented AllowedWhenTainted, a Core/Secret.lua helper, a function whose name ends in Secret, or the sinks list) or a local whose name ends in Secret. SetAlpha is not a sink until an in-game check confirms it",
+      "allow": [
+        "Modules/Nameplates/Core/Secret.lua"
+      ],
+      "sinkModules": [
+        "Modules/Nameplates/Core/Secret.lua"
+      ],
+      "sinksFromData": true,
+      "_sinksComment": "Sinks come from Secret.SINKS in Core/Secret.lua (the authority), the functions that file defines, game APIs documented AllowedWhenTainted in the data files, and the names below (Lua built-ins and helpers that are not game widget methods). notSinks are documented sinks the plan keeps off until an in-game check.",
+      "notSinks": [
+        "SetAlpha"
+      ]
+    },
+    {
+      "id": "aura-instance-key",
+      "kind": "index-key",
+      "names": [
+        "auraInstanceID"
+      ],
+      "suppressible": true,
+      "message": "Never key a table by auraInstanceID (it can be secret)"
+    },
+    {
+      "id": "global-name",
+      "kind": "named-create",
+      "functions": {
+        "CreateFrame": 2,
+        "CreateFont": 1,
+        "CreateFontFamily": 1,
+        "CreateTexture": 1,
+        "CreateFontString": 1,
+        "CreateMaskTexture": 1,
+        "CreateAnimationGroup": 1,
+        "CreateLine": 1
+      },
+      "suppressible": true,
+      "message": "No fixed global names in the core; build names from the host prefix or pass nil"
+    },
+    {
+      "id": "xml-global-name",
+      "kind": "xml-name",
+      "suppressible": true,
+      "message": "Named XML objects and templates are global; the core may not fix their names"
+    }
+  ]
+}

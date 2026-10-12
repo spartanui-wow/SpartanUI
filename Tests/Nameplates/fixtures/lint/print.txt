@@ -1,0 +1,5 @@
+-- path: Modules/Nameplates/UI/Bad.lua
+-- expect: no-print
+local log = {}
+log.print('fine, a field')
+print('not fine')

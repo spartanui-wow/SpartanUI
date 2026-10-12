@@ -1,0 +1,4 @@
+-- path: Modules/Nameplates/Engine/Driver.lua
+-- expect: source-only
+local ok, base = pcall(C_NamePlate.GetNamePlateForUnit, 'target')
+return ok, base

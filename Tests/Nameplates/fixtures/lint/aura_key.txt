@@ -1,0 +1,7 @@
+-- path: Modules/Nameplates/Engine/Parts/AurasScan.lua
+-- expect: aura-instance-key
+local seen = {}
+local function Track(aura)
+	seen[aura.auraInstanceID] = true
+end
+return Track

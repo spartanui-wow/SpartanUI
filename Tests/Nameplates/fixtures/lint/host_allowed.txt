@@ -1,0 +1,5 @@
+-- path: Modules/Nameplates/Host/SpartanUI.lua
+-- expect: none
+local SUI = SUI
+local path = 'Interface\AddOns\SpartanUI\Modules\Nameplates\Media\'
+return SUI, path, SpartanUIDB

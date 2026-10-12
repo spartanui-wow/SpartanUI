@@ -1,0 +1,4 @@
+-- path: Modules/Nameplates/Engine/Parts/Auras.lua
+-- expect: source-only
+local aura = C_UnitAuras.GetAuraDataByIndex('nameplate1', 1, 'HARMFUL')
+return aura

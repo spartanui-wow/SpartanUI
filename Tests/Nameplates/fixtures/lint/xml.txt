@@ -1,0 +1,10 @@
+<!-- path: Modules/Nameplates/UI/Templates.xml -->
+<!-- expect: xml-global-name -->
+<Ui>
+	<Script file="Core\Namespace.lua" />
+	<Frame name="NameplateCardTemplate" virtual="true">
+		<Frames>
+			<Frame parentKey="Inner" name="$parentInner" />
+		</Frames>
+	</Frame>
+</Ui>

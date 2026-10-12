@@ -1,0 +1,8 @@
+-- path: Modules/Nameplates/Engine/Pool.lua
+-- expect: global-name
+local a = CreateFrame('Frame', nil, UIParent)
+local b = CreateFrame('Frame', 'FixedPlateName', UIParent)
+local prefix = 'X'
+local c = CreateFrame('Frame', prefix .. 'Plate', UIParent)
+local t = a:CreateTexture(nil, 'ARTWORK')
+return a, b, c, t

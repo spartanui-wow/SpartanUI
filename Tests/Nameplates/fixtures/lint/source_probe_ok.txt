@@ -1,0 +1,8 @@
+-- path: Modules/Nameplates/Core/Caps.lua
+-- expect: none
+local Caps = {}
+Caps.lieutenant = UnitIsLieutenant ~= nil
+Caps.bossMob = UnitIsBossMob and true or false
+Caps.containers = C_UnitAuras and C_UnitAuras.GetUnitAuraInstanceIDs ~= nil
+local probe = { UnitHealth = true }
+return Caps, probe

@@ -1,0 +1,12 @@
+-- path: Modules/Nameplates/Core/Bad.lua
+-- expect: lua51-keyword, lua51-operator
+for i = 1, 3 do
+	if i == 2 then
+		goto continue
+	end
+	local half = i // 2
+	local mask = i & 1
+	::continue::
+end
+local text = 'a|b ~ c // d'
+local ok = 1 ~= 2

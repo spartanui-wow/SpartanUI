@@ -1,0 +1,3 @@
+-- path: Modules/Nameplates/Core/Colors.lua
+-- expect: no-print
+print('x') -- np-lint: allow no-print because I want to

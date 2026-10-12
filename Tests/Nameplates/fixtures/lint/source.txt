@@ -1,0 +1,4 @@
+-- path: Modules/Nameplates/Engine/Plate.lua
+-- expect: source-only
+local hp = UnitHealth('nameplate1')
+return hp

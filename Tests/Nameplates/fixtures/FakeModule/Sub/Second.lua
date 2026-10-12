@@ -1,0 +1,3 @@
+local _, ns = ...
+
+table.insert(ns.order, 'Second')

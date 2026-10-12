@@ -1,0 +1,4 @@
+-- path: Modules/Nameplates/Core/Caps.lua
+-- expect: source-only
+local GetName = UnitName
+return GetName

@@ -1,0 +1,4 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/">
+	<!-- A core that breaks every "inert when off" rule, to prove the records catch it -->
+	<Script file="Noisy.lua" />
+</Ui>
