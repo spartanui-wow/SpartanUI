@@ -11,6 +11,7 @@ For shared patterns (logging, annotations, StyLua, API lookups, testing, pitfall
 - @.context/auras.md — WoW 12.0.5 aura system, all 14 filters, presets, visual customization
 - @.context/actionbars.md — SpartanUI's own action bars, bar system selection, importers
 - @.context/messenger.md — Messenger (IM-style whispers/chats), portable core + host adapter, extraction plan
+- @.context/nameplates.md - Nameplates rebuild: portable core + host, Part/Source/Plate/Store/Styles contracts, secret rules, tests
 
 ## Project Overview
 

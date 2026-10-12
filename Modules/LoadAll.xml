@@ -41,6 +41,9 @@
 	<!-- Load UnitFrames -->
 	<Include file="UnitFrames\Load.xml"/>
 	<Script file="Nameplates.lua" />
+	<!-- New nameplate core (core-only Load.xml), then its SpartanUI host -->
+	<Include file="Nameplates\Load.xml" />
+	<Script file="Nameplates\Host\SpartanUI.lua" />
 	<Include file="LastTick\Load.xml" />
 
 	<!-- Load Housing Endeavor (Retail only - files self-check SUI.IsRetail) -->

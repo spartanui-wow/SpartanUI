@@ -1,0 +1,73 @@
+<Ui xmlns="http://www.blizzard.com/wow/ui/"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.blizzard.com/wow/ui/
+..\..\FrameXML\UI.xsd">
+	<!-- Portable nameplate core. Core files only: the host file is included from Modules\LoadAll.xml -->
+	<Script file="Core\Namespace.lua" />
+	<Script file="Core\Locale.lua" />
+	<Script file="Core\Caps.lua" />
+	<Script file="Core\Secret.lua" />
+	<Script file="Core\Config.lua" />
+	<Script file="Core\Store.lua" />
+	<Script file="Core\Migrate.lua" />
+	<Script file="Core\CVars.lua" />
+	<Script file="Core\Situation.lua" />
+	<Script file="Core\Conditions.lua" />
+	<Script file="Core\Roles.lua" />
+	<Script file="Core\Colors.lua" />
+	<Script file="Core\Styles\Schema.lua" />
+	<Script file="Core\Styles\Registry.lua" />
+	<Script file="Core\Styles\Merge.lua" />
+	<Script file="Core\Styles\Builtin_Clean.lua" />
+	<Script file="Core\Styles\Builtin_NamesOnly.lua" />
+	<Script file="Core\Styles\Builtin_Mini.lua" />
+	<Script file="Core\Share.lua" />
+
+	<Script file="Data\ArtAliases.lua" />
+	<Script file="Data\Samples.lua" />
+	<Script file="Data\Kicks.lua" />
+	<Script file="Data\CrowdControl.lua" />
+	<Script file="Data\TankDebuffs.lua" />
+	<Script file="Data\Totems.lua" />
+	<Script file="Data\ClassicChannels.lua" />
+
+	<Script file="Engine\Scheduler.lua" />
+	<Script file="Engine\Source.lua" />
+	<Script file="Engine\Plate.lua" />
+	<Script file="Engine\Parts\Bar.lua" />
+	<Script file="Engine\Parts\Health.lua" />
+	<Script file="Engine\Parts\Cast.lua" />
+	<Script file="Engine\Parts\Text.lua" />
+	<Script file="Engine\Parts\Icon.lua" />
+	<Script file="Engine\Parts\Highlight.lua" />
+	<Script file="Engine\Parts\Glow.lua" />
+	<Script file="Engine\Parts\Threat.lua" />
+	<Script file="Engine\Parts\AurasContainer.lua" />
+	<Script file="Engine\Parts\AurasScan.lua" />
+	<Script file="Engine\Parts\ClassPower.lua" />
+	<Script file="Engine\Parts\Region.lua" />
+	<Script file="Engine\Pool.lua" />
+	<Script file="Engine\Suppress.lua" />
+	<Script file="Engine\Driver.lua" />
+
+	<Script file="UI\Widgets\AnchorGrid.lua" />
+	<Script file="UI\Widgets\RuleList.lua" />
+	<Script file="UI\Widgets\SpellList.lua" />
+	<Script file="UI\Scenes.lua" />
+	<Script file="UI\Inspector.lua" />
+	<Script file="UI\StageProvider.lua" />
+	<Script file="UI\Gallery.lua" />
+	<Script file="UI\Designer.lua" />
+	<Script file="UI\SetupSteps.lua" />
+	<!-- Developer probe (Phase 0b): left out of release builds by the packager -->
+	<!--@do-not-package@-->
+	<Script file="UI\Probe.lua" />
+	<!--@end-do-not-package@-->
+
+	<Script file="Options\Options.lua" />
+	<Script file="Options\Style.lua" />
+	<Script file="Options\Customize.lua" />
+	<Script file="Options\Colors.lua" />
+	<Script file="Options\Auras.lua" />
+	<Script file="Options\WhoAndWhere.lua" />
+	<Script file="Options\Sharing.lua" />
+</Ui>
