@@ -25,6 +25,14 @@ This element updates by changing the texture.
 local _, ns = ...
 local oUF = ns.oUF
 
+-- Clients without secret values can read everything
+local canaccessvalue = canaccessvalue or function()
+	return true
+end
+local canaccesstable = canaccesstable or function()
+	return true
+end
+
 local DEFAULT_TEXTURE = [[Interface\LFGFrame\UI-LFG-ICON-ROLES]]
 
 local function Update(self, event)
@@ -43,21 +51,29 @@ local function Update(self, event)
 		return
 	end
 
-	-- Need valid unit GUID
-	if not self.unitGUID or self.unitGUID == '' then
+	-- Need a readable unit GUID. It can be hidden on restricted maps, and the score lookup
+	-- will not take a hidden one from addon code.
+	local guid = self.unitGUID
+	if not guid or not canaccessvalue(guid) or guid == '' then
 		element:Hide()
 		return
 	end
 
-	local info = C_PvP.GetScoreInfoByPlayerGuid(self.unitGUID)
-	if not info then
+	-- The score can be hidden during an active PvP match
+	local info = C_PvP.GetScoreInfoByPlayerGuid(guid)
+	if not info or not canaccessvalue(info) or not canaccesstable(info) then
 		element:Hide()
 		return
 	end
-	if info and info.roleAssigned == 2 and element.showTank then
+	local role = info.roleAssigned
+	if not role or not canaccessvalue(role) then
+		element:Hide()
+		return
+	end
+	if role == 2 and element.showTank then
 		element:SetAtlas('UI-LFG-RoleIcon-Tank')
 		element:Show()
-	elseif info and info.roleAssigned == 4 then
+	elseif role == 4 then
 		element:SetAtlas('UI-LFG-RoleIcon-Healer')
 		element:Show()
 	else

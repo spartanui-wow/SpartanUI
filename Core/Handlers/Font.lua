@@ -50,6 +50,11 @@ function Font:FormatNumber(number)
 	end
 end
 
+-- Module -> element -> its ID in Font.Items[Module]
+local ItemIDs = {}
+
+---Remember an element so font changes reach it later. An element is stored once per module;
+---formatting it again only updates the size it is redrawn at.
 ---@param element FontString
 ---@param DefaultSize integer
 ---@param Module string
@@ -58,14 +63,18 @@ function Font:StoreItem(element, DefaultSize, Module)
 	if not Font.Items[Module] then
 		Font.Items[Module] = { Count = 0 }
 	end
+	if not ItemIDs[Module] then
+		ItemIDs[Module] = {}
+	end
 
-	--Load next ID number
-	local NewItemID = Font.Items[Module].Count + 1
-
-	--Store element and latest ID used
-	Font.Items[Module].Count = NewItemID
-	Font.Items[Module][NewItemID .. 'DefaultSize'] = DefaultSize
-	Font.Items[Module][NewItemID] = element
+	local ID = ItemIDs[Module][element]
+	if not ID then
+		ID = Font.Items[Module].Count + 1
+		Font.Items[Module].Count = ID
+		Font.Items[Module][ID] = element
+		ItemIDs[Module][element] = ID
+	end
+	Font.Items[Module][ID .. 'DefaultSize'] = DefaultSize
 end
 
 -- Modules whose default face was picked on purpose and should not follow the theme font
@@ -139,12 +148,7 @@ end
 ---@param element Font
 ---@param Module string
 local function FindID(element, Module)
-	for i = 1, Font.Items[Module].Count do
-		if Font.Items[Module][i] == element then
-			return i
-		end
-	end
-	return false
+	return ItemIDs[Module] and ItemIDs[Module][element] or false
 end
 
 ---@param element Font

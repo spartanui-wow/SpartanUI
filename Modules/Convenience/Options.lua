@@ -74,7 +74,6 @@ function module:BuildOptions()
 				func = function()
 					SetCVar('nameplateShowSelf', 0)
 					SetCVar('nameplateShowAll', 1)
-					SetCVar('nameplateMotion', 0)
 					SetCVar('showTutorials', 0)
 					SUI:Print('Recommended game tweaks applied.')
 				end,

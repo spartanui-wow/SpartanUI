@@ -1,4 +1,4 @@
-local unpack, SUI, L, print, UF = unpack, SUI, SUI.L, SUI.print, SUI.UF
+local unpack, SUI, L, UF = unpack, SUI, SUI.L, SUI.UF
 if SUI.IsRetail then
 	return
 end
@@ -33,7 +33,14 @@ local BarTexture = 'Interface\\AddOns\\SpartanUI\\images\\statusbars\\Smoothv2'
 local PlateWidth = SUI.IsForever and 152 or 128
 local HealthHeight = SUI.IsForever and 10 or 8
 local NameTextSize = SUI.IsForever and 10 or 7
+local WIDGET_SKIN_TRIES = 20
+-- Plate frame name -> true while the plate shows a unit
 local NameplateList = {}
+-- A plate was laid out in combat, where positions cannot change; lay plates out again after it
+local layoutAfterCombat = false
+local combatWatcher
+-- Folder names of addons that draw their own nameplates. One folder name is unconfirmed, so both spellings are listed
+local OtherNameplateAddons = { 'Plater', 'Kui_Nameplates', 'KuiNameplates', 'TidyPlates_ThreatPlates', 'TidyPlates', 'NeatPlates', 'Platynator', 'EllesmereUINameplates' }
 local ElementList = {
 	'Auras',
 	'ClassIcon',
@@ -84,6 +91,12 @@ local ElementDefaults = {
 
 ---@type table<SUI.UF.Elements.list, SUI.UF.Elements.Settings>
 local CurrentSettings = {}
+
+---The plate width as a number. The old text field saved it as text.
+---@return number
+local function GetPlateWidth()
+	return tonumber(module.DB.width) or PlateWidth
+end
 
 local function PlateHeight()
 	local elementsDB = module.DB.elements
@@ -138,10 +151,11 @@ local UpdateElementState = function(frame)
 	end
 	-- Position Updates
 	if InCombatLockdown() then
+		layoutAfterCombat = true
 		return
 	end
 
-	local plateWidth, plateHeight = module.DB.width, PlateHeight()
+	local plateWidth, plateHeight = GetPlateWidth(), PlateHeight()
 
 	for _, elementName in ipairs(ElementList) do
 		local element = frame[elementName]
@@ -263,7 +277,7 @@ local NamePlateFactory = function(frame, unit)
 
 		-- The mainline oUF anchors the frame to the nameplate itself.
 		if not SUIUF.AddMetaElement then
-			frame:SetSize(module.DB.width, height)
+			frame:SetSize(GetPlateWidth(), height)
 			frame:SetPoint('CENTER', 0, 0)
 		end
 
@@ -306,9 +320,9 @@ local NamePlateFactory = function(frame, unit)
 
 		BuildElement(frame, 'Health')
 		BuildElement(frame, 'Power')
-		frame.Power:SetWidth(module.DB.width)
+		frame.Power:SetWidth(GetPlateWidth())
 		BuildElement(frame, 'Castbar')
-		frame.Castbar:SetWidth(module.DB.width)
+		frame.Castbar:SetWidth(GetPlateWidth())
 
 		BuildElement(frame, 'TargetHighlight')
 		BuildElement(frame, 'WidgetXPBar')
@@ -466,13 +480,35 @@ local NamePlateFactory = function(frame, unit)
 end
 
 local NameplateCallback = function(self, event, unit)
-	if not self or not unit or event == 'NAME_PLATE_UNIT_REMOVED' then
+	if not self or not unit then
 		return
 	end
 
 	-- Verify this is an oUF frame before calling oUF methods
-	-- This prevents errors when other nameplate addons (Plater, KuiNameplates, etc.) are active
+	-- This prevents errors when another nameplate addon is active
 	if not self.UpdateAllElements or not self.EnableElement or not self.DisableElement then
+		return
+	end
+
+	if event == 'NAME_PLATE_UNIT_REMOVED' then
+		NameplateList[self:GetName()] = false
+		-- Stops a widget skin retry that is still waiting on this plate
+		self.widgetSkinToken = (self.widgetSkinToken or 0) + 1
+		return
+	end
+
+	-- The Classic plate driver also calls back on every health and faction change. The plate still
+	-- shows the same unit and its oUF elements update themselves, so only the parts that follow
+	-- the unit's reaction are redrawn.
+	if event == 'UNIT_HEALTH' or event == 'UNIT_MAXHEALTH' or event == 'UNIT_FACTION' then
+		if event == 'UNIT_FACTION' then
+			if self.PvPIndicator and self.PvPIndicator.Override then
+				self.PvPIndicator.Override(self, event, self.unit)
+			end
+			if self.ClassIcon then
+				UF.Elements:Update(self, 'ClassIcon', module.DB.elements.ClassIcon)
+			end
+		end
 		return
 	end
 
@@ -502,7 +538,7 @@ local NameplateCallback = function(self, event, unit)
 		self:UpdateAllElements('ForceUpdate')
 
 		if self.ShowWidgetOnly then
-			self.widgetContainer = self.blizzPlate.WidgetContainer
+			self.widgetContainer = self.blizzPlate and self.blizzPlate.WidgetContainer
 			if self.widgetContainer then
 				if not UnitInPartyIsAI(unit) and not UnitPlayerControlled(unit) then
 					for _, element in ipairs(ElementList) do
@@ -519,17 +555,28 @@ local NameplateCallback = function(self, event, unit)
 				self.widgetContainer:ClearAllPoints()
 				self.widgetContainer:SetPoint('TOP', self, 'BOTTOM')
 
+				local container = self.widgetContainer
+				local token = (self.widgetSkinToken or 0) + 1
+				self.widgetSkinToken = token
+				local tries = 0
 				local function skinWidgets()
+					-- The plate was removed or now shows another unit
+					if self.widgetSkinToken ~= token or self.widgetContainer ~= container then
+						return
+					end
+					tries = tries + 1
 					local widgetCount = 0
-					for _, widget in pairs(self.widgetContainer.widgetFrames) do
-						if widget then
-							SUI.Skins.SkinWidgets(widget)
-							widgetCount = widgetCount + 1
+					if container.widgetFrames and SUI.Skins and SUI.Skins.SkinWidgets then
+						for _, widget in pairs(container.widgetFrames) do
+							if widget then
+								SUI.Skins.SkinWidgets(widget)
+								widgetCount = widgetCount + 1
+							end
 						end
 					end
 
-					if widgetCount == 0 then
-						-- If no widgets were found, try again after a short delay
+					-- Widgets can arrive a little after the plate; stop asking after a couple of seconds
+					if widgetCount == 0 and tries < WIDGET_SKIN_TRIES then
 						C_Timer.After(0.1, skinWidgets)
 					end
 				end
@@ -539,8 +586,6 @@ local NameplateCallback = function(self, event, unit)
 				return
 			end
 		end
-	elseif event == 'NAME_PLATE_UNIT_REMOVED' then
-		NameplateList[self:GetName()] = false
 	end
 
 	for _, item in ipairs(ElementList) do
@@ -561,8 +606,9 @@ local NameplateCallback = function(self, event, unit)
 	-- Update elements
 	UpdateElementState(self)
 
-	-- Update Player Icons
-	if UnitIsUnit(unit, 'player') and event == 'NAME_PLATE_UNIT_ADDED' then
+	-- Update Player Icons. On restricted maps the answer can be hidden; treat that as another unit.
+	local isPlayer = UnitIsUnit(unit, 'player')
+	if event == 'NAME_PLATE_UNIT_ADDED' and SUI.BlizzAPI.canaccessvalue(isPlayer) and isPlayer then
 		if self.Runes then
 			self:EnableElement('Runes')
 			self.Runes:ForceUpdate()
@@ -583,9 +629,10 @@ local NameplateCallback = function(self, event, unit)
 end
 
 function module:UpdateNameplates()
-	for k, v in pairs(NameplateList) do
-		if v then
-			UpdateElementState(_G[k])
+	for name, shown in pairs(NameplateList) do
+		local frame = shown and _G[name]
+		if frame then
+			UpdateElementState(frame)
 		end
 	end
 end
@@ -850,6 +897,10 @@ function module:OnInitialize()
 	module.Database = SUI.SpartanUIDB:RegisterNamespace('Nameplates', { profile = defaults })
 	module.DB = module.Database.profile ---@type SUI.NamePlates.Settings
 
+	if SUI.logger then
+		module.logger = SUI.logger:RegisterCategory('Nameplates')
+	end
+
 	SUI.DBM:RegisterSequentialProfileRefresh(module)
 
 	-- The target indicator element was renamed TargetHighlight
@@ -862,7 +913,9 @@ function module:OnInitialize()
 
 	-- Migrate old settings
 	if SUI.DB.Nameplates then
-		print('Nameplate DB Migration')
+		if module.logger then
+			module.logger.info('Moving saved nameplate settings from the old location')
+		end
 		module.DB = SUI:MergeData(module.DB, SUI.DB.Nameplates, true)
 		SUI.DB.Nameplates = nil
 	end
@@ -881,11 +934,10 @@ function module:OnEnable()
 	end
 
 	-- Check if other nameplate addons are active and skip initialization
-	local otherNameplateAddons = { 'Plater', 'KuiNameplates', 'ThreatPlates', 'TidyPlates', 'NeatPlates' }
-	for _, addonName in ipairs(otherNameplateAddons) do
+	for _, addonName in ipairs(OtherNameplateAddons) do
 		if C_AddOns.IsAddOnLoaded(addonName) then
-			if SUI.logger then
-				SUI.logger.info('Nameplate addon "' .. addonName .. '" detected - SpartanUI Nameplates disabled')
+			if module.logger then
+				module.logger.info('Nameplate addon "' .. addonName .. '" detected - SpartanUI Nameplates disabled')
 			end
 			return
 		end
@@ -911,7 +963,20 @@ function module:OnEnable()
 			driver:SetAddedCallback(NameplateCallback)
 			driver:SetRemovedCallback(NameplateCallback)
 
-			driver:SetSize(module.DB.width, PlateHeight())
+			driver:SetSize(GetPlateWidth(), PlateHeight())
+		end
+
+		-- Health and faction changes no longer lay plates out, so plates added in combat are laid out
+		-- once when it ends
+		if not combatWatcher then
+			combatWatcher = CreateFrame('Frame')
+			combatWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
+			combatWatcher:SetScript('OnEvent', function()
+				if layoutAfterCombat then
+					layoutAfterCombat = false
+					module:UpdateNameplates()
+				end
+			end)
 		end
 
 		-- oUF is not hiding the mana bar. So we need to hide it.
@@ -929,10 +994,14 @@ function module:ReloadDB()
 		CurrentSettings[objName] = SUI:CopyData(SUI.UF.Elements:GetConfig(objName), {})
 	end
 
-	-- Update all existing nameplates
-	for _, nameplate in pairs(NameplateList) do
-		if nameplate and nameplate.unitFrame then
-			UpdateElementState(nameplate.unitFrame)
+	-- Update every plate on screen. A plate that fails must not stop other modules loading the new profile.
+	for name, shown in pairs(NameplateList) do
+		local frame = shown and _G[name]
+		if frame then
+			local ok, err = pcall(UpdateElementState, frame)
+			if not ok and module.logger then
+				module.logger.error('Could not update ' .. name .. ' for the new profile: ' .. tostring(err))
+			end
 		end
 	end
 
@@ -967,6 +1036,9 @@ function module:BuildOptions()
 	OptSet.disabled = function()
 		return SUI:IsModuleDisabled(module)
 	end
+	OptSet.args.StatusBar.args.width.get = function()
+		return GetPlateWidth()
+	end
 	OptSet.args.General.args.Display = {
 		name = L.Display,
 		type = 'group',
@@ -976,6 +1048,16 @@ function module:BuildOptions()
 				name = L['Frame width'],
 				type = 'input',
 				order = 1,
+				get = function()
+					return tostring(GetPlateWidth())
+				end,
+				set = function(_, val)
+					local width = tonumber(val)
+					if width and width > 0 then
+						module.DB.width = width
+						module:UpdateNameplates()
+					end
+				end,
 			},
 			Scale = {
 				name = L['Scale'],
@@ -1014,24 +1096,6 @@ function module:BuildOptions()
 				end,
 				set = function(info, val)
 					SetCVar('nameplateShowSelf', toInt(val))
-				end,
-			},
-			nameplateMotion = {
-				name = UNIT_NAMEPLATES_TYPES,
-				desc = function(info)
-					if GetCVar('nameplateMotion') == '1' then
-						return UNIT_NAMEPLATES_TYPE_TOOLTIP_2
-					else
-						return UNIT_NAMEPLATES_TYPE_TOOLTIP_1
-					end
-				end,
-				type = 'select',
-				values = { ['1'] = UNIT_NAMEPLATES_TYPE_2, ['0'] = UNIT_NAMEPLATES_TYPE_1 },
-				get = function(info)
-					return GetCVar('nameplateMotion')
-				end,
-				set = function(info, val)
-					SetCVar('nameplateMotion', tonumber(val))
 				end,
 			},
 		},
