@@ -26,6 +26,8 @@ P.Data = P.Data or {}
 ---@field remaining number Frozen time left (cooldown swipes are paused)
 ---@field stacks? integer
 ---@field dispel? string 'Magic'|'Curse'|'Disease'|'Poison'
+---@field spellId? integer Lets previews follow "Never show" lists and answer aura color rows
+---@field mine? boolean false: cast by someone else (a tank debuff in My debuffs)
 
 ---@class Plates.Sample
 ---@field id string
@@ -42,6 +44,10 @@ P.Data = P.Data or {}
 ---@field tankedByOther? boolean Another group tank holds it
 ---@field quest? boolean
 ---@field forces? string
+---@field title? string NPC title or guild (title text)
+---@field faction? string 'Alliance' | 'Horde' (faction mark, players)
+---@field pvp? boolean Flagged for PvP (faction mark)
+---@field arena? integer Arena opponent number (arena text)
 ---@field cast? Plates.SampleCast
 ---@field kickReady? boolean
 ---@field auras? table<string, Plates.SampleAura[]> Row id -> icons
@@ -83,7 +89,7 @@ P.Data.Samples = {
 		kickReady = true,
 		cast = { kind = 'cast', name = L['Shadow Bolt'], icon = ICON.shadowBolt, duration = 3, aimedAtMe = true, target = L['You'] },
 		auras = {
-			myDebuffs = { { icon = ICON.pain, duration = 18, remaining = 12 }, { icon = ICON.corruption, duration = 14, remaining = 4 } },
+			myDebuffs = { { icon = ICON.pain, duration = 18, remaining = 12, spellId = 589 }, { icon = ICON.corruption, duration = 14, remaining = 4, spellId = 172 } },
 			crowdControl = {},
 		},
 		states = { target = true },
@@ -132,7 +138,10 @@ P.Data.Samples = {
 		health = 64,
 		healthMax = 100,
 		cast = { kind = 'cast', name = L['Frostbolt'], icon = ICON.frostbolt, duration = 2, aimedAtMe = true, target = L['You'] },
-		auras = { crowdControl = { { icon = ICON.polymorph, duration = 8, remaining = 5 } }, removable = { { icon = ICON.shield, duration = 15, remaining = 9, dispel = 'Magic' } } },
+		auras = {
+			crowdControl = { { icon = ICON.polymorph, duration = 8, remaining = 5, spellId = 118 } },
+			removable = { { icon = ICON.shield, duration = 15, remaining = 9, dispel = 'Magic', spellId = 17 } },
+		},
 	},
 	friendlyNPC = {
 		id = 'friendlyNPC',
@@ -198,7 +207,7 @@ P.Data.Samples = {
 		facts = Hostile(),
 		health = 80,
 		healthMax = 100,
-		auras = { myDebuffs = { { icon = ICON.sunder, duration = 30, remaining = 22, stacks = 5 } } },
+		auras = { myDebuffs = { { icon = ICON.sunder, duration = 30, remaining = 22, stacks = 5, spellId = 7386, mine = false } } },
 	},
 }
 

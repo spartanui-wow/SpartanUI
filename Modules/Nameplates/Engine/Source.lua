@@ -144,6 +144,22 @@ function Live:PollFacts(facts)
 	return changed
 end
 
+---Whether the unit is in range for a range checker (a LibRangeCheck harm checker or a spell
+---check the Driver builds), for range fade (S9). Errors and hidden answers read as unknown.
+---@param checker fun(unit: string): any
+---@return boolean|nil inRange
+---@return boolean readable
+function Live:InRangePlain(checker)
+	if not (checker and self.unit) then
+		return nil, false
+	end
+	local ok, inRange = pcall(checker, self.unit)
+	if not ok then
+		return nil, false
+	end
+	return Plain(inRange)
+end
+
 function Live:HealthSecret()
 	return self.Call(Fn(UnitHealth), self.unit)
 end
@@ -410,7 +426,8 @@ function Live:ShowSpellTargetPlain()
 	return Plain(self.Call(UnitShouldDisplaySpellTargetName, self.unit))
 end
 
----Mythic+ forces as a percent string ("1.25%"), only during an active run.
+---Mythic+ forces as the documented percentValueString ("1.25"; the text part adds the percent
+---sign, confirm in game), only during an active run.
 function Live:ForcesSecret()
 	if not (C_ScenarioInfo and C_ScenarioInfo.GetUnitCriteriaProgressValues) or not P.Context.challengeActive then
 		return nil
@@ -467,15 +484,105 @@ local function QuestLines(data)
 	return false
 end
 
----Quest objective: questBoss, or an unfinished objective line in the unit tooltip (Retail and
----Forever). Tooltip reads are skipped inside instances and whenever identity is secret (S13).
+-- Unit tooltips on clients without C_TooltipInfo (the Classic family): one hidden tooltip, made on
+-- first use (only while plates are bound, so loading stays inert), named from host.globalPrefix.
+-- Quirk 'noTooltipScan' turns every scan off (same-day escape hatch).
+local scanTip
+local scanLines = {}
+
+---The hidden scan tooltip (Classic family), or nil.
+---@return table|nil
+function Source.ScanTooltip()
+	if scanTip == nil then
+		scanTip = false
+		local prefix = P.host and P.host.globalPrefix or 'Nameplates'
+		local ok, tip = pcall(CreateFrame, 'GameTooltip', prefix .. 'ScanTip', nil, 'GameTooltipTemplate')
+		if ok and tip then
+			scanTip = tip
+		end
+	end
+	return scanTip or nil
+end
+
+---Left text of every line of a unit's tooltip, through the hidden tooltip. nil when the client
+---cannot scan. Reuses one table; copy what you keep.
+---@param unit string
+---@return string[]|nil lines
+---@return integer count
+local function ScanLines(unit)
+	if P.Caps:Quirk('noTooltipScan') then
+		return nil, 0
+	end
+	local tip = Source.ScanTooltip()
+	if not (tip and tip.SetOwner and tip.SetUnit and tip.NumLines) then
+		return nil, 0
+	end
+	local ok = pcall(function()
+		tip:SetOwner(WorldFrame or UIParent, 'ANCHOR_NONE')
+		if tip.ClearLines then
+			tip:ClearLines()
+		end
+		tip:SetUnit(unit)
+	end)
+	if not ok then
+		return nil, 0
+	end
+	local count = tonumber((Plain(tip:NumLines()))) or 0
+	local name = tip.GetName and tip:GetName()
+	for i = 1, count do
+		local region = (tip.GetLeftLine and tip:GetLeftLine(i)) or tip['TextLeft' .. i] or (name and _G[name .. 'TextLeft' .. i])
+		local text = region and region.GetText and region:GetText()
+		text = Plain(text)
+		scanLines[i] = type(text) == 'string' and text or nil
+	end
+	for i = count + 1, #scanLines do
+		scanLines[i] = nil
+	end
+	if tip.Hide then
+		tip:Hide()
+	end
+	return scanLines, count
+end
+
+---Classic family: an unfinished objective in a native unit tooltip ("3/8" or "- 45%"). Whether
+---Classic tooltips carry objective lines at all is S13; when they do not, this finds nothing and
+---no quest mark shows.
+---@param self Plates.LiveSource
 ---@return boolean|nil
-function Live:QuestPlain()
-	if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then
+local function ScanQuest(self)
+	if Plain(self.Call(Fn(UnitIsPlayer), self.unit)) then
+		return false
+	end
+	local lines, count = ScanLines(self.unit)
+	if not lines then
 		return nil
 	end
+	for i = 2, count do
+		local text = lines[i]
+		if text then
+			local have, need = string.match(text, '(%d+)%s*/%s*(%d+)')
+			if have and tonumber(have) < tonumber(need) then
+				return true
+			end
+			local percent = string.match(text, '^%s*%-.-(%d+)%%')
+			if percent and tonumber(percent) < 100 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+---Quest objective: questBoss, or an unfinished objective line in the unit tooltip
+---(C_TooltipInfo on Retail and Forever, the hidden tooltip on the Classic family). Tooltip reads
+---are skipped inside instances and whenever identity is secret (S13).
+---@return boolean|nil
+function Live:QuestPlain()
 	if P.Context.place ~= 'world' or Secret.ShouldUnitIdentityBeSecret(self.unit) then
 		return nil
+	end
+	if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then
+		return ScanQuest(self)
 	end
 	local data = Plain(self.Call(C_TooltipInfo.GetUnit, self.unit))
 	if not Secret.CanIndex(data) then
@@ -487,6 +594,94 @@ function Live:QuestPlain()
 		return nil
 	end
 	return found
+end
+
+local levelPatterns
+
+---True for the tooltip's level line ("Level 60 Beast"), which is never a title.
+---@param text string
+---@return boolean
+local function IsLevelLine(text)
+	if not levelPatterns then
+		levelPatterns = {}
+		for _, template in ipairs({ _G.UNIT_TYPE_LEVEL_TEMPLATE, _G.UNIT_LEVEL_TEMPLATE, _G.UNIT_TYPE_PLUS_LEVEL_TEMPLATE }) do
+			if type(template) == 'string' then
+				-- "%s", "%d" and "%2$s" become ".+"; every other magic character is escaped
+				local pattern = string.gsub(template, '%%%d*%$?[ds]', '\001')
+				pattern = string.gsub(pattern, '([%(%)%.%+%-%*%?%[%]%^%$%%])', '%%%1')
+				pattern = string.gsub(pattern, '\001', '.+')
+				levelPatterns[#levelPatterns + 1] = '^' .. pattern .. '$'
+			end
+		end
+	end
+	for _, pattern in ipairs(levelPatterns) do
+		if string.match(text, pattern) then
+			return true
+		end
+	end
+	return false
+end
+
+-- Tooltip line types that are never a title
+local NOT_TITLE = { [2] = true, [7] = true, [8] = true, [16] = true, [17] = true, [18] = true, [47] = true, [48] = true, [49] = true }
+
+local function TitleFromData(data, index)
+	local lines = data.lines
+	if not Secret.CanIndex(lines) then
+		return nil
+	end
+	local line = lines[index]
+	if not Secret.CanIndex(line) then
+		return nil
+	end
+	local lineType = Plain(line.type)
+	if type(lineType) == 'number' and NOT_TITLE[lineType] then
+		return nil
+	end
+	local text = Plain(line.leftText)
+	return type(text) == 'string' and text or nil
+end
+
+---A title for the plate: an NPC's title line ("Innkeeper") from its tooltip, or a player's guild.
+---Tooltip reads follow the quest rules: open world only, never while identity is secret.
+---@return string|nil title
+---@return boolean readable
+function Live:TitlePlain()
+	local u = self.unit
+	if Plain(self.Call(Fn(UnitIsPlayer), u)) then
+		if not GetGuildInfo then
+			return nil, true
+		end
+		local guild, readable = Plain((self.Call(GetGuildInfo, u)))
+		if not readable then
+			return nil, false
+		end
+		return (type(guild) == 'string' and guild ~= '') and guild or nil, true
+	end
+	if P.Context.place ~= 'world' then
+		return nil, true
+	end
+	if Secret.ShouldUnitIdentityBeSecret(u) then
+		return nil, false
+	end
+	-- Color blind mode puts the reaction on the second line
+	local index = (GetCVarBool and GetCVarBool('colorblindMode')) and 3 or 2
+	local text
+	if C_TooltipInfo and C_TooltipInfo.GetUnit then
+		local data = Plain(self.Call(C_TooltipInfo.GetUnit, u))
+		if not Secret.CanIndex(data) then
+			return nil, false
+		end
+		local ok, found = pcall(TitleFromData, data, index)
+		text = ok and found or nil
+	else
+		local lines = ScanLines(u)
+		text = lines and lines[index]
+	end
+	if text and text ~= '' and not IsLevelLine(text) then
+		return text, true
+	end
+	return nil, true
 end
 
 ---Is this unit the same as another token (S4 fallback). Possibly secret: alpha sinks only.
@@ -501,6 +696,68 @@ end
 
 function Live:PowerMaxSecret(powerType)
 	return self.Call(Fn(UnitPowerMax), self.unit, powerType)
+end
+
+-- The player's class resource (the classPower part). These read the player, never the plate's
+-- unit: UnitPower and GetComboPoints are SecretWhenUnitPowerRestricted on Retail and Forever even
+-- for the player, so the amount is a ...Secret value for pip bars only. Previews answer from the
+-- sample instead (Sample methods below).
+
+---The player's amount of one power type. Possibly secret: pip bars only.
+---@param powerType integer
+---@param unmodified? boolean Raw points (soul shard and ember fragments)
+function Live:PlayerPowerSecret(powerType, unmodified)
+	return self.Call(Fn(UnitPower), 'player', powerType, unmodified)
+end
+
+---Combo points the player has on the current target, on clients where points belong to the
+---target. Possibly secret: pip bars only.
+function Live:TargetComboPointsSecret()
+	return self.Call(Fn(GetComboPoints), 'player', 'target')
+end
+
+---One rune of the player: start, duration, ready, readable. Plain or nothing.
+---@param index integer
+---@return number|nil start
+---@return number|nil duration
+---@return boolean|nil ready
+---@return boolean readable
+function Live:RunePlain(index)
+	if not GetRuneCooldown then
+		return nil, nil, nil, false
+	end
+	local start, duration, ready = self.Call(GetRuneCooldown, index)
+	local readyPlain, okReady = Plain(ready)
+	local startPlain, okStart = Plain(start)
+	local durationPlain, okDuration = Plain(duration)
+	if not (okReady and okStart and okDuration) or type(readyPlain) ~= 'boolean' then
+		return nil, nil, nil, false
+	end
+	return startPlain, durationPlain, readyPlain, true
+end
+
+local chargedOut = {}
+
+---Charged combo points of the player (a list of point indexes), or nil when there are none or
+---the game hides them. The list is reused by the next call: read it at once, never keep it.
+---@return integer[]|nil
+function Live:ChargedPointsPlain()
+	if not GetUnitChargedPowerPoints then
+		return nil
+	end
+	local list = self.Call(GetUnitChargedPowerPoints, 'player')
+	if not Secret.CanIndex(list) then
+		return nil
+	end
+	local out = chargedOut
+	P.util.Wipe(out)
+	for i = 1, #list do
+		local index = Plain(list[i])
+		if type(index) == 'number' then
+			out[#out + 1] = index
+		end
+	end
+	return out
 end
 
 ---One aura by index for the Lua scan path (Classic family). nil when none or hidden.
@@ -541,6 +798,70 @@ function Live:AuraByInstancePlain(auraInstanceID)
 		return nil
 	end
 	return aura
+end
+
+-- Reads for the text and icon parts (level, health text, classification, faction, arena labels).
+
+---Effective level (-1 for skull-level bosses).
+---@return integer|nil
+---@return boolean readable
+function Live:LevelPlain()
+	return Plain(self.Call(Fn(UnitEffectiveLevel), self.unit))
+end
+
+---@return number|nil
+---@return boolean readable
+function Live:HealthMaxPlain()
+	return Plain(self.Call(Fn(UnitHealthMax), self.unit))
+end
+
+---'normal' | 'elite' | 'rare' | 'rareelite' | 'worldboss' | 'trivial' | 'minus'
+---@return string|nil
+---@return boolean readable
+function Live:ClassificationPlain()
+	return Plain(self.Call(Fn(UnitClassification), self.unit))
+end
+
+---'Alliance' | 'Horde' | 'Neutral' | nil
+---@return string|nil
+---@return boolean readable
+function Live:FactionPlain()
+	return Plain((self.Call(Fn(UnitFactionGroup), self.unit)))
+end
+
+---Flagged for PvP. Possibly secret: alpha sinks only.
+function Live:IsPvPSecret()
+	return self.Call(Fn(UnitIsPVP), self.unit)
+end
+
+---@return boolean|nil
+---@return boolean readable
+function Live:IsPvPPlain()
+	return Plain(self.Call(Fn(UnitIsPVP), self.unit))
+end
+
+---@return boolean|nil
+---@return boolean readable
+function Live:IsFreeForAllPlain()
+	return Plain(self.Call(Fn(UnitIsPVPFreeForAll), self.unit))
+end
+
+---Arena opponent number (1-5) of this plate's unit, by comparing base plates (frames, never unit
+---tokens). nil outside arenas, when the game will not hand out the arena plates (S18), or for
+---anyone else.
+---@return integer|nil
+function Live:ArenaIndexPlain()
+	local mine = self.unit and Source.PlateForUnit(self.unit)
+	if not mine then
+		return nil
+	end
+	for i = 1, 5 do
+		local base = Source.PlateForUnit('arena' .. i)
+		if base and base == mine then
+			return i
+		end
+	end
+	return nil
 end
 
 ---Previews only: live sources have no sample icons.
@@ -589,6 +910,10 @@ end
 
 function Sample:PollFacts()
 	return false
+end
+
+function Sample:InRangePlain()
+	return self.sample.outOfRange ~= true, true
 end
 
 function Sample:HealthSecret()
@@ -788,6 +1113,28 @@ function Sample:PowerMaxSecret()
 	return 5
 end
 
+---The player's class resource in previews: `sample.classPower` points (default 3).
+function Sample:PlayerPowerSecret()
+	return self.sample.classPower or 3
+end
+
+function Sample:TargetComboPointsSecret()
+	return self.sample.classPower or 3
+end
+
+---Preview runes: the first `classPower` runes are ready, the rest part way back.
+---@param index integer
+function Sample:RunePlain(index)
+	local ready = index <= (self.sample.classPower or 3)
+	local now = P.services.GetTime()
+	local duration = 10
+	return now - (ready and duration or (duration * (7 - index) / 6)), duration, ready, true
+end
+
+function Sample:ChargedPointsPlain()
+	return nil
+end
+
 function Sample:AuraByIndexPlain()
 	return nil
 end
@@ -798,6 +1145,43 @@ end
 
 function Sample:AuraByInstancePlain()
 	return nil
+end
+
+function Sample:LevelPlain()
+	local facts = self.sample.facts or {}
+	return self.sample.level or facts.effectiveLevel, true
+end
+
+function Sample:HealthMaxPlain()
+	return self.sample.healthMax or 100, true
+end
+
+function Sample:ClassificationPlain()
+	return self.sample.facts and self.sample.facts.classification, true
+end
+
+function Sample:TitlePlain()
+	return self.sample.title, true
+end
+
+function Sample:FactionPlain()
+	return self.sample.faction, true
+end
+
+function Sample:IsPvPSecret()
+	return self.sample.pvp == true
+end
+
+function Sample:IsPvPPlain()
+	return self.sample.pvp == true, true
+end
+
+function Sample:IsFreeForAllPlain()
+	return false, true
+end
+
+function Sample:ArenaIndexPlain()
+	return self.sample.arena
 end
 
 ---Sample icons for one aura row (previews draw these instead of a container).
@@ -908,6 +1292,97 @@ end
 ---@return boolean
 function Source.UnitExists(unit)
 	return (UnitExists and Plain(UnitExists(unit))) and true or false
+end
+
+---Name and class token of whoever interrupted a cast, from the interruptedBy GUID of
+---UNIT_SPELLCAST_INTERRUPTED, _CHANNEL_STOP and _EMPOWER_STOP (no combat log). Both may be
+---secret: text and color sinks only. UnitNameFromGUID also names pets and NPCs; clients without
+---it (the Classic family) name players only, through GetPlayerInfoByGUID.
+---@param guidSecret any Possibly secret GUID from the event
+---@return any nameSecret
+---@return any classSecret Class file name ('MAGE')
+function Source.InterrupterSecret(guidSecret)
+	if type(guidSecret) == 'nil' then
+		return nil, nil
+	end
+	local nameSecret, classSecret
+	if UnitNameFromGUID then
+		nameSecret = UnitNameFromGUID(guidSecret)
+	end
+	if UnitClassFromGUID then
+		local _, fileSecret = UnitClassFromGUID(guidSecret)
+		classSecret = fileSecret
+	end
+	if GetPlayerInfoByGUID and (type(nameSecret) == 'nil' or type(classSecret) == 'nil') then
+		local _, playerClassSecret, _, _, _, playerNameSecret = GetPlayerInfoByGUID(guidSecret)
+		if type(nameSecret) == 'nil' then
+			nameSecret = playerNameSecret
+		end
+		if type(classSecret) == 'nil' then
+			classSecret = playerClassSecret
+		end
+	end
+	return nameSecret, classSecret
+end
+
+---Plain facts that decide which class resource the player has (the classPower part): class,
+---specialization index, current power type (Energy means cat form for druids), vehicle, level.
+---@param out table
+---@return table out { class, spec, powerType, inVehicle, level }
+function Source.ReadPlayerPower(out)
+	local _, class = UnitClass('player')
+	out.class = class
+	local getSpec = (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization) or GetSpecialization
+	local spec
+	if getSpec then
+		local ok, value = pcall(getSpec)
+		spec = ok and Plain(value) or nil
+	end
+	out.spec = type(spec) == 'number' and spec or nil
+	out.powerType = (Plain(Fn(UnitPowerType)('player')))
+	out.inVehicle = (UnitHasVehicleUI and Plain(UnitHasVehicleUI('player'))) == true
+	out.level = (Plain(Fn(UnitLevel)('player')))
+	return out
+end
+
+---The player's maximum of one power type: value, readable.
+---@param powerType integer
+---@param unmodified? boolean Raw points (fragments)
+---@return number|nil
+---@return boolean readable
+function Source.PlayerPowerMaxPlain(powerType, unmodified)
+	if not UnitPowerMax then
+		return nil, false
+	end
+	local value = Plain(UnitPowerMax('player', powerType, unmodified))
+	if type(value) ~= 'number' then
+		return nil, false
+	end
+	return value, true
+end
+
+---How many raw points make one shown point of a power type (soul shard fragments), or nil.
+---@param powerType integer
+---@return number|nil
+function Source.PowerDisplayModPlain(powerType)
+	if not UnitPowerDisplayMod then
+		return nil
+	end
+	local ok, value = pcall(UnitPowerDisplayMod, powerType)
+	value = ok and Plain(value) or nil
+	return type(value) == 'number' and value or nil
+end
+
+---Rune type on clients with typed runes (1 blood, 2 unholy, 3 frost, 4 death), or nil.
+---@param index integer
+---@return integer|nil
+function Source.RuneTypePlain(index)
+	if not GetRuneType then
+		return nil
+	end
+	local ok, value = pcall(GetRuneType, index)
+	value = ok and Plain(value) or nil
+	return type(value) == 'number' and value or nil
 end
 
 ----------------------------------------------------------------------------------------------------

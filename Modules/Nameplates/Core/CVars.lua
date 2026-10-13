@@ -59,6 +59,7 @@ function CVars:Define(name, def)
 	end
 	self.defs[name] = def
 	self.info[name] = nil
+	self.lowerNames = nil
 end
 
 local function RawInfo(name)
@@ -369,12 +370,35 @@ function CVars:GetAttribution(name)
 	return self.attribution[name]
 end
 
+---The defined setting a written name stands for: CVar names ignore case in the game, and a setting
+---may exist on this client only under an older name (def.alt).
+---@param name string
+---@return string|nil
+function CVars:DefinedName(name)
+	if self.defs[name] then
+		return name
+	end
+	local map = self.lowerNames
+	if not map then
+		map = {}
+		for defined, def in pairs(self.defs) do
+			map[defined:lower()] = defined
+			for _, alt in ipairs(def.alt or {}) do
+				map[alt:lower()] = defined
+			end
+		end
+		self.lowerNames = map
+	end
+	return map[name:lower()]
+end
+
 local function OnExternalWrite(name)
 	local self = CVars
 	if not self.active or self.writing or type(name) ~= 'string' then
 		return
 	end
-	if self.defs[name] or self.info[name] then
+	name = self:DefinedName(name)
+	if name then
 		self.attribution[name] = { by = 'other', time = P.services.GetTime(), stack = debugstack and debugstack(3, 3, 0) or nil }
 		P:Fire('CVAR_CHANGED', name, self:Get(name), 'other')
 	end

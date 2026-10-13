@@ -427,6 +427,21 @@ describe('colors: condition folds', function()
 		end
 	end)
 
+	it('folds a whole color in one pass the same way as one channel at a time', function()
+		local A, B = { id = 'notInterruptible' }, { id = 'importantCast' }
+		local exprs = { { all = { A, B } }, { any = { A, B } }, { ['not'] = A }, { id = 'importantCast', negate = true }, { any = { { id = 'tapped' }, { all = { A, { ['not'] = B } } } } } }
+		for _, a in ipairs({ true, false }) do
+			for _, b in ipairs({ true, false }) do
+				local env = { facts = {}, ctx = Ctx(), states = {}, src = Src({ notInterruptible = H_(a), important = H_(b) }) }
+				for n, expr in ipairs(exprs) do
+					local r, g, bl = Conditions:FoldColorSecret(expr, env, 0.1, 0.2, 0.3, 0.7, 0.8, 0.9)
+					local want = { Conditions:FoldSecret(expr, env, 0.1, 0.7), Conditions:FoldSecret(expr, env, 0.2, 0.8), Conditions:FoldSecret(expr, env, 0.3, 0.9) }
+					assert.same({ S.Reveal(r), S.Reveal(g), S.Reveal(bl) }, { S.Reveal(want[1]), S.Reveal(want[2]), S.Reveal(want[3]) }, 'expression ' .. n)
+				end
+			end
+		end
+	end)
+
 	it('settles plain leaves in Lua inside a fold', function()
 		local env = { facts = { tapDenied = true }, ctx = Ctx(), states = {}, src = Src({ important = H_(false) }) }
 		assert.equal(S.Reveal(Conditions:FoldSecret({ any = { { id = 'tapped' }, { id = 'importantCast' } } }, env, 1, 0)), 1)

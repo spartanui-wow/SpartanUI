@@ -165,6 +165,47 @@ function Conditions:FoldSecret(expr, env, ifTrue, ifFalse)
 	return P.Secret.ChooseValue(cond.TestSecret(env, expr.args), ifTrue, ifFalse)
 end
 
+---FoldSecret for a whole color at once: the three channels are folded in one pass, so every leaf
+---is asked once per color instead of once per channel (Colors folds hidden rows this way).
+---@param expr table
+---@param env table
+---@return any rSecret
+---@return any gSecret
+---@return any bSecret
+function Conditions:FoldColorSecret(expr, env, trSecret, tgSecret, tbSecret, frSecret, fgSecret, fbSecret)
+	if expr.all then
+		local rSecret, gSecret, bSecret = trSecret, tgSecret, tbSecret
+		for i = #expr.all, 1, -1 do
+			rSecret, gSecret, bSecret = self:FoldColorSecret(expr.all[i], env, rSecret, gSecret, bSecret, frSecret, fgSecret, fbSecret)
+		end
+		return rSecret, gSecret, bSecret
+	elseif expr.any then
+		local rSecret, gSecret, bSecret = frSecret, fgSecret, fbSecret
+		for i = #expr.any, 1, -1 do
+			rSecret, gSecret, bSecret = self:FoldColorSecret(expr.any[i], env, trSecret, tgSecret, tbSecret, rSecret, gSecret, bSecret)
+		end
+		return rSecret, gSecret, bSecret
+	elseif expr['not'] then
+		return self:FoldColorSecret(expr['not'], env, frSecret, fgSecret, fbSecret, trSecret, tgSecret, tbSecret)
+	end
+	local cond = self.catalog[expr.id]
+	if not cond then
+		return frSecret, fgSecret, fbSecret
+	end
+	if expr.negate then
+		trSecret, tgSecret, tbSecret, frSecret, fgSecret, fbSecret = frSecret, fgSecret, fbSecret, trSecret, tgSecret, tbSecret
+	end
+	local r = cond.Test(env, expr.args)
+	if r == true then
+		return trSecret, tgSecret, tbSecret
+	elseif r == false or not cond.TestSecret then
+		return frSecret, fgSecret, fbSecret
+	end
+	local conditionSecret = cond.TestSecret(env, expr.args)
+	local Secret = P.Secret
+	return Secret.ChooseValue(conditionSecret, trSecret, frSecret), Secret.ChooseValue(conditionSecret, tgSecret, fgSecret), Secret.ChooseValue(conditionSecret, tbSecret, fbSecret)
+end
+
 ---Unit events and bus messages an expression needs (added to out tables as sets).
 ---@param expr table
 ---@param events table<string, boolean>
@@ -576,10 +617,19 @@ Conditions:Register({
 	kind = 'engine',
 	label = L['Your interrupt is ready'],
 	messages = { 'KICK_READY_CHANGED' },
-	Test = function()
+	-- Previews answer from the sample, live plates from the player's interrupt cooldown
+	Test = function(env)
+		local src = env and env.src
+		if src and src.isSample then
+			return src:KickReady()
+		end
 		return Conditions.KickReadyPlain()
 	end,
-	TestSecret = function()
+	TestSecret = function(env)
+		local src = env and env.src
+		if src and src.isSample then
+			return src:KickReady()
+		end
 		return Conditions.KickReadySecret()
 	end,
 })

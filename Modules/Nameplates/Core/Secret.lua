@@ -54,6 +54,7 @@ Secret.SINKS = {
 	'P.Secret.IsSecret',
 	'P.Colors:Apply',
 	'P.Conditions:FoldSecret',
+	'P.Conditions:FoldColorSecret',
 }
 
 local canaccessvalue = canaccessvalue

@@ -88,7 +88,7 @@ Schema.PIECES = { 'health', 'border', 'name', 'cast' }
 Schema.STATES = { 'target', 'notTarget', 'focus', 'mouseover', 'casting' }
 Schema.SIZES = { 'small', 'medium', 'large' }
 Schema.BAR_SOURCES = { 'health', 'power' }
-Schema.TEXT_SOURCES = { 'name', 'level', 'healthPercent', 'healthValue', 'forces', 'title', 'threatPercent', 'castName', 'castTime', 'castTarget' }
+Schema.TEXT_SOURCES = { 'name', 'level', 'healthPercent', 'healthValue', 'forces', 'title', 'threatPercent', 'castName', 'castTime', 'castTarget', 'arena', 'nameFill' }
 Schema.ICON_SOURCES = { 'raidMarker', 'classification', 'quest', 'faction', 'focus', 'shield' }
 Schema.AURA_ROWS = { 'myDebuffs', 'removable', 'crowdControl', 'custom' }
 Schema.GLOW_SOURCES = { 'threat', 'importantCast', 'purge', 'pandemic', 'target' }
@@ -150,6 +150,14 @@ Schema.PART_FIELDS = {
 		healAbsorb = BOOL,
 		interpolate = BOOL,
 		reverse = BOOL,
+		-- Health only (Engine/Parts/Health.lua); each has a default in code
+		absorbMode = Enum({ 'overlay', 'extend' }),
+		absorbColor = TOKEN_OR_COLOR,
+		absorbTexture = TOKEN_OR_STRING,
+		healAbsorbColor = TOKEN_OR_COLOR,
+		lostHealth = BOOL,
+		execute = Num(0, 0.9),
+		executeColor = TOKEN_OR_COLOR,
 	},
 	cast = {
 		width = Num(1, 512, true),
@@ -170,6 +178,9 @@ Schema.PART_FIELDS = {
 		timeFormat = Enum({ 'remaining', 'elapsed', 'both' }),
 		enemies = BOOL,
 		friends = BOOL,
+		kickMark = BOOL,
+		kickFill = BOOL,
+		interrupter = BOOL,
 	},
 	text = {
 		source = Enum(Schema.TEXT_SOURCES),
@@ -180,6 +191,7 @@ Schema.PART_FIELDS = {
 		width = Num(0, 512, true),
 		hideAtFull = BOOL,
 		abbreviate = BOOL,
+		bg = TOKEN_OR_COLOR, -- nameFill: the name's color where health is lost
 	},
 	icon = {
 		source = Enum(Schema.ICON_SOURCES),
@@ -206,12 +218,15 @@ Schema.PART_FIELDS = {
 		pad = Num(0, 32, true),
 		size = Num(0, 64, true),
 		blend = Enum({ 'BLEND', 'ADD' }),
+		animate = Enum({ 'none', 'pulse', 'bounce' }),
 	},
 	glow = {
 		source = Enum(Schema.GLOW_SOURCES),
 		color = TOKEN_OR_COLOR,
 		size = Num(0, 32, true),
 		art = Str(64),
+		blend = Enum({ 'BLEND', 'ADD' }),
+		animate = Enum({ 'none', 'pulse' }),
 	},
 	art = {
 		art = Str(64),
@@ -229,6 +244,7 @@ Schema.PART_FIELDS = {
 		size = Num(2, 32, true),
 		spacing = Num(0, 16, true),
 		shape = Str(32),
+		color = TOKEN_OR_COLOR, -- one color for every pip; unset uses each resource's own color
 	},
 }
 

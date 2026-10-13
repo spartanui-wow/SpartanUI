@@ -44,11 +44,13 @@ P.Styles.Registry:RegisterBuiltin({
 		forces = { order = 35, kind = 'text', source = 'forces', anchor = { 'LEFT', 'health', 'LEFT', 14, 0 }, justify = 'LEFT', font = { size = 9 } },
 		elite = { order = 36, kind = 'icon', source = 'classification', anchor = { 'LEFT', 'health', 'LEFT', 2, 0 }, size = 10 },
 		cast = { order = 40, kind = 'cast', anchor = { 'TOP', 'health', 'BOTTOM', 0, -2 }, height = 8, icon = 'left', target = true, shield = true, important = true, aimedAtMe = true },
+		power = { order = 45, kind = 'classPower', state = 'target', anchor = { 'TOP', 'cast', 'BOTTOM', 0, -3 }, size = 5, spacing = 2 },
 		mine = { order = 50, kind = 'auras', row = 'myDebuffs', anchor = { 'BOTTOMLEFT', 'name', 'TOPLEFT', 0, 2 }, size = 20, max = 6, grow = 'RIGHT' },
 		cc = { order = 60, kind = 'auras', row = 'crowdControl', anchor = { 'LEFT', 'health', 'RIGHT', 4, 0 }, size = 24, max = 2 },
 		marker = { order = 70, kind = 'icon', source = 'raidMarker', anchor = { 'RIGHT', 'health', 'LEFT', -4, 0 }, size = 16 },
 		quest = { order = 75, kind = 'icon', source = 'quest', anchor = { 'BOTTOMRIGHT', 'health', 'TOPRIGHT', 0, 2 }, size = 14 },
 		arrows = { order = 80, kind = 'highlight', state = 'target', art = 'arrows' },
+		hover = { order = 79, kind = 'highlight', state = 'mouseover', art = 'glow', color = { 1, 1, 1, 1 } },
 		threat = { order = 90, kind = 'glow', source = 'threat' },
 	},
 	states = {

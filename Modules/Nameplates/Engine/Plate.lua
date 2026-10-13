@@ -1,6 +1,7 @@
 local _, ns = ...
 local P = ns.Plates
 local Secret = P.Secret
+local EMPTY = {} -- read only
 
 -- Plate objects and the part registry (6.3, 6.5). A plate is our insecure drawing of one Blizzard
 -- base nameplate (live) or one sample in a preview. It owns:
@@ -246,6 +247,10 @@ function Ctx:ApplyFont(fontString, font, forNames)
 	end
 end
 
+---Frame levels each part may use: its own frame's level and the ones above it, for child frames
+---such as the health bar's shield bars, so the next part (text over the bar) still draws on top.
+Ctx.PART_LEVELS = 4
+
 ---Apply the fields every part may hold (alpha, draw order, pixel snapping). Called by the plate
 ---right after the part's Layout.
 ---@param widget Plates.Widget
@@ -261,8 +266,9 @@ function Ctx:ApplyCommon(widget, spec, rank)
 	end
 	local base = self.plate.artLevel
 	if base and frame.SetFrameLevel then
-		-- Each layer step leaves room for every part of a style to keep its own level
-		frame:SetFrameLevel(base + 1 + rank + ((spec.layer or 0) + 8) * 32)
+		-- Each layer step leaves room for every part of a style to keep its own levels
+		local step = Ctx.PART_LEVELS
+		frame:SetFrameLevel(base + 1 + rank * step + ((spec.layer or 0) + 8) * 32 * step)
 	end
 	if spec.pixelSnap ~= nil then
 		local snap = spec.pixelSnap and true or false
@@ -432,6 +438,19 @@ function Plate.New(parent, isPreview, ctx)
 	plate.assignment = { deps = {} }
 	plate.env = { facts = plate.facts, ctx = ctx or P.Context, states = plate.states, src = nil }
 	plate.easeKey = tostring(plate)
+	plate.easeSizeId, plate.easeAlphaId = plate.easeKey .. 'w', plate.easeKey .. 'a'
+	-- Made once per plate, so a target change eases every plate without making closures
+	plate.applySize = function(t)
+		local fromW, fromH = plate.emFromW, plate.emFromH
+		local w = math.floor(fromW + (plate.emToW - fromW) * t + 0.5)
+		local h = math.floor(fromH + (plate.emToH - fromH) * t + 0.5)
+		plate.emW, plate.emH = w, h
+		plate.art:SetSize(w, h)
+	end
+	plate.applyAlpha = function(value)
+		plate.emA = value
+		plate.art:SetAlpha(value)
+	end
 	if not plate.isPreview then
 		plate.events = CreateFrame('Frame')
 		plate.events:SetScript('OnEvent', function(_, event, ...)
@@ -479,33 +498,40 @@ local function EventsOf(widget)
 	if type(events) == 'function' then
 		events = events(spec)
 	end
-	return events or {}
+	return events or EMPTY
+end
+
+local COLOR_FIELDS = { 'colors', 'borderColors' }
+
+local function Add(map, key, widget)
+	local list = map[key]
+	if not list then
+		list = {}
+		map[key] = list
+	end
+	list[#list + 1] = widget
 end
 
 ---Rebuild the event and message maps (and, when bound, the unit event registrations).
 function Plate:RebuildEvents()
-	local eventWidgets, messageWidgets = {}, {}
-	local function Add(map, key, widget)
-		local list = map[key]
-		if not list then
-			list = {}
-			map[key] = list
-		end
-		list[#list + 1] = widget
-	end
+	local eventWidgets, messageWidgets, programs = {}, {}, {}
+	self.mapBuilds = (self.mapBuilds or 0) + 1
 	for i = 1, #self.active do
 		local widget = self.active[i]
-		for _, event in ipairs(EventsOf(widget)) do
-			Add(eventWidgets, event, widget)
+		local events = EventsOf(widget)
+		for j = 1, #events do
+			Add(eventWidgets, events[j], widget)
 		end
-		for _, message in ipairs(widget.impl.messages or {}) do
-			Add(messageWidgets, message, widget)
+		local messages = widget.impl.messages or EMPTY
+		for j = 1, #messages do
+			Add(messageWidgets, messages[j], widget)
 		end
 		-- Parts that use a color list also follow that list's events and messages
-		for _, field in ipairs({ 'colors', 'borderColors' }) do
+		for _, field in ipairs(COLOR_FIELDS) do
 			local piece = widget.spec[field]
 			if piece then
 				local program = P.Colors:Program(piece, self.env.ctx)
+				programs[#programs + 1] = program
 				for event in pairs(program.events) do
 					Add(eventWidgets, event, widget)
 				end
@@ -516,12 +542,45 @@ function Plate:RebuildEvents()
 		end
 	end
 	self.eventWidgets, self.messageWidgets = eventWidgets, messageWidgets
-	if self.events and self.unit then
-		self.events:UnregisterAllEvents()
-		for event in pairs(eventWidgets) do
-			pcall(self.events.RegisterUnitEvent, self.events, event, self.unit)
+	self.mapPrograms, self.mapCtx = programs, self.env.ctx
+	self:RegisterUnitEvents()
+end
+
+---Register the unit events of the current maps on the plate's own frame (live plates with a unit).
+function Plate:RegisterUnitEvents()
+	local frame = self.events
+	if not (frame and self.unit) then
+		return
+	end
+	frame:UnregisterAllEvents()
+	for event in pairs(self.eventWidgets) do
+		pcall(frame.RegisterUnitEvent, frame, event, self.unit)
+	end
+end
+
+---True while the event maps still match the color programs they were built from (Colors makes new
+---programs when settings or the context change), so binding a unit only registers events again and
+---makes no tables (the Driver binds on every NAME_PLATE_UNIT_ADDED).
+---@return boolean
+function Plate:EventMapsCurrent()
+	local programs = self.mapPrograms
+	if not programs or self.mapCtx ~= self.env.ctx then
+		return false
+	end
+	local n = 0
+	for i = 1, #self.active do
+		local spec = self.active[i].spec
+		for j = 1, #COLOR_FIELDS do
+			local piece = spec[COLOR_FIELDS[j]]
+			if piece then
+				n = n + 1
+				if programs[n] ~= P.Colors:Program(piece, self.env.ctx) then
+					return false
+				end
+			end
 		end
 	end
+	return n == #programs
 end
 
 ---Lay the plate out for a resolved style. Returns true when it re-laid out.
@@ -639,7 +698,11 @@ function Plate:Bind(unit, src)
 	self.unit = unit
 	self.src = src
 	self.env.src = src
-	self:RebuildEvents()
+	if self:EventMapsCurrent() then
+		self:RegisterUnitEvents()
+	else
+		self:RebuildEvents()
+	end
 	self.root:Show()
 	self:UpdateAll('FULL')
 end
@@ -670,6 +733,16 @@ function Plate:Unbind()
 	self.src = nil
 	self.env.src = nil
 	P.util.Wipe(self.states)
+	-- States start off for the next unit: hide state-tied parts now, because SetState(state, false)
+	-- does nothing for a state that is already off
+	for i = 1, #self.active do
+		local widget = self.active[i]
+		if widget.spec.state and widget.frame then
+			widget.frame:Hide()
+		end
+	end
+	-- and so does the target growth and fade
+	self:ApplyEmphasis(true)
 	self.root:Hide()
 end
 
@@ -728,13 +801,17 @@ function Plate:ApplyEmphasis(instant)
 	if not resolved then
 		return
 	end
-	local stateSpecs = resolved.states or {}
+	local stateSpecs = resolved.states or EMPTY
 	local states = self.states
 	local ctx = self.env.ctx or P.Context
 	local width, height = resolved.width, resolved.height
 	local grow = states.target and stateSpecs.target and stateSpecs.target.grow
 	if grow then
 		width, height = width + grow[1], height + grow[2]
+	end
+	-- Extra whole-pixel growth parts ask for (plate.grows[owner] = { w, h }, e.g. the threat size channel)
+	for _, extra in pairs(self.grows or EMPTY) do
+		width, height = width + extra[1], height + extra[2]
 	end
 	local alpha = 1
 	if not self.isPreview and ctx.hasTarget and not states.target then
@@ -751,28 +828,27 @@ function Plate:ApplyEmphasis(instant)
 
 	local art = self.art
 	local Scheduler = P.Scheduler
-	local id = self.easeKey
 	if instant or not self.emW then
-		Scheduler:StopEase(id .. 'w')
-		Scheduler:StopEase(id .. 'a')
+		Scheduler:StopEase(self.easeSizeId)
+		Scheduler:StopEase(self.easeAlphaId)
 		self.emW, self.emH, self.emA = width, height, alpha
+		self.emToW, self.emToH, self.emToA = width, height, alpha
 		art:SetSize(width, height)
 		art:SetAlpha(alpha)
 		return
 	end
 	-- Ease from the values we last applied. Size and alpha read back from a frame inside
-	-- Blizzard's plate tree can be secret on 12.1, so they are never read.
-	local fromW, fromH = self.emW, self.emH
-	Scheduler:Ease(id .. 'w', 0, 1, EASE_TIME, function(t)
-		local w = math.floor(fromW + (width - fromW) * t + 0.5)
-		local h = math.floor(fromH + (height - fromH) * t + 0.5)
-		self.emW, self.emH = w, h
-		art:SetSize(w, h)
-	end)
-	Scheduler:Ease(id .. 'a', self.emA or alpha, alpha, EASE_TIME, function(value)
-		self.emA = value
-		art:SetAlpha(value)
-	end)
+	-- Blizzard's plate tree can be secret on 12.1, so they are never read. Nothing starts when
+	-- the goal is the one already set (most plates on a target change).
+	if width ~= self.emToW or height ~= self.emToH then
+		self.emFromW, self.emFromH = self.emW, self.emH
+		self.emToW, self.emToH = width, height
+		Scheduler:Ease(self.easeSizeId, 0, 1, EASE_TIME, self.applySize)
+	end
+	if alpha ~= self.emToA then
+		self.emToA = alpha
+		Scheduler:Ease(self.easeAlphaId, self.emA or alpha, alpha, EASE_TIME, self.applyAlpha)
+	end
 end
 
 ---Run every part's Configure (aura filters and layout) now, or mark it for later while the game

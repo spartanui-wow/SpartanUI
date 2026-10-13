@@ -291,11 +291,7 @@ local function FoldRowSecret(row, env, rSecret, gSecret, bSecret)
 	local kind = row.kind
 	if kind.type == 'boolean' then
 		local color = row.color
-		local Conditions = P.Conditions
-		rSecret = Conditions:FoldSecret(row.expr, env, color[1], rSecret)
-		gSecret = Conditions:FoldSecret(row.expr, env, color[2], gSecret)
-		bSecret = Conditions:FoldSecret(row.expr, env, color[3], bSecret)
-		return rSecret, gSecret, bSecret
+		return P.Conditions:FoldColorSecret(row.expr, env, color[1], color[2], color[3], rSecret, gSecret, bSecret)
 	end
 	if kind.FoldSecret then
 		return kind.FoldSecret(env, row, rSecret, gSecret, bSecret)
@@ -520,8 +516,16 @@ local function TankRow(id, label, sentence, Tanks)
 			if not src or not facts.canAttack or facts.isPlayer then
 				return false
 			end
+			local ctx = env.ctx or P.Context
+			if ctx.role ~= 'tank' then
+				-- Damage and healers see "you are about to pull" before "the tank has it" (P.Threat.State)
+				local status, known = src:ThreatStatusPlain()
+				if known and type(status) == 'number' and status >= 1 then
+					return false
+				end
+			end
 			local unknown = false
-			local tanks = Tanks(env.ctx or P.Context)
+			local tanks = Tanks(ctx)
 			for i = 1, #tanks do
 				local tanking, readable = src:IsTankingPlain(tanks[i])
 				if not readable then

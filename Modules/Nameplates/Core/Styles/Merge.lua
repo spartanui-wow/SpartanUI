@@ -56,6 +56,9 @@ Merge.PART_DEFAULTS = {
 		timeFormat = 'remaining',
 		enemies = true,
 		friends = false,
+		kickMark = true,
+		kickFill = false,
+		interrupter = true,
 		alpha = 1,
 	},
 	text = { font = { face = '$font', size = 10, flags = 'OUTLINE' }, justify = 'CENTER', alpha = 1 },
@@ -92,7 +95,7 @@ Merge.DEFAULT_SIZES = { small = { 112, 8 }, medium = { 132, 10 }, large = { 156,
 
 ---Part kinds that make up the click and stacking areas when they are worked out automatically.
 Merge.REGION_KINDS = { bar = true, cast = true }
-Merge.REGION_TEXT_SOURCES = { name = true }
+Merge.REGION_TEXT_SOURCES = { name = true, nameFill = true }
 
 ----------------------------------------------------------------------------------------------------
 -- Pure helpers
@@ -294,7 +297,8 @@ local function Union(a, b)
 end
 
 ---Click and stacking areas: the union of bars, the cast bar and the name, plus each region's pad,
----unless the style sets a rect by hand (auto = false).
+---unless a region part with a width and height places the area (first such part wins), or the
+---style sets a rect by hand (auto = false).
 ---@param resolved table
 ---@param regions table|nil style.regions
 ---@return { click: Plates.Rect, stack: Plates.Rect }
@@ -308,10 +312,22 @@ function Merge.Regions(resolved, regions)
 		end
 	end
 	area = area or rects.plate
+	-- A region part with a width and height is an area placed by hand (Engine/Parts/Region.lua)
+	local placed = {}
+	for _, id in ipairs(resolved.order) do
+		local spec = resolved.parts[id]
+		local which = spec.kind == 'region' and (spec.region or 'click') or nil
+		if which and not placed[which] and spec.width and spec.height then
+			local r = rects[id]
+			placed[which] = { left = math.floor(r.left), right = math.ceil(r.right), top = math.ceil(r.top), bottom = math.floor(r.bottom) }
+		end
+	end
 	local out = {}
 	for _, which in ipairs({ 'click', 'stack' }) do
 		local spec = regions and regions[which] or {}
-		if spec.auto == false and spec.rect then
+		if placed[which] then
+			out[which] = placed[which]
+		elseif spec.auto == false and spec.rect then
 			out[which] = { left = spec.rect.left, right = spec.rect.right, top = spec.rect.top, bottom = spec.rect.bottom }
 		else
 			local pad = spec.pad or { 0, 0, 0, 0 }

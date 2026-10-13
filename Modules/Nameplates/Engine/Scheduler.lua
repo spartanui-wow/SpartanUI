@@ -18,6 +18,25 @@ Scheduler.TICK = 0.1
 
 local frame
 
+-- Ease records are reused (an ease starts on every target change, cast and health loss), so
+-- starting one makes no table once the pool has warmed up
+local pool = {}
+
+local function Take()
+	local n = #pool
+	if n > 0 then
+		local record = pool[n]
+		pool[n] = nil
+		return record
+	end
+	return {}
+end
+
+local function Release(record)
+	record.apply, record.done = nil, nil
+	pool[#pool + 1] = record
+end
+
 local function HasWork()
 	return next(Scheduler.tasks) ~= nil or next(Scheduler.eases) ~= nil or next(Scheduler.layout) ~= nil or next(Scheduler.nextFrame) ~= nil
 end
@@ -60,10 +79,13 @@ local function OnUpdate(self, elapsed)
 	for id, ease in pairs(Scheduler.eases) do
 		local t = ease.duration > 0 and (now - ease.start) / ease.duration or 1
 		if t >= 1 then
+			-- Read the record before it goes back to the pool: apply or done may start a new ease
+			local apply, done, to = ease.apply, ease.done, ease.to
 			Scheduler.eases[id] = nil
-			RunSafe(ease.apply, ease.to)
-			if ease.done then
-				RunSafe(ease.done)
+			Release(ease)
+			RunSafe(apply, to)
+			if done then
+				RunSafe(done)
 			end
 		else
 			RunSafe(ease.apply, ease.from + (ease.to - ease.from) * Smooth(t))
@@ -100,7 +122,12 @@ end
 ---@param interval number
 ---@param fn fun(now: number)
 function Scheduler:Every(id, interval, fn)
-	self.tasks[id] = { interval = math.max(interval, self.TICK), fn = fn, due = P.services.GetTime() + interval }
+	local task = self.tasks[id]
+	if not task then
+		task = {}
+		self.tasks[id] = task
+	end
+	task.interval, task.fn, task.due = math.max(interval, self.TICK), fn, P.services.GetTime() + interval
 	Wake()
 end
 
@@ -123,21 +150,33 @@ end
 ---@param apply fun(value: number)
 ---@param done? fun()
 function Scheduler:Ease(id, from, to, duration, apply, done)
+	local ease = self.eases[id]
 	if duration <= 0 or from == to then
-		self.eases[id] = nil
+		if ease then
+			self.eases[id] = nil
+			Release(ease)
+		end
 		apply(to)
 		if done then
 			done()
 		end
 		return
 	end
-	self.eases[id] = { from = from, to = to, duration = duration, start = P.services.GetTime(), apply = apply, done = done }
+	if not ease then
+		ease = Take()
+		self.eases[id] = ease
+	end
+	ease.from, ease.to, ease.duration, ease.start, ease.apply, ease.done = from, to, duration, P.services.GetTime(), apply, done
 	Wake()
 end
 
 ---@param id string
 function Scheduler:StopEase(id)
-	self.eases[id] = nil
+	local ease = self.eases[id]
+	if ease then
+		self.eases[id] = nil
+		Release(ease)
+	end
 end
 
 ---Lay a plate out once on the next frame (plate:Layout()), however often it is marked.
