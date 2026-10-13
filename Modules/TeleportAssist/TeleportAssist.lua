@@ -250,6 +250,8 @@ function module:GetButton(index, displayMode, iconSize)
 
 	-- Register clicks
 	button:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+	-- Mouse-only button: act on release, or the cast-on-key-down setting swallows every click
+	button:SetAttribute('useOnKeyDown', false)
 
 	-- Register drag for action bar placement
 	button:RegisterForDrag('LeftButton')
@@ -362,27 +364,31 @@ function module:GetButton(index, displayMode, iconSize)
 
 	-- Drag-to-actionbar handlers
 	button:SetScript('OnDragStart', function(self)
-		local entry = self.entry
-		if not entry or not entry.available then
-			return
-		end
-
-		if entry.type == 'spell' then
-			C_Spell.PickupSpell(entry.spellId or entry.id)
-		elseif entry.type == 'item' then
-			C_Item.PickupItem(entry.id)
-		elseif entry.type == 'toy' then
-			C_Item.PickupItem(entry.id) -- Toys use PickupItem
-		end
-		-- Note: macro and housing types cannot be dragged to action bars
-	end)
-
-	button:SetScript('OnDragStop', function()
-		ClearCursor()
+		module:PickupEntry(self.entry)
 	end)
 
 	mainFrame.buttonPool[index] = button
 	return button
+end
+
+---Put a teleport on the cursor so it can be dropped on an action bar
+---@param entry table|nil
+function module:PickupEntry(entry)
+	if not entry or not entry.available then
+		return
+	end
+
+	if entry.type == 'spell' then
+		C_Spell.PickupSpell(entry.spellId or entry.id)
+	elseif entry.type == 'item' then
+		C_Item.PickupItem(entry.id)
+	elseif entry.type == 'toy' then
+		if C_ToyBox and C_ToyBox.PickupToyBoxItem then
+			C_ToyBox.PickupToyBoxItem(entry.id)
+		else
+			C_Item.PickupItem(entry.id)
+		end
+	end
 end
 
 ---Get or create a category header
@@ -484,7 +490,7 @@ function module:SetupButton(button, entry, displayMode, iconSize)
 		button.FavoriteStar:Hide()
 	end
 
-	-- Note: All script handlers (PreClick, PostClick, OnEnter, OnLeave, OnDragStart, OnDragStop)
+	-- Note: All script handlers (PreClick, PostClick, OnEnter, OnLeave, OnDragStart)
 	-- are set up once in GetButton() to avoid creating multiple handlers on every refresh
 
 	button:Show()

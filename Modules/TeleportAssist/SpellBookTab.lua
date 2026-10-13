@@ -223,6 +223,11 @@ function module:CreateMOPSpellBookTab()
 		slot.SubName:SetTextColor(0.5, 0.5, 0.5)
 
 		slot:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+		slot:SetAttribute('useOnKeyDown', false)
+		slot:RegisterForDrag('LeftButton')
+		slot:SetScript('OnDragStart', function(self)
+			module:PickupEntry(self.entry)
+		end)
 
 		slot:SetScript('PreClick', function(self, mouseButton)
 			if mouseButton == 'RightButton' then
@@ -635,6 +640,11 @@ local function GetSidePanelButton(index)
 	button.FavoriteStar:Hide()
 
 	button:RegisterForClicks('LeftButtonUp', 'RightButtonUp')
+	button:SetAttribute('useOnKeyDown', false)
+	button:RegisterForDrag('LeftButton')
+	button:SetScript('OnDragStart', function(self)
+		module:PickupEntry(self.entry)
+	end)
 
 	button:SetScript('PreClick', function(self, mouseButton)
 		if mouseButton == 'RightButton' then
