@@ -385,7 +385,7 @@ describe('who and where: locks', function()
 			end
 		end
 		for _, row in ipairs(W.PLACE_ROWS) do
-			assert.is_true(Group(page, 'places', row.id).args.enemies.disabled({}), row.id)
+			assert.is_false(Group(page, 'places', row.id).args.enemies.disabled({}), row.id)
 		end
 		assert.is_nil(Group(page, 'behavior').args.enemies.disabled, 'plate behavior never locks')
 		assert.is_nil(Group(page, 'games').args.restore.disabled, 'giving the settings back never locks')
@@ -919,7 +919,7 @@ describe('who and where: game settings we change', function()
 		assert.equal(rows[2].name, 'nameplateMaxDistance')
 	end)
 
-	it('names another add-on that changed a setting after us', function()
+	it('reports outside changes without naming another add-on', function()
 		CVars:Enable()
 		CVars:Set('nameplateShowEnemies', '0', 'place')
 		C_CVar.SetCVar('nameplateMaxDistance', '80')
@@ -929,18 +929,8 @@ describe('who and where: game settings we change', function()
 		assert.equal(row.now, '80')
 		assert.equal(row.by, 'The game or another add-on')
 		CVars.attribution.nameplateMaxDistance.stack = 'Interface/AddOns/SomeOtherAddon/Core.lua:12: in function <x>\nInterface/AddOns/Blizzard_Foo/Bar.lua:1: in function <y>'
-		assert.equal(W.WhoChanged('nameplateMaxDistance'), 'Another add-on (SomeOtherAddon)')
+		assert.equal(W.WhoChanged('nameplateMaxDistance'), 'The game or another add-on')
 		CVars:Disable()
-	end)
-
-	it("finds the add-on folder in a stack, skipping this one and the game's own", function()
-		local own = P.addonName
-		assert.equal(W.AddonFromStack('Interface\\AddOns\\Other\\a.lua:1: in function <x>'), 'Other')
-		assert.equal(W.AddonFromStack('Interface/AddOns/Blizzard_Settings/a.lua:1\nInterface/AddOns/Thing/b.lua:2'), 'Thing')
-		assert.equal(W.AddonFromStack('Interface/AddOns/' .. own .. '/a.lua:1\nInterface/AddOns/Thing/b.lua:2'), 'Thing')
-		assert.is_nil(W.AddonFromStack('Interface/AddOns/' .. own .. '/a.lua:1'))
-		assert.is_nil(W.AddonFromStack(nil))
-		assert.is_nil(W.AddonFromStack('nothing useful'))
 	end)
 
 	it('says a setting we changed in an earlier session', function()
@@ -992,7 +982,7 @@ describe('who and where: game settings we change', function()
 		games.args.restore.func()
 		assert.equal(C_CVar.GetCVar('nameplateMaxDistance'), '45', 'the game would not take it in combat')
 		assert.is_false(games.args.waiting.hidden({}))
-		assert.equal(games.args.waiting.name, 'Some settings come back when combat ends.')
+		assert.equal(games.args.waiting.name(), 'Some settings come back when combat ends.')
 		M.LeaveCombat()
 		assert.equal(C_CVar.GetCVar('nameplateMaxDistance'), '60')
 		assert.is_true(games.args.waiting.hidden({}))
@@ -1339,5 +1329,148 @@ describe('who and where: restoring the game', function()
 		local button = Group(Page(), 'games').args.restore
 		button.func()
 		assert.equal(C_CVar.GetCVar('nameplateShowEnemies'), '1')
+	end)
+end)
+
+describe('who and where: pending writes and fresh callbacks', function()
+	before_each(Reset)
+
+	it('gets settings from every registry page, including internal settings', function()
+		M.SetCVarState('nameplateSelectedScale', { value = '1', default = '1' })
+		M.SetCVarState('nameplateMinScale', { value = '1', default = '1' })
+		ClearMockCVars()
+		CVars:Set('nameplateSelectedScale', 1.2)
+		CVars:Set('nameplateMinScale', 0.8)
+		local called, original = {}, CVars.List
+		CVars.List = function(self, page)
+			called[page or 'internal'] = true
+			return original(self, page)
+		end
+		local rows = W.GameRows()
+		CVars.List = original
+		assert.is_true(called.whoAndWhere)
+		assert.is_true(called.style)
+		assert.is_true(called.internal)
+		assert.equal(#rows, 2)
+		local cells = Group(Page(), 'games', 'table').args
+		assert.equal(cells.nameplateSelectedScale_now.name(), '1.2')
+		assert.equal(cells.nameplateMinScale_now.name(), '0.8')
+	end)
+
+	it('shows pending writes before they have a backup and clears the note after combat', function()
+		M.SetCVarState('nameplateMaxDistance', { value = '60', default = '60', secure = true })
+		ClearMockCVars()
+		local games = Group(Page(), 'games')
+		M.EnterCombat()
+		CVars:Set('nameplateMaxDistance', 45, 'player')
+		assert.is_nil(CVars:GetBackup('nameplateMaxDistance'))
+		assert.equal(W.GameRow('nameplateMaxDistance').now, '60 (waiting for combat to end)')
+		assert.is_false(games.args.waiting.hidden())
+		assert.equal(games.args.waiting.name(), 'Some settings take effect when combat ends.')
+		M.LeaveCombat()
+		assert.equal(W.GameRow('nameplateMaxDistance').now, '45')
+		assert.equal(W.GameRow('nameplateMaxDistance').was, '60')
+		assert.is_true(games.args.waiting.hidden())
+	end)
+
+	it('lists a queued stacking bit before its first write', function()
+		M.SetCVarState('nameplateStackingTypes', { value = '0', default = '0', secure = true })
+		ClearMockCVars()
+		M.EnterCombat()
+		CVars:SetBit('nameplateStackingTypes', 'enemy', true, 'player')
+		assert.is_true(W.GamePending('nameplateStackingTypes'))
+		assert.equal(W.GameRow('nameplateStackingTypes').now, 'none (waiting for combat to end)')
+		assert.is_false(Group(Page(), 'games', 'table').args.nameplateStackingTypes_now.hidden())
+		M.LeaveCombat()
+		assert.is_false(W.GamePending('nameplateStackingTypes'))
+		assert.equal(W.GameRow('nameplateStackingTypes').now, 'enemies')
+	end)
+
+	it('rejects assignment callbacks that arrive after the controls lock', function()
+		Store:Set('when', { { conditions = {}, style = 'clean' } })
+		W.editing = 1
+		M.EnterCombat()
+		W.SetStyle('enemyPlayer', 'mini')
+		W.SetMode('enemyPlayer', 'hidden')
+		W.SameAsEnemies('minor')
+		W.CopyKind('minor', 'enemyNPC')
+		W.ResetKind('minor')
+		W.SetEditedEntry({ conditions = {}, mode = 'hidden' })
+		W.ApplyWhenChange({ order = {}, rows = {} })
+		assert.is_nil(Store:Get('assign'))
+		assert.is_nil(Store:Get('modes'))
+		assert.equal(Store:Get('when')[1].style, 'clean')
+		assert.equal(W.editing, 1)
+		M.LeaveCombat()
+	end)
+
+	it('keeps the editor on the retained row when a stale row is skipped', function()
+		Store:Set('when', { { conditions = {}, style = 'clean' }, { conditions = {}, mode = 'name' } })
+		W.editing = 2
+		W.ApplyWhenChange({ order = { 'gone', 'w2', 'w1' }, rows = { {}, { on = true }, { on = true } } })
+		assert.equal(W.editing, 1)
+		assert.equal(W.EditedEntry().mode, 'name')
+	end)
+
+	it('lets place settings wait for combat like other behavior choices', function()
+		local cell = Group(Page(), 'places', 'raid').args.enemies
+		M.EnterCombat()
+		assert.is_false(cell.disabled())
+		cell.set({}, 'combat')
+		assert.equal(Store:Get({ 'behavior', 'places', 'raid', 'enemies' }), 'combat')
+		M.LeaveCombat()
+	end)
+
+	it('closes the editor when the profile changes', function()
+		Store:Set('when', { { conditions = {}, style = 'clean' } })
+		W.editing = 1
+		P.db:SetProfile('Other who and where profile')
+		assert.is_nil(W.editing)
+		assert.is_nil(W.EditedEntry())
+		P.db:SetProfile('Default')
+	end)
+end)
+
+describe('who and where: client badges', function()
+	before_each(Reset)
+	it('keeps a valid client limit visible on a special case row', function()
+		P.Conditions:Register({
+			id = 'limitedPlaceForPage',
+			kind = 'plain',
+			label = 'In this place',
+			limits = { [P.Caps:Client()] = 'Only in the open world here' },
+			Test = function()
+				return true
+			end,
+		})
+		Store:Set('when', { { conditions = { { id = 'limitedPlaceForPage' } }, mode = 'name' } })
+		assert.equal(W.WhenRows()[1].badge, 'Only in the open world here')
+		assert.same(WB:Problems(Store:Get('when')[1], 'layout'), {})
+	end)
+end)
+
+describe('who and where: imported long special cases', function()
+	before_each(Reset)
+	it('rebuilds the editor when opening a list entry with extra conditions', function()
+		local previous = P.host.RefreshOptions
+		P.host.RefreshOptions = function() end
+		P:BuildOptionsTable()
+		local conditions = {
+			{ id = 'place', args = 'raid' },
+			{ id = 'role', args = 'tank' },
+			{ id = 'elite' },
+			{ id = 'canAttack' },
+			{ id = 'inGroup' },
+			{ id = 'myCombat' },
+		}
+		Store:Set('when', { { conditions = conditions, mode = 'name' } })
+		W.ToggleEditing('w1')
+		assert.is_true(P.Options.rebuildWanted)
+		local editor = Group(Page(), 'when', 'editor')
+		assert.not_nil(editor.args.conditions.args.condition6)
+		editor.args.conditions.args.condition6.set({}, 'remove')
+		assert.equal(#Store:Get('when')[1].conditions, 5)
+		M.Advance(0.1)
+		P.host.RefreshOptions = previous
 	end)
 end)

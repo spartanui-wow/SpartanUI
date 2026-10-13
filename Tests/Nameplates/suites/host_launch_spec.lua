@@ -2,9 +2,10 @@
 -- Phase 4a launch through the real host (plan 3.1, 5.4, 6.10, 7.4): the old module, the core and
 -- the host load in LoadAll.xml order for an existing SpartanUI profile with nothing saved for the
 -- new plates. The new plates are the default: on the Classic family and Forever the profile
--- switches to Clean with its old plate width and sizes; on Retail the plates stay off until the
--- player picks a style. Both get the What's new card. Also: the War look, profile tools, setup
--- decoration, the old plates switch and the launch options.
+-- switches to Clean with its old plate width and sizes and the engine starts; on Retail the plates
+-- stay off (the engine does not start) until the player picks a style. Both get the What's new
+-- card. Also: the War look, profile tools, setup decoration, the old plates switch and the launch
+-- options.
 local M, H = ...
 
 if not (H.ModuleExists() and H.Exists(H.hostFile)) then
@@ -20,13 +21,17 @@ rawset(_G, 'SpartanUIDB', {
 	profiles = { Default = { SetupWizard = { FirstLaunch = false } } },
 	namespaces = { Nameplates = { profiles = { Default = { width = '150', Scale = 1, elements = { Castbar = { enabled = false } } } } } },
 })
-local BANNER = 'Interface\\AddOns\\SpartanUI\\images\\war\\NameplateHorde'
+-- The player's faction banner, cut from the War look's art
+local BANNER = 'Interface\\AddOns\\SpartanUI\\images\\war\\Nameplate' .. (UnitFactionGroup('player') == 'Horde' and 'Horde' or 'Alliance')
 local SUI, ns, module = H.LoadNameplatesLikeTheGame()
 local P = ns.Plates
 local profiles = SUI:NewModule('Handler.Profiles')
 profiles.compositeComponents = {}
 profiles.hiddenNamespaces = {}
 H.sui.themes.War = { nameplates = { style = 'war', art = { banner = BANNER } } }
+-- SpartanUI's setup registration with its Done page links (Core/Handlers/SetupWizard.lua)
+local finish = { links = { { title = 'Frame sizes' } } }
+rawset(SUI.Setup.registration, 'config', { finish = finish })
 local retail = SUI.IsRetail
 local defaultHeight = SUI.IsForever and 10 or 8
 
@@ -40,6 +45,15 @@ local function LibATCall(path)
 	return found
 end
 
+local function OldPlatesSpawned()
+	for _, call in ipairs(H.oldCalls or {}) do
+		if call.path == 'SUIUF.SpawnNamePlates' then
+			return true
+		end
+	end
+	return false
+end
+
 local function RootOptions()
 	for _, entry in ipairs(H.sui.options) do
 		if entry.name == 'Nameplates' and entry.parent == 'Root' then
@@ -50,12 +64,18 @@ local function RootOptions()
 end
 
 describe('host launch', function()
-	it('starts the new plates by default at login on every client', function()
+	it('starts the new plates by default at login where the old ones ran', function()
 		M.Login('SpartanUI')
 		M.Advance(1)
 		assert.is_nil(P.Config:GetSessionEngine(), 'no switch saved')
-		assert.is_true(P.enabled, 'the engine is on')
+		if retail then
+			assert.is_false(P.enabled, 'an existing Retail profile waits for the player')
+			assert.equal(P:RegisteredEventCount(), 0, 'and the plates leave the game alone meanwhile')
+		else
+			assert.is_true(P.enabled, 'the engine is on')
+		end
 		assert.not_nil(RootOptions(), 'Nameplates is a top-level settings entry')
+		assert.is_false(OldPlatesSpawned(), 'the old plates do not run')
 	end)
 
 	it('shows the module as a normal SpartanUI part that knows its conflicts', function()
@@ -121,6 +141,8 @@ describe('host launch', function()
 		assert.is_true(P.db.profile.enabled)
 		assert.same(H.sui.openedTo.path, { 'Nameplates', 'style' })
 		assert.is_false(module.Makeover:Due())
+		M.Advance(0.1)
+		assert.is_true(P.enabled, 'the plates start without a reload')
 	end)
 
 	it('turns the other addon off for this character before switching', function()
@@ -187,6 +209,34 @@ describe('host launch', function()
 		assert.not_nil(banner)
 		assert.equal(banner.step, 'conflicts')
 		assert.matches(banner.title, 'Plater')
+		P.Config:SetEngineChoice('old')
+		assert.is_true(step.hidden(), 'not asked while the old plates are picked')
+		P.Config:SetEngineChoice(nil)
+	end)
+
+	it('adds its two links to the Done page, once', function()
+		assert.equal(#finish.links, 3)
+		assert.equal(finish.links[1].title, 'Frame sizes')
+		local change, giveBack = finish.links[2], finish.links[3]
+		assert.equal(change.title, 'Change what shows')
+		assert.equal(giveBack.title, 'Give the game back its settings')
+		change.onClick()
+		assert.same(H.sui.openedTo.path, { 'Nameplates', 'customize' })
+		local name = 'nameplateMaxDistance'
+		M.SetCVarState(name, { value = '40', account = true })
+		P.CVars.info[name] = nil
+		P.CVars:Set(name, 60)
+		P.Store:Set({ 'behavior', 'pinScale' }, true)
+		giveBack.onClick()
+		assert.equal(C_CVar.GetCVar(name), '40')
+		assert.is_nil(P.Store:Get({ 'behavior', 'pinScale' }))
+	end)
+
+	it('waits to bring old settings over while this character still uses the old plates', function()
+		P.Config.sessionEngine = 'old'
+		local answer = module.ImportLegacy('Default')
+		P.Config.sessionEngine = nil
+		assert.equal(answer.action, 'later')
 	end)
 
 	it('reads the role from the unit frames setup answer', function()

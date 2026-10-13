@@ -85,6 +85,80 @@ end
 
 ----------------------------------------------------------------------------------------------------
 
+local EM_DASH = '\226\128\148'
+local BANNED_WORDS = { 'overlay', 'schema', 'cvar', 'token', 'payload', 'lsm', 'widget', 'elvui', 'weakauras', 'platynator' }
+
+---Every text a page can show: names, descriptions and prompts (functions are called).
+local function Texts(value, out, depth)
+	out = out or {}
+	depth = depth or 0
+	if depth > 10 or type(value) ~= 'table' then
+		return out
+	end
+	for key, item in pairs(value) do
+		if key == 'name' or key == 'desc' or key == 'confirmText' then
+			if type(item) == 'function' then
+				local ok, text = pcall(item, {})
+				item = ok and text or nil
+			end
+			if type(item) == 'string' then
+				out[#out + 1] = item
+			end
+		elseif type(item) == 'table' and key ~= 'arg' and key ~= 'handler' then
+			Texts(item, out, depth + 1)
+		end
+	end
+	return out
+end
+
+---Copy of an options table without the two keys the settings window adds to AceConfig.
+local function WithoutWindowKeys(value, depth)
+	if type(value) ~= 'table' or (depth or 0) > 12 then
+		return value
+	end
+	local out = {}
+	for key, item in pairs(value) do
+		if key ~= 'advanced' and key ~= 'primary' then
+			out[key] = WithoutWindowKeys(item, (depth or 0) + 1)
+		end
+	end
+	return out
+end
+
+describe('style page: wording and validity', function()
+	before_each(Fresh)
+
+	it('uses plain words: no em dashes, no symbols the game cannot draw, no jargon, no other addons', function()
+		local page = Page()
+		local texts = Texts(page)
+		assert.truthy(#texts > 20, 'the page has text to check')
+		-- The menu rows, the badges, the captions and the lines the page says after an action
+		for _, item in ipairs(Gallery:MenuItems('clean')) do
+			texts[#texts + 1] = item.text
+		end
+		for _, item in ipairs(Gallery:Cards()) do
+			texts[#texts + 1] = item.title
+			texts[#texts + 1] = item.caption
+			texts[#texts + 1] = item.tag
+		end
+		for _, text in ipairs(texts) do
+			assert.is_nil(text:find(EM_DASH, 1, true), 'em dash in: ' .. text)
+			assert.is_nil(text:find('[\128-\255]'), 'non-ASCII character in: ' .. text)
+			for _, word in ipairs(BANNED_WORDS) do
+				assert.is_nil(text:lower():find(word, 1, true), word .. ' in: ' .. text)
+			end
+		end
+	end)
+
+	it('is a valid AceConfig table', function()
+		local registry = LibStub('AceConfigRegistry-3.0')
+		local root = { type = 'group', name = 'Test', args = { style = Page() } }
+		registry:RegisterOptionsTable('NameplateStylePageTest', WithoutWindowKeys(root))
+		local options = registry:GetOptionsTable('NameplateStylePageTest')('dialog', 'TestUI-1.0')
+		assert.not_nil(options.args.style.args.style)
+	end)
+end)
+
 describe('style page: layout', function()
 	before_each(Fresh)
 	it('has at most eight main controls and folds the rest', function()
@@ -194,8 +268,28 @@ describe('gallery: cards', function()
 		assert.not_nil(card)
 		assert.equal(card.title, 'Match my look')
 		assert.equal(card.tag, 'Matches your look')
-		assert.is_true(card.recommended)
+		assert.is_nil(card.recommended, 'the settings page shows the two badges of the plan, not Recommended')
 		assert.matches(card.caption, P:HostName())
+	end)
+
+	it('recommends the host look on the setup cards', function()
+		local card
+		for _, item in ipairs(Gallery:Cards()) do
+			if item.value == 'host' then
+				card = item
+			end
+		end
+		assert.is_true(card.recommended)
+	end)
+
+	it('reads the style in use through the store', function()
+		Store:Set('style', 'bold')
+		local tags = {}
+		for _, item in ipairs(Gallery:Cards()) do
+			tags[item.value] = item.tag
+		end
+		assert.equal(tags.bold, 'In use')
+		assert.not_equal(tags.clean, 'In use')
 	end)
 
 	it('tags the style in use when asked for the setup cards, not on the page', function()
@@ -492,6 +586,26 @@ describe('gallery: the player styles', function()
 		assert.is_false(Gallery:Delete('clean'), 'built-ins cannot be deleted')
 	end)
 
+	it('drops the special cases that only used the deleted style and keeps the rest', function()
+		local id = Gallery:Copy('clean')
+		local other = { conditions = { { id = 'place', args = 'dungeon' } }, style = 'mini' }
+		Store:Set('when', {
+			{ conditions = { { id = 'place', args = 'raid' } }, style = id },
+			other,
+			{ conditions = { { id = 'place', args = 'pvp' } }, style = id, mode = 'hidden' },
+		})
+		assert.is_true(Gallery:Delete(id))
+		local when = Store:Get('when')
+		assert.equal(#when, 2)
+		assert.equal(when[1].style, 'mini')
+		assert.is_nil(when[2].style)
+		assert.equal(when[2].mode, 'hidden')
+		local second = Gallery:Copy('clean')
+		Store:Set('when', { { conditions = { { id = 'place', args = 'raid' } }, style = second } })
+		Gallery:Delete(second)
+		assert.is_nil(Store:Get('when'), 'an empty list is not kept')
+	end)
+
 	it('offers Rename and Delete on the player styles only', function()
 		local function Actions(value)
 			local out = {}
@@ -558,6 +672,28 @@ describe('style page: card menu answers', function()
 		status.args.deleteYes.func()
 		assert.is_false(Registry:IsSaved(id))
 		assert.is_true(status.args.deleteYes.hidden())
+	end)
+
+	it('takes the notice off the page by itself and asks the window to redraw once', function()
+		local page = Page()
+		local redraws = 0
+		local original = P.host.RefreshOptions
+		P.host.RefreshOptions = function()
+			redraws = redraws + 1
+		end
+		Style:Notify('Hello there.')
+		M.Advance(0.2)
+		assert.equal(redraws, 1, 'drawn when it arrives')
+		assert.equal(page.args.status.args.notice.name(), 'Hello there.')
+		M.Advance(19)
+		assert.equal(redraws, 1, 'nothing while it is fresh')
+		M.Advance(2)
+		assert.equal(redraws, 2, 'one more redraw when it is old')
+		assert.equal(page.args.status.args.notice.name(), '')
+		assert.is_true(page.args.status.hidden())
+		M.Advance(30)
+		assert.equal(redraws, 2, 'and then it is quiet')
+		P.host.RefreshOptions = original
 	end)
 
 	it('uses a style from the menu unless the game restricts changes', function()
@@ -661,6 +797,25 @@ describe('style page: more settings', function()
 		page.args.textSize.set({}, 0)
 		assert.is_nil(Store:Get('tweaks'))
 		assert.equal(Plain().parts.name.font.size, before.parts.name.font.size)
+	end)
+
+	it('also moves the text sizes a style sets for one kind of plate', function()
+		local function FriendlyName()
+			return Merge:Resolve('clean', 'friendlyPlayer', 'medium').parts.name.font.size
+		end
+		local page = Page()
+		assert.equal(FriendlyName(), 12, 'Clean sets its own size for friendly players')
+		page.args.textSize.set({}, 3)
+		assert.equal(FriendlyName(), 15)
+		assert.equal(Store:Get({ 'tweaks', 'clean', 'situations', 'friendlyPlayer', 'parts', 'name', 'font', 'size' }), 15)
+		assert.equal(Plain().parts.name.font.size, 13, 'the other plates follow too')
+		local overlay = Store:Get({ 'tweaks', 'clean' })
+		local cleaned, report = Schema:ValidateOverlay(overlay, Registry:Get('clean').parts)
+		assert.not_nil(cleaned)
+		assert.equal(report.dropped + report.clamped, 0)
+		page.args.textSize.set({}, 0)
+		assert.is_nil(Store:Get('tweaks'), 'back to the style: nothing is kept')
+		assert.equal(FriendlyName(), 12)
 	end)
 
 	it('keeps text sizes inside the range the schema allows', function()

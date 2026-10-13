@@ -101,6 +101,8 @@ end
 --                                        (and the parts the player turned off) in Clean's overlay
 --   { action = 'off' }                   an existing profile that never had the old plates: the
 --                                        plates stay off until the player picks a style
+--   { action = 'later' }                 not now (this character still uses the old plates): the
+--                                        profile is left unmarked and asked again on a later load
 -- `settings` is the old module's raw saved profile ({} when it saved nothing) and `defaults` its
 -- effective defaults on this client, in the same shape (no '**' wildcards). AceDB only saves what
 -- the player changed, so most sizes come from `defaults`: the old defaults differ by client.
@@ -418,6 +420,9 @@ Migrate:AddStep('legacyImport', function(profile, key, global)
 			return
 		end
 		legacy = result
+	end
+	if type(legacy) == 'table' and legacy.action == 'later' then
+		return
 	end
 	if type(legacy) == 'table' and Migrate.HasPlayerSettings(profile) then
 		P.log.info('Nameplate profile ' .. tostring(key) .. ' already has its own settings; the old ones are not brought over')

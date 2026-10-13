@@ -200,6 +200,25 @@ Style.TEXT_DELTA_MIN, Style.TEXT_DELTA_MAX = -4, 8
 ---The part schema's font size range (Schema FONT field).
 Style.FONT_MIN, Style.FONT_MAX = 6, 40
 
+---Text sizes the style sets for one kind of plate on its own (Clean makes the names of friendly
+---players larger). A patch like that is applied after the player's changes, so it needs the
+---same change to follow the text size.
+---@param styleId string
+---@return { kind: string, partId: string, size: number }[]
+local function PatchedSizes(styleId)
+	local out = {}
+	local base = Registry:Get(styleId)
+	for kind, patch in pairs(base and base.situations or {}) do
+		for partId, partial in pairs(patch.parts or {}) do
+			local size = type(partial) == 'table' and type(partial.font) == 'table' and partial.font.size
+			if type(size) == 'number' then
+				out[#out + 1] = { kind = kind, partId = partId, size = size }
+			end
+		end
+	end
+	return out
+end
+
 ---Make every text part bigger or smaller by the same number of points (0 keeps the style's own
 ---sizes). Sizes stay inside the part schema's range.
 ---@param delta number
@@ -210,11 +229,16 @@ function Style.SetTextDelta(delta)
 		return
 	end
 	delta = math.floor(delta + 0.5)
+	local function Wanted(size)
+		local wanted = math.max(Style.FONT_MIN, math.min(Style.FONT_MAX, size + delta))
+		return wanted ~= size and wanted or nil
+	end
 	Overlay.Edit(id, function(overlay)
 		for _, partId in ipairs(FontParts(base)) do
-			local size = base.parts[partId].font.size
-			local wanted = math.max(Style.FONT_MIN, math.min(Style.FONT_MAX, size + delta))
-			Overlay.SetIn(overlay, { 'changes', 'parts', partId, 'font', 'size' }, wanted ~= size and wanted or nil)
+			Overlay.SetIn(overlay, { 'changes', 'parts', partId, 'font', 'size' }, Wanted(base.parts[partId].font.size))
+		end
+		for _, patched in ipairs(PatchedSizes(id)) do
+			Overlay.SetIn(overlay, { 'situations', patched.kind, 'parts', patched.partId, 'font', 'size' }, Wanted(patched.size))
 		end
 	end)
 end
@@ -294,6 +318,11 @@ end
 function Style:Notify(text)
 	self.notice = { text = text, time = P.services.GetTime() }
 	Options:RequestRefresh(false)
+	-- The line goes away by itself: one redraw once it is old enough
+	P.Scheduler:Every('StylePage.notice', NOTICE_SECONDS + 0.5, function()
+		P.Scheduler:Cancel('StylePage.notice')
+		Options:RequestRefresh(false)
+	end)
 end
 
 ---@return string|nil
@@ -659,8 +688,8 @@ Options:AddPage('style', 1, function()
 			},
 			textSize = {
 				type = 'range',
-				name = L['Text size'],
-				desc = Describe(L['Makes all the text on your plates bigger or smaller. 0 keeps the sizes the style was made with.']),
+				name = L['All text size'],
+				desc = Describe(L['Makes all the text on your plates bigger or smaller together. 0 keeps the sizes the style was made with. To change one part, use Customize.']),
 				order = 44,
 				advanced = true,
 				min = Style.TEXT_DELTA_MIN,

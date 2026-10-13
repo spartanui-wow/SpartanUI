@@ -500,7 +500,7 @@ describe('when builder: words', function()
 		local contradiction = WB:Problems(Entry({ 'place:raid', 'place:dungeon' }, { mode = 'hidden' }), 'layout')
 		assert.same(contradiction, { 'These conditions can never be true together.' })
 		assert.same(WB:Problems(Entry({ 'place:raid', 'place:instance' }, { mode = 'hidden' }), 'layout'), {}, 'a broad place can go with a narrow one')
-		assert.same(WB:Problems(Entry({ '!myCombat', 'myCombat' }, { mode = 'hidden' }), 'layout'), {}, 'negations are not compared')
+		assert.same(WB:Problems(Entry({ '!myCombat', 'myCombat' }, { mode = 'hidden' }), 'layout'), { 'These conditions can never be true together.' })
 		assert.same(WB:Problems(Entry({ 'place:raid' }, { mode = 'hidden', kinds = {} }), 'layout'), { 'No kinds of plates are picked.' })
 	end)
 end)
@@ -874,7 +874,7 @@ describe('when builder: the editor group', function()
 		assert.truthy(count >= 5)
 		locked = false
 		Each(g, function(_, option)
-			if option.type == 'select' then
+			if option.type == 'select' and not (option.hidden and option.hidden({})) then
 				assert.is_false(option.disabled({}))
 			end
 		end)
@@ -892,5 +892,239 @@ describe('when builder: the editor group', function()
 		g.args.conditions.args.condition1.get({})
 		g.args.conditions.args.condition1.get({})
 		assert.truthy(reads >= before + 2)
+	end)
+end)
+
+describe('when builder: safe edits and later actions', function()
+	local B, C
+	before_each(function()
+		local fresh = H.FreshCore()
+		B, C = fresh.WhenBuilder, fresh.Conditions
+	end)
+
+	local function ExtraAction(extra)
+		local def = {
+			id = 'fadeLater',
+			label = 'Fade plates',
+			context = 'emphasis',
+			needs = 'alpha',
+			Active = function(entry)
+				return entry.alpha ~= nil
+			end,
+			Start = function(entry)
+				entry.alpha = 0.5
+			end,
+			Clear = function(entry)
+				entry.alpha = nil
+			end,
+			Describe = function()
+				return 'fade plates'
+			end,
+			Controls = function(ctx)
+				return {
+					strength = {
+						type = 'range',
+						name = 'Fade',
+						min = 0,
+						max = 1,
+						disabled = false,
+						get = function()
+							return ctx.get().alpha
+						end,
+						set = function(_, value)
+							ctx.update(function(entry)
+								entry.alpha = value
+							end)
+						end,
+					},
+				}
+			end,
+		}
+		for key, value in pairs(extra or {}) do
+			def[key] = value
+		end
+		B:RegisterAction(def)
+		return def
+	end
+
+	it('keeps catalog replacements fresh even when the number of conditions stays the same', function()
+		C:Register({
+			id = 'laterCondition',
+			kind = 'plain',
+			label = 'First words',
+			Test = function()
+				return true
+			end,
+		})
+		local clause = { id = 'laterCondition' }
+		assert.equal(B:ChoiceFor(clause).label, 'First words')
+		C:Register({
+			id = 'laterCondition',
+			kind = 'plain',
+			label = 'New words',
+			Test = function()
+				return true
+			end,
+		})
+		assert.equal(B:ChoiceFor(clause).label, 'New words')
+	end)
+
+	it('offers no layout actions for engine or state conditions on any client', function()
+		assert.same(B:Actions('layout', { { id = 'notInterruptible' } }), {})
+		assert.same(B:Actions('layout', { { id = 'target' } }), {})
+		assert.same(B:Actions('layout', { { id = 'gone' } }), {})
+	end)
+
+	it('keeps an action intact when a callback asks for one that cannot work', function()
+		local entry = { conditions = { { id = 'notInterruptible' } }, mode = 'name' }
+		B:SetAction(entry, 'hide', 'layout')
+		assert.equal(entry.mode, 'name')
+		entry.conditions = {}
+		B:SetAction(entry, 'gone', 'layout')
+		assert.equal(entry.mode, 'name')
+		ExtraAction()
+		B:SetAction(entry, 'fadeLater', 'layout')
+		assert.equal(entry.mode, 'name')
+		assert.is_nil(entry.alpha)
+	end)
+
+	it('lets later actions supply capability checks, controls and client badges', function()
+		local ready = true
+		ExtraAction({
+			Available = function()
+				return ready
+			end,
+			limits = { [P.Caps:Client()] = 'Only enemy plates here' },
+		})
+		local entry = { conditions = { { id = 'notInterruptible' } } }
+		local g = B:Group({
+			context = 'emphasis',
+			kinds = false,
+			get = function()
+				return entry
+			end,
+			set = function(value)
+				entry = value
+			end,
+		})
+		assert.equal(g.args.thenGroup.args.action.values().fadeLater, 'Fade plates (Only enemy plates here)')
+		g.args.thenGroup.args.action.set({}, 'fadeLater')
+		assert.equal(entry.alpha, 0.5)
+		assert.truthy(g.args.badge.name():find('Only enemy plates here', 1, true))
+		g.args.thenGroup.args.action_fadeLater_strength.set({}, 0.2)
+		assert.equal(entry.alpha, 0.2)
+		ready = false
+		assert.equal(g.args.thenGroup.args.action.values().fadeLater, 'Fade plates (cannot work here)')
+		assert.truthy(#B:Problems(entry, 'emphasis') > 0)
+		local strength = g.args.thenGroup.args.action_fadeLater_strength
+		assert.is_true(strength.disabled())
+		strength.set({}, 0.9)
+		assert.equal(entry.alpha, 0.2, 'a stale control cannot change an action that no longer works')
+	end)
+
+	it('honors the parent lock even when an action control supplies disabled false', function()
+		ExtraAction()
+		local locked, writes = false, 0
+		local entry = { conditions = {}, alpha = 0.5 }
+		local g = B:Group({
+			context = 'emphasis',
+			get = function()
+				return entry
+			end,
+			set = function(value)
+				writes = writes + 1
+				entry = value
+			end,
+			disabled = function()
+				return locked
+			end,
+		})
+		local strength = g.args.thenGroup.args.action_fadeLater_strength
+		assert.is_false(strength.disabled())
+		locked = true
+		assert.is_true(strength.disabled())
+		strength.set({}, 0.2)
+		g.args.conditions.args.condition1.set({}, 'place:raid')
+		g.args.thenGroup.args.action.set({}, 'fadeLater')
+		g.args.kinds.set({}, 'minor', false)
+		assert.equal(writes, 0)
+		assert.equal(entry.alpha, 0.5)
+		assert.same(entry.conditions, {})
+	end)
+
+	it('does not change the object supplied by the reader before it is stored', function()
+		local original = { conditions = {}, mode = 'name' }
+		local stored
+		local g = B:Group({
+			get = function()
+				return original
+			end,
+			set = function(entry)
+				stored = entry
+			end,
+		})
+		g.args.conditions.args.condition1.set({}, 'place:raid')
+		assert.same(original.conditions, {})
+		assert.equal(stored.conditions[1].args, 'raid')
+	end)
+
+	it('lets players remove every imported condition past the normal four', function()
+		local entry = {
+			conditions = {
+				{ id = 'place', args = 'raid' },
+				{ id = 'role', args = 'tank' },
+				{ id = 'elite' },
+				{ id = 'canAttack' },
+				{ id = 'inGroup' },
+				{ id = 'myCombat' },
+			},
+			mode = 'name',
+		}
+		local g = B:Group({
+			get = function()
+				return entry
+			end,
+			set = function(value)
+				entry = value
+			end,
+		})
+		assert.not_nil(g.args.conditions.args.condition6)
+		assert.is_true(g.args.conditions.args.condition6.advanced)
+		g.args.conditions.args.condition6.set({}, 'remove')
+		assert.equal(#entry.conditions, 5)
+		g.args.conditions.args.condition5.set({}, 'remove')
+		assert.equal(#entry.conditions, 4)
+		assert.equal(entry.mode, 'name')
+	end)
+
+	it('rejects stale unavailable or duplicate condition choices', function()
+		local entry = { conditions = { { id = 'place', args = 'raid' } }, mode = 'name' }
+		local g = B:Group({
+			get = function()
+				return entry
+			end,
+			set = function(value)
+				entry = value
+			end,
+		})
+		g.args.conditions.args.condition2.set({}, 'place:raid')
+		assert.equal(#entry.conditions, 1)
+		g.args.conditions.args.condition2.set({}, 'notInterruptible')
+		assert.equal(#entry.conditions, 1)
+	end)
+
+	it('warns when broad places and negations make a case impossible', function()
+		for _, conditions in ipairs({
+			{ { id = 'place', args = 'world' }, { id = 'place', args = 'instance' } },
+			{ { id = 'place', args = 'raid' }, { id = 'place', args = 'pvp' } },
+			{ { id = 'place', args = 'raid' }, { id = 'place', args = 'instance', negate = true } },
+			{ { id = 'myCombat' }, { id = 'myCombat', negate = true } },
+		}) do
+			assert.contains(B:Problems({ conditions = conditions, mode = 'hidden' }, 'layout'), 'These conditions can never be true together.')
+		end
+		assert.same(
+			B:Problems({ conditions = { { id = 'place', args = 'arena' }, { id = 'place', args = 'pvp' } }, mode = 'hidden' }, 'layout'),
+			P.Caps:Client() == 'era' and { 'These conditions cannot do that on this version of WoW.', '"In an arena" does not happen on this version of WoW.' } or {}
+		)
 	end)
 end)

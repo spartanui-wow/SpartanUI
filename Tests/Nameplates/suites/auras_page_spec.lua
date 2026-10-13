@@ -496,3 +496,69 @@ describe('auras page: search words', function()
 		assert.equal(words.dot, 'debuff')
 	end)
 end)
+
+describe('auras page: writes at the time of a change', function()
+	local P, page
+	before_each(function()
+		P, page = Build()
+	end)
+	after_each(function()
+		if M.lockdown then
+			M.LeaveCombat()
+		end
+		if M.secrets then
+			M.SetRestricted(false)
+		end
+	end)
+
+	it('rejects stale spell list callbacks and switches during combat without queuing', function()
+		local A = P.Options.AurasPage
+		A.WriteList('myDebuffs', 'always', { [774] = 'mine' })
+		local before = P.util.Copy(P.Store:Get('auras'))
+		M.EnterCombat()
+		page.args.myDebuffs.args.always.arg.onChange({ [589] = 'any' })
+		page.args.tankDebuffs.args.on.set({}, false)
+		page.args.removable.args.important.set({}, true)
+		page.args.clear.func()
+		assert.same(P.Store:Get('auras'), before)
+		M.LeaveCombat()
+		M.Advance(1)
+		assert.same(P.Store:Get('auras'), before, 'rejected changes were not queued')
+		page.args.myDebuffs.args.always.arg.onChange({ [589] = 'any' })
+		assert.same(A.ReadList('myDebuffs', 'always'), { [589] = 'any' })
+	end)
+
+	it('rejects changes when auras become secret before the dialog redraws', function()
+		if not M.secrets then
+			skip('this client has no secret values')
+		end
+		M.SetRestricted(true)
+		page.args.myDebuffs.args.always.arg.onChange({ [774] = 'mine' })
+		page.args.tankDebuffs.args.on.set({}, false)
+		assert.is_nil(P.Store:Get('auras'))
+		assert.equal(page.args.myDebuffs.args.always.arg.lockedReason(), 'Aura changes are locked right now.')
+		M.SetRestricted(false)
+		M.Advance(1)
+		assert.is_nil(P.Store:Get('auras'))
+	end)
+
+	it('refuses enemy buff list callbacks on clients that cannot use them', function()
+		if not M.secrets then
+			skip('this client can use enemy buff spell lists')
+		end
+		page.args.removable.args.always.arg.onChange({ [774] = 'any' })
+		assert.is_nil(P.Store:Get('auras'))
+	end)
+
+	it('keeps old callbacks bound to the active profile after a switch', function()
+		local option = page.args.myDebuffs.args.always
+		option.arg.onChange({ [774] = 'mine' })
+		local old = P.util.Copy(P.Store:Get('auras'))
+		P.db:SetProfile('A different character')
+		assert.same(option.arg.list(), {})
+		option.arg.onChange({ [589] = 'any' })
+		assert.same(option.arg.list(), { [589] = 'any' })
+		P.db:SetProfile('Default')
+		assert.same(P.Store:Get('auras'), old)
+	end)
+end)

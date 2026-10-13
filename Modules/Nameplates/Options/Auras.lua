@@ -101,6 +101,10 @@ end
 ---@param which string
 ---@param list table<integer, string>
 function AurasPage.WriteList(row, which, list)
+	if Options.Locked() or AurasPage.Unavailable(row) then
+		Options:RequestRefresh(false)
+		return false
+	end
 	local clean = Normalize(list)
 	P.Store:Set(AurasPage.ListPath(row, which), next(clean) ~= nil and clean or nil)
 end
@@ -121,6 +125,10 @@ end
 
 ---Forget every spell list (the rows' other settings stay).
 function AurasPage.ClearLists()
+	if Options.Locked() then
+		Options:RequestRefresh(false)
+		return false
+	end
 	local Store = P.Store
 	Store:Batch(function()
 		for _, section in ipairs(AurasPage.SECTIONS) do
@@ -166,7 +174,10 @@ local function Curated(row)
 end
 
 local function ShortLockedReason()
-	return L['Locked until combat ends.']
+	if InCombatLockdown and InCombatLockdown() then
+		return L['Locked until combat ends.']
+	end
+	return L['Aura changes are locked right now.']
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -238,6 +249,10 @@ local function SectionGroup(section, order)
 				return P.Store:Get({ 'auras', 'tankDebuffs', 'on' }) ~= false
 			end,
 			set = function(_, value)
+				if Options.Locked() then
+					Options:RequestRefresh(false)
+					return
+				end
 				-- On is the default, so only Off is stored
 				if value then
 					P.Store:Set({ 'auras', 'tankDebuffs', 'on' }, nil)
@@ -262,6 +277,10 @@ local function SectionGroup(section, order)
 				return P.Store:Get({ 'auras', 'removable', 'important' }) == true
 			end,
 			set = function(_, value)
+				if Options.Locked() then
+					Options:RequestRefresh(false)
+					return
+				end
 				P.Store:Set({ 'auras', 'removable', 'important' }, value and true or nil)
 			end,
 			disabled = Options.Locked,

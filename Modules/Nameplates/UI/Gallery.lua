@@ -106,11 +106,11 @@ end
 
 ---Card data for every style the player can pick (internal styles left out). The host style
 ---(matchesHost) is the "Match my look" card with value 'host'.
----@param opts? { page?: boolean } page = true leaves out the "In use" tag (the grid marks the picked card itself)
+---@param opts? { page?: boolean } page = true is the settings page: no "In use" tag (the grid marks the picked card itself) and no "Recommended" badge (the setup step recommends the host look)
 ---@return table[] cards { value, title, caption, tag?, recommended?, art?, styleId, source }
 function Gallery:Cards(opts)
 	opts = opts or {}
-	local current = P.db and P.db.profile.style
+	local current = P.Store:Get('style')
 	local cards = {}
 	local art = self:CanDraw() and self.ART or nil
 	for _, item in ipairs(Registry:List(false)) do
@@ -126,7 +126,7 @@ function Gallery:Cards(opts)
 			title = item.matchesHost and L['Match my look'] or item.name,
 			caption = self:Caption(item),
 			tag = tag,
-			recommended = item.matchesHost or nil,
+			recommended = (item.matchesHost and not opts.page) or nil,
 			art = art,
 			styleId = item.id,
 			source = item.source,
@@ -622,15 +622,21 @@ function Gallery:Delete(id)
 		local when = Store:Get('when')
 		if type(when) == 'table' then
 			local changed = false
-			local copy = P.util.Copy(when)
-			for _, entry in ipairs(copy) do
+			local kept = {}
+			for _, entry in ipairs(P.util.Copy(when)) do
+				local drop = false
 				if entry.style == id then
 					entry.style = nil
 					changed = true
+					-- An entry that only used this style has nothing left to do
+					drop = entry.size == nil and entry.mode == nil and not entry.off
+				end
+				if not drop then
+					kept[#kept + 1] = entry
 				end
 			end
 			if changed then
-				Store:Set('when', copy)
+				Store:Set('when', #kept > 0 and kept or nil)
 			end
 		end
 		Store:Set({ 'tweaks', id }, nil)

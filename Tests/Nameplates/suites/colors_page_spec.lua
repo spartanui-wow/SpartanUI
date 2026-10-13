@@ -1003,3 +1003,126 @@ describe('colors page: search words', function()
 		assert.equal(words.aggro, 'threat')
 	end)
 end)
+
+describe('colors page: settings stay current', function()
+	local P, page
+	before_each(function()
+		P, page = Build()
+	end)
+	after_each(function()
+		if M.lockdown then
+			M.LeaveCombat()
+		end
+		if M.secrets then
+			M.SetRestricted(false)
+		end
+	end)
+
+	it('reads color settings through Store on every call', function()
+		local get = P.Store.Get
+		local colors = { health = { color = { tapped = { 0.1, 0.2, 0.3, 1 } } } }
+		P.Store.Get = function(self, path, scope)
+			if path == 'colors' then
+				return colors
+			end
+			return get(self, path, scope)
+		end
+		assert.same(P.Options.ColorsPage.Rows('health')[1].color, { 0.1, 0.2, 0.3, 1 })
+		colors = { health = { color = { tapped = { 0.7, 0.8, 0.9, 1 } } } }
+		assert.same(P.Options.ColorsPage.Rows('health')[1].color, { 0.7, 0.8, 0.9, 1 })
+	end)
+
+	it('rejects stale number and shared color callbacks while restricted', function()
+		P.Options.ColorsPage.SetPiece('name')
+		M.EnterCombat()
+		page.args.threat.args.numbers.set({}, 'percent')
+		page.args.source.set({}, 'health')
+		assert.is_nil(P.Store:Get('tweaks'))
+		M.LeaveCombat()
+		M.Advance(1)
+		assert.is_nil(P.Store:Get('tweaks'), 'nothing was queued')
+		page.args.threat.args.numbers.set({}, 'percent')
+		assert.equal(page.args.threat.args.numbers.get(), 'percent')
+	end)
+
+	it('keeps changes to a built-in threat number when it is turned off and on', function()
+		local style = P.util.Copy(P.Styles.Registry:Get('clean'))
+		style.id, style.name = 'numberTweaks', 'Number tweaks'
+		style.parts.tn = { kind = 'text', source = 'threatPercent', order = 38, anchor = { 'LEFT', 'health', 'RIGHT', 4, 0 } }
+		assert.is_true(P.Styles.Registry:RegisterHostStyle(style))
+		P.Store:Set('style', style.id)
+		local anchor = { 'LEFT', 'health', 'RIGHT', 10, 3 }
+		P.Store:Set({ 'tweaks', style.id }, { schema = 1, baseVersion = 1, changes = { parts = { tn = { anchor = anchor, font = { size = 13 } } } } })
+		page.args.threat.args.numbers.set({}, 'none')
+		page.args.threat.args.numbers.set({}, 'percent')
+		local part = P.Styles.Merge:Resolve(style.id, 'enemyNPC', 'medium').parts.tn
+		assert.same(part.anchor, anchor)
+		assert.equal(part.font.size, 13)
+	end)
+
+	it('does not overwrite a different part named threatNumber', function()
+		local part = { kind = 'text', source = 'name', order = 38, anchor = { 'TOP', 'health', 'BOTTOM', 0, -8 } }
+		P.Store:Set({ 'tweaks', 'clean' }, { schema = 1, baseVersion = 1, add = { threatNumber = part } })
+		page.args.threat.args.numbers.set({}, 'percent')
+		assert.same(P.Store:Get({ 'tweaks', 'clean', 'add', 'threatNumber' }), part)
+		assert.equal(page.args.threat.args.numbers.get(), 'percent')
+		page.args.threat.args.numbers.set({}, 'none')
+		assert.same(P.Store:Get({ 'tweaks', 'clean', 'add', 'threatNumber' }), part)
+	end)
+
+	it('does not treat a hidden threat number as visible', function()
+		local style = P.util.Copy(P.Styles.Registry:Get('clean'))
+		style.id, style.name = 'hiddenNumber', 'Hidden number'
+		style.parts.tn = { kind = 'text', source = 'threatPercent', hidden = true, order = 38, anchor = { 'LEFT', 'health', 'RIGHT', 4, 0 } }
+		assert.is_true(P.Styles.Registry:RegisterHostStyle(style))
+		P.Store:Set('style', style.id)
+		assert.equal(page.args.threat.args.numbers.get(), 'none')
+		page.args.threat.args.numbers.set({}, 'percent')
+		assert.equal(page.args.threat.args.numbers.get(), 'percent')
+	end)
+end)
+
+describe('colors page: threat settings have one home', function()
+	it('changes threat colors even when a saved list had its own copy', function()
+		local P, page = Build()
+		SetRole(P, 'tank')
+		for _, piece in ipairs({ 'health', 'border', 'name' }) do
+			P.Store:Set({ 'colors', piece, 'color', 'threat', 'lost' }, { 1, 0, 1, 1 })
+		end
+		page.args.threat.args.color_lost.set({}, 0.1, 0.2, 0.3)
+		for _, piece in ipairs({ 'health', 'border', 'name' }) do
+			assert.is_nil(P.Store:Get({ 'colors', piece, 'color', 'threat', 'lost' }))
+		end
+		for _, row in ipairs(P.Colors:Program('health').rows) do
+			if row.id == 'threat' then
+				assert.same(row.colors.lost, { 0.1, 0.2, 0.3, 1 })
+			end
+		end
+	end)
+
+	it('resets saved copies of threat colors from the threat row', function()
+		local P, page = Build()
+		P.Store:Set({ 'colors', 'name', 'color', 'petTank', 'pet' }, { 1, 0, 1, 1 })
+		P.Store:Set({ 'colors', 'health', 'color', 'tapped' }, { 0.1, 0.2, 0.3, 1 })
+		assert.is_false(page.args.threat.args.resetColors.hidden())
+		page.args.threat.args.resetColors.func()
+		assert.is_nil(P.Store:Get({ 'colors', 'name' }))
+		assert.same(P.Store:Get({ 'colors', 'health', 'color', 'tapped' }), { 0.1, 0.2, 0.3, 1 })
+		assert.is_true(page.args.threat.args.resetColors.hidden())
+	end)
+
+	it('changes When even when a saved list had its own threat When', function()
+		local P, page = Build()
+		SetRole(P, 'tank')
+		page.args.scheme.set({}, 'custom')
+		for _, id in ipairs(P.Colors.THREAT_GROUP) do
+			P.Store:Set({ 'colors', 'health', 'when', id }, 'world')
+		end
+		page.args.threat.args.when.set({}, 'never')
+		for _, row in ipairs(P.Colors:Program('health').rows) do
+			if Has(P.Colors.THREAT_GROUP, row.id) then
+				assert.equal(row.when, 'never')
+			end
+		end
+	end)
+end)

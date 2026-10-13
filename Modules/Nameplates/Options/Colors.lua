@@ -86,7 +86,12 @@ ColorsPage.state = state
 ----------------------------------------------------------------------------------------------------
 
 local function Settings()
-	return P.db and P.db.profile or {}
+	return {
+		scheme = P.Store:Get('scheme'),
+		colors = P.Store:Get('colors'),
+		threat = P.Store:Get('threat'),
+		colorBlind = P.Store:Get('colorBlind'),
+	}
 end
 
 ---A table inside a table, or an empty one (a pasted string can put anything in the profile).
@@ -276,7 +281,7 @@ local function BuildRow(entry, custom, settings, natural)
 		badge = BadgeFor(kind),
 	}
 	if THREAT_ROWS[id] then
-		row.whenText = P.Conditions.WHEN_LABELS[P.Threat.When(Sub(settings, 'threat'))] or ''
+		row.whenText = P.Conditions.WHEN_LABELS[custom.when[id] or entry.when or P.Threat.When(Sub(settings, 'threat'))] or ''
 		row.tooltip = L['Change these colors in the threat colors, above.']
 	else
 		row.when = custom.when[id] or entry.when or kind.when or 'everywhere'
@@ -532,6 +537,47 @@ local function ThreatPalette()
 	return Roles.Palette(settings.colorBlind, Sub(settings.threat, 'colors'))
 end
 
+-- Saved lists can carry copies that would override the shared threat controls.
+local function ClearThreatCopies(field, key)
+	for _, piece in ipairs(PIECES) do
+		for _, id in ipairs(Colors.THREAT_GROUP) do
+			local path = { 'colors', piece, field, id }
+			if key then
+				path[#path + 1] = key
+			end
+			P.Store:Set(path, nil)
+		end
+	end
+end
+
+function ColorsPage.SetThreatColor(key, color)
+	P.Store:Batch(function()
+		P.Store:Set({ 'threat', 'colors', key }, color)
+		ClearThreatCopies('color', key)
+	end)
+end
+
+function ColorsPage.ResetThreatColors()
+	P.Store:Batch(function()
+		P.Store:Set({ 'threat', 'colors' }, nil)
+		ClearThreatCopies('color')
+	end)
+end
+
+function ColorsPage.HasThreatColors()
+	if P.Store:Get({ 'threat', 'colors' }) ~= nil then
+		return true
+	end
+	for _, piece in ipairs(PIECES) do
+		for _, id in ipairs(Colors.THREAT_GROUP) do
+			if P.Store:Get({ 'colors', piece, 'color', id }) ~= nil then
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local CHANNEL_PIECE = { bar = 'health', border = 'border', name = 'name' }
 
 ---While the lists are Custom, "Show threat on" has to add and remove the threat rows itself.
@@ -617,7 +663,10 @@ end
 
 ---@param value string
 function ColorsPage.SetThreatWhen(value)
-	P.Store:Set({ 'threat', 'when' }, value ~= 'instances' and value or nil)
+	P.Store:Batch(function()
+		P.Store:Set({ 'threat', 'when' }, value ~= 'instances' and value or nil)
+		ClearThreatCopies('when')
+	end)
 end
 
 ---@param value string 'auto' | 'tank' | 'damage'
@@ -705,6 +754,10 @@ end
 ---styleId). Empty tables are dropped, so "Undo my changes" shows only when something is left.
 ---@param fn fun(overlay: table, styleId: string)
 function ColorsPage.EditOverlay(fn)
+	if Options.Locked() then
+		Options:RequestRefresh(false)
+		return false
+	end
 	local Registry = P.Styles.Registry
 	local id = Registry:ResolveId(P.Store:Get('style'))
 	local overlay = P.util.Copy(P.Store:Get({ 'tweaks', id }))
@@ -776,7 +829,10 @@ function ColorsPage.SetThreatNumbers(mode)
 			end
 			for _, id in ipairs(baseIds) do
 				overlay.remove[id] = true
-				overlay.changes.parts[id] = nil
+				local change = overlay.changes.parts[id]
+				if change then
+					change.source = nil
+				end
 			end
 			return
 		end
@@ -787,7 +843,11 @@ function ColorsPage.SetThreatNumbers(mode)
 			local change = overlay.changes.parts[id] or {}
 			overlay.changes.parts[id] = change
 			change.source = base.parts[id].source ~= source and source or nil
-			change.hidden = nil
+			if base.parts[id].hidden then
+				change.hidden = false
+			else
+				change.hidden = nil
+			end
 		end
 		for _, spec in pairs(overlay.add) do
 			if spec.kind == 'text' and SOURCE_MODE[spec.source] then
@@ -797,8 +857,13 @@ function ColorsPage.SetThreatNumbers(mode)
 			end
 		end
 		if not found then
-			overlay.add[NUMBER_ID] = NumberPart(source)
-			overlay.remove[NUMBER_ID] = nil
+			local id, index = NUMBER_ID, 1
+			while (base and base.parts and base.parts[id]) or overlay.add[id] or overlay.changes.parts[id] do
+				index = index + 1
+				id = NUMBER_ID .. index
+			end
+			overlay.add[id] = NumberPart(source)
+			overlay.remove[id] = nil
 		end
 	end)
 end
@@ -1043,10 +1108,10 @@ local function BuildThreatGroup()
 			order = 30,
 			name = L['Use the standard threat colors'],
 			hidden = function()
-				return P.Store:Get({ 'threat', 'colors' }) == nil
+				return not ColorsPage.HasThreatColors()
 			end,
 			func = function()
-				P.Store:Set({ 'threat', 'colors' }, nil)
+				ColorsPage.ResetThreatColors()
 			end,
 		},
 	}
@@ -1061,7 +1126,7 @@ local function BuildThreatGroup()
 				return c[1], c[2], c[3], c[4] or 1
 			end,
 			set = function(_, r, g, b)
-				P.Store:Set({ 'threat', 'colors', key }, { r, g, b, 1 })
+				ColorsPage.SetThreatColor(key, { r, g, b, 1 })
 			end,
 		}
 	end

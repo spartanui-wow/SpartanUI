@@ -1,8 +1,9 @@
 -- @runtime lua51
--- The tester switch on (Decision 21): the real old module, the core and the host load in
--- LoadAll.xml order with char.engine = 'new' saved for this character. At login the host starts
--- the new engine instead of the old plates, registers its options and "Match my look", and the
--- switch and module toggles give the game its settings back.
+-- A character that picked the new plates (Decision 21; testers saved char.engine = 'new'): the real
+-- old module, the core and the host load in LoadAll.xml order. At login the host starts the new
+-- engine instead of the old plates, registers its options and "Match my look". Turning the module
+-- off, or picking the old plates, stops the engine and gives the game every setting back at once;
+-- turning either back on in the same session starts the new plates again.
 local M, H = ...
 
 if not (H.ModuleExists() and H.Exists(H.hostFile)) then
@@ -133,17 +134,8 @@ describe('host with the switch on', function()
 		assert.is_nil(P.CVars:GetBackup(name))
 	end)
 
-	it('restores settings at once when the switch is turned off', function()
-		local name = 'nameplateMaxScale'
-		M.SetCVarState(name, { value = '1', account = true })
-		P.CVars.info[name] = nil
-		P.CVars:Set(name, 1.3)
-		H.sui.commands.np.fn('preview')
-		assert.equal(P.Config:GetEngineChoice(), 'old')
-		assert.equal(C_CVar.GetCVar(name), '1')
-	end)
-
 	it('stops the engine and restores settings when the module is turned off', function()
+		assert.is_true(P.enabled)
 		local name = 'nameplateMinScale'
 		M.SetCVarState(name, { value = '1', account = true })
 		P.CVars.info[name] = nil
@@ -151,5 +143,52 @@ describe('host with the switch on', function()
 		module:Disable()
 		assert.is_false(P.enabled)
 		assert.equal(C_CVar.GetCVar(name), '1')
+		assert.is_nil(P.CVars:GetBackup(name))
+	end)
+
+	it('starts again when the module is turned back on', function()
+		module:Enable()
+		M.Advance(1)
+		assert.is_true(P.enabled)
+		assert.is_false(Called('SUIUF.SpawnNamePlates'), 'the old plates still do not run')
+	end)
+
+	it('restores settings at once when the old plates are picked', function()
+		local name = 'nameplateMaxScale'
+		M.SetCVarState(name, { value = '1', account = true })
+		P.CVars.info[name] = nil
+		P.CVars:Set(name, 1.3)
+		H.sui.commands.np.fn('preview')
+		assert.equal(P.Config:GetEngineChoice(), 'old')
+		assert.is_false(P.enabled, 'the new plates stop at once')
+		assert.equal(C_CVar.GetCVar(name), '1')
+		assert.is_false(Called('SUIUF.SpawnNamePlates'), 'the old plates wait for a reload')
+	end)
+
+	it('does not start while the old plates are picked, even when the module is turned back on', function()
+		module:Disable()
+		module:Enable()
+		P.Store:Set('size', 'large')
+		M.Advance(1)
+		P.Store:Reset('size')
+		assert.is_false(P.enabled)
+	end)
+
+	it('gives back settings left behind when the module is turned off while stopped', function()
+		local name = 'nameplateMinScale'
+		M.SetCVarState(name, { value = '1', account = true })
+		P.CVars.info[name] = nil
+		P.CVars:Set(name, 0.7)
+		module:Disable()
+		assert.is_false(P.enabled)
+		assert.equal(C_CVar.GetCVar(name), '1')
+		module:Enable()
+	end)
+
+	it('starts the new plates again in the same session when they are picked again', function()
+		H.sui.commands.np.fn('preview')
+		assert.equal(P.Config:GetEngineChoice(), 'new')
+		M.Advance(1)
+		assert.is_true(P.enabled, 'the old plates never ran this session, so no reload is needed')
 	end)
 end)

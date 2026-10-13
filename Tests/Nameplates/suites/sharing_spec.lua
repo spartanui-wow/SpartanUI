@@ -180,8 +180,106 @@ end
 
 ----------------------------------------------------------------------------------------------------
 
+local EM_DASH = string.char(226, 128, 148)
+local BANNED_WORDS = { 'overlay', 'schema', 'cvar', 'token', 'payload', 'lsm', 'widget', 'elvui', 'weakauras', 'platynator' }
+
+---Every text a page can show: names, descriptions and prompts (functions are called).
+local function Texts(value, out, depth)
+	out = out or {}
+	depth = depth or 0
+	if depth > 10 or type(value) ~= 'table' then
+		return out
+	end
+	for key, item in pairs(value) do
+		if key == 'name' or key == 'desc' or key == 'confirmText' then
+			if type(item) == 'function' then
+				local ok, text = pcall(item, {})
+				item = ok and text or nil
+			end
+			if type(item) == 'string' then
+				out[#out + 1] = item
+			end
+		elseif type(item) == 'table' and key ~= 'arg' and key ~= 'handler' then
+			Texts(item, out, depth + 1)
+		end
+	end
+	return out
+end
+
+---Copy of an options table without the two keys the settings window adds to AceConfig.
+local function WithoutWindowKeys(value, depth)
+	if type(value) ~= 'table' or (depth or 0) > 12 then
+		return value
+	end
+	local out = {}
+	for key, item in pairs(value) do
+		if key ~= 'advanced' and key ~= 'primary' then
+			out[key] = WithoutWindowKeys(item, (depth or 0) + 1)
+		end
+	end
+	return out
+end
+
+describe('sharing page: wording and validity', function()
+	before_each(Reset)
+
+	it('uses plain words: no em dashes, no symbols the game cannot draw, no jargon, no other addons', function()
+		local texts = Texts(Page())
+		assert.truthy(#texts > 20, 'the page has text to check')
+		Store:Set('style', 'clean')
+		-- Everything the import box can say back
+		local newerText = '!NP:' .. (Schema.CURRENT + 1) .. ':style!zz'
+		for _, text in ipairs({ 'hello', '', string.rep('a', Exchange.MAX_LENGTH + 1), newerText, Share:Encode('colors', { scheme = 'class' }) }) do
+			local info, reason = Exchange:Inspect(text)
+			if info then
+				for _, line in ipairs(Exchange:Describe(info)) do
+					texts[#texts + 1] = line
+				end
+			else
+				texts[#texts + 1] = Exchange:ReasonText(reason)
+			end
+		end
+		for _, reason in ipairs({ 'cycle', 'unavailable', 'kind', 'newer', 'format', 'decode', 'empty', 'tooLong' }) do
+			texts[#texts + 1] = Exchange:ReasonText(reason)
+		end
+		for _, text in ipairs(texts) do
+			assert.is_nil(text:find(EM_DASH, 1, true), 'em dash in: ' .. text)
+			assert.is_nil(text:find('[' .. string.char(128) .. '-' .. string.char(255) .. ']'), 'non-ASCII character in: ' .. text)
+			for _, word in ipairs(BANNED_WORDS) do
+				assert.is_nil(text:lower():find(word, 1, true), word .. ' in: ' .. text)
+			end
+		end
+	end)
+
+	it('is a valid AceConfig table', function()
+		local registry = LibStub('AceConfigRegistry-3.0')
+		local root = { type = 'group', name = 'Test', args = { sharing = Page() } }
+		registry:RegisterOptionsTable('NameplateSharingPageTest', WithoutWindowKeys(root))
+		local options = registry:GetOptionsTable('NameplateSharingPageTest')('dialog', 'TestUI-1.0')
+		assert.not_nil(options.args.sharing.args.export.args.exportText)
+	end)
+end)
+
 describe('sharing page: layout', function()
 	before_each(Reset)
+
+	it('puts sharing and importing above the long profile picker', function()
+		local args = Page().args
+		assert.truthy(args.follow.order < args.export.order)
+		assert.truthy(args.export.order < args.import.order)
+		assert.truthy(args.import.order < args.profiles.order)
+	end)
+
+	it('says why the picker waits while the profile follows the host', function()
+		local args = Page().args
+		local note = args.profiles.args.followNote
+		assert.not_nil(note)
+		Store:Set('followHostProfile', true)
+		assert.is_false(note.hidden())
+		assert.matches(note.name(), P:HostName())
+		Store:Set('followHostProfile', false)
+		assert.is_true(note.hidden())
+	end)
 
 	it('keeps each group to eight main controls', function()
 		local page = Page()
@@ -397,6 +495,30 @@ describe('import: reading a string', function()
 		for _, why in ipairs({ 'empty', 'tooLong', 'format', 'newer', 'decode', 'kind', 'cycle', 'unavailable' }) do
 			assert.truthy(#Exchange:ReasonText(why) > 0, why)
 		end
+	end)
+
+	it('says a text that is not a share string is not a share string, whatever it was meant to hold', function()
+		assert.equal(Exchange:ReasonText('format'), 'This text is not a nameplate share string.')
+		assert.equal(Exchange:ReasonText('decode'), Exchange:ReasonText('format'))
+	end)
+
+	it('refuses a string that breaks the reader instead of raising an error', function()
+		local decode = Share.Decode
+		Share.Decode = function()
+			error('stack overflow')
+		end
+		local ok, info, reason = pcall(Exchange.Inspect, Exchange, 'anything')
+		assert.is_true(ok, 'no error reaches the page')
+		assert.is_nil(info)
+		assert.equal(reason, 'decode')
+		local id, why = P.API:ImportStyle('anything')
+		assert.is_nil(id)
+		assert.equal(why, 'decode')
+		local pasted, pastedReason = Exchange:Paste('anything')
+		assert.is_nil(pasted)
+		assert.equal(pastedReason, 'decode')
+		Share.Decode = decode
+		assert.not_nil(Exchange:Inspect(StyleString({}, 'Jane', 1)))
 	end)
 
 	it('reads a style and says what it is', function()

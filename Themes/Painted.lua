@@ -1035,6 +1035,8 @@ function Painted.Register(spec)
 				minimap = MinimapSettings(name),
 				buttonSkin = { texture = root .. 'Button.png', size = L.buttonFrame },
 				dataBars = SUI.ThemeDataBars.DataBars(name:lower()),
+				-- "Match my look" nameplates: Clean on a smooth bar with a dark frame, in the look's accent
+				nameplates = { tokens = { bar = 'SpartanUI Default', ink = { 0, 0, 0, 1 }, shade = { 0, 0, 0, 0.55 } } },
 				statusBars = StatusBars(name, root),
 				slidingTrays = {
 					left = { enabled = true, collapsed = false },

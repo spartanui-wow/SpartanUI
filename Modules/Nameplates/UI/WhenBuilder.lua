@@ -45,6 +45,7 @@ local L = P.L
 ---@field Short fun(entry: table): string Two or three words for a list row ("Slim")
 ---@field Controls? fun(ctx: table): table<string, table> AceConfig options for its values
 ---@field limits? table<string, string> Client name -> badge text
+---@field Available? fun(conditions: table[], client: string): boolean Optional action capability check
 
 ---@class Plates.WhenTemplate
 ---@field id string
@@ -154,6 +155,15 @@ local CHOICES = {
 local EXCLUSIVE = { place = true, role = true, mobType = true, reaction = true }
 local BROAD_PLACES = { instance = true, pvp = true }
 
+local function PlaceMatches(place, wanted)
+	if wanted == 'instance' then
+		return place ~= 'world'
+	elseif wanted == 'pvp' then
+		return place == 'arena' or place == 'battleground'
+	end
+	return place == wanted
+end
+
 ----------------------------------------------------------------------------------------------------
 -- Small helpers
 ----------------------------------------------------------------------------------------------------
@@ -252,9 +262,20 @@ end
 ---@return table<string, Plates.WhenChoice> byKey
 function WhenBuilder:All()
 	local signature = #P.Conditions.order .. '|' .. P.Caps:Client()
-	if not self.allList or self.allSignature ~= signature then
+	local changed = not self.allList or self.allSignature ~= signature
+	for index, id in ipairs(P.Conditions.order) do
+		if not self.allCatalog or self.allCatalog[index] ~= P.Conditions:Get(id) then
+			changed = true
+			break
+		end
+	end
+	if changed then
 		self.allList, self.allByKey = BuildAll(self)
 		self.allSignature = signature
+		self.allCatalog = {}
+		for index, id in ipairs(P.Conditions.order) do
+			self.allCatalog[index] = P.Conditions:Get(id)
+		end
 	end
 	return self.allList, self.allByKey
 end
@@ -404,10 +425,17 @@ end
 ---@param conditions? table[]
 ---@return Plates.WhenAction[]
 function WhenBuilder:Actions(context, conditions)
+	local rules = self.CONTEXTS[context or 'layout'] or self.CONTEXTS.layout
+	for _, clause in ipairs(conditions or {}) do
+		local choice = self:ChoiceFor(clause)
+		if not choice.available or choice.phase > self.PHASE or (rules.plainOnly and choice.kind ~= 'plain') or (rules.excludeStates and STATE_ONLY[clause.id]) then
+			return {}
+		end
+	end
 	local allowed = self:AllowedSet(conditions)
 	local out = {}
 	for _, def in ipairs(self:ActionList(context)) do
-		if allowed[def.needs or def.id] then
+		if allowed[def.needs or def.id] and (not def.Available or def.Available(conditions or {}, P.Caps:Client())) then
 			out[#out + 1] = def
 		end
 	end
@@ -420,6 +448,16 @@ end
 ---@param context? 'layout'|'emphasis'
 ---@return table entry
 function WhenBuilder:SetAction(entry, id, context)
+	local def
+	for _, offered in ipairs(self:Actions(context, entry.conditions)) do
+		if offered.id == id then
+			def = offered
+			break
+		end
+	end
+	if not def then
+		return entry
+	end
 	local current = self:ActionOf(entry, context)
 	if current and current.id == id then
 		return entry
@@ -427,10 +465,7 @@ function WhenBuilder:SetAction(entry, id, context)
 	if current then
 		current.Clear(entry)
 	end
-	local def = self.actions[id]
-	if def then
-		def.Start(entry)
-	end
+	def.Start(entry)
 	return entry
 end
 
@@ -845,6 +880,19 @@ function WhenBuilder:Badge(conditions)
 	return table.concat(lines, ' ')
 end
 
+---@param entry table
+---@param context? string
+---@return string|nil
+function WhenBuilder:EntryBadge(entry, context)
+	local conditionBadge = self:Badge(entry.conditions)
+	local action = self:ActionOf(entry, context)
+	local actionBadge = action and action.limits and action.limits[P.Caps:Client()]
+	if type(actionBadge) ~= 'string' then
+		return conditionBadge
+	end
+	return conditionBadge and (conditionBadge .. ' ' .. actionBadge) or actionBadge
+end
+
 ---Plain sentences about what is wrong with an entry on this client (empty when it is fine).
 ---@param entry table
 ---@param context? 'layout'|'emphasis'
@@ -855,12 +903,24 @@ function WhenBuilder:Problems(entry, context)
 	local action = self:ActionOf(entry, context)
 	if not action then
 		out[#out + 1] = L['Pick what should happen.']
-	elseif not self:AllowedSet(entry.conditions)[action.needs or action.id] then
-		out[#out + 1] = L['These conditions cannot do that on this version of WoW.']
+	else
+		local allowed = false
+		for _, offered in ipairs(self:Actions(context, entry.conditions)) do
+			if offered.id == action.id then
+				allowed = true
+				break
+			end
+		end
+		if not allowed then
+			out[#out + 1] = L['These conditions cannot do that on this version of WoW.']
+		end
 	end
 	local rules = self.CONTEXTS[context or 'layout'] or self.CONTEXTS.layout
-	local seen = {}
-	local contradiction = false
+	local seen, clauses, places = {}, {}, {}
+	for _, place in ipairs(P.Situation.PLACES) do
+		places[place] = true
+	end
+	local hasPlace, contradiction = false, false
 	for _, clause in ipairs(entry.conditions or {}) do
 		local cond = Conditions:Get(clause.id)
 		local choice = self:ChoiceFor(clause)
@@ -870,8 +930,21 @@ function WhenBuilder:Problems(entry, context)
 			if not choice.available then
 				out[#out + 1] = string.format(L['"%s" does not happen on this version of WoW.'], choice.label)
 			end
-			if rules.plainOnly and cond.kind ~= 'plain' then
+			if (rules.plainOnly and cond.kind ~= 'plain') or (rules.excludeStates and STATE_ONLY[clause.id]) then
 				out[#out + 1] = string.format(L['"%s" cannot change how plates look.'], choice.label)
+			end
+		end
+		if clauses[ClauseKey(clause.id, clause.args, not clause.negate)] then
+			contradiction = true
+		end
+		clauses[self:KeyOf(clause)] = true
+		if clause.id == 'place' then
+			hasPlace = true
+			for place in pairs(places) do
+				local matches = PlaceMatches(place, clause.args)
+				if (clause.negate and matches) or (not clause.negate and not matches) then
+					places[place] = nil
+				end
 			end
 		end
 		if EXCLUSIVE[clause.id] and not clause.negate and not (clause.id == 'place' and BROAD_PLACES[clause.args]) then
@@ -882,7 +955,7 @@ function WhenBuilder:Problems(entry, context)
 			seen[clause.id] = clause.args
 		end
 	end
-	if contradiction then
+	if contradiction or (hasPlace and next(places) == nil) then
 		out[#out + 1] = L['These conditions can never be true together.']
 	end
 	if type(entry.kinds) == 'table' and #entry.kinds == 0 then
@@ -952,7 +1025,8 @@ local function ActionValues(opts)
 		order[#order + 1] = 'none'
 	end
 	for _, def in ipairs(WhenBuilder:Actions(opts.context, entry and entry.conditions)) do
-		values[def.id] = def.label
+		local limit = def.limits and def.limits[P.Caps:Client()]
+		values[def.id] = type(limit) == 'string' and (def.label .. ' (' .. limit .. ')') or def.label
 		order[#order + 1] = def.id
 	end
 	if current and values[current.id] == nil then
@@ -973,10 +1047,15 @@ function WhenBuilder:Group(opts)
 		return opts.disabled ~= nil and opts.disabled() or false
 	end
 	local function Update(fn)
+		if Disabled() then
+			return
+		end
 		local entry = opts.get()
 		if entry then
-			fn(entry)
-			opts.set(entry)
+			entry = P.util.Copy(entry)
+			if fn(entry) ~= false then
+				opts.set(entry)
+			end
 		end
 	end
 	local function Missing()
@@ -997,10 +1076,13 @@ function WhenBuilder:Group(opts)
 	local conditionArgs = { header = { type = 'header', order = 1, name = L['When all of these are true'] } }
 	local thenArgs = { header = { type = 'header', order = 1, name = L['Then'] } }
 
-	for index = 1, self.MAX_CONDITIONS do
+	local initial = opts.get()
+	local slots = math.max(self.MAX_CONDITIONS, #(initial and initial.conditions or {}))
+	for index = 1, slots do
 		conditionArgs['condition' .. index] = {
 			type = 'select',
 			name = index == 1 and L['When'] or L['And'],
+			advanced = index > self.MAX_CONDITIONS or nil,
 			order = 2 + index,
 			width = 1.6,
 			values = function()
@@ -1018,9 +1100,10 @@ function WhenBuilder:Group(opts)
 			set = function(_, value)
 				Update(function(entry)
 					entry.conditions = entry.conditions or {}
-					if value == 'remove' then
+					local values = SlotValues(opts, index)
+					if value == 'remove' and entry.conditions[index] then
 						table.remove(entry.conditions, index)
-					elseif value ~= 'add' then
+					elseif value ~= 'add' and values[value] then
 						local clause = WhenBuilder:ClauseForKey(value)
 						if clause then
 							entry.conditions[math.min(index, #entry.conditions + 1)] = clause
@@ -1067,7 +1150,37 @@ function WhenBuilder:Group(opts)
 
 	for position, def in ipairs(self:ActionList(opts.context)) do
 		if def.Controls then
-			local controls = def.Controls({ get = opts.get, update = Update, context = opts.context })
+			local function Available(entry)
+				local active = WhenBuilder:ActionOf(entry, opts.context)
+				if not active or active.id ~= def.id then
+					return false
+				end
+				for _, offered in ipairs(WhenBuilder:Actions(opts.context, entry.conditions)) do
+					if offered.id == def.id then
+						return true
+					end
+				end
+				return false
+			end
+			local function UpdateAction(fn)
+				Update(function(entry)
+					if not Available(entry) then
+						return false
+					end
+					return fn(entry)
+				end)
+			end
+			local function Protect(control)
+				local ownDisabled = control.disabled
+				control.disabled = function(info)
+					local entry = opts.get()
+					return Disabled() or entry == nil or not Available(entry) or (type(ownDisabled) == 'function' and ownDisabled(info)) or ownDisabled == true
+				end
+				for _, child in pairs(control.args or {}) do
+					Protect(child)
+				end
+			end
+			local controls = def.Controls({ get = opts.get, update = UpdateAction, context = opts.context })
 			for key, control in pairs(controls or {}) do
 				local inner = control.hidden
 				control.order = 11 + position / 10 + (control.order or 0) / 100
@@ -1077,9 +1190,9 @@ function WhenBuilder:Group(opts)
 					if not active or active.id ~= def.id then
 						return true
 					end
-					return inner ~= nil and inner(info) or false
+					return (type(inner) == 'function' and inner(info)) or inner == true
 				end
-				control.disabled = control.disabled or Disabled
+				Protect(control)
 				thenArgs['action_' .. def.id .. '_' .. key] = control
 			end
 		end
@@ -1128,11 +1241,11 @@ function WhenBuilder:Group(opts)
 		order = 40,
 		name = function()
 			local entry = opts.get()
-			return entry and WhenBuilder:Badge(entry.conditions) or ''
+			return entry and WhenBuilder:EntryBadge(entry, opts.context) or ''
 		end,
 		hidden = function()
 			local entry = opts.get()
-			return entry == nil or WhenBuilder:Badge(entry.conditions) == nil
+			return entry == nil or WhenBuilder:EntryBadge(entry, opts.context) == nil
 		end,
 	}
 	args.problems = {

@@ -710,6 +710,8 @@ function Exchange:ReasonText(reason)
 		return L['That text is too long to be a nameplate share string.']
 	elseif reason == 'empty' then
 		return L['Paste a share string first.']
+	elseif reason == 'format' or reason == 'decode' then
+		return L['This text is not a nameplate share string.']
 	end
 	return P.Share:ReasonText(reason)
 end
@@ -752,11 +754,24 @@ function Exchange:FindImported(styleId, author, version)
 	return best, bestVersion < (tonumber(version) or 1)
 end
 
----Read a share string without changing anything.
+---Read a share string without changing anything. A string that breaks the reader (a table nested
+---too deep to copy, say) is refused like any other text that is not a share string.
 ---@param text any
 ---@return Plates.ExchangeInfo|nil info
 ---@return string|nil reason 'empty' | 'tooLong' | the reasons of P.Share:Decode and Schema
 function Exchange:Inspect(text)
+	local ok, info, reason = pcall(self.Read, self, text)
+	if not ok then
+		P.log.error('A share string could not be read: ' .. tostring(info))
+		return nil, 'decode'
+	end
+	return info, reason
+end
+
+---@param text any
+---@return Plates.ExchangeInfo|nil info
+---@return string|nil reason
+function Exchange:Read(text)
 	if type(text) ~= 'string' or string.find(text, '^%s*$') then
 		return nil, 'empty'
 	end

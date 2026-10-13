@@ -63,6 +63,9 @@ end
 ---@param kind string
 ---@param value string
 function W.SetMode(kind, value)
+	if Locked() then
+		return
+	end
 	if value == (Situation.DEFAULT_MODES[kind] or 'full') then
 		value = nil
 	end
@@ -87,6 +90,9 @@ end
 ---@param kind string
 ---@param value string
 function W.SetStyle(kind, value)
+	if Locked() then
+		return
+	end
 	if value == W.DefaultStyle(kind) then
 		value = nil
 	end
@@ -116,7 +122,7 @@ end
 ---"Same as enemies": copy the style and Show choice of Enemy NPCs.
 ---@param kind string
 function W.SameAsEnemies(kind)
-	if kind == 'enemyNPC' then
+	if Locked() or kind == 'enemyNPC' then
 		return
 	end
 	Store:Batch(function()
@@ -159,7 +165,7 @@ function W.WhenRows()
 			whenText = WhenBuilder:Short(entry, 'layout'),
 			on = not entry.off,
 			removable = true,
-			badge = problems[1],
+			badge = problems[1] or WhenBuilder:EntryBadge(entry, 'layout'),
 			tooltip = WhenBuilder:Describe(entry, 'layout'),
 		}
 	end
@@ -186,7 +192,7 @@ function W.ToggleEditing(id)
 	else
 		W.editing = nil
 	end
-	Options:RequestRefresh(false)
+	Options:RequestRefresh(true)
 	return W.editing ~= nil
 end
 
@@ -204,6 +210,9 @@ end
 ---Store the edited entry back in its place.
 ---@param entry table
 function W.SetEditedEntry(entry)
+	if Locked() then
+		return
+	end
 	local index = W.editing
 	local list = WhenList()
 	if index and list[index] then
@@ -216,6 +225,9 @@ end
 ---over the whole new order and the on/off state of every row, so one routine covers all four.
 ---@param change Plates.RuleChange
 function W.ApplyWhenChange(change)
+	if Locked() then
+		return
+	end
 	local old = WhenList()
 	local list = {}
 	local editing
@@ -225,12 +237,12 @@ function W.ApplyWhenChange(change)
 		if index and old[index] then
 			entry = Copy(old[index])
 			if index == W.editing then
-				editing = position
+				editing = #list + 1
 			end
 		elseif type(id) == 'string' and string.sub(id, 1, 4) == 'tpl:' then
 			entry = WhenBuilder:NewEntry(string.sub(id, 5))
 			if entry and change.action == 'add' then
-				editing = position
+				editing = #list + 1
 			end
 		end
 		if entry then
@@ -241,6 +253,7 @@ function W.ApplyWhenChange(change)
 	end
 	W.editing = editing
 	WriteWhen(list)
+	Options:RequestRefresh(true)
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -487,21 +500,6 @@ function W.FormatValue(name, value)
 	return tostring(value)
 end
 
----The add-on folder named in a stack trace, skipping this one and the game's own.
----@param stack? string
----@return string|nil
-function W.AddonFromStack(stack)
-	if type(stack) ~= 'string' then
-		return nil
-	end
-	for folder in string.gmatch(stack, 'AddOns[/\\]([^/\\]+)[/\\]') do
-		if folder ~= P.addonName and string.sub(folder, 1, 9) ~= 'Blizzard_' then
-			return folder
-		end
-	end
-	return nil
-end
-
 ---Who last changed a game setting, in words.
 ---@param name string
 ---@return string
@@ -510,10 +508,6 @@ function W.WhoChanged(name)
 	local host = P:HostName()
 	if attribution then
 		if attribution.by == 'other' then
-			local addon = W.AddonFromStack(attribution.stack)
-			if addon then
-				return string.format(L['Another add-on (%s)'], addon)
-			end
 			return L['The game or another add-on']
 		end
 		local why = WHY_LABELS[attribution.why]
@@ -528,6 +522,44 @@ function W.WhoChanged(name)
 	return L['Not known']
 end
 
+---Every game setting in registry order, including settings with no player control.
+---@return table[]
+function W.GameDefinitions()
+	local pages, seen, byName, out = {}, {}, {}, {}
+	for _, name in ipairs(CVars.order) do
+		local page = CVars.defs[name].page or false
+		if not seen[page] then
+			seen[page] = true
+			pages[#pages + 1] = page
+		end
+	end
+	for _, page in ipairs(pages) do
+		for _, row in ipairs(CVars:List(page or nil)) do
+			byName[row.def.name] = row
+		end
+	end
+	for _, name in ipairs(CVars.order) do
+		if byName[name] then
+			out[#out + 1] = byName[name]
+		end
+	end
+	return out
+end
+
+---@param name string
+---@return boolean
+function W.GamePending(name)
+	if CVars.queue[name] then
+		return true
+	end
+	for key in pairs((CVars.defs[name] or {}).bits or {}) do
+		if CVars.queue[name .. ':' .. key] then
+			return true
+		end
+	end
+	return false
+end
+
 ---One line of the game settings table, or nil when we have not changed that setting.
 ---@param name string
 ---@return { name: string, label: string, was: string, now: string, by: string }|nil
@@ -538,14 +570,18 @@ function W.GameRow(name)
 	end
 	local backup = CVars:GetBackup(name)
 	local attribution = CVars:GetAttribution(name)
-	if backup == nil and CVars.queue[name] == nil and not (attribution and attribution.by == 'other') then
+	if backup == nil and not W.GamePending(name) and not (attribution and attribution.by == 'other') then
 		return nil
+	end
+	local now = W.FormatValue(name, CVars:Get(name))
+	if W.GamePending(name) then
+		now = string.format(L['%s (waiting for combat to end)'], now)
 	end
 	return {
 		name = name,
 		label = def.label,
 		was = backup ~= nil and W.FormatValue(name, backup) or '-',
-		now = W.FormatValue(name, CVars:Get(name)),
+		now = now,
 		by = W.WhoChanged(name),
 	}
 end
@@ -554,8 +590,8 @@ end
 ---@return table[]
 function W.GameRows()
 	local rows = {}
-	for _, name in ipairs(CVars.order) do
-		local row = W.GameRow(name)
+	for _, definition in ipairs(W.GameDefinitions()) do
+		local row = W.GameRow(definition.def.name)
 		if row then
 			rows[#rows + 1] = row
 		end
@@ -814,7 +850,7 @@ end
 ---@param to string
 ---@return boolean copied
 function W.CopyKind(from, to)
-	if from == to or not (KIND_LABELS[from] and KIND_LABELS[to]) then
+	if Locked() or from == to or not (KIND_LABELS[from] and KIND_LABELS[to]) then
 		return false
 	end
 	Store:Batch(function()
@@ -831,7 +867,7 @@ end
 ---Put one kind back to the default style and Show choice and drop the changes made only for it.
 ---@param kind string
 function W.ResetKind(kind)
-	if not KIND_LABELS[kind] then
+	if Locked() or not KIND_LABELS[kind] then
 		return
 	end
 	Store:Batch(function()
@@ -1299,7 +1335,8 @@ local function GameGroup()
 	for column, spec in ipairs(GAME_COLUMNS) do
 		cells['head_' .. spec[1]] = Heading(titles[spec[1]], spec[2], column / 10)
 	end
-	for index, name in ipairs(CVars.order) do
+	for index, definition in ipairs(W.GameDefinitions()) do
+		local name = definition.def.name
 		for column, spec in ipairs(GAME_COLUMNS) do
 			local field = spec[1]
 			cells[name .. '_' .. field] = {
@@ -1330,7 +1367,14 @@ local function GameGroup()
 	args.waiting = {
 		type = 'description',
 		order = 20,
-		name = L['Some settings come back when combat ends.'],
+		name = function()
+			for _, entry in pairs(CVars.queue) do
+				if not entry.restore then
+					return L['Some settings take effect when combat ends.']
+				end
+			end
+			return L['Some settings come back when combat ends.']
+		end,
 		hidden = function()
 			return not CVars:HasQueued()
 		end,
@@ -1338,7 +1382,7 @@ local function GameGroup()
 	args.restore = {
 		type = 'execute',
 		name = L['Give the game back its settings'],
-		desc = L['Puts back every game nameplate setting we changed. Settings the game locks in combat come back when combat ends.'],
+		desc = L['Puts back every game nameplate setting we changed. Some wait for combat to end. Your plate choices can change them again.'],
 		order = 21,
 		func = function()
 			W.RestoreGame()
@@ -1380,7 +1424,7 @@ local function PlacesGroup()
 					W.SetPlaceValue(row, column, value)
 				end,
 				disabled = function()
-					return Locked() or (column.key == 'stacking' and not FeatureOK('stacking'))
+					return column.key == 'stacking' and not FeatureOK('stacking')
 				end,
 			}
 		end

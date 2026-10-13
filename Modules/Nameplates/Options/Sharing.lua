@@ -109,15 +109,32 @@ end
 local function ProfilePicker()
 	local AceDBOptions = LibStub and LibStub('AceDBOptions-3.0', true)
 	local db = P.db
+	local note = {
+		type = 'description',
+		name = function()
+			return string.format(L['Your nameplates follow your %s profile, so this picker waits. Turn that off above to pick a profile yourself.'], P:HostName())
+		end,
+		order = 0,
+		fontSize = 'medium',
+		hidden = function()
+			return not Following()
+		end,
+	}
 	if AceDBOptions and db then
 		local source = AceDBOptions:GetOptionsTable(db)
 		local group = {}
 		for key, value in pairs(source) do
 			group[key] = value
 		end
+		-- A copy of the argument list: the library's own table is shared
+		local args = { followNote = note }
+		for key, value in pairs(source.args or {}) do
+			args[key] = value
+		end
+		group.args = args
 		group.name = L['Profiles']
 		group.inline = true
-		group.order = 20
+		group.order = 30
 		group.disabled = ProfilesLocked
 		return group
 	end
@@ -125,9 +142,10 @@ local function ProfilePicker()
 		type = 'group',
 		name = L['Profiles'],
 		inline = true,
-		order = 20,
+		order = 30,
 		disabled = ProfilesLocked,
 		args = {
+			followNote = note,
 			current = {
 				type = 'select',
 				name = L['Profile'],
@@ -304,7 +322,7 @@ Options:AddPage('sharing', 6, function()
 				type = 'group',
 				name = L['Share what you made'],
 				inline = true,
-				order = 30,
+				order = 10,
 				args = {
 					what = {
 						type = 'select',
@@ -398,7 +416,7 @@ Options:AddPage('sharing', 6, function()
 				type = 'group',
 				name = L['Import'],
 				inline = true,
-				order = 40,
+				order = 20,
 				args = {
 					importText = {
 						type = 'input',

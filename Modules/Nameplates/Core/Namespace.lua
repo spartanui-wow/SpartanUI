@@ -70,6 +70,7 @@ P.log = { debug = noop, info = noop, warning = noop, error = noop }
 ---@field RegisterCommand? fun(name: string, fn: fun(args?: string), description?: string)
 ---@field RegisterPreview? fun(provider: table) Register the options preview provider
 ---@field ImportLegacy? fun(profileKey: string): table|nil Raw settings of the module this one replaces
+---@field GetSetupRole? fun(): 'tank'|'damage'|'healer'|nil The role the host's own setup asked about (nil: use the spec)
 ---@field GetHostLook? fun(): Plates.HostLook|nil
 ---@field GetHostProfileName? fun(): string|nil
 ---@field profileDefaults? table Host-only profile defaults (scalars), e.g. { followHostProfile = true }

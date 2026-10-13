@@ -12,16 +12,31 @@ local L = SUI.L
 --
 -- Phase 4a (launch): the new plates are the default.
 --   * Classic family and Forever: the old file has already created the 'Nameplates' module. The
---     host wraps its lifecycle. The new engine runs unless this character picked "Use the old
+--     host wraps its lifecycle. The new plates run unless this character picked "Use the old
 --     nameplates" (char.engine = 'old', read once per session, reload to switch); then the old
 --     module runs exactly as before, for one more release.
 --   * Retail: the old file returns before creating a module, so the host creates 'Nameplates'
---     itself and only the new engine can run.
---   * Either way the engine stays off while the module is turned off or another nameplate addon
---     is loaded (HostWantsEngine).
--- Who gets what (7.4) is decided per profile by ImportLegacy: a profile that used the old plates
--- switches to Clean with its old sizes; an existing Retail profile keeps the game's plates until
--- the player picks a style on the What's new card; a new profile gets setup's look step.
+--     itself and only the new plates can run.
+--
+-- The engine (P:Enable) starts only when all of these hold; otherwise neither the core nor this
+-- file registers a game event, installs a hook, writes a game setting or makes a named frame:
+--   * the new plates are chosen for this character (HostWantsEngine: not "old"),
+--   * the module is on and no other nameplate addon is loaded (HostWantsEngine),
+--   * the current profile wants plates (profile.enabled ~= false, ProfileWantsPlates).
+-- A profile that turns plates on later (What's new card, setup, the settings root, a profile
+-- switch) starts the engine on the next frame. Turning the module off stops the engine and gives
+-- the game back every setting the plates changed, including ones an earlier session left behind.
+--
+-- Who gets what (plan 7.4) is decided per profile by ImportLegacy: a profile that used the old
+-- plates switches to Clean with its old sizes; an existing Retail profile keeps the game's plates
+-- until the player picks a style on the What's new card; a new profile gets setup's look step.
+-- Migrated profiles get no game setting changes; only setup turns those on.
+--
+-- Looks (plan 5.4): "Match my look" is the host style. It draws the active theme's nameplates
+-- block (ThemeRegistry data), else the theme family's default: art themes get Clean on a smooth bar
+-- with a dark frame, flat themes Clean on the core's flat bar. Accent and font come from the
+-- theme. The profile default style is 'host', so a profile follows the theme until the player
+-- picks another style, and that pick always wins (following the theme is itself a pick).
 -- From Phase 4b, when the old file is gone, this file creates the module on every client.
 
 -- Folder names of addons that also draw nameplates (7.4). Code data only; titles are read at
@@ -34,6 +49,7 @@ local SUITE = 'ElvUI'
 
 local HOST_STYLE_ID = 'spartanui'
 local WAR_STYLE_ID = 'war'
+local WAR_BANNER = 'Interface\\AddOns\\SpartanUI\\images\\war\\Nameplate'
 local OPTIONS_APP = 'SpartanUI'
 local SETUP_ORDER = 22
 local PROFILE_ADDON_ID = 'spartanui_nameplates'
@@ -64,8 +80,18 @@ module.API = P.API
 -- The old module runs on this client (Classic family and Forever, until Phase 4b)
 local oldModuleHere = not module.createdByHost
 local oldInitialize, oldEnable, oldDisable = module.OnInitialize, module.OnEnable, module.OnDisable
+
+-- P:Enable ran through this host
 local engineRunning = false
+-- The module runs the new plates this session (the profile may still have them off)
+local newPlatesActive = false
+-- The login work ran: the engine may start whenever a profile turns plates on
+local loginDone = false
+local startQueued = false
 local hooksInstalled = false
+local lookWatchersInstalled = false
+local lookQueued = false
+local ActivateNewPlates -- defined with the lifecycle below
 
 local function Print(text)
 	if SUI.Print then
@@ -75,6 +101,15 @@ end
 
 local function Copy(value)
 	return P.util.Copy(value)
+end
+
+-- Player facts go through the core's Source, the one place that reads units
+local playerSource
+
+---@return Plates.LiveSource
+local function Player()
+	playerSource = playerSource or P.Source.NewLive('player')
+	return playerSource
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -97,12 +132,18 @@ local function AddonTitle(folder)
 	return title ~= '' and title or folder
 end
 
+---@param folder string
+---@return boolean
+local function Loaded(folder)
+	return C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(folder) and true or false
+end
+
 ---A UI suite's nameplates count as a conflict only when they are on. When its setting cannot be
 ---read, assume they are on, so two plate engines never run together (S0).
 ---@param folder string
 ---@return boolean
 local function SuitePlatesOn(folder)
-	if not (C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(folder)) then
+	if not Loaded(folder) then
 		return false
 	end
 	local engine = _G[folder]
@@ -118,7 +159,7 @@ end
 ---@return string|nil folder First loaded conflicting addon
 local function FindConflict()
 	for _, folder in ipairs(CONFLICTS) do
-		if C_AddOns and C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(folder) then
+		if Loaded(folder) then
 			return folder
 		end
 	end
@@ -139,35 +180,45 @@ local function EnabledConflict()
 	return nil
 end
 
----This character's name for the game's addon list, from the profile keys ("Name - Realm").
----@return string|nil
-local function CharacterName()
-	local keys = SUI.SpartanUIDB and SUI.SpartanUIDB.keys
-	local char = type(keys) == 'table' and keys.char
-	if type(char) ~= 'string' then
-		return nil
+---Every other nameplate addon that is loaded or turned on for this character.
+---@return string[]
+local function ConflictsToTurnOff()
+	local list, seen = {}, {}
+	for _, folder in ipairs(CONFLICTS) do
+		if not seen[folder] and (Loaded(folder) or (SUI.IsAddonEnabled and SUI:IsAddonEnabled(folder))) then
+			seen[folder] = true
+			list[#list + 1] = folder
+		end
 	end
-	local name = char:match('^(.-) %- ') or char
-	return name ~= '' and name or nil
+	return list
 end
 
 ----------------------------------------------------------------------------------------------------
 -- Which plates run
 ----------------------------------------------------------------------------------------------------
 
----This character picked "Use the old nameplates" for this session.
+---This character started the session on "Use the old nameplates".
 ---@return boolean
 local function UsingOldPlates()
 	return P.Config:GetSessionEngine() == 'old'
 end
 
----The new plates are the default: they run unless the old ones were picked, the module is off, or
----another nameplate addon is loaded.
+---"Use the old nameplates" is picked now (it may wait for a reload).
+---@return boolean
+local function OldPicked()
+	return P.Config:GetEngineChoice() == 'old'
+end
+
+---The new plates are the default: the module runs them unless the old ones were picked, the
+---module is off, or another nameplate addon is loaded.
 ---@return boolean wants
----@return string|nil reason
+---@return string|nil reason 'old' | 'switching' | 'disabled' | 'conflict:<folder>'
 local function HostWantsEngine()
 	if UsingOldPlates() then
 		return false, 'old'
+	end
+	if OldPicked() then
+		return false, 'switching'
 	end
 	if SUI:IsModuleDisabled('Nameplates') then
 		return false, 'disabled'
@@ -177,6 +228,13 @@ local function HostWantsEngine()
 		return false, 'conflict:' .. conflict
 	end
 	return true
+end
+
+---The current profile wants plates (profile.enabled). False keeps the engine from starting.
+---@return boolean
+local function ProfileWantsPlates()
+	local db = P.db
+	return not (db and db.profile.enabled == false)
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -224,15 +282,12 @@ local function GetHostLook()
 	return { style = block.style, tokens = tokens, art = Copy(block.art or {}), accent = { r, g, b, 1 }, font = font }
 end
 
----The faction banner from the War theme's own nameplates block (a full texture path).
----@return string|nil
+---The player's faction banner, cut from the War look's unit frame art (images/war). Pandaren
+---who have not picked a side get the Alliance banner.
+---@return string
 local function WarBanner()
-	local registry = SUI.ThemeRegistry
-	local data = registry and registry.GetData and registry:GetData('War')
-	local block = type(data) == 'table' and data.nameplates
-	local art = type(block) == 'table' and block.art
-	local banner = type(art) == 'table' and art.banner
-	return type(banner) == 'string' and banner or nil
+	local faction = Player():FactionPlain()
+	return WAR_BANNER .. (faction == 'Horde' and 'Horde' or 'Alliance')
 end
 
 ---The War style: Clean on a smooth bar with the player's faction banner behind it. It is a style
@@ -250,10 +305,7 @@ local function RegisterWarStyle()
 	style.matchesHost = nil
 	style.internal = nil
 	style.tokens = { accent = '$host', font = '$host', bar = 'SpartanUI Default', ink = { 0.08, 0.05, 0.03, 1 }, shade = { 0, 0, 0, 0.35 } }
-	local banner = WarBanner()
-	if banner then
-		style.parts.banner = { order = 5, kind = 'art', art = banner, width = 164, height = 22, anchor = { 'CENTER', 'health', 'CENTER', 0, 0 }, color = { 1, 1, 1, 0.9 }, layer = -2 }
-	end
+	style.parts.banner = { order = 5, kind = 'art', art = WarBanner(), width = 164, height = 22, anchor = { 'CENTER', 'health', 'CENTER', 0, 0 }, color = { 1, 1, 1, 0.9 }, layer = -2 }
 	local ok, reason = P.API:RegisterStyle(style)
 	if not ok then
 		P.log.warning('The War nameplate style could not be registered: ' .. tostring(reason))
@@ -293,20 +345,42 @@ local function RegisterHostStyle()
 	end
 end
 
+---Register "Match my look" (and War) again and hand the core the current theme look. Data only:
+---safe while the engine is off, so the gallery and setup cards always show the current theme.
+local function RefreshLook()
+	RegisterHostStyle()
+	P.API:SetHostLook(GetHostLook())
+end
+
 ---Theme, accent or font changed. Font:Refresh() calls itself once per module, so the push waits
----for the next frame and any number of calls in one frame become one. The theme may bring its own
----nameplate style, so "Match my look" is registered again first. Only the 'host' choice follows the
----theme: a player who picked another style keeps it.
+---for the next frame and any number of calls in one frame become one. Only the 'host' choice
+---follows the theme: a player who picked another style keeps it.
 local function PushLook()
-	if not engineRunning then
+	if not newPlatesActive or lookQueued then
 		return
 	end
-	P.Scheduler:NextFrame('host.look', function()
-		if engineRunning then
-			RegisterHostStyle()
-			P.API:SetHostLook(GetHostLook())
+	lookQueued = true
+	C_Timer.After(0, function()
+		lookQueued = false
+		if newPlatesActive then
+			RefreshLook()
 		end
 	end)
+end
+
+---Theme and accent changes reach the look whether or not the engine runs (SpartanUI's own
+---callbacks, no game events). They cannot be removed, so they are added once and check the state.
+local function InstallLookWatchers()
+	if lookWatchersInstalled then
+		return
+	end
+	lookWatchersInstalled = true
+	if SUI.Event and SUI.Event.RegisterEvent then
+		SUI.Event:RegisterEvent('ARTWORK_STYLE_CHANGED', PushLook)
+	end
+	if SUI.UI and SUI.UI.Style and SUI.UI.Style.OnAccentChanged then
+		SUI.UI.Style:OnAccentChanged(module, PushLook)
+	end
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -372,9 +446,15 @@ local function HostProfileSetUp(key)
 end
 
 ---Who gets what (7.4), for one nameplate profile key (the SpartanUI profile of the same name).
+---Read raw from SpartanUIDB; the old namespace is never written.
 ---@param profileKey string
 ---@return table|nil
 local function ImportLegacy(profileKey)
+	-- Still on the old plates: bring the settings over once this character uses the new ones, so
+	-- changes made to the old plates in the meantime are not lost
+	if UsingOldPlates() then
+		return { action = 'later' }
+	end
 	-- A character that turned the new plates on while they were being tested keeps what it has
 	if P.Config:GetEngineChoice() == 'new' then
 		return nil
@@ -394,10 +474,31 @@ local function ImportLegacy(profileKey)
 	local settings = type(profiles) == 'table' and rawget(profiles, profileKey)
 	return { action = 'import', settings = type(settings) == 'table' and settings or {}, defaults = OldDefaults() }
 end
+module.ImportLegacy = ImportLegacy
 
 ----------------------------------------------------------------------------------------------------
--- Switching between the old and the new plates
+-- Engine start and stop
 ----------------------------------------------------------------------------------------------------
+
+local function InstallHostHooks()
+	if hooksInstalled then
+		return
+	end
+	hooksInstalled = true
+	if SUI.Font and SUI.Font.Refresh then
+		hooksecurefunc(SUI.Font, 'Refresh', PushLook)
+	end
+end
+
+local function StartEngine()
+	if engineRunning or not newPlatesActive or OldPicked() then
+		return
+	end
+	engineRunning = true
+	InstallHostHooks()
+	RefreshLook()
+	P:Enable()
+end
 
 local function StopEngine()
 	if engineRunning then
@@ -406,17 +507,70 @@ local function StopEngine()
 	end
 end
 
----"Use the old nameplates" (this character, after a reload). Turning the old ones on gives the game
----its settings back right away and stops the new plates, so nothing they set stays behind.
+---A profile just turned plates on (or the player switched back to the new plates): start the
+---engine on the next frame, never inside the settings write that asked for it.
+local function MaybeStartEngine()
+	if engineRunning or startQueued or not (newPlatesActive and loginDone) then
+		return
+	end
+	if not (ProfileWantsPlates() and HostWantsEngine()) then
+		return
+	end
+	startQueued = true
+	C_Timer.After(0, function()
+		startQueued = false
+		if newPlatesActive and ProfileWantsPlates() and HostWantsEngine() then
+			StartEngine()
+		end
+	end)
+end
+
+---Game settings an earlier session changed and never gave back (the game closed, or the old plates
+---were picked) go back to the game. Writes nothing when there is nothing to give back.
+local function RestoreLeftovers()
+	local db = P.db
+	if db and (next(db.global.cvarBackup or {}) or next(db.char.cvarBackup or {})) then
+		P.CVars:RestoreAll()
+	end
+end
+
+local function WhenLoggedIn(fn)
+	-- AceAddon enables modules while PLAYER_LOGIN is dispatched, so registering for it here would
+	-- miss it (pitfalls 2026-09-27)
+	if IsLoggedIn() then
+		fn()
+		return
+	end
+	local waiter = CreateFrame('Frame')
+	waiter:RegisterEvent('PLAYER_LOGIN')
+	waiter:SetScript('OnEvent', function(self)
+		self:UnregisterAllEvents()
+		fn()
+	end)
+end
+
+---"Use the old nameplates" (this character). Picking the old ones stops the new plates and gives
+---the game its settings back right away; the old ones come back after a reload. Picking the new
+---ones again starts them at once when the old ones never ran this session, else after a reload.
 ---@param old boolean
 local function SetOldPlates(old)
 	P.Config:SetEngineChoice(old and 'old' or 'new')
 	if old then
 		StopEngine()
 		P.CVars:RestoreAll()
-		Print(L['The old nameplates come back after you reload. Type /rl to reload now.'])
-	else
+		if oldModuleHere then
+			Print(L['The old nameplates come back after you reload. Type /rl to reload now.'])
+		else
+			Print(L['SpartanUI nameplates are off for this character. Type /sui np preview to turn them back on.'])
+		end
+	elseif UsingOldPlates() then
 		Print(L['The new nameplates turn on after you reload. Type /rl to reload now.'])
+	elseif module:IsEnabled() and HostWantsEngine() then
+		if newPlatesActive then
+			MaybeStartEngine()
+		else
+			ActivateNewPlates()
+		end
 	end
 end
 
@@ -438,14 +592,16 @@ local function CinematicPlaying()
 	return (InCinematic and InCinematic()) or (IsInCinematicScene and IsInCinematicScene()) or false
 end
 
----The card is due for the current profile.
+---The card is due for the current profile: its plates were brought over from the old ones, or an
+---existing Retail profile is waiting for the player to turn them on. Shown while another nameplate
+---addon is loaded too, with words about what switching means.
 ---@return boolean
 function Makeover:Due()
 	local state = P.Migrate:MakeoverState()
 	if state ~= 'import' and state ~= 'off' then
 		return false
 	end
-	if UsingOldPlates() or SUI:IsModuleDisabled('Nameplates') then
+	if UsingOldPlates() or OldPicked() or SUI:IsModuleDisabled('Nameplates') then
 		return false
 	end
 	return true
@@ -483,26 +639,25 @@ function Makeover:Pick()
 	P.Migrate:FinishMakeover()
 	P.Store:Set('enabled', true)
 	local conflict = FindConflict()
-	if conflict and conflict ~= SUITE then
-		local character = CharacterName()
-		if character and C_AddOns and C_AddOns.DisableAddOn then
-			for _, folder in ipairs(CONFLICTS) do
-				if C_AddOns.IsAddOnLoaded and C_AddOns.IsAddOnLoaded(folder) then
-					C_AddOns.DisableAddOn(folder, character)
-				end
-			end
-			-- Saved now, so the game's addon list cannot throw the change away
-			if C_AddOns.SaveAddOns then
-				C_AddOns.SaveAddOns()
-			end
-			if ReloadUI then
-				ReloadUI()
-			end
-		end
+	if conflict == SUITE then
+		-- Its nameplates must be turned off in its own settings; ours start once they are
 		return
 	end
-	if conflict == SUITE then
-		return
+	local others = ConflictsToTurnOff()
+	-- This character only, like the setup conflicts step (never every character)
+	local character = Player():NamePlain()
+	if #others > 0 and type(character) == 'string' and character ~= '' and C_AddOns and C_AddOns.DisableAddOn then
+		for _, folder in ipairs(others) do
+			C_AddOns.DisableAddOn(folder, character)
+		end
+		-- Saved now, so the game's addon list cannot throw the change away
+		if C_AddOns.SaveAddOns then
+			C_AddOns.SaveAddOns()
+		end
+		if conflict and ReloadUI then
+			ReloadUI()
+			return
+		end
 	end
 	SUI.Options:OpenTo({ 'Nameplates', 'style' })
 end
@@ -578,7 +733,7 @@ end
 ---Try to show the card: never in combat, during a cinematic or over the setup window. Retries for
 ---a while, then waits for the next login.
 function Makeover:Try()
-	if self.shown or not engineRunning or not self:Due() then
+	if self.shown or not self:Due() then
 		return
 	end
 	local hub = LibAT and LibAT.Setup and LibAT.Setup.Hub
@@ -613,19 +768,24 @@ end
 -- Profiles (6.10)
 ----------------------------------------------------------------------------------------------------
 
+---The nameplate profile follows SpartanUI's profile name, copies, resets and deletes while
+---"Follow my SpartanUI profile" is on. Database callbacks only, so it runs whichever plates are
+---in use; a profile that turns plates on starts the engine through MaybeStartEngine.
 local function FollowHostProfiles()
 	local hostDB = SUI.SpartanUIDB
 	if not hostDB or not hostDB.RegisterCallback then
 		return
 	end
 	local function Following()
-		return engineRunning and P.db and P.db.profile.followHostProfile
+		return P.db and P.db.profile.followHostProfile
 	end
 	hostDB.RegisterCallback(module, 'OnProfileChanged', function()
 		if Following() then
 			P.Store:FollowHostProfile()
-			Makeover.shown = false
-			Makeover:Schedule(3)
+			if newPlatesActive then
+				Makeover.shown = false
+				Makeover:Schedule(3)
+			end
 		end
 	end)
 	hostDB.RegisterCallback(module, 'OnProfileCopied', function(_, _, sourceKey)
@@ -716,7 +876,11 @@ local function ImportProfile(data)
 	for key, value in pairs(data.profile) do
 		profile[key] = Copy(value)
 	end
+	-- Never bring the old plates' settings over this profile, even after a reset
 	profile.migratedFromOld = true
+	local done = type(db.global.migratedFromOld) == 'table' and db.global.migratedFromOld or {}
+	done[db:GetCurrentProfile()] = true
+	db.global.migratedFromOld = done
 	P.Migrate:RunProfile()
 	P.Store:ProfileSwapped(P.ALL_REASONS)
 	if added then
@@ -781,7 +945,7 @@ end
 ----------------------------------------------------------------------------------------------------
 
 local function SetupStepHidden()
-	if UsingOldPlates() or SUI:IsModuleDisabled('Nameplates') then
+	if UsingOldPlates() or OldPicked() or SUI:IsModuleDisabled('Nameplates') then
 		return true
 	end
 	-- A copied or shared profile brings its own nameplate settings
@@ -803,7 +967,8 @@ local function SetupBanner()
 	}
 end
 
----Add the core's look step to SpartanUI's setup, next to the other look steps.
+---Add the core's look step to SpartanUI's setup, next to the other look steps (after the unit
+---frames step, whose "How do you play?" answer gives the role).
 local function AddSetupStep()
 	if module.setupStepAdded or not P.host.AddSetupSteps then
 		return
@@ -888,7 +1053,7 @@ local function AddLaunchControls(tbl)
 			name = L['Use the old nameplates'],
 			desc = L['Go back to the nameplates from before this update, for this character. They will be removed in a later update. You need to reload.'],
 			get = function()
-				return P.Config:GetEngineChoice() == 'old'
+				return OldPicked()
 			end,
 			set = function(_, value)
 				SetOldPlates(value and true or false)
@@ -939,55 +1104,6 @@ local function OfferNewPlates()
 end
 
 ----------------------------------------------------------------------------------------------------
--- Engine start
-----------------------------------------------------------------------------------------------------
-
-local function InstallHostHooks()
-	if hooksInstalled then
-		return
-	end
-	hooksInstalled = true
-	if SUI.Event and SUI.Event.RegisterEvent then
-		SUI.Event:RegisterEvent('ARTWORK_STYLE_CHANGED', PushLook)
-	end
-	if SUI.UI and SUI.UI.Style and SUI.UI.Style.OnAccentChanged then
-		SUI.UI.Style:OnAccentChanged(module, PushLook)
-	end
-	if SUI.Font and SUI.Font.Refresh then
-		hooksecurefunc(SUI.Font, 'Refresh', PushLook)
-	end
-	FollowHostProfiles()
-end
-
-local function StartEngine()
-	if engineRunning then
-		return
-	end
-	engineRunning = true
-	InstallHostHooks()
-	RegisterHostStyle()
-	P.API:SetHostLook(GetHostLook())
-	P:Enable()
-	AddFinishLinks()
-	Makeover:Schedule(MAKEOVER_DELAY)
-end
-
-local function WhenLoggedIn(fn)
-	-- AceAddon enables modules while PLAYER_LOGIN is dispatched, so registering for it here would
-	-- miss it (pitfalls 2026-09-27)
-	if IsLoggedIn() then
-		fn()
-		return
-	end
-	local waiter = CreateFrame('Frame')
-	waiter:RegisterEvent('PLAYER_LOGIN')
-	waiter:SetScript('OnEvent', function(self)
-		self:UnregisterAllEvents()
-		fn()
-	end)
-end
-
-----------------------------------------------------------------------------------------------------
 -- /sui np
 ----------------------------------------------------------------------------------------------------
 
@@ -1019,7 +1135,7 @@ local function Command(args)
 	local cmd, rest = strsplit(' ', args or '', 2)
 	cmd = cmd and cmd:lower() or ''
 	if cmd == 'preview' then
-		SetOldPlates(P.Config:GetEngineChoice() ~= 'old')
+		SetOldPlates(not OldPicked())
 	elseif cmd == 'restore' then
 		if P.CVars:RestoreAll() then
 			Print(L['The game has its nameplate settings back.'])
@@ -1129,6 +1245,25 @@ local function HostConfig()
 	}
 end
 
+---The module runs the new plates this session: looks, settings, Done page links, then (once logged
+---in) the engine when the profile wants plates, and the What's new card.
+ActivateNewPlates = function()
+	if not newPlatesActive then
+		newPlatesActive = true
+		RefreshLook()
+		InstallLookWatchers()
+		RegisterOptions()
+		AddFinishLinks()
+	end
+	WhenLoggedIn(function()
+		loginDone = true
+		if ProfileWantsPlates() then
+			StartEngine()
+		end
+		Makeover:Schedule(MAKEOVER_DELAY)
+	end)
+end
+
 function module:OnInitialize()
 	if oldInitialize then
 		oldInitialize(self)
@@ -1136,38 +1271,45 @@ function module:OnInitialize()
 	P:Initialize(HostConfig())
 	JoinProfileTools()
 	AddSetupStep()
+	FollowHostProfiles()
+	P:On('STORE_CHANGED', MaybeStartEngine, module)
+	P:On('PROFILE_CHANGED', MaybeStartEngine, module)
 end
 
 function module:OnEnable()
-	SUI:AddChatCommand('np', Command, 'Nameplate tools', { preview = 'Switch this character between the new and the old nameplates (reload needed)' }, true)
+	SUI:AddChatCommand('np', Command, 'Nameplate tools', { preview = 'Switch this character between the new and the old nameplates' }, true)
 	RegisterProfileManager()
 	local wants, reason = HostWantsEngine()
 	if not wants then
-		if reason and reason ~= 'old' then
-			P.log.info('The new nameplates are not started: ' .. reason)
+		newPlatesActive = false
+		if reason ~= 'old' and reason ~= 'switching' then
+			P.log.info('The new nameplates are not started: ' .. tostring(reason))
 		end
-		-- Anything a session that ended badly left behind goes back to the game
-		local db = P.db
-		if db and (next(db.global.cvarBackup or {}) or next(db.char.cvarBackup or {})) then
-			P.CVars:RestoreAll()
-		end
-		if oldEnable then
+		RestoreLeftovers()
+		-- The old plates run only for a session that started on them
+		if reason == 'old' and oldEnable then
 			oldEnable(self)
-			if reason == 'old' then
-				OfferNewPlates()
-			end
+			OfferNewPlates()
+		end
+		-- Another nameplate addon: the card says what switching means
+		if reason and reason:find('^conflict:') then
+			WhenLoggedIn(function()
+				Makeover:Schedule(MAKEOVER_DELAY)
+			end)
 		end
 		return
 	end
-	RegisterOptions()
-	WhenLoggedIn(StartEngine)
+	ActivateNewPlates()
 end
 
 function module:OnDisable()
+	newPlatesActive = false
 	if engineRunning then
 		StopEngine()
 		return
 	end
+	-- Turning the module off gives back anything an earlier session left behind
+	RestoreLeftovers()
 	-- The old module's OnDisable assumes its own options exist
 	if oldDisable and SUI.opt and SUI.opt.args.Modules and SUI.opt.args.Modules.args.Nameplates then
 		oldDisable(self)
