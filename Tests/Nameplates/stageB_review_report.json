@@ -1,0 +1,530 @@
+{
+  "findingIds": "F01-F53 are assigned in the order of stageB_findings.json, which has no id field.",
+  "dispositions": [
+    {
+      "id": "F01",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Plate.lua",
+      "line": 535,
+      "status": "fixed now"
+    },
+    {
+      "id": "F02",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 1422,
+      "status": "fixed now"
+    },
+    {
+      "id": "F03",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Parts/Health.lua",
+      "line": 715,
+      "status": "already fixed"
+    },
+    {
+      "id": "F04",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 1526,
+      "status": "fixed now"
+    },
+    {
+      "id": "F05",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Parts/AurasScan.lua",
+      "line": 1116,
+      "status": "fixed now"
+    },
+    {
+      "id": "F06",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Parts/Threat.lua",
+      "line": 342,
+      "status": "fixed now"
+    },
+    {
+      "id": "F07",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Conditions.lua",
+      "line": 296,
+      "status": "fixed now"
+    },
+    {
+      "id": "F08",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 1276,
+      "status": "fixed now"
+    },
+    {
+      "id": "F09",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Plate.lua",
+      "line": 589,
+      "status": "fixed now"
+    },
+    {
+      "id": "F10",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Scheduler.lua",
+      "line": 98,
+      "status": "fixed now"
+    },
+    {
+      "id": "F11",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 714,
+      "status": "fixed now"
+    },
+    {
+      "id": "F12",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 887,
+      "status": "fixed now"
+    },
+    {
+      "id": "F13",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Colors.lua",
+      "line": 608,
+      "status": "already fixed"
+    },
+    {
+      "id": "F14",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Caps.lua",
+      "line": 286,
+      "status": "fixed now"
+    },
+    {
+      "id": "F15",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Styles/Schema.lua",
+      "line": 91,
+      "status": "already fixed"
+    },
+    {
+      "id": "F16",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Parts/Health.lua",
+      "line": 280,
+      "status": "fixed now"
+    },
+    {
+      "id": "F17",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 1061,
+      "status": "fixed now"
+    },
+    {
+      "id": "F18",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Data/CrowdControl.lua",
+      "line": 88,
+      "status": "fixed now"
+    },
+    {
+      "id": "F19",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Data/TankDebuffs.lua",
+      "line": 63,
+      "status": "already fixed"
+    },
+    {
+      "id": "F20",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Data/CrowdControl.lua",
+      "line": 137,
+      "status": "fixed now"
+    },
+    {
+      "id": "F21",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Data/ClassicChannels.lua",
+      "line": 31,
+      "status": "fixed now"
+    },
+    {
+      "id": "F22",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Data/CrowdControl.lua",
+      "line": 224,
+      "status": "fixed now"
+    },
+    {
+      "id": "F23",
+      "file": "Modules/Nameplates/Engine/Parts/Cast.lua",
+      "line": 155,
+      "status": "already fixed"
+    },
+    {
+      "id": "F24",
+      "file": "Modules/Nameplates/Engine/Plate.lua",
+      "line": 291,
+      "status": "already fixed"
+    },
+    {
+      "id": "F25",
+      "file": "Modules/Nameplates/Engine/Scheduler.lua",
+      "line": 98,
+      "status": "already fixed"
+    },
+    {
+      "id": "F26",
+      "file": "Modules/Nameplates/Engine/Plate.lua",
+      "line": 621,
+      "status": "already fixed"
+    },
+    {
+      "id": "F27",
+      "file": "Modules/Nameplates/Engine/Parts/Cast.lua",
+      "line": 1267,
+      "status": "already fixed"
+    },
+    {
+      "id": "F28",
+      "file": "Modules/Nameplates/Engine/Driver.lua",
+      "line": 1678,
+      "status": "already fixed"
+    },
+    {
+      "id": "F29",
+      "file": "Modules/Nameplates/Engine/Parts/Region.lua",
+      "line": 40,
+      "status": "already fixed"
+    },
+    {
+      "id": "F30",
+      "file": "Modules/Nameplates/Engine/Plate.lua",
+      "line": 786,
+      "status": "already fixed"
+    },
+    {
+      "id": "F31",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 1875,
+      "status": "already fixed"
+    },
+    {
+      "id": "F32",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Source.lua",
+      "line": 478,
+      "status": "already fixed"
+    },
+    {
+      "id": "F33",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 1061,
+      "status": "already fixed"
+    },
+    {
+      "id": "F34",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Engine/Driver.lua",
+      "line": 885,
+      "status": "fixed now"
+    },
+    {
+      "id": "F35",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Colors.lua",
+      "line": 608,
+      "status": "already fixed"
+    },
+    {
+      "id": "F36",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Styles/Schema.lua",
+      "line": 91,
+      "status": "already fixed"
+    },
+    {
+      "id": "F37",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Caps.lua",
+      "line": 286,
+      "status": "fixed now"
+    },
+    {
+      "id": "F38",
+      "file": "C:/code/SpartanUI.worktrees/nameplates/Modules/Nameplates/Core/Colors.lua",
+      "line": 456,
+      "status": "rejected",
+      "reason": "The engine contract explicitly defers these kinds until the Colors page edits their spell lists; the concurrent editor still has no such control."
+    },
+    {
+      "id": "F39",
+      "file": "Modules/Nameplates/Engine/Driver.lua",
+      "line": 1422,
+      "status": "fixed now"
+    },
+    {
+      "id": "F40",
+      "file": "Modules/Nameplates/Engine/Driver.lua",
+      "line": 758,
+      "status": "already fixed"
+    },
+    {
+      "id": "F41",
+      "file": "Modules/Nameplates/Engine/Source.lua",
+      "line": 580,
+      "status": "fixed now"
+    },
+    {
+      "id": "F42",
+      "file": "Modules/Nameplates/Engine/Parts/AurasScan.lua",
+      "line": 1051,
+      "status": "fixed now"
+    },
+    {
+      "id": "F43",
+      "file": "Modules/Nameplates/Engine/Parts/Glow.lua",
+      "line": 682,
+      "status": "fixed now"
+    },
+    {
+      "id": "F44",
+      "file": "Modules/Nameplates/Engine/Parts/Threat.lua",
+      "line": 271,
+      "status": "already fixed"
+    },
+    {
+      "id": "F45",
+      "file": "Modules/Nameplates/Engine/Source.lua",
+      "line": 335,
+      "status": "already fixed"
+    },
+    {
+      "id": "F46",
+      "file": "Modules/Nameplates/Engine/Pool.lua",
+      "line": 31,
+      "status": "already fixed"
+    },
+    {
+      "id": "F47",
+      "file": "Modules/Nameplates/Engine/Parts/AurasScan.lua",
+      "line": 758,
+      "status": "already fixed"
+    },
+    {
+      "id": "F48",
+      "file": "Tests/Nameplates/suites/bench_spec.lua",
+      "line": 215,
+      "status": "fixed now"
+    },
+    {
+      "id": "F49",
+      "file": "Modules/Nameplates/Data/CrowdControl.lua",
+      "line": 230,
+      "status": "already fixed"
+    },
+    {
+      "id": "F50",
+      "file": "Modules/Nameplates/Data/TankDebuffs.lua",
+      "line": 63,
+      "status": "already fixed"
+    },
+    {
+      "id": "F51",
+      "file": "Modules/Nameplates/Data/Kicks.lua",
+      "line": 84,
+      "status": "already fixed"
+    },
+    {
+      "id": "F52",
+      "file": "Modules/Nameplates/Data/CrowdControl.lua",
+      "line": 146,
+      "status": "already fixed"
+    },
+    {
+      "id": "F53",
+      "file": "Modules/Nameplates/Data/ (Kicks, CrowdControl, TankDebuffs, ClassicChannels, Totems)",
+      "line": null,
+      "status": "rejected",
+      "reason": "Coverage and in-game validation note, with no identified code defect."
+    }
+  ],
+  "filesChangedThisPass": [
+    ".context/nameplates.md",
+    "Modules/Nameplates/Core/Colors.lua",
+    "Modules/Nameplates/Core/Conditions.lua",
+    "Modules/Nameplates/Data/ClassicChannels.lua",
+    "Modules/Nameplates/Data/CrowdControl.lua",
+    "Modules/Nameplates/Engine/Driver.lua",
+    "Modules/Nameplates/Engine/Plate.lua",
+    "Modules/Nameplates/Engine/Scheduler.lua",
+    "Modules/Nameplates/Engine/Source.lua",
+    "Modules/Nameplates/Engine/Parts/AurasContainer.lua",
+    "Modules/Nameplates/Engine/Parts/AurasScan.lua",
+    "Modules/Nameplates/Engine/Parts/Bar.lua",
+    "Modules/Nameplates/Engine/Parts/Glow.lua",
+    "Modules/Nameplates/Engine/Parts/Health.lua",
+    "Modules/Nameplates/Engine/Parts/Text.lua",
+    "Modules/Nameplates/Engine/Parts/Threat.lua",
+    "Modules/Nameplates/Engine/Parts/Cast.lua",
+    "Tests/Nameplates/harness/wowmock.lua",
+    "Tests/Nameplates/suites/engine_fixes_spec.lua",
+    "Tests/Nameplates/suites/driver_spec.lua",
+    "Tests/Nameplates/suites/emphasis_spec.lua",
+    "Tests/Nameplates/suites/threat_spec.lua",
+    "Tests/Nameplates/suites/cast_spec.lua",
+    "Tests/Nameplates/suites/health_spec.lua",
+    "Tests/Nameplates/suites/store_spec.lua",
+    "Tests/Nameplates/suites/text_spec.lua",
+    "Tests/Nameplates/suites/bench_spec.lua",
+    "Tests/Nameplates/stageB_review_report.json"
+  ],
+  "previousFixesPreserved": [
+    "Modules/Nameplates/Core/Caps.lua",
+    "Modules/Nameplates/Core/Colors.lua",
+    "Modules/Nameplates/Core/Secret.lua",
+    "Modules/Nameplates/Core/Styles/Schema.lua",
+    "Modules/Nameplates/Data/CrowdControl.lua",
+    "Modules/Nameplates/Data/Kicks.lua",
+    "Modules/Nameplates/Data/TankDebuffs.lua",
+    "Modules/Nameplates/Engine/Driver.lua",
+    "Modules/Nameplates/Engine/Parts/AurasScan.lua",
+    "Modules/Nameplates/Engine/Parts/Cast.lua",
+    "Modules/Nameplates/Engine/Parts/Glow.lua",
+    "Modules/Nameplates/Engine/Parts/Health.lua",
+    "Modules/Nameplates/Engine/Parts/Region.lua",
+    "Modules/Nameplates/Engine/Parts/Text.lua",
+    "Modules/Nameplates/Engine/Parts/Threat.lua",
+    "Modules/Nameplates/Engine/Plate.lua",
+    "Modules/Nameplates/Engine/Pool.lua",
+    "Modules/Nameplates/Engine/Scheduler.lua",
+    "Modules/Nameplates/Engine/Source.lua",
+    "Modules/Nameplates/Engine/Suppress.lua",
+    "Tests/Nameplates/suites/auras_scan_spec.lua"
+  ],
+  "validation": {
+    "lint": {
+      "files": 71,
+      "findings": 0,
+      "selfTestFailures": 0
+    },
+    "gitDiffCheck": "passed",
+    "defaultRun": {
+      "command": "python Tests/Nameplates/run.py",
+      "code": 1,
+      "totals": {
+        "retail": {
+          "pass": 36,
+          "fail": 42,
+          "skip": 0
+        },
+        "forever": {
+          "pass": 36,
+          "fail": 42,
+          "skip": 0
+        },
+        "mists": {
+          "pass": 34,
+          "fail": 42,
+          "skip": 2
+        },
+        "titan": {
+          "pass": 34,
+          "fail": 42,
+          "skip": 2
+        },
+        "tbc": {
+          "pass": 34,
+          "fail": 42,
+          "skip": 2
+        },
+        "era": {
+          "pass": 34,
+          "fail": 42,
+          "skip": 2
+        }
+      },
+      "limitation": "Installed Python lacks lupa. Offline network prevents installing it. Lua51 jobs fail at import before testing."
+    },
+    "diagnosticFullRun": {
+      "command": "python Tests/Nameplates/run.py --runtime luals",
+      "code": 1,
+      "totals": {
+        "retail": {
+          "pass": 1321,
+          "fail": 2,
+          "skip": 28
+        },
+        "forever": {
+          "pass": 1318,
+          "fail": 2,
+          "skip": 31
+        },
+        "mists": {
+          "pass": 1289,
+          "fail": 3,
+          "skip": 28
+        },
+        "titan": {
+          "pass": 1287,
+          "fail": 3,
+          "skip": 30
+        },
+        "tbc": {
+          "pass": 1286,
+          "fail": 3,
+          "skip": 31
+        },
+        "era": {
+          "pass": 1286,
+          "fail": 3,
+          "skip": 31
+        }
+      },
+      "limitation": "Concurrent Host and UI edits affected formatting and host tests. The scanner expectation was corrected after this run."
+    },
+    "ownedDiagnosticRun": {
+      "command": "run.py with exact owned-suite selection, --runtime luals --skip-stylua",
+      "suites": [
+        "engine_fixes_spec.lua",
+        "engine_spec_spec.lua",
+        "bench_spec.lua",
+        "driver_spec.lua",
+        "e2e_engine_spec.lua",
+        "health_spec.lua",
+        "text_spec.lua",
+        "threat_spec.lua",
+        "auras_container_spec.lua",
+        "auras_scan_spec.lua",
+        "cast_spec.lua",
+        "classpower_spec.lua",
+        "colors_spec.lua",
+        "situation_spec.lua",
+        "region_spec.lua",
+        "emphasis_spec.lua",
+        "cvars_spec.lua",
+        "share_spec.lua",
+        "store_spec.lua",
+        "config_spec.lua",
+        "styles_spec.lua"
+      ],
+      "code": 0,
+      "totals": {
+        "retail": {
+          "pass": 640,
+          "fail": 0,
+          "skip": 26
+        },
+        "forever": {
+          "pass": 635,
+          "fail": 0,
+          "skip": 31
+        },
+        "mists": {
+          "pass": 614,
+          "fail": 0,
+          "skip": 21
+        },
+        "titan": {
+          "pass": 612,
+          "fail": 0,
+          "skip": 23
+        },
+        "tbc": {
+          "pass": 611,
+          "fail": 0,
+          "skip": 24
+        },
+        "era": {
+          "pass": 611,
+          "fail": 0,
+          "skip": 24
+        }
+      },
+      "format": "Owned Lua files passed stylua --check separately.",
+      "total": {
+        "pass": 3723,
+        "fail": 0,
+        "skip": 149,
+        "runs": 120
+      }
+    }
+  },
+  "openValidation": [
+    "Full Lua51 verification requires a locally available lupa installation.",
+    "Concurrent Host/UI changes need their owners to complete formatting and update host lifecycle tests."
+  ]
+}

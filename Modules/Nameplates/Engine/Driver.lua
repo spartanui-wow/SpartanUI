@@ -20,8 +20,10 @@ local Secret = P.Secret
 --      gives back a pooled unit frame we silenced before, nothing draws, return (mode 'self').
 --      Otherwise P.Suppress:Apply(base, plate, facts) (again on every add: Blizzard pools its
 --      UnitFrame).
---   3. widget-only plates and game objects: draw nothing (the rescued widget container and
---      soft-target icon stay on the base), return (mode 'widgets'). Otherwise the plate's own fact
+--      Game objects (interact objects) are left to Blizzard the same way (mode 'blizzard'): its
+--      own plate for them is a name, which ours would hide.
+--   3. widget-only plates: draw nothing (the rescued widget container and soft-target icon stay
+--      on the base), return (mode 'widgets'). Otherwise the plate's own fact
 --      frame follows UNIT_FACTION / UNIT_CLASSIFICATION_CHANGED and, where Caps 'simplified',
 --      C_NamePlateManager.SetNamePlateSimplified(unit, false) explicitly (our Mini style replaces
 --      the engine's shrink; S8). Quirk 'engineSimplified' (S8 fallback) passes true for minor
@@ -35,7 +37,8 @@ local Secret = P.Secret
 --      rect's bottom sits on the base's bottom edge; hostile plates hang from the base TOP when
 --      nameplateOtherAtBase puts them under units, friendly and neutral ones never move; CVAR_UPDATE
 --      for that setting and UNIT_FACTION move plates again).
---   6. plate:Bind(unit, src): RegisterUnitEvent for the union of its parts' events, full update
+--   6. plate:Bind(unit, src): RegisterUnitEvent for the union of its parts' events, full update;
+--      base:SetStackingBoundsFrame(plate.stack) again (pcall)
 --   7. click frame: ClearAllHitTestPoints + SetAllHitTestPoints(plate.click) only when
 --      base:CanChangeHitTestPoints() is true (in combat tainted code may do this only on the add
 --      tick; out of combat also when catching up or showing a hidden kind again). Blizzard's own
@@ -56,12 +59,14 @@ local Secret = P.Secret
 --     readable answers set the state, hidden ones go to plate:SetStateSecret (state-tied parts
 --     fade by SetAlphaFromBoolean; target growth and the fade of other plates are off then, so
 --     P.Context.hasTarget stays false). A plate that got a hidden answer gets its state-tied parts
---     back at full alpha before the next plain answer (SetPlateState). Mouseover leave: a 0.1 s
---     Scheduler task only while something is moused over; while a mouse button is held mouseover
---     reads as gone, so it waits for GLOBAL_MOUSE_UP before clearing. Fires TARGET_CHANGED /
---     FOCUS_CHANGED / MOUSEOVER_CHANGED.
+--     back at their own alpha before the next plain answer (SetPlateState). Mouseover leave: a
+--     0.1 s Scheduler task only while something is moused over; while a mouse button is held
+--     mouseover reads as gone, so it waits for GLOBAL_MOUSE_UP before clearing. Fires
+--     TARGET_CHANGED / FOCUS_CHANGED / MOUSEOVER_CHANGED on the bus; plates hear it only when
+--     their state changed (the plate that lost it and the one that got it), or every plate when
+--     hidden answers were involved.
 --   RAID_TARGET_UPDATE -> RAID_TARGET_UPDATE to bound plates.
---   GROUP_ROSTER_UPDATE, PLAYER_ROLES_ASSIGNED, UNIT_PET, PLAYER_SPECIALIZATION_CHANGED,
+--   GROUP_ROSTER_UPDATE, PLAYER_ROLES_ASSIGNED, UNIT_PET (the player's pet only), PLAYER_SPECIALIZATION_CHANGED,
 --     ACTIVE_TALENT_GROUP_CHANGED, PLAYER_LEVEL_UP, PLAYER_UPDATE_RESTING: context re-read on the
 --     next frame (coalesced); TANKS_CHANGED when the other tanks changed, CONTEXT_CHANGED when
 --     anything else in P.Context changed.
@@ -75,7 +80,9 @@ local Secret = P.Secret
 --   ADDON_RESTRICTION_STATE_CHANGED (and combat edges): RESTRICTION_CHANGED(P.Secret.IsRestricted())
 --     When it lifts (and on PLAYER_REGEN_ENABLED) Driver:FlushPendingConfigure() runs Configure on
 --     every plate marked pendingConfigure, and the Pool resumes its pre-warm.
---   QUEST_LOG_UPDATE -> isQuest re-read on every plate at most twice a second, QUESTS_CHANGED.
+--   QUEST_LOG_UPDATE -> isQuest re-read on every plate at most twice a second, QUEST_BUDGET plates
+--     per 0.1 s tick (each read is a tooltip); each plate gets QUESTS_CHANGED after its read, the
+--     bus once all are done.
 --   ARENA_OPPONENT_UPDATE -> plate.arenaIndex (1-5 from GetNamePlateForUnit('arenaN') frame
 --     compare, pcall, arenas only; S18) and ARENA_CHANGED (bus and bound plates) when any index
 --     moved. Text draws the labels (its arena source reads src:ArenaIndexPlain).
@@ -89,10 +96,12 @@ local Secret = P.Secret
 --   when range fade is on; re-runs Assign only when plate.assignment.deps has the fact; sends
 --   FACTS_POLLED to the plate (also when the combat flag stays hidden, so engine color rows keep up).
 -- STORE_CHANGED(reasons): profile.enabled, place settings, plate size, RefreshAll(reasons).
--- CONTEXT_CHANGED and TANKS_CHANGED (listeners below): Colors drops its programs first (its
---   listener loads earlier), then every plate gets Reassign (place and role can change the
---   style or the Show mode) and Refresh({ colors = true }), and the message is delivered to bound
---   plates through Plate:OnMessage (parts list it in impl.messages).
+-- CONTEXT_CHANGED(keys) and TANKS_CHANGED (listeners below; keys is the set of P.Context keys
+--   that changed): Colors drops its programs first when the role changed (its listener loads
+--   earlier); plates get Reassign only while a "When" entry is on, and Refresh({ colors = true })
+--   only when Colors:ReadsContext(keys); the message (with keys) is delivered to bound plates
+--   through Plate:OnMessage (parts list it in impl.messages). TANKS_CHANGED is only delivered.
+--   Combat edges therefore cost one message per listening part and no event map rebuilds.
 -- profile.enabled = false: the Driver stands down for that profile: every plate unbinds, Blizzard
 --   plates are no longer suppressed, the click and stacking frames cover the whole base again,
 --   place settings, plate size and insets go back, and no plate binds until a STORE_CHANGED
@@ -149,7 +158,7 @@ P.Driver = Driver
 
 local weak = { __mode = 'k' }
 local sources = setmetatable({}, weak) -- plate -> LiveSource (kept across adds)
-local modes = setmetatable({}, weak) -- plate -> 'drawn' | 'hidden' | 'widgets' | 'self'
+local modes = setmetatable({}, weak) -- plate -> 'drawn' | 'hidden' | 'widgets' | 'self' | 'blizzard'
 local factFrames = setmetatable({}, weak) -- plate -> frame for UNIT_FACTION / UNIT_CLASSIFICATION_CHANGED
 local framePlate = setmetatable({}, weak) -- fact frame -> plate
 local listIndex = setmetatable({}, weak) -- plate -> index in Driver.list
@@ -193,6 +202,7 @@ local PIN_CVARS = { 'nameplateMinScale', 'nameplateMaxScale', 'nameplateSelected
 local CONTEXT_KEYS = { 'place', 'instanceType', 'difficultyID', 'inInstance', 'inCombat', 'resting', 'role', 'inGroup', 'groupSize', 'petTank', 'playerLevel', 'challengeActive' }
 local lastContext = {}
 local lastTanks = {}
+local changedKeys = {} -- keys of the last ReadContext that changed (reused)
 
 ----------------------------------------------------------------------------------------------------
 -- Small helpers
@@ -318,8 +328,8 @@ function Driver:CountBound()
 	return count
 end
 
----How a plate is shown: 'drawn', 'hidden' (Show mode), 'widgets' (widget-only or game object),
----'self' (the player's own plate, left to Blizzard), nil.
+---How a plate is shown: 'drawn', 'hidden' (Show mode), 'widgets' (widget-only), 'self' (the
+---player's own plate, left to Blizzard), 'blizzard' (a game object, left to Blizzard), nil.
 ---@param plate Plates.Plate
 ---@return string|nil
 function Driver:ModeOf(plate)
@@ -659,6 +669,28 @@ function Driver:BindClick(plate)
 	return set and true or false
 end
 
+local function RebindAll()
+	for plate in pairs(Driver.bound) do
+		Driver:BindClick(plate)
+	end
+end
+
+---Give every drawn plate its click area again after Blizzard set its own (UpdateNamePlateOptions:
+---options, display size, nameplate settings; UpdateShowOnlyName). Now when combat allows it,
+---else once combat ends; a plate added meanwhile binds on its own add tick.
+function Driver:RebindClicks()
+	if not P.Caps:Get('hitTest') then
+		return
+	end
+	P.Scheduler:AfterCombat('Driver.click', RebindAll)
+end
+
+local function RebindSoon()
+	if Driver.active then
+		Driver:RebindClicks()
+	end
+end
+
 ---Click and stacking frames cover the whole base again (standing down): Blizzard's plates keep
 ---taking clicks and stacking until their next add sets them up.
 ---@param plate Plates.Plate
@@ -684,8 +716,8 @@ end
 local secretAnswered = setmetatable({}, weak) -- plate -> { [state] = true } set from hidden answers (S4)
 
 ---Set a plain state on a plate. A state the plate last got as a hidden answer first gets its
----state-tied parts back at full alpha (SetStateSecret faded them through the engine), so a later
----plain answer never shows a part that is still faded out.
+---state-tied parts back at their own alpha (SetStateSecret faded them through the engine), so a
+---later plain answer never shows a part that is still faded out.
 ---@param plate Plates.Plate
 ---@param state string
 ---@param on boolean
@@ -810,7 +842,21 @@ function Driver:UpdateState(state)
 			P.Scheduler:Cancel('Driver.mouseover')
 		end
 	end
-	self:Relay(STATE_MESSAGES[state])
+	local message = STATE_MESSAGES[state]
+	if secret or wasHidden then
+		-- Every plate may have a new answer (hidden answers, or plain ones after hidden ones)
+		self:Relay(message)
+		return
+	end
+	-- Plain answers: only the plate that lost the state and the one that got it changed (the
+	-- conditions and parts that listen read the plate's own state), so only they hear about it
+	P:Fire(message)
+	if prev and prev ~= plate and self.bound[prev] then
+		prev:OnMessage(message)
+	end
+	if plate then
+		plate:OnMessage(message)
+	end
 end
 
 ---P.Context.hasTarget drives the fade of other plates; every plate re-applies its emphasis.
@@ -882,8 +928,7 @@ function Driver:UpdateFade(plate)
 	end
 end
 
----Pick how range is read for range fade (S9): LibRangeCheck-3.0 when present, else the
----interrupt's own range, else off.
+---Pick the requested distance from the range library; fade is off without a checker.
 function Driver:UpdateRangeChecker()
 	self.rangeChecker, self.rangeHow = nil, nil
 	local alpha = self:Behavior('rangeFade')
@@ -900,15 +945,6 @@ function Driver:UpdateRangeChecker()
 			self.rangeChecker, self.rangeHow = checker, 'library'
 			return
 		end
-	end
-	local spell = P.Context.kickSpell
-	local IsSpellInRange = C_Spell and C_Spell.IsSpellInRange
-	if spell and IsSpellInRange then
-		self.rangeChecker = function(unit)
-			return IsSpellInRange(spell, unit)
-		end
-		self.rangeHow = 'spell'
-		return
 	end
 	self.rangeAlpha = nil
 end
@@ -930,7 +966,7 @@ function Driver:FeatureState(id)
 	local CVars = P.CVars
 	if id == 'rangeFade' then
 		local lib = LibStub and LibStub('LibRangeCheck-3.0', true)
-		if lib or (C_Spell and C_Spell.IsSpellInRange and P.Context.kickSpell) then
+		if lib and lib.GetHarmMaxChecker then
 			if not P.Caps:Get('rangeReadable') then
 				return false, L['The game hides how far away enemies are here, so plates do not fade.']
 			end
@@ -1058,8 +1094,15 @@ function Driver:Show(plate, base, unit)
 		P.Suppress:Release(base)
 		return
 	end
+	if facts.isGameObject or facts.widgetsOnly then
+		-- Blizzard's plate for an interact object is its name: leave it to Blizzard
+		modes[plate] = facts.widgetsOnly and 'widgets' or 'blizzard'
+		plate.root:Hide()
+		P.Suppress:Release(base)
+		return
+	end
 	P.Suppress:Apply(base, plate, facts)
-	if facts.widgetsOnly or facts.isGameObject then
+	if facts.widgetsOnly then
 		modes[plate] = 'widgets'
 		plate.root:Hide()
 		return
@@ -1093,6 +1136,12 @@ function Driver:Present(plate)
 		plate.ping:SetAttribute('unit', unit)
 	end
 	plate:Bind(unit, sources[plate])
+	-- Hand the stacking frame over again on every add (cheap; Blizzard sets its plates up on each
+	-- add and must keep stacking by our frame)
+	local base = plate.base
+	if base and base.SetStackingBoundsFrame and plate.stack then
+		pcall(base.SetStackingBoundsFrame, base, plate.stack)
+	end
 	-- Legal on the add tick, and out of combat (catching up, a hidden kind shown again); BindClick
 	-- asks CanChangeHitTestPoints itself
 	self:BindClick(plate)
@@ -1273,7 +1322,8 @@ function Driver:PollPlate(plate)
 	if not self.bound[plate] then
 		return
 	end
-	if changed or (facts.inCombat == nil and plate.messageWidgets.FACTS_POLLED) then
+	local combatColors = P.Colors:Program('health').readsCombat or P.Colors:Program('border').readsCombat
+	if changed or (facts.inCombat == nil and combatColors) then
 		plate:OnMessage('FACTS_POLLED')
 	end
 	if self.onlyFighting and facts.inCombat == nil and FIGHT_KINDS[plate.situation] then
@@ -1334,11 +1384,13 @@ end
 -- Context
 ----------------------------------------------------------------------------------------------------
 
----Read P.Context from the game. Returns whether anything changed since the last read, and
----whether the other tanks changed.
+---Read P.Context from the game. Returns whether anything changed since the last read, whether
+---the other tanks changed, and the set of context keys that changed (a reused table: read it
+---during the CONTEXT_CHANGED it rides on, never keep it).
 ---@param inCombat? boolean Combat state from a combat edge event
 ---@return boolean changed
 ---@return boolean tanksChanged
+---@return table<string, boolean> keys
 function Driver:ReadContext(inCombat)
 	local ctx = P.Context
 	P.Situation.ReadPlace(ctx)
@@ -1347,11 +1399,13 @@ function Driver:ReadContext(inCombat)
 		ctx.inCombat = inCombat
 	end
 	local changed = false
+	P.util.Wipe(changedKeys)
 	for i = 1, #CONTEXT_KEYS do
 		local key = CONTEXT_KEYS[i]
 		if lastContext[key] ~= ctx[key] then
 			lastContext[key] = ctx[key]
 			changed = true
+			changedKeys[key] = true
 		end
 	end
 	local tanks = ctx.tanks or EMPTY
@@ -1365,7 +1419,7 @@ function Driver:ReadContext(inCombat)
 	for i = #tanks + 1, #lastTanks do
 		lastTanks[i] = nil
 	end
-	return changed, tanksChanged
+	return changed, tanksChanged, changedKeys
 end
 
 ---Sources use pcall in arenas and battlegrounds on clients with secrets (restricted PvP tokens).
@@ -1388,7 +1442,7 @@ end
 ---@param inCombat? boolean
 function Driver:ContextEvent(inCombat)
 	local placeBefore = P.Context.place
-	local changed, tanksChanged = self:ReadContext(inCombat)
+	local changed, tanksChanged, keys = self:ReadContext(inCombat)
 	self:UpdateGuard()
 	if not self.standing then
 		return
@@ -1401,7 +1455,7 @@ function Driver:ContextEvent(inCombat)
 	if changed then
 		self:ApplyPlaceSettings()
 		self:ApplyInsets()
-		P:Fire('CONTEXT_CHANGED')
+		P:Fire('CONTEXT_CHANGED', keys)
 	end
 	if tanksChanged then
 		P:Fire('TANKS_CHANGED')
@@ -1417,16 +1471,28 @@ function Driver:QueueContext()
 	P.Scheduler:NextFrame('Driver.context', ContextNow)
 end
 
----Place, combat, role or the other tanks changed: re-pick styles, rebuild colors and tell parts.
----@param message string
-function Driver:ContextChanged(message)
-	for plate in pairs(self.units) do
-		self:Reevaluate(plate)
-		if self.bound[plate] then
-			plate:Refresh(COLORS)
+---Only assignments and color programs that read a changed context key are revisited.
+function Driver:ContextChanged(message, keys)
+	if message ~= 'TANKS_CHANGED' then
+		for plate in pairs(self.units) do
+			local reassign = keys == nil
+			if keys then
+				for key in pairs(keys) do
+					if plate.assignment.deps[key] then
+						reassign = true
+						break
+					end
+				end
+			end
+			if reassign then
+				self:Reevaluate(plate)
+			end
+			if self.bound[plate] and not plate:EventMapsCurrent() then
+				plate:RebuildEvents()
+			end
 		end
 	end
-	self:Broadcast(message)
+	self:Broadcast(message, keys)
 end
 
 ---Fire a message on the bus and deliver it to every bound plate.
@@ -1503,6 +1569,7 @@ end
 ---task only, never from cooldown events.
 ---@param fromTick boolean
 function Driver:CheckKick(fromTick)
+	P.Conditions.RefreshKick()
 	local spell = P.Context.kickSpell
 	local ready = false
 	if spell then
@@ -1522,21 +1589,59 @@ function Driver:CheckKick(fromTick)
 	end
 end
 
----isQuest again on every plate (quest log changed), then QUESTS_CHANGED.
+Driver.QUEST_BUDGET = 8 -- plates whose quest state is read again per tick (each read is a tooltip)
+
+local questQueue = {} -- plates waiting for their quest read (reused list)
+local questQueued = setmetatable({}, weak)
+local QuestStepTick
+
+---isQuest again on every plate (quest log changed). The reads are spread over ticks
+---(QUEST_BUDGET plates each), each plate hears QUESTS_CHANGED right after its own read, and the
+---bus hears it once every plate is done.
 function Driver:QuestsChanged()
+	P.Source.ClearQuestCache()
 	P.Scheduler:Cancel('Driver.quests')
 	for plate in pairs(self.units) do
+		if not questQueued[plate] then
+			questQueued[plate] = true
+			questQueue[#questQueue + 1] = plate
+		end
+	end
+	self:QuestStep()
+end
+
+---Read the next few plates' quest state (Driver:QuestsChanged).
+function Driver:QuestStep()
+	local done = 0
+	while questQueue[1] and done < self.QUEST_BUDGET do
+		local plate = table.remove(questQueue)
+		questQueued[plate] = nil
 		local src = sources[plate]
-		if src and Assignable(plate) then
+		if src and self.units[plate] and Assignable(plate) then
+			done = done + 1
 			local facts = plate.facts
 			local before = facts.isQuest
-			facts.isQuest = facts.questBoss or src:QuestPlain() or nil
+			facts.isQuest = facts.questBoss or (not facts.isPlayer and src:QuestCachedPlain()) or nil
 			if before ~= facts.isQuest and plate.assignment.deps.isQuest then
 				self:Reevaluate(plate)
 			end
+			if before ~= facts.isQuest and self.bound[plate] then
+				plate:OnMessage('QUESTS_CHANGED')
+			end
 		end
 	end
-	self:Relay('QUESTS_CHANGED')
+	if questQueue[1] then
+		if not P.Scheduler:IsRunning('Driver.questStep') then
+			P.Scheduler:Every('Driver.questStep', 0, QuestStepTick)
+		end
+		return
+	end
+	P.Scheduler:Cancel('Driver.questStep')
+	P:Fire('QUESTS_CHANGED')
+end
+
+QuestStepTick = function()
+	Driver:QuestStep()
 end
 
 local function QuestsNow()
@@ -1675,7 +1780,11 @@ local function Collect()
 	if HiddenEverywhere('friendlyNPC') then
 		wantValues.nameplateShowFriendlyNpcs = false
 	end
-	if HiddenEverywhere('enemyNPC') and HiddenEverywhere('enemyPlayer') then
+	-- The enemy setting also makes the game's plates for minor enemies (totems, pets, minus mobs):
+	-- only turn it off when those are hidden everywhere too. There is no setting for "every enemy
+	-- but the minor ones", so with minor enemies shown the game keeps making enemy plates and the
+	-- Driver leaves the hidden kinds undrawn.
+	if HiddenEverywhere('enemyNPC') and HiddenEverywhere('enemyPlayer') and HiddenEverywhere('minor') then
 		wantValues.nameplateShowEnemies = false
 	end
 	if HiddenEverywhere('minor') then
@@ -1805,8 +1914,12 @@ function Driver:StandDown()
 	for _, plate in pairs(self.byBase) do
 		CoverBase(plate)
 	end
-	for _, id in ipairs({ 'Driver.poll', 'Driver.mouseover', 'Driver.kick', 'Driver.quests' }) do
+	for _, id in ipairs({ 'Driver.poll', 'Driver.mouseover', 'Driver.kick', 'Driver.quests', 'Driver.questStep' }) do
 		P.Scheduler:Cancel(id)
+	end
+	for i = #questQueue, 1, -1 do
+		questQueued[questQueue[i]] = nil
+		questQueue[i] = nil
 	end
 	P:UnregisterEvent('GLOBAL_MOUSE_UP', 'Driver.mouse')
 	P.util.Wipe(self.statePlates)
@@ -1858,9 +1971,9 @@ function Driver:SettingsChanged(reasons)
 	end
 	if reasons.colors then
 		-- The role setting lives in the profile
-		local changed, tanksChanged = self:ReadContext()
+		local changed, tanksChanged, keys = self:ReadContext()
 		if changed then
-			P:Fire('CONTEXT_CHANGED')
+			P:Fire('CONTEXT_CHANGED', keys)
 		end
 		if tanksChanged then
 			P:Fire('TANKS_CHANGED')
@@ -1882,6 +1995,9 @@ local function OnBlizzardOptions()
 	-- size Blizzard has then is the one remembered.
 	self.blizzDirty = true
 	self:ApplyPlateSize(true)
+	-- Blizzard also set its own click area on every plate (ApplyFrameOptions ->
+	-- UpdateHitTestArea): hand it back to our click frames
+	self:RebindClicks()
 end
 Driver.OnBlizzardOptions = OnBlizzardOptions
 
@@ -1939,7 +2055,12 @@ EVENTS.PLAYER_SPECIALIZATION_CHANGED = QueueContextEvent
 EVENTS.ACTIVE_TALENT_GROUP_CHANGED = QueueContextEvent
 EVENTS.PLAYER_LEVEL_UP = QueueContextEvent
 EVENTS.PLAYER_UPDATE_RESTING = QueueContextEvent
-function EVENTS.UNIT_PET()
+function EVENTS.UNIT_PET(_, unit)
+	-- Fires for every group member's pet; only the player's pet changes the context (pet tank)
+	-- or the interrupt (pet spells)
+	if Secret.Plain(unit) ~= 'player' then
+		return
+	end
 	Driver:QueueContext()
 	P.Scheduler:NextFrame('Driver.kick', KickNow)
 end
@@ -2042,9 +2163,9 @@ P:On('STORE_CHANGED', function(reasons)
 		Driver:SettingsChanged(reasons)
 	end
 end, Driver)
-P:On('CONTEXT_CHANGED', function()
+P:On('CONTEXT_CHANGED', function(keys)
 	if Driver.active then
-		Driver:ContextChanged('CONTEXT_CHANGED')
+		Driver:ContextChanged('CONTEXT_CHANGED', keys)
 	end
 end, Driver)
 P:On('TANKS_CHANGED', function()
@@ -2062,6 +2183,11 @@ P:On('CVAR_CHANGED', function(name, _, by)
 	if Driver.active and by == 'other' and Driver.placeApplied[name] and not Driver.yielded[name] then
 		Driver.yielded[name] = true
 		P.log.info('Left ' .. tostring(name) .. ' alone: it was changed outside the nameplate settings')
+	end
+	-- Blizzard's plates set their own click area again when this one changes (UpdateShowOnlyName):
+	-- take it back once its callbacks have run
+	if Driver.active and name == 'nameplateShowOnlyNameForFriendlyPlayerUnits' then
+		P.Scheduler:NextFrame('Driver.rebind', RebindSoon)
 	end
 end, Driver)
 

@@ -222,6 +222,11 @@ function module:OnInitialize()
 				},
 			},
 			dataBars = SUI.ThemeDataBars.DataBars(SUI.ThemeDataBars.WarId()),
+			-- "Match my look" draws the War nameplate style: the player's faction banner behind the bar
+			nameplates = {
+				style = 'war',
+				art = { banner = 'Interface\\AddOns\\SpartanUI\\images\\war\\Nameplate' .. (UnitFactionGroup('Player') == 'Horde' and 'Horde' or 'Alliance') },
+			},
 			statusBars = {
 				Left = {
 					bgTexture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\StatusBar-' .. UnitFactionGroup('Player'),

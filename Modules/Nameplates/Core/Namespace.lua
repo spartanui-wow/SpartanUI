@@ -417,7 +417,7 @@ function P:RegisterMedia()
 	if not media or not self.host then
 		return
 	end
-	media:Register('statusbar', 'Nameplates Flat', self.host.mediaPath .. 'Flat.tga')
+	self.Data.ArtAliases:Register(media, self.host.mediaPath)
 end
 
 ----------------------------------------------------------------------------------------------------

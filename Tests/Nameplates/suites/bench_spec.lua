@@ -23,11 +23,15 @@ local Driver = P.Driver
 local PLATES, ROUNDS = 40, 50
 
 local tokens, bases, normal, minor = {}, {}, {}, {}
+local coldBuilt, coldStart = P.Pool.built, os.clock()
 for i = 1, PLATES do
 	normal[i] = M.AddUnit({ name = 'Mob ' .. i, canAttack = true, reaction = 2, health = 900 + i, healthMax = 1000 })
 	minor[i] = M.AddUnit({ name = 'Rat ' .. i, canAttack = true, reaction = 2, classification = 'minus', health = 50, healthMax = 50 })
 	tokens[i], bases[i] = M.ShowPlate(normal[i])
 end
+
+local coldMs = (os.clock() - coldStart) * 1000
+local coldNew = P.Pool.built - coldBuilt
 
 local function Round(swap)
 	for i = 1, PLATES do
@@ -155,6 +159,12 @@ local function Note(text)
 end
 
 describe('bench: plate add and remove', function()
+	it('records a first 40-plate pull beyond pre-warm and remembers its peak', function()
+		Note(('%s first pull x40: %.3f ms, %d new plates beyond %d warm plates'):format(FLAVOR, coldMs, coldNew, coldBuilt))
+		assert.equal(coldBuilt + coldNew, PLATES)
+		assert.is_true(P.db.global.poolPeak >= PLATES)
+	end)
+
 	it('adds 40 plates 50 times with the style unchanged, within budget and without leaking', function()
 		local ms, kb, retained = Measure(false)
 		local parts = PartsShare()
@@ -170,7 +180,7 @@ describe('bench: plate add and remove', function()
 		)
 		assert.equal(Driver:CountBound(), PLATES)
 		assert.is_true(retained < 48, ('memory kept growing: %.1f KB'):format(retained))
-		assert.is_true(ms < 2, ('an add takes %.3f ms in the mock'):format(ms))
+		assert.is_true(ms < 1, ('an add takes %.3f ms in the mock'):format(ms))
 	end)
 
 	it('adds 40 plates 50 times with a new style on every add, within budget and without leaking', function()
@@ -178,7 +188,7 @@ describe('bench: plate add and remove', function()
 		Note(('%s add+remove, new style each add: %.3f ms, %.2f KB garbage per plate; %+.1f KB kept after %d adds'):format(FLAVOR, ms, kb, retained, PLATES * ROUNDS))
 		assert.equal(Driver:CountBound(), PLATES)
 		assert.is_true(retained < 48, ('memory kept growing: %.1f KB'):format(retained))
-		assert.is_true(ms < 6, ('a re-layout add takes %.3f ms in the mock'):format(ms))
+		assert.is_true(ms < 1.5, ('a re-layout add takes %.3f ms in the mock'):format(ms))
 	end)
 
 	it('makes no new event maps when a plate binds again with the same style', function()
@@ -381,6 +391,105 @@ describe('bench: plate add and remove', function()
 		end)
 		Note(('%s idle: %.3f KB per second made by the module'):format(FLAVOR, kb))
 		assert.is_true(kb < 0.1, ('idle plates make %.3f KB a second'):format(kb))
+	end)
+
+	it('keeps maps through real combat edges and tank-only changes', function()
+		local builds = {}
+		for i = 1, PLATES do
+			builds[i] = Driver.byBase[bases[i]].mapBuilds
+		end
+		local kb = ModuleGarbage(4, function()
+			M.EnterCombat()
+			M.LeaveCombat()
+			P:Fire('TANKS_CHANGED')
+		end)
+		for i = 1, PLATES do
+			assert.equal(Driver.byBase[bases[i]].mapBuilds, builds[i])
+		end
+		Note(('%s combat enter+leave and tanks x40: %.3f KB made by module'):format(FLAVOR, kb))
+		assert.is_true(kb < 16, 'combat edges stay within a small allocation budget')
+	end)
+
+	it('counts unit API calls in grouped target, threat and cast updates', function()
+		local calls = { threat = 0, detail = 0, cast = 0 }
+		local originals = { UnitThreatSituation, UnitDetailedThreatSituation, UnitCastingInfo }
+		local function Wrap(key, fn)
+			return function(...)
+				calls[key] = calls[key] + 1
+				return fn(...)
+			end
+		end
+		rawset(_G, 'UnitThreatSituation', Wrap('threat', originals[1]))
+		rawset(_G, 'UnitDetailedThreatSituation', Wrap('detail', originals[2]))
+		rawset(_G, 'UnitCastingInfo', Wrap('cast', originals[3]))
+		M.group, M.groupSize = 'party', 2
+		local tank = M.AddUnit({ role = 'TANK' })
+		M.SetToken('party1', tank)
+		M.SetPlace({ inInstance = true, instanceType = 'party', difficultyID = 1 })
+		M.Fire('GROUP_ROSTER_UPDATE')
+		M.Advance(0.2)
+		calls.threat, calls.detail = 0, 0
+		M.SetTarget(UnitOf(1))
+		M.SetTarget(UnitOf(2))
+		M.SetFocus(UnitOf(3))
+		local targetReads = calls.threat
+		calls.threat = 0
+		for i = 1, PLATES do
+			M.Fire('UNIT_THREAT_LIST_UPDATE', tokens[i])
+		end
+		M.Advance(0.05)
+		local threatReads = calls.threat
+		calls.cast = 0
+		for i = 1, 10 do
+			M.StartCast(UnitOf(i), { name = 'Bolt', spellID = 686, duration = 2 })
+		end
+		local castReads = calls.cast
+		for i = 1, 10 do
+			M.StopCast(UnitOf(i), 'stop')
+		end
+		rawset(_G, 'UnitThreatSituation', originals[1])
+		rawset(_G, 'UnitDetailedThreatSituation', originals[2])
+		rawset(_G, 'UnitCastingInfo', originals[3])
+		M.group, M.groupSize = nil, nil
+		M.SetToken('party1', nil)
+		M.SetPlace({ inInstance = false, instanceType = 'none', difficultyID = 0 })
+		M.Fire('GROUP_ROSTER_UPDATE')
+		M.Advance(0.2)
+		Note(('%s APIs: target/focus threat=%d, threat x40=%d, details=%d, cast x10=%d'):format(FLAVOR, targetReads, threatReads, calls.detail, castReads))
+		assert.is_true(targetReads <= 4, 'target and focus updates only recolor changed plates')
+		assert.is_true(threatReads <= PLATES, 'one threat-status read per plate dispatch')
+		assert.equal(castReads, 10, 'one cast-info read per cast start')
+	end)
+
+	it('counts real foreign aura payloads and quest-log bursts', function()
+		local reads, tips = 0, 0
+		local realIDs = C_UnitAuras.GetUnitAuraInstanceIDs
+		local realTip = C_TooltipInfo and C_TooltipInfo.GetUnit
+		C_UnitAuras.GetUnitAuraInstanceIDs = function(...)
+			reads = reads + 1
+			return realIDs(...)
+		end
+		if realTip then
+			C_TooltipInfo.GetUnit = function(...)
+				tips = tips + 1
+				return realTip(...)
+			end
+		end
+		for i = 1, PLATES do
+			M.ApplyAura(UnitOf(i), { spellId = 589, name = 'Other debuff', isHarmful = true, sourceUnit = 'party1', duration = 8 })
+		end
+		local before = tips
+		for i = 1, 10 do
+			M.Fire('QUEST_LOG_UPDATE')
+		end
+		M.Advance(1)
+		C_UnitAuras.GetUnitAuraInstanceIDs = realIDs
+		if realTip then
+			C_TooltipInfo.GetUnit = realTip
+		end
+		Note(('%s APIs: foreign aura x40 lists=%d, quest burst tooltips=%d'):format(FLAVOR, reads, tips - before))
+		assert.equal(reads, 0, 'foreign non-CC debuffs cannot change either default row')
+		assert.is_true(tips - before <= PLATES, 'quest bursts coalesce into one pass')
 	end)
 
 	it('stops all per-frame work once the plates are gone', function()

@@ -30,6 +30,7 @@ local SUI = SUI
 ---@class SUI.ThemeRegistry.ThemeData
 ---@field frames? table<string, table> Per-frame UF config overrides
 ---@field dataBars? SUI.ThemeRegistry.DataBars Look and spots for Lib's DataBar, used when it is installed
+---@field nameplates? SUI.ThemeRegistry.Nameplates The nameplate look "Match my look" draws; read by the nameplate host only
 ---@field unitframes? table UF artwork settings (textures, positions, callbacks)
 ---@field minimap? table Minimap layout settings
 ---@field statusBars? table Status bar appearance settings
@@ -62,6 +63,13 @@ local SUI = SUI
 ---@field GetSortedNames fun(self: SUI.ThemeRegistry): string[]
 ---@field GetSetting fun(self: SUI.ThemeRegistry, themeName: string, key: string): any
 ---@field SetSetting fun(self: SUI.ThemeRegistry, themeName: string, key: string, value: any)
+
+---Nameplate look for a theme (plan 5.4). Without one, art themes and flat themes get Clean drawn
+---with the theme's accent, font and a family bar texture (Modules/Nameplates/Host/SpartanUI.lua).
+---@class SUI.ThemeRegistry.Nameplates
+---@field style? string|table A nameplate style id ('clean', 'war', ...) or an inline style
+---@field tokens? table<string, any> Token values: bar (LibSharedMedia statusbar), ink and shade ({ r, g, b, a })
+---@field art? table<string, string> Full texture paths for art keys
 
 ---Lib's DataBar settings for a theme. Art looks build theirs with `SUI.ThemeDataBars.DataBars(id)` (Themes/DataBarArt.lua).
 ---@class SUI.ThemeRegistry.DataBars

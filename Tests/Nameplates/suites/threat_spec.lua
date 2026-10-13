@@ -18,6 +18,18 @@ M.Login('NameplatesTestHost')
 local P = H.FreshCore()
 local Threat, Roles, Colors, GlowLib = P.Threat, P.Roles, P.Colors, P.GlowLib
 local Store = P.Store
+-- These renderer tests exercise the shape fallback before a host supplies artwork.
+for _, slots in pairs(P.Data.ArtAliases.SLOTS) do
+	for key, slot in pairs(slots) do
+		local fallback = {}
+		for field, value in pairs(slot) do
+			if field ~= 'file' then
+				fallback[field] = value
+			end
+		end
+		slots[key] = fallback
+	end
+end
 
 local function Ctx(fields)
 	local ctx = { place = 'dungeon', inCombat = true, role = 'damage', inGroup = true, playerLevel = 60, tanks = {}, petTank = false }

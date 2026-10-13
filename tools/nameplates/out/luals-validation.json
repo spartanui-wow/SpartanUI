@@ -1,0 +1,1502 @@
+[
+  {
+    "suite": "auras_container_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_container_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_container_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_container_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_container_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 48,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_scan_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 18
+  },
+  {
+    "suite": "auras_container_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 48,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_scan_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 18
+  },
+  {
+    "suite": "auras_scan_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_scan_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_scan_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "auras_scan_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "bench_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "bench_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "bench_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "cast_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 53,
+    "fail": 0,
+    "skip": 5
+  },
+  {
+    "suite": "cast_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 56,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "cast_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 56,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "bench_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "cast_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 53,
+    "fail": 0,
+    "skip": 5
+  },
+  {
+    "suite": "cast_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 53,
+    "fail": 0,
+    "skip": 5
+  },
+  {
+    "suite": "classpower_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 37,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "cast_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 53,
+    "fail": 0,
+    "skip": 5
+  },
+  {
+    "suite": "classpower_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 35,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "classpower_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 31,
+    "fail": 0,
+    "skip": 6
+  },
+  {
+    "suite": "classpower_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 32,
+    "fail": 0,
+    "skip": 5
+  },
+  {
+    "suite": "classpower_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 32,
+    "fail": 0,
+    "skip": 5
+  },
+  {
+    "suite": "colors_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "colors_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "colors_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "classpower_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 31,
+    "fail": 0,
+    "skip": 6
+  },
+  {
+    "suite": "colors_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "colors_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "colors_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "bench_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "bench_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "config_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 15,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=retail runtime=luals client=12.1.0 69933\r\n@@PASS config: defaults > keeps the schema number out of every default table\r\n@@PASS config: defaults > returns a new table on every call\r\n@@PASS config: defaults > holds scalars only, and takes host scalars but never host tables\r\n@@PASS config: schema stamping > stamps a brand-new profile and global data with the current numbers\r\n@@PASS config: schema stamping > stamps a profile made by switching to a new name\r\n@@PASS config: schema stamping > stamps a reset profile, so it never reads as the oldest data\r\n@@PASS config: schema stamping > reads a stored profile with no number as the oldest data and patches it once\r\n@@PASS config: schema stamping > runs only the new patch when the current number goes up, and new profiles skip it\r\n@@PASS config: schema stamping > stops at a failed patch, logs it, and resumes there next time\r\n@@PASS config: schema stamping > leaves data from a newer version alone and warns\r\n@@FAIL config: run-once steps > runs every step on every profile load, with the profile key and global table\r\n...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: equal: expected \"large\", got \"medium\"\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:91: in field 'equal'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS config: run-once steps > logs a failing step and keeps going\r\n@@PASS config: run-once steps > refuses two patches with the same number\r\n@@PASS config: tester switch > keeps the session value until a reload\r\n@@PASS config: tester switch > reads the saved choice at the next load\r\n@@PASS config: tester switch > opens one shared profile for every character\r\n@@RESULT pass=15 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "config_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 15,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=forever runtime=luals client=1.60.1 70009\r\n@@PASS config: defaults > keeps the schema number out of every default table\r\n@@PASS config: defaults > returns a new table on every call\r\n@@PASS config: defaults > holds scalars only, and takes host scalars but never host tables\r\n@@PASS config: schema stamping > stamps a brand-new profile and global data with the current numbers\r\n@@PASS config: schema stamping > stamps a profile made by switching to a new name\r\n@@PASS config: schema stamping > stamps a reset profile, so it never reads as the oldest data\r\n@@PASS config: schema stamping > reads a stored profile with no number as the oldest data and patches it once\r\n@@PASS config: schema stamping > runs only the new patch when the current number goes up, and new profiles skip it\r\n@@PASS config: schema stamping > stops at a failed patch, logs it, and resumes there next time\r\n@@PASS config: schema stamping > leaves data from a newer version alone and warns\r\n@@FAIL config: run-once steps > runs every step on every profile load, with the profile key and global table\r\n...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: equal: expected \"large\", got \"medium\"\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:91: in field 'equal'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS config: run-once steps > logs a failing step and keeps going\r\n@@PASS config: run-once steps > refuses two patches with the same number\r\n@@PASS config: tester switch > keeps the session value until a reload\r\n@@PASS config: tester switch > reads the saved choice at the next load\r\n@@PASS config: tester switch > opens one shared profile for every character\r\n@@RESULT pass=15 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "config_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 15,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=mists runtime=luals client=5.5.4 70032\r\n@@PASS config: defaults > keeps the schema number out of every default table\r\n@@PASS config: defaults > returns a new table on every call\r\n@@PASS config: defaults > holds scalars only, and takes host scalars but never host tables\r\n@@PASS config: schema stamping > stamps a brand-new profile and global data with the current numbers\r\n@@PASS config: schema stamping > stamps a profile made by switching to a new name\r\n@@PASS config: schema stamping > stamps a reset profile, so it never reads as the oldest data\r\n@@PASS config: schema stamping > reads a stored profile with no number as the oldest data and patches it once\r\n@@PASS config: schema stamping > runs only the new patch when the current number goes up, and new profiles skip it\r\n@@PASS config: schema stamping > stops at a failed patch, logs it, and resumes there next time\r\n@@PASS config: schema stamping > leaves data from a newer version alone and warns\r\n@@FAIL config: run-once steps > runs every step on every profile load, with the profile key and global table\r\n...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: equal: expected \"large\", got \"medium\"\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:91: in field 'equal'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS config: run-once steps > logs a failing step and keeps going\r\n@@PASS config: run-once steps > refuses two patches with the same number\r\n@@PASS config: tester switch > keeps the session value until a reload\r\n@@PASS config: tester switch > reads the saved choice at the next load\r\n@@PASS config: tester switch > opens one shared profile for every character\r\n@@RESULT pass=15 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "config_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 15,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=titan runtime=luals client=3.80.2 69874\r\n@@PASS config: defaults > keeps the schema number out of every default table\r\n@@PASS config: defaults > returns a new table on every call\r\n@@PASS config: defaults > holds scalars only, and takes host scalars but never host tables\r\n@@PASS config: schema stamping > stamps a brand-new profile and global data with the current numbers\r\n@@PASS config: schema stamping > stamps a profile made by switching to a new name\r\n@@PASS config: schema stamping > stamps a reset profile, so it never reads as the oldest data\r\n@@PASS config: schema stamping > reads a stored profile with no number as the oldest data and patches it once\r\n@@PASS config: schema stamping > runs only the new patch when the current number goes up, and new profiles skip it\r\n@@PASS config: schema stamping > stops at a failed patch, logs it, and resumes there next time\r\n@@PASS config: schema stamping > leaves data from a newer version alone and warns\r\n@@FAIL config: run-once steps > runs every step on every profile load, with the profile key and global table\r\n...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: equal: expected \"large\", got \"medium\"\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:91: in field 'equal'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS config: run-once steps > logs a failing step and keeps going\r\n@@PASS config: run-once steps > refuses two patches with the same number\r\n@@PASS config: tester switch > keeps the session value until a reload\r\n@@PASS config: tester switch > reads the saved choice at the next load\r\n@@PASS config: tester switch > opens one shared profile for every character\r\n@@RESULT pass=15 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "cvars_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "cvars_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "cvars_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "cvars_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "config_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 15,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=tbc runtime=luals client=2.5.6 69795\r\n@@PASS config: defaults > keeps the schema number out of every default table\r\n@@PASS config: defaults > returns a new table on every call\r\n@@PASS config: defaults > holds scalars only, and takes host scalars but never host tables\r\n@@PASS config: schema stamping > stamps a brand-new profile and global data with the current numbers\r\n@@PASS config: schema stamping > stamps a profile made by switching to a new name\r\n@@PASS config: schema stamping > stamps a reset profile, so it never reads as the oldest data\r\n@@PASS config: schema stamping > reads a stored profile with no number as the oldest data and patches it once\r\n@@PASS config: schema stamping > runs only the new patch when the current number goes up, and new profiles skip it\r\n@@PASS config: schema stamping > stops at a failed patch, logs it, and resumes there next time\r\n@@PASS config: schema stamping > leaves data from a newer version alone and warns\r\n@@FAIL config: run-once steps > runs every step on every profile load, with the profile key and global table\r\n...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: equal: expected \"large\", got \"medium\"\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:91: in field 'equal'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS config: run-once steps > logs a failing step and keeps going\r\n@@PASS config: run-once steps > refuses two patches with the same number\r\n@@PASS config: tester switch > keeps the session value until a reload\r\n@@PASS config: tester switch > reads the saved choice at the next load\r\n@@PASS config: tester switch > opens one shared profile for every character\r\n@@RESULT pass=15 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "cvars_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "cvars_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "config_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 15,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=era runtime=luals client=1.15.9 69722\r\n@@PASS config: defaults > keeps the schema number out of every default table\r\n@@PASS config: defaults > returns a new table on every call\r\n@@PASS config: defaults > holds scalars only, and takes host scalars but never host tables\r\n@@PASS config: schema stamping > stamps a brand-new profile and global data with the current numbers\r\n@@PASS config: schema stamping > stamps a profile made by switching to a new name\r\n@@PASS config: schema stamping > stamps a reset profile, so it never reads as the oldest data\r\n@@PASS config: schema stamping > reads a stored profile with no number as the oldest data and patches it once\r\n@@PASS config: schema stamping > runs only the new patch when the current number goes up, and new profiles skip it\r\n@@PASS config: schema stamping > stops at a failed patch, logs it, and resumes there next time\r\n@@PASS config: schema stamping > leaves data from a newer version alone and warns\r\n@@FAIL config: run-once steps > runs every step on every profile load, with the profile key and global table\r\n...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: equal: expected \"large\", got \"medium\"\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:91: in field 'equal'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:185: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:168: in function <...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...trees/nameplates/Tests/Nameplates/suites/config_spec.lua:167: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS config: run-once steps > logs a failing step and keeps going\r\n@@PASS config: run-once steps > refuses two patches with the same number\r\n@@PASS config: tester switch > keeps the session value until a reload\r\n@@PASS config: tester switch > reads the saved choice at the next load\r\n@@PASS config: tester switch > opens one shared profile for every character\r\n@@RESULT pass=15 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "driver_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 43,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "driver_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 43,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "driver_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 43,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "driver_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "driver_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "driver_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 42,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "e2e_engine_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "e2e_engine_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "e2e_engine_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "emphasis_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 21,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "emphasis_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 21,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "e2e_engine_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "e2e_engine_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "emphasis_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "emphasis_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "emphasis_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "emphasis_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "e2e_engine_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "engine_fixes_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "engine_fixes_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "engine_fixes_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 4
+  },
+  {
+    "suite": "engine_fixes_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 4
+  },
+  {
+    "suite": "engine_fixes_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 4
+  },
+  {
+    "suite": "engine_fixes_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 13,
+    "fail": 0,
+    "skip": 4
+  },
+  {
+    "suite": "engine_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 16,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "engine_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 16,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "engine_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 14,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "engine_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 14,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "engine_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 14,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "engine_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 14,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "health_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 35,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "health_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 35,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "health_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "health_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "health_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "health_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 33,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "host_conflict_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_conflict_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_conflict_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_conflict_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_conflict_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_conflict_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 2,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_engine_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_engine_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_engine_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_engine_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_engine_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "host_engine_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 11,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "icon_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "icon_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "icon_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "icon_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "icon_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "icon_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 17,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_host_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_host_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_host_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_host_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_host_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_host_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "inert_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 1,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "lasttick_hookup_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "lasttick_hookup_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "lasttick_hookup_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "lasttick_hookup_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "lasttick_hookup_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "lasttick_hookup_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 7,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "loadorder_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "loadorder_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "loadorder_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "loadorder_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "loadorder_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "loadorder_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "preview_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "preview_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "preview_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "preview_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "preview_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "preview_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "region_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "region_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "region_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "region_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "region_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "region_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 10,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "share_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "share_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "share_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "share_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "share_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "share_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 28,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "situation_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 92,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "situation_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 92,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "situation_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 92,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "situation_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 92,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "situation_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 92,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "situation_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 92,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "smoke_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 36,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "smoke_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 36,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "smoke_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "smoke_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "smoke_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "smoke_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "store_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 23,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=retail runtime=luals client=12.1.0 69933\r\n@@PASS store: reads and writes by path > reads defaults through the live profile and writes nothing for them\r\n@@PASS store: reads and writes by path > accepts dotted paths and key lists, and turns number parts into numbers\r\n@@PASS store: reads and writes by path > returns nil for a path through a missing or non-table value\r\n@@PASS store: reads and writes by path > copies tables in, so the caller may keep editing its own\r\n@@PASS store: reads and writes by path > writes only when the value differs, comparing tables deeply\r\n@@PASS store: reads and writes by path > removes the key on nil and prunes empty parents, keeping siblings\r\n@@PASS store: reads and writes by path > does not create tables when removing a missing key\r\n@@PASS store: reads and writes by path > replaces lists whole, never merging by index\r\n@@FAIL store: reads and writes by path > keeps the profile sparse: only changed keys are stored\r\n...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: same: expected { [1] = \"schema\", [2] = \"size\" }, got { [1] = \"migratedFromOld\", [2] = \"schema\", [3] = \"size\" }\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:101: in field 'same'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS store: reads and writes by path > reads global and character scopes\r\n@@PASS store: change messages > fires the reasons listed for the top-level key, the key list and the scope\r\n@@PASS store: change messages > fires every reason for the enabled switch\r\n@@PASS store: change messages > uses look for keys it does not know, and the given reasons when passed\r\n@@PASS store: change messages > uses the global and character tables for their scopes\r\n@@PASS store: change messages > fires one message for a batch with the union of reasons and every key\r\n@@PASS store: change messages > still fires the writes made before an error in a batch, then raises it\r\n@@PASS store: profiles > fires only the reasons of keys that differ when switching profiles\r\n@@PASS store: profiles > fires nothing to rebuild when two profiles hold the same values\r\n@@PASS store: profiles > reads the new profile on every call after a switch\r\n@@PASS store: profiles > fires every reason after a copy and a reset\r\n@@PASS store: profiles > ignores an empty or unchanged profile name\r\n@@PASS store: profiles > keeps the SavedVariable sparse after logout\r\n@@PASS store: following the host profile > switches to the host profile name when follow is on\r\n@@PASS store: following the host profile > stays on Default when the host passes no follow default\r\n@@RESULT pass=23 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "store_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 23,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=mists runtime=luals client=5.5.4 70032\r\n@@PASS store: reads and writes by path > reads defaults through the live profile and writes nothing for them\r\n@@PASS store: reads and writes by path > accepts dotted paths and key lists, and turns number parts into numbers\r\n@@PASS store: reads and writes by path > returns nil for a path through a missing or non-table value\r\n@@PASS store: reads and writes by path > copies tables in, so the caller may keep editing its own\r\n@@PASS store: reads and writes by path > writes only when the value differs, comparing tables deeply\r\n@@PASS store: reads and writes by path > removes the key on nil and prunes empty parents, keeping siblings\r\n@@PASS store: reads and writes by path > does not create tables when removing a missing key\r\n@@PASS store: reads and writes by path > replaces lists whole, never merging by index\r\n@@FAIL store: reads and writes by path > keeps the profile sparse: only changed keys are stored\r\n...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: same: expected { [1] = \"schema\", [2] = \"size\" }, got { [1] = \"migratedFromOld\", [2] = \"schema\", [3] = \"size\" }\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:101: in field 'same'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS store: reads and writes by path > reads global and character scopes\r\n@@PASS store: change messages > fires the reasons listed for the top-level key, the key list and the scope\r\n@@PASS store: change messages > fires every reason for the enabled switch\r\n@@PASS store: change messages > uses look for keys it does not know, and the given reasons when passed\r\n@@PASS store: change messages > uses the global and character tables for their scopes\r\n@@PASS store: change messages > fires one message for a batch with the union of reasons and every key\r\n@@PASS store: change messages > still fires the writes made before an error in a batch, then raises it\r\n@@PASS store: profiles > fires only the reasons of keys that differ when switching profiles\r\n@@PASS store: profiles > fires nothing to rebuild when two profiles hold the same values\r\n@@PASS store: profiles > reads the new profile on every call after a switch\r\n@@PASS store: profiles > fires every reason after a copy and a reset\r\n@@PASS store: profiles > ignores an empty or unchanged profile name\r\n@@PASS store: profiles > keeps the SavedVariable sparse after logout\r\n@@PASS store: following the host profile > switches to the host profile name when follow is on\r\n@@PASS store: following the host profile > stays on Default when the host passes no follow default\r\n@@RESULT pass=23 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "store_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 23,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=titan runtime=luals client=3.80.2 69874\r\n@@PASS store: reads and writes by path > reads defaults through the live profile and writes nothing for them\r\n@@PASS store: reads and writes by path > accepts dotted paths and key lists, and turns number parts into numbers\r\n@@PASS store: reads and writes by path > returns nil for a path through a missing or non-table value\r\n@@PASS store: reads and writes by path > copies tables in, so the caller may keep editing its own\r\n@@PASS store: reads and writes by path > writes only when the value differs, comparing tables deeply\r\n@@PASS store: reads and writes by path > removes the key on nil and prunes empty parents, keeping siblings\r\n@@PASS store: reads and writes by path > does not create tables when removing a missing key\r\n@@PASS store: reads and writes by path > replaces lists whole, never merging by index\r\n@@FAIL store: reads and writes by path > keeps the profile sparse: only changed keys are stored\r\n...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: same: expected { [1] = \"schema\", [2] = \"size\" }, got { [1] = \"migratedFromOld\", [2] = \"schema\", [3] = \"size\" }\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:101: in field 'same'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS store: reads and writes by path > reads global and character scopes\r\n@@PASS store: change messages > fires the reasons listed for the top-level key, the key list and the scope\r\n@@PASS store: change messages > fires every reason for the enabled switch\r\n@@PASS store: change messages > uses look for keys it does not know, and the given reasons when passed\r\n@@PASS store: change messages > uses the global and character tables for their scopes\r\n@@PASS store: change messages > fires one message for a batch with the union of reasons and every key\r\n@@PASS store: change messages > still fires the writes made before an error in a batch, then raises it\r\n@@PASS store: profiles > fires only the reasons of keys that differ when switching profiles\r\n@@PASS store: profiles > fires nothing to rebuild when two profiles hold the same values\r\n@@PASS store: profiles > reads the new profile on every call after a switch\r\n@@PASS store: profiles > fires every reason after a copy and a reset\r\n@@PASS store: profiles > ignores an empty or unchanged profile name\r\n@@PASS store: profiles > keeps the SavedVariable sparse after logout\r\n@@PASS store: following the host profile > switches to the host profile name when follow is on\r\n@@PASS store: following the host profile > stays on Default when the host passes no follow default\r\n@@RESULT pass=23 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "store_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 23,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=forever runtime=luals client=1.60.1 70009\r\n@@PASS store: reads and writes by path > reads defaults through the live profile and writes nothing for them\r\n@@PASS store: reads and writes by path > accepts dotted paths and key lists, and turns number parts into numbers\r\n@@PASS store: reads and writes by path > returns nil for a path through a missing or non-table value\r\n@@PASS store: reads and writes by path > copies tables in, so the caller may keep editing its own\r\n@@PASS store: reads and writes by path > writes only when the value differs, comparing tables deeply\r\n@@PASS store: reads and writes by path > removes the key on nil and prunes empty parents, keeping siblings\r\n@@PASS store: reads and writes by path > does not create tables when removing a missing key\r\n@@PASS store: reads and writes by path > replaces lists whole, never merging by index\r\n@@FAIL store: reads and writes by path > keeps the profile sparse: only changed keys are stored\r\n...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: same: expected { [1] = \"schema\", [2] = \"size\" }, got { [1] = \"migratedFromOld\", [2] = \"schema\", [3] = \"size\" }\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:101: in field 'same'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS store: reads and writes by path > reads global and character scopes\r\n@@PASS store: change messages > fires the reasons listed for the top-level key, the key list and the scope\r\n@@PASS store: change messages > fires every reason for the enabled switch\r\n@@PASS store: change messages > uses look for keys it does not know, and the given reasons when passed\r\n@@PASS store: change messages > uses the global and character tables for their scopes\r\n@@PASS store: change messages > fires one message for a batch with the union of reasons and every key\r\n@@PASS store: change messages > still fires the writes made before an error in a batch, then raises it\r\n@@PASS store: profiles > fires only the reasons of keys that differ when switching profiles\r\n@@PASS store: profiles > fires nothing to rebuild when two profiles hold the same values\r\n@@PASS store: profiles > reads the new profile on every call after a switch\r\n@@PASS store: profiles > fires every reason after a copy and a reset\r\n@@PASS store: profiles > ignores an empty or unchanged profile name\r\n@@PASS store: profiles > keeps the SavedVariable sparse after logout\r\n@@PASS store: following the host profile > switches to the host profile name when follow is on\r\n@@PASS store: following the host profile > stays on Default when the host passes no follow default\r\n@@RESULT pass=23 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "store_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 23,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=tbc runtime=luals client=2.5.6 69795\r\n@@PASS store: reads and writes by path > reads defaults through the live profile and writes nothing for them\r\n@@PASS store: reads and writes by path > accepts dotted paths and key lists, and turns number parts into numbers\r\n@@PASS store: reads and writes by path > returns nil for a path through a missing or non-table value\r\n@@PASS store: reads and writes by path > copies tables in, so the caller may keep editing its own\r\n@@PASS store: reads and writes by path > writes only when the value differs, comparing tables deeply\r\n@@PASS store: reads and writes by path > removes the key on nil and prunes empty parents, keeping siblings\r\n@@PASS store: reads and writes by path > does not create tables when removing a missing key\r\n@@PASS store: reads and writes by path > replaces lists whole, never merging by index\r\n@@FAIL store: reads and writes by path > keeps the profile sparse: only changed keys are stored\r\n...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: same: expected { [1] = \"schema\", [2] = \"size\" }, got { [1] = \"migratedFromOld\", [2] = \"schema\", [3] = \"size\" }\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:101: in field 'same'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS store: reads and writes by path > reads global and character scopes\r\n@@PASS store: change messages > fires the reasons listed for the top-level key, the key list and the scope\r\n@@PASS store: change messages > fires every reason for the enabled switch\r\n@@PASS store: change messages > uses look for keys it does not know, and the given reasons when passed\r\n@@PASS store: change messages > uses the global and character tables for their scopes\r\n@@PASS store: change messages > fires one message for a batch with the union of reasons and every key\r\n@@PASS store: change messages > still fires the writes made before an error in a batch, then raises it\r\n@@PASS store: profiles > fires only the reasons of keys that differ when switching profiles\r\n@@PASS store: profiles > fires nothing to rebuild when two profiles hold the same values\r\n@@PASS store: profiles > reads the new profile on every call after a switch\r\n@@PASS store: profiles > fires every reason after a copy and a reset\r\n@@PASS store: profiles > ignores an empty or unchanged profile name\r\n@@PASS store: profiles > keeps the SavedVariable sparse after logout\r\n@@PASS store: following the host profile > switches to the host profile name when follow is on\r\n@@PASS store: following the host profile > stays on Default when the host passes no follow default\r\n@@RESULT pass=23 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "store_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 23,
+    "fail": 1,
+    "skip": 0,
+    "detail": "@@INFO flavor=era runtime=luals client=1.15.9 69722\r\n@@PASS store: reads and writes by path > reads defaults through the live profile and writes nothing for them\r\n@@PASS store: reads and writes by path > accepts dotted paths and key lists, and turns number parts into numbers\r\n@@PASS store: reads and writes by path > returns nil for a path through a missing or non-table value\r\n@@PASS store: reads and writes by path > copies tables in, so the caller may keep editing its own\r\n@@PASS store: reads and writes by path > writes only when the value differs, comparing tables deeply\r\n@@PASS store: reads and writes by path > removes the key on nil and prunes empty parents, keeping siblings\r\n@@PASS store: reads and writes by path > does not create tables when removing a missing key\r\n@@PASS store: reads and writes by path > replaces lists whole, never merging by index\r\n@@FAIL store: reads and writes by path > keeps the profile sparse: only changed keys are stored\r\n...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: same: expected { [1] = \"schema\", [2] = \"size\" }, got { [1] = \"migratedFromOld\", [2] = \"schema\", [3] = \"size\" }\r\n\r\nstack traceback:\r\n\t[C]: in global 'error'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:53: in upvalue 'fail'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:101: in field 'same'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:128: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:294: in global 'it'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:117: in function <...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43>\r\n\t[C]: in global 'xpcall'\r\n\t...orktrees/nameplates/Tests/Nameplates/harness/testapi.lua:236: in global 'describe'\r\n\t...ktrees/nameplates/Tests/Nameplates/suites/store_spec.lua:43: in main chunk\r\n\t[C]: in global 'xpcall'\r\n\t...I.worktrees/nameplates/Tests/Nameplates/harness/boot.lua:50: in main chunk\r\n\t(main.lua):85: in main chunk\r\n\t(bootstrap.lua):17: in main chunk\r\n\t[C]: in ?\r\n@@PASS store: reads and writes by path > reads global and character scopes\r\n@@PASS store: change messages > fires the reasons listed for the top-level key, the key list and the scope\r\n@@PASS store: change messages > fires every reason for the enabled switch\r\n@@PASS store: change messages > uses look for keys it does not know, and the given reasons when passed\r\n@@PASS store: change messages > uses the global and character tables for their scopes\r\n@@PASS store: change messages > fires one message for a batch with the union of reasons and every key\r\n@@PASS store: change messages > still fires the writes made before an error in a batch, then raises it\r\n@@PASS store: profiles > fires only the reasons of keys that differ when switching profiles\r\n@@PASS store: profiles > fires nothing to rebuild when two profiles hold the same values\r\n@@PASS store: profiles > reads the new profile on every call after a switch\r\n@@PASS store: profiles > fires every reason after a copy and a reset\r\n@@PASS store: profiles > ignores an empty or unchanged profile name\r\n@@PASS store: profiles > keeps the SavedVariable sparse after logout\r\n@@PASS store: following the host profile > switches to the host profile name when follow is on\r\n@@PASS store: following the host profile > stays on Default when the host passes no follow default\r\n@@RESULT pass=23 fail=1 skip=0\r\n"
+  },
+  {
+    "suite": "styles_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 51,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "styles_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 51,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "styles_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 51,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "styles_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 51,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "styles_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 51,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "styles_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 51,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "text_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "text_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "text_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 20,
+    "fail": 0,
+    "skip": 3
+  },
+  {
+    "suite": "text_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "text_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "text_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "threat_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 24,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "threat_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 24,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "threat_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "threat_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "threat_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "threat_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 22,
+    "fail": 0,
+    "skip": 2
+  },
+  {
+    "suite": "widgets_spec.lua",
+    "flavor": "retail",
+    "code": 0,
+    "pass": 35,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "widgets_spec.lua",
+    "flavor": "mists",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "widgets_spec.lua",
+    "flavor": "titan",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "widgets_spec.lua",
+    "flavor": "forever",
+    "code": 0,
+    "pass": 35,
+    "fail": 0,
+    "skip": 0
+  },
+  {
+    "suite": "widgets_spec.lua",
+    "flavor": "tbc",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 1
+  },
+  {
+    "suite": "widgets_spec.lua",
+    "flavor": "era",
+    "code": 0,
+    "pass": 34,
+    "fail": 0,
+    "skip": 1
+  }
+]

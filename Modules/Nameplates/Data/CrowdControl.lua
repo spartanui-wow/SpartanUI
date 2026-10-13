@@ -85,7 +85,7 @@ P.Data.CROWD_CONTROL_SOURCES = {
 	{ 'stun', 'era', 'wrath', 8643 }, -- Kidney Shot
 	{ 'stun', 'era', 'mists', 1833 }, -- Cheap Shot
 	{ 'silence', 'era', 'wrath', 18425 }, -- Kick - Silenced / Silenced - Improved Kick
-	{ 'disarm', 'era', 'wrath', 14251 }, -- Riposte
+	{ 'disarm', 'era', 'tbc', 14251 }, -- Riposte
 	{ 'silence', 'tbc', 'mists', 1330 }, -- Garrote - Silence
 	{ 'disarm', 'wrath', 'mists', 51722 }, -- Dismantle
 	-- Warrior
@@ -116,7 +116,7 @@ P.Data.CROWD_CONTROL_SOURCES = {
 	{ 'silence', 'era', 'mists', 15487 }, -- Silence
 	{ 'stun', 'era', 'tbc', 15269 }, -- Blackout
 	{ 'horror', 'wrath', 'mists', 64044 }, -- Psychic Horror
-	{ 'disarm', 'wrath', 'wrath', 64058 }, -- Psychic Horror
+	{ 'disarm', 'wrath', 'mists', 64058 }, -- Psychic Horror
 	{ 'incapacitate', 'mists', 'mists', 88625 }, -- Holy Word: Chastise
 	{ 'root', 'mists', 'mists', 114404 }, -- Void Tendril's Grasp
 	{ 'fear', 'mists', 'mists', 113792 }, -- Psychic Terror
@@ -134,13 +134,15 @@ P.Data.CROWD_CONTROL_SOURCES = {
 	{ 'banish', 'era', 'wrath', 18647 }, -- Banish
 	{ 'silence', 'era', 'mists', 24259 }, -- Spell Lock
 	{ 'stun', 'era', 'mists', 22703 }, -- Inferno Effect / Infernal Awakening
-	{ 'stun', 'era', 'wrath', 18093 }, -- Pyroclasm
+	{ 'stun', 'era', 'tbc', 18093 }, -- Pyroclasm
 	{ 'charm', 'era', 'wrath', 1098, 11725, 11726 }, -- Enslave Demon / Subjugate Demon
 	{ 'charm', 'wrath', 'wrath', 61191 }, -- Enslave Demon / Subjugate Demon
 	{ 'stun', 'tbc', 'mists', 30283 }, -- Shadowfury
 	{ 'stun', 'tbc', 'wrath', 30413, 30414 }, -- Shadowfury
 	{ 'stun', 'wrath', 'wrath', 47846, 47847 }, -- Shadowfury
 	{ 'stun', 'mists', 'mists', 89766 }, -- Axe Toss
+	{ 'stun', 'mists', 'mists', 54786 }, -- Demonic Leap
+	{ 'stun', 'wrath', 'wrath', 60995 }, -- Demon Charge (Metamorphosis)
 	{ 'horror', 'mists', 'mists', 137143 }, -- Blood Horror
 	{ 'stun', 'tbc', 'wrath', 30153, 30195, 30197 }, -- Intercept Stun / Intercept
 	{ 'stun', 'wrath', 'wrath', 47995 }, -- Intercept Stun / Intercept
@@ -192,6 +194,7 @@ P.Data.CROWD_CONTROL_SOURCES = {
 	{ 'disarm', 'wrath', 'wrath', 53359 }, -- Chimera Shot - Scorpid
 	{ 'stun', 'mists', 'mists', 117526 }, -- Binding Shot
 	{ 'root', 'mists', 'mists', 135373 }, -- Entrapment
+	{ 'root', 'mists', 'mists', 136634 }, -- Narrow Escape
 	{ 'stun', 'wrath', 'wrath', 50519 }, -- Sonic Blast
 	{ 'root', 'wrath', 'wrath', 50245 }, -- Pin
 	{ 'root', 'wrath', 'wrath', 54706 }, -- Venom Web Spray
@@ -213,6 +216,7 @@ P.Data.CROWD_CONTROL_SOURCES = {
 	{ 'root', 'wrath', 'mists', 64695 }, -- Earthgrab
 	{ 'root', 'wrath', 'mists', 63685 }, -- Freeze / Frozen Power
 	{ 'stun', 'mists', 'mists', 118905 }, -- Static Charge
+	{ 'stun', 'mists', 'mists', 76780 }, -- Bind Elemental
 	-- Death Knight
 	{ 'silence', 'wrath', 'mists', 47476 }, -- Strangulate
 	{ 'stun', 'wrath', 'wrath', 49203 }, -- Hungering Cold
@@ -228,6 +232,15 @@ P.Data.CROWD_CONTROL_SOURCES = {
 	{ 'root', 'mists', 'mists', 116706 }, -- Disable
 	{ 'stun', 'mists', 'mists', 119392 }, -- Charging Ox Wave
 	{ 'disarm', 'mists', 'mists', 117368 }, -- Grapple Weapon
+	{ 'stun', 'mists', 'mists', 120086 }, -- Fists of Fury
+	{ 'stun', 'mists', 'mists', 122242 }, -- Clash
+	{ 'root', 'mists', 'mists', 123407 }, -- Spinning Fire Blossom
+	{ 'stun', 'mists', 'mists', 119072 }, -- Holy Wrath
+	{ 'charm', 'mists', 'mists', 115268 }, -- Mesmerize
+	{ 'stun', 'mists', 'mists', 118345 }, -- Pulverize
+	{ 'silence', 'mists', 'mists', 137460 }, -- Ring of Peace
+	{ 'silence', 'tbc', 'mists', 31117 }, -- Unstable Affliction dispel
+	{ 'root', 'tbc', 'tbc', 44041 }, -- Chastise
 	-- Racials
 	{ 'stun', 'era', 'mists', 20549 }, -- War Stomp
 	{ 'silence', 'tbc', 'mists', 28730 }, -- Arcane Torrent

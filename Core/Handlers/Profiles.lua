@@ -9,6 +9,13 @@ local SPARTANUI_ADDON_ID = 'spartanui'
 -- Namespace blacklist
 local namespaceblacklist = { 'LibDualSpec-1.0' }
 
+-- Other parts of SpartanUI may add to these before OnEnable runs: namespaces whose saved data is no
+-- longer used (left out of exports), and extra pieces of the full-profile export.
+---@type table<string, boolean>
+module.hiddenNamespaces = {}
+---@type (string|table)[]
+module.compositeComponents = {}
+
 -- Required LibAT ProfileManager API surface. If any of these are missing,
 -- the installed Libs-AddonTools is out of date and must be updated.
 local REQUIRED_PROFILE_MANAGER_API = {
@@ -51,7 +58,7 @@ local function GetNamespaceList()
 
 	if SpartanUIDB and SpartanUIDB.namespaces then
 		for namespaceName, _ in pairs(SpartanUIDB.namespaces) do
-			if not SUI:IsInTable(namespaceblacklist, namespaceName) then
+			if not SUI:IsInTable(namespaceblacklist, namespaceName) and not module.hiddenNamespaces[namespaceName] then
 				table.insert(namespaces, namespaceName)
 			end
 		end
@@ -102,17 +109,21 @@ function module:OnEnable()
 	})
 
 	-- Register composite bundle (full profile with action bars and UI positions)
+	-- Simple string IDs - ProfileManager's BuiltInSystems knows the rest
+	local components = {
+		'bartender4', -- Built-in: knows addonId, displayName, availability
+		'editmode', -- Built-in: knows it's Retail-only, has export/import logic
+	}
+	-- Pieces other parts of SpartanUI add (inline component tables: id, displayName, isAvailable, export, import)
+	for _, component in ipairs(module.compositeComponents) do
+		components[#components + 1] = component
+	end
 	LibAT.ProfileManager:RegisterComposite({
 		id = 'spartanui_full',
 		displayName = 'SpartanUI (Full Profile)',
 		description = 'Complete SUI setup including action bars and UI positions',
 		primaryAddonId = SPARTANUI_ADDON_ID,
-
-		-- Simple string IDs - ProfileManager's BuiltInSystems knows the rest
-		components = {
-			'bartender4', -- Built-in: knows addonId, displayName, availability
-			'editmode', -- Built-in: knows it's Retail-only, has export/import logic
-		},
+		components = components,
 	})
 
 	-- Register export blacklist patterns

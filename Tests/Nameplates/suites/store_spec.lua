@@ -120,7 +120,7 @@ describe('store: reads and writes by path', function()
 		Store:Set('assign.minor', nil)
 		local stored = {}
 		for k, v in pairs(P.db.profile) do
-			if v ~= P.db.defaults.profile[k] then
+			if k ~= 'migratedFromOld' and v ~= P.db.defaults.profile[k] then
 				stored[#stored + 1] = k
 			end
 		end

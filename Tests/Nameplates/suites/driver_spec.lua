@@ -158,8 +158,8 @@ describe('driver: plates on game plates', function()
 		assert.equal(Driver:ModeOf(plate), 'widgets')
 		assert.is_false(Shown(plate.root))
 		assert.is_nil(P.API:GetPlate(base))
-		assert.equal(M.Get(base.UnitFrame.WidgetContainer, 'parent'), base, 'the widgets still show')
-		assert.equal(M.Get(base.UnitFrame, 'alpha'), 0)
+		assert.equal(M.Get(base.UnitFrame.WidgetContainer, 'parent'), base.UnitFrame, 'Blizzard keeps its widget parent')
+		assert.not_equal(M.Get(base.UnitFrame, 'alpha'), 0, 'Blizzard keeps its widget-only plate')
 	end)
 
 	it("leaves the player's own plate to Blizzard and gives back a frame it silenced", function()
@@ -468,6 +468,10 @@ describe('driver: target, focus and mouseover', function()
 		local plate1, plate2 = P.API:GetPlate(base1), P.API:GetPlate(base2)
 		local arrows1, arrows2 = plate1:GetWidget('arrows'), plate2:GetWidget('arrows')
 		local realUnitIsUnit = rawget(_G, 'UnitIsUnit')
+		local realComparable = C_Secrets.CanCompareUnitTokens
+		C_Secrets.CanCompareUnitTokens = function()
+			return true
+		end
 		-- The comparison comes back secret (SecretWhenUnitComparisonRestricted)
 		rawset(_G, 'UnitIsUnit', function(a, b)
 			return S.Wrap(M.FN.UnitIsUnit(a, b))
@@ -475,6 +479,7 @@ describe('driver: target, focus and mouseover', function()
 		M.SetRestricted(true)
 		M.SetTarget(token1)
 		rawset(_G, 'UnitIsUnit', realUnitIsUnit)
+		C_Secrets.CanCompareUnitTokens = realComparable
 		assert.is_true(Driver.secretStates.target == true, 'known only through hidden answers')
 		assert.is_false(P.Context.hasTarget, 'no fade of other plates while hidden')
 		if arrows1 and arrows2 then
@@ -551,7 +556,7 @@ describe('driver: fighting and range', function()
 		assert.is_true(Driver:FeatureState('onlyFighting'))
 	end)
 
-	it("falls back to the interrupt's own range without the range library, and to nothing without either", function()
+	it('leaves range fade off without the range library even when a melee interrupt is known', function()
 		local realInRange = C_Spell.IsSpellInRange
 		local realKick = P.Context.kickSpell
 		P.Context.kickSpell = 2139
@@ -560,10 +565,10 @@ describe('driver: fighting and range', function()
 			return u ~= nil and u.near == true
 		end
 		Store:Set('behavior', { rangeFade = 0.5 })
-		assert.equal(Driver.rangeHow, 'spell')
+		assert.is_nil(Driver.rangeHow)
 		local _, farBase = Enemy({ near = false })
 		M.Advance(1)
-		assert.equal(M.Get(P.API:GetPlate(farBase).root, 'alpha'), 0.5)
+		assert.equal(M.Get(P.API:GetPlate(farBase).root, 'alpha'), 1)
 		C_Spell.IsSpellInRange = realInRange
 		P.Context.kickSpell = nil
 		Store:Set('behavior', { rangeFade = 0.3 })

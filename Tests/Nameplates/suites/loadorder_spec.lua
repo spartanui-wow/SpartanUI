@@ -141,8 +141,9 @@ describe('load order: Modules/LoadAll.xml', function()
 	end)
 end)
 
-describe('load order: the old module and the host, switch off', function()
-	local SUI, ns, module = H.LoadNameplatesLikeTheGame()
+-- Phase 4a: the new plates are the default, so this character picked "Use the old nameplates"
+describe('load order: the old module and the host, old plates picked', function()
+	local SUI, ns, module = H.LoadNameplatesLikeTheGame({ saved = { char = { [H.CharacterKey()] = { engine = 'old' } } } })
 	local P = ns.Plates
 
 	it('ends up with one Nameplates module carrying the core API', function()
@@ -150,10 +151,8 @@ describe('load order: the old module and the host, switch off', function()
 		assert.is_true(rawequal(module.API, P.API))
 		if SUI.IsRetail then
 			assert.is_true(module.createdByHost, 'Retail: the old file stops early, the host makes the module')
-			assert.is_true(module.HideModule)
 		else
-			assert.equal(module.description, 'Basic nameplate module', 'the old file made it')
-			assert.is_nil(module.createdByHost)
+			assert.is_nil(module.createdByHost, 'the old file made it')
 		end
 	end)
 
@@ -186,13 +185,13 @@ describe('load order: the old module and the host, switch off', function()
 		end
 		assert.equal(spawned, not SUI.IsRetail, 'the old module spawns its plates outside Retail')
 		assert.not_nil(H.sui.commands.np, '/sui np is registered')
-		assert.empty(H.sui.options, 'no new options while the switch is off')
+		assert.empty(H.sui.options, 'no new options while the old plates run')
 	end)
 
-	it('turns the switch on for the next session only', function()
+	it('switches back to the new plates for the next session only', function()
 		H.sui.commands.np.fn('preview')
 		assert.equal(P.Config:GetEngineChoice(), 'new')
-		assert.is_nil(P.Config:GetSessionEngine())
+		assert.equal(P.Config:GetSessionEngine(), 'old')
 		assert.is_false(P.enabled)
 		H.sui.commands.np.fn('preview')
 		assert.equal(P.Config:GetEngineChoice(), 'old')

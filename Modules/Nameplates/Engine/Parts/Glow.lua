@@ -472,6 +472,9 @@ function GlowLib.Limit(source)
 		return P.L['The game hides aura timers here, so this glow shows on your debuff icons instead.']
 	elseif source == 'importantCast' and not P.Caps:Get('important') then
 		return P.L['This game version cannot tell which casts are important.']
+	elseif source == 'importantCast' and not P.Caps:Get('importantSeen') then
+		-- S11: the question exists here, but no cast has been marked important yet this session
+		return P.L['This game version may never mark a cast as important, so this may not show.']
 	end
 	return nil
 end
@@ -508,22 +511,52 @@ local function Hostile(widget)
 	return facts.canAttack == true or (type(facts.reaction) == 'number' and facts.reaction <= 3)
 end
 
----Lua scan (plain aura data only): true as soon as test(aura) is true.
-local function AnyAura(src, filter, test)
+---Lua scan (plain aura data only): true as soon as test(aura, arg) is true. Tests are functions
+---made once (no closure per scan).
+local function AnyAura(src, filter, test, arg)
 	for index = 1, 40 do
 		local aura = src:AuraByIndexPlain(index, filter)
 		if not aura then
 			return false
 		end
-		if test(aura) then
+		if test(aura, arg) then
 			return true
 		end
 	end
 	return false
 end
 
+local NO_AURAS = {} -- read only
+
 -- Reused env for the scan path's removable test (row settings: the player's always and never lists)
 local purgeEnv = { settings = {}, tank = {}, tokenIDs = {}, hostile = true }
+
+local function ScanRowAccepts(aura, accept)
+	return accept(aura, purgeEnv) == true
+end
+
+local function ContainerRowAccepts(aura, row)
+	return row.scan(aura, P.Context) == true
+end
+
+---The removable test the glow uses: the scan path's own row test (Engine/Parts/AurasScan.lua), so
+---the glow and the row agree on what counts, else the container row's simpler test.
+---@return function|nil test
+---@return any arg
+---@return string filter
+local function PurgeTest()
+	local scanRow = P.AuraScan and P.AuraScan.ROWS and P.AuraScan.ROWS.removable
+	if scanRow and scanRow.Accept and P.AuraScan.RowSettings then
+		P.AuraScan.RowSettings('removable', purgeEnv.settings)
+		return ScanRowAccepts, scanRow.Accept, 'HELPFUL'
+	end
+	local rows = P.AuraRows and P.AuraRows.ROWS
+	local row = rows and rows.removable
+	if not row then
+		return nil, nil, 'HELPFUL'
+	end
+	return ContainerRowAccepts, row, row.scanFilter or 'HELPFUL'
+end
 
 local function PurgeShown(widget, src)
 	if not Hostile(widget) then
@@ -533,57 +566,131 @@ local function PurgeShown(widget, src)
 		local icons = src:SampleAuras('removable')
 		return icons ~= nil and #icons > 0
 	end
-	-- The removable row's own test on the scan path (Engine/Parts/AurasScan.lua), so the glow and
-	-- the row agree on what counts; the container row's simpler test otherwise
-	local scanRow = P.AuraScan and P.AuraScan.ROWS and P.AuraScan.ROWS.removable
-	if scanRow and scanRow.Accept and P.AuraScan.RowSettings then
-		P.AuraScan.RowSettings('removable', purgeEnv.settings)
-		return AnyAura(src, 'HELPFUL', function(aura)
-			return scanRow.Accept(aura, purgeEnv) == true
-		end)
-	end
-	local rows = P.AuraRows and P.AuraRows.ROWS
-	local row = rows and rows.removable
-	if not row then
+	local test, arg, filter = PurgeTest()
+	if not test then
 		return false
 	end
-	return AnyAura(src, row.scanFilter or 'HELPFUL', function(aura)
-		return row.scan(aura, P.Context) == true
-	end)
+	return AnyAura(src, filter, test, arg)
+end
+
+-- One pandemic check at a time: its results live here (no closure per scan)
+local pandemic = { now = 0, inWindow = false, nextAt = nil }
+
+local function PandemicCheck(remaining, duration)
+	if type(duration) ~= 'number' or duration <= 0 or type(remaining) ~= 'number' then
+		return
+	end
+	local share = GlowLib.PANDEMIC
+	if remaining <= duration * share then
+		if remaining > 0 then
+			pandemic.inWindow = true
+		end
+	else
+		local enter = pandemic.now + remaining - duration * share
+		pandemic.nextAt = pandemic.nextAt and math.min(pandemic.nextAt, enter) or enter
+	end
+end
+
+local function PandemicVisit(aura, ids)
+	ids[#ids + 1] = aura.auraInstanceID
+	if type(aura.expirationTime) == 'number' and aura.expirationTime > 0 then
+		PandemicCheck(aura.expirationTime - pandemic.now, aura.duration)
+	end
+	return false
 end
 
 ---Whether one of the player's debuffs is in its refresh window, and when the next one enters it.
+---Keeps the instance ids of the player's debuffs on the widget (AuraRelevant reads them).
 ---@return boolean inWindow
 ---@return number|nil nextAt
-local function PandemicState(src, now)
-	local inWindow, nextAt = false, nil
-	local share = GlowLib.PANDEMIC
-	local function Check(remaining, duration)
-		if type(duration) ~= 'number' or duration <= 0 or type(remaining) ~= 'number' then
-			return
-		end
-		if remaining <= duration * share then
-			if remaining > 0 then
-				inWindow = true
-			end
-		else
-			local enter = now + remaining - duration * share
-			nextAt = nextAt and math.min(nextAt, enter) or enter
-		end
-	end
+local function PandemicState(widget, src, now)
+	pandemic.now, pandemic.inWindow, pandemic.nextAt = now, false, nil
 	if src.isSample then
-		for _, aura in ipairs(src:SampleAuras('myDebuffs') or {}) do
-			Check(aura.remaining, aura.duration)
+		for _, aura in ipairs(src:SampleAuras('myDebuffs') or NO_AURAS) do
+			PandemicCheck(aura.remaining, aura.duration)
 		end
-		return inWindow, nil
+		return pandemic.inWindow, nil
 	end
-	AnyAura(src, 'HARMFUL|PLAYER', function(aura)
-		if type(aura.expirationTime) == 'number' and aura.expirationTime > 0 then
-			Check(aura.expirationTime - now, aura.duration)
+	local ids = widget.mineIDs
+	if not ids then
+		ids = {}
+		widget.mineIDs = ids
+	end
+	P.util.Wipe(ids)
+	AnyAura(src, 'HARMFUL|PLAYER', PandemicVisit, ids)
+	return pandemic.inWindow, pandemic.nextAt
+end
+
+---True when one of `ids` (a payload list) is in `list`.
+local function AnyListed(list, ids)
+	if type(ids) ~= 'table' then
+		return false
+	end
+	for i = 1, #ids do
+		local id = ids[i]
+		for j = 1, #list do
+			if list[j] == id then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+---Can this UNIT_AURA change a purge or pandemic glow? These glows only run where aura data is
+---plain (Classic family; previews get no events), so the payload can be read. The purge glow can
+---only appear from an added removable buff and only go away on a removal; the pandemic glow
+---follows the player's own debuffs (added ones, and changes to the ones it saw).
+---@param widget table
+---@param info table|nil updateInfo
+---@return boolean
+local function AuraRelevant(widget, info)
+	if P.Caps:Get('secrets') then
+		return false -- the glow is off here (Refresh hid it when the part was laid out)
+	end
+	if type(info) ~= 'table' or info.isFullUpdate then
+		return true
+	end
+	local added = info.addedAuras
+	if type(added) ~= 'table' then
+		added = NO_AURAS
+	end
+	if widget.spec.source == 'purge' then
+		if GlowLib.IsShown(widget.glow) then
+			local removed = info.removedAuraInstanceIDs
+			local updated = info.updatedAuraInstanceIDs
+			return (type(removed) == 'table' and removed[1] ~= nil) or (type(updated) == 'table' and updated[1] ~= nil)
+		end
+		if not Hostile(widget) then
+			return false
+		end
+		local test, arg = PurgeTest()
+		local updated = info.updatedAuraInstanceIDs
+		if type(updated) == 'table' then
+			for i = 1, #updated do
+				local aura = widget.plate.src:AuraByInstancePlain(updated[i])
+				if test and aura and aura.isHelpful and test(aura, arg) then
+					return true
+				end
+			end
+		end
+		for i = 1, #added do
+			local aura = added[i]
+			if test and type(aura) == 'table' and aura.isHelpful and test(aura, arg) then
+				return true
+			end
 		end
 		return false
-	end)
-	return inWindow, nextAt
+	end
+	local IsMine = P.AuraScan and P.AuraScan.IsMine
+	for i = 1, #added do
+		local aura = added[i]
+		if type(aura) == 'table' and aura.isHarmful and (not IsMine or IsMine(aura)) then
+			return true
+		end
+	end
+	local ids = widget.mineIDs
+	return ids ~= nil and (AnyListed(ids, info.updatedAuraInstanceIDs) or AnyListed(ids, info.removedAuraInstanceIDs))
 end
 
 -- Plates waiting for a debuff to enter its refresh window: one shared check, never an OnUpdate.
@@ -645,7 +752,7 @@ Refresh = function(widget, src)
 			return
 		end
 		local now = P.services.GetTime()
-		local inWindow, nextAt = PandemicState(src, now)
+		local inWindow, nextAt = PandemicState(widget, src, now)
 		if inWindow then
 			GlowLib.Show(glow)
 		else
@@ -705,7 +812,11 @@ P.Parts:Register({
 			Refresh(widget, widget.plate.src)
 		end
 	end,
-	Update = function(widget, src)
+	Update = function(widget, src, event, _, info)
+		-- Aura glows scan only when the change can matter to them
+		if event == 'UNIT_AURA' and not AuraRelevant(widget, info) then
+			return
+		end
 		Refresh(widget, src)
 	end,
 	OnState = function(widget, state)
@@ -728,6 +839,9 @@ P.Parts:Register({
 	Reset = function(widget)
 		waiting[widget] = nil
 		widget.targetUnknown = nil
+		if widget.mineIDs then
+			P.util.Wipe(widget.mineIDs)
+		end
 		GlowLib.Reset(widget.glow)
 	end,
 })

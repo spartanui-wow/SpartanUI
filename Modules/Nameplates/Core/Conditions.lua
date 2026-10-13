@@ -293,8 +293,22 @@ end
 -- P.Context.kickSpell, set by the Driver from Data/Kicks.
 ----------------------------------------------------------------------------------------------------
 
+function Conditions.RefreshKick()
+	local ctx = P.Context
+	local spell = ctx.kickSpell
+	ctx.kickDurationSpell = spell
+	ctx.kickDuration = nil
+	if spell and C_Spell and C_Spell.GetSpellCooldownDuration then
+		ctx.kickDuration = C_Spell.GetSpellCooldownDuration(spell, true)
+	end
+end
+
 local function KickDuration()
-	local spell = P.Context and P.Context.kickSpell
+	local ctx = P.Context
+	local spell = ctx and ctx.kickSpell
+	if P.Driver and P.Driver.active and ctx.kickDurationSpell == spell then
+		return ctx.kickDuration
+	end
 	if not spell or not (C_Spell and C_Spell.GetSpellCooldownDuration) then
 		return nil
 	end

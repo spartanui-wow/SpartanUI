@@ -37,6 +37,10 @@ local function Release(record)
 	pool[#pool + 1] = record
 end
 
+-- Ids of the eases and due tasks of one frame (reused lists, see OnUpdate)
+local easeIds, taskIds = {}, {}
+local nextFrameSpare, layoutSpare = {}, {}
+
 local function HasWork()
 	return next(Scheduler.tasks) ~= nil or next(Scheduler.eases) ~= nil or next(Scheduler.layout) ~= nil or next(Scheduler.nextFrame) ~= nil
 end
@@ -60,43 +64,70 @@ local function OnUpdate(self, elapsed)
 
 	if next(Scheduler.nextFrame) then
 		local jobs = Scheduler.nextFrame
-		Scheduler.nextFrame = {}
-		for _, fn in pairs(jobs) do
+		Scheduler.nextFrame, nextFrameSpare = nextFrameSpare, jobs
+		for id, fn in pairs(jobs) do
+			jobs[id] = nil
 			RunSafe(fn)
 		end
 	end
 
 	if next(Scheduler.layout) then
 		local plates = Scheduler.layout
-		Scheduler.layout = {}
+		Scheduler.layout, layoutSpare = layoutSpare, plates
 		for plate in pairs(plates) do
+			plates[plate] = nil
 			if plate.Layout then
 				RunSafe(plate.Layout, plate)
 			end
 		end
 	end
 
-	for id, ease in pairs(Scheduler.eases) do
-		local t = ease.duration > 0 and (now - ease.start) / ease.duration or 1
-		if t >= 1 then
-			-- Read the record before it goes back to the pool: apply or done may start a new ease
-			local apply, done, to = ease.apply, ease.done, ease.to
-			Scheduler.eases[id] = nil
-			Release(ease)
-			RunSafe(apply, to)
-			if done then
-				RunSafe(done)
+	-- Callbacks may start or stop eases and tasks. Lua 5.1 does not allow adding keys to a table
+	-- while pairs() walks it, so the ids are copied first (into reused lists) and each record is
+	-- looked up again before it runs; anything started meanwhile runs from the next frame.
+	local n = 0
+	for id in pairs(Scheduler.eases) do
+		n = n + 1
+		easeIds[n] = id
+	end
+	for i = 1, n do
+		local id = easeIds[i]
+		easeIds[i] = nil
+		local ease = Scheduler.eases[id]
+		if ease then
+			local t = ease.duration > 0 and (now - ease.start) / ease.duration or 1
+			if t >= 1 then
+				-- Read the record before it goes back to the pool: apply or done may start a new ease
+				local apply, done, to = ease.apply, ease.done, ease.to
+				Scheduler.eases[id] = nil
+				Release(ease)
+				RunSafe(apply, to)
+				if done then
+					RunSafe(done)
+				end
+			else
+				RunSafe(ease.apply, ease.from + (ease.to - ease.from) * Smooth(t))
 			end
-		else
-			RunSafe(ease.apply, ease.from + (ease.to - ease.from) * Smooth(t))
 		end
 	end
 
 	Scheduler.elapsed = Scheduler.elapsed + elapsed
 	if Scheduler.elapsed >= Scheduler.TICK then
 		Scheduler.elapsed = 0
-		for _, task in pairs(Scheduler.tasks) do
+		n = 0
+		for id, task in pairs(Scheduler.tasks) do
 			if now >= task.due then
+				n = n + 1
+				taskIds[n] = id
+			end
+		end
+		for i = 1, n do
+			local id = taskIds[i]
+			taskIds[i] = nil
+			local task = Scheduler.tasks[id]
+			-- A task cancelled or started again by an earlier callback is skipped (a new one is
+			-- due one interval from its start)
+			if task and now >= task.due then
 				task.due = now + task.interval
 				RunSafe(task.fn, now)
 			end

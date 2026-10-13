@@ -25,7 +25,7 @@ P.services.FontPath = function()
 	return 'Fonts\\Fallback.ttf'
 end
 
-local BUILTINS = { 'clean', 'namesOnly', 'mini' }
+local BUILTINS = { 'clean', 'slim', 'bold', 'bordered', 'blizzard', 'rounded', 'blank', 'namesOnly', 'mini' }
 
 local function Reset()
 	Store:Set('tweaks', nil)
@@ -75,6 +75,88 @@ describe('styles: built-ins', function()
 			end
 		end)
 	end
+
+	describe('art catalog', function()
+		it('registers every texture under its neutral media name and alias', function()
+			P:RegisterMedia()
+			P:RegisterMedia()
+			local art = P.Data.ArtAliases
+			local media = P.services.media
+			for alias, entry in pairs(art.ENTRIES) do
+				local mediaType = art.MEDIA[entry.kind]
+				assert.is_true(media:IsValid(mediaType, entry.name), entry.name)
+				assert.is_true(media:IsValid(mediaType, alias), alias)
+				assert.equal(media:Fetch(mediaType, entry.name), P.host.mediaPath .. entry.file)
+				assert.is_true(art:Slot(entry.kind, alias) == entry)
+				assert.is_true(art:Slot(entry.kind, entry.name) == entry)
+			end
+		end)
+
+		it('ships power-of-two, uncompressed 32-bit white-on-alpha files with valid slice margins', function()
+			local function PowerOfTwo(n)
+				while n > 1 and n % 2 == 0 do
+					n = n / 2
+				end
+				return n == 1
+			end
+			for alias, entry in pairs(P.Data.ArtAliases.ENTRIES) do
+				local file = io.open(HARNESS_ROOT .. 'Modules/Nameplates/Media/' .. entry.file, 'rb')
+				assert.not_nil(file, alias .. ' file')
+				local data = file:read('*a')
+				file:close()
+				assert.equal(data:byte(3), 2, alias .. ' uncompressed true color')
+				assert.equal(data:byte(17), 32, alias .. ' bit depth')
+				assert.equal(data:byte(18), 40, alias .. ' top-left origin and eight alpha bits')
+				local w = data:byte(13) + data:byte(14) * 256
+				local h = data:byte(15) + data:byte(16) * 256
+				assert.is_true(PowerOfTwo(w) and PowerOfTwo(h), alias .. ' canvas')
+				assert.equal(#data, 18 + w * h * 4, alias .. ' raw pixel length')
+				for i = 19, #data, 4 do
+					assert.equal(data:byte(i), 255, alias .. ' white blue channel')
+					assert.equal(data:byte(i + 1), 255, alias .. ' white green channel')
+					assert.equal(data:byte(i + 2), 255, alias .. ' white red channel')
+				end
+				if entry.margins then
+					assert.is_true(entry.margins[1] + entry.margins[3] < w, alias .. ' horizontal slices')
+					assert.is_true(entry.margins[2] + entry.margins[4] < h, alias .. ' vertical slices')
+				end
+			end
+		end)
+	end)
+
+	it('keeps complete zero-click defaults in the new full styles', function()
+		for _, id in ipairs({ 'slim', 'bold', 'bordered', 'blizzard', 'rounded' }) do
+			local style = Registry:Get(id)
+			local parts = style.parts
+			assert.equal(parts.name.source, 'name', id)
+			assert.equal(parts.hp.source, 'healthPercent', id)
+			assert.equal(parts.hp.anchor[2], 'health', id)
+			assert.equal(parts.elite.source, 'classification', id)
+			assert.equal(parts.mine.row, 'myDebuffs', id)
+			assert.equal(parts.mine.max, 6, id)
+			assert.equal(parts.cc.row, 'crowdControl', id)
+			assert.equal(parts.arrows.state, 'target', id)
+			assert.contains({ 'arrows', 'doubleArrows' }, parts.arrows.art, id)
+			for _, key in ipairs({ 'target', 'shield', 'important', 'aimedAtMe', 'nameText' }) do
+				assert.is_true(parts.cast[key], id .. ' cast ' .. key)
+			end
+			assert.equal(style.states.notTarget.alpha, 0.75, id)
+			assert.equal(style.states.casting.alpha, 1, id)
+			local grow = style.states.target.grow
+			assert.equal(grow[1], math.floor(grow[1]), id .. ' pixel width')
+			assert.equal(grow[2], math.floor(grow[2]), id .. ' pixel height')
+			assert.near(grow[1] / style.plate.sizes.medium[1], 0.1, 0.015, id .. ' target growth')
+		end
+	end)
+
+	it('keeps Blank to a health bar and gives Bordered its level box and Rounded its cutout layers', function()
+		local blank = Registry:Get('blank')
+		assert.equal(Count(blank.parts), 1)
+		assert.equal(blank.parts.health.source, 'health')
+		assert.equal(Registry:Get('bordered').parts.level.source, 'level')
+		assert.equal(Registry:Get('rounded').parts.roundedBackground.kind, 'art')
+		assert.equal(Registry:Get('rounded').parts.roundedFrame.kind, 'art')
+	end)
 
 	it('uses only known candidate keys in the aura rows', function()
 		local rows = P.AuraRows and P.AuraRows.ROWS

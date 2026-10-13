@@ -244,6 +244,35 @@ local function PlainFraction(src)
 end
 
 local lowCurves = setmetatable({}, { __mode = 'k' })
+local alphaCurves = setmetatable({}, { __mode = 'k' })
+
+local function AlphaCurve(color, threshold)
+	local cached = alphaCurves[color]
+	if cached and cached.threshold == threshold then
+		return cached.curve
+	end
+	if not (C_CurveUtil and C_CurveUtil.CreateCurve) then
+		return nil
+	end
+	local curve = C_CurveUtil.CreateCurve()
+	if curve.SetType and Enum and Enum.LuaCurveType then
+		curve:SetType(Enum.LuaCurveType.Step)
+	end
+	curve:AddPoint(0, color[4] or 1)
+	curve:AddPoint(threshold, 0)
+	curve:AddPoint(1, 0)
+	alphaCurves[color] = { threshold = threshold, curve = curve }
+	return curve
+end
+
+local function DrawAlphaSecret(texture, src, color, curve)
+	local alphaSecret = src:HealthPercentSecret(curve)
+	if type(alphaSecret) == 'nil' then
+		return false
+	end
+	texture:SetVertexColor(color[1], color[2], color[3], alphaSecret)
+	return true
+end
 
 local function LowCurve(row, threshold)
 	local curve = lowCurves[row]
@@ -285,7 +314,16 @@ local function DrawStep(texture, src, color, threshold, curve)
 		end
 		if not ok and curveStage == 'tint' then
 			P.Caps:Record('healthCurves', false)
-			P.log.warning('Low health and execute overlays use plain health from now on: ' .. tostring(drew))
+			P.log.warning('Low health and execute overlays use an alpha curve from now on: ' .. tostring(drew))
+		end
+	end
+	if P.Caps:Get('secrets') and not src.isSample then
+		local alphaCurve = AlphaCurve(color, threshold)
+		if alphaCurve then
+			local ok, drew = pcall(DrawAlphaSecret, texture, src, color, alphaCurve)
+			if ok and drew then
+				return
+			end
 		end
 	end
 	local fraction = PlainFraction(src)
@@ -465,13 +503,33 @@ local function UpdateOverlays(widget, src, program, ctx)
 	end
 end
 
-local function ApplyColors(widget, program, env)
+---True when a color list follows this event or message.
+local function Follows(program, event)
+	return program ~= nil and (program.events[event] or program.messages[event]) == true
+end
+
+---Color the bar and its border. With `event` (one event or message), only the lists that follow it
+---are worked out again (a target change recolors the border list, not the health list); an event
+---neither list follows recolors both, as before.
+---@param widget table
+---@param program table|nil Health color list
+---@param env table
+---@param event? string
+local function ApplyColors(widget, program, env, event)
 	local spec, bar = widget.spec, widget.bar
-	if program then
+	local border = spec.borderColors and bar.border.kind and P.Colors:Program(spec.borderColors, env.ctx) or nil
+	local doHealth, doBorder = program ~= nil, border ~= nil
+	if event then
+		local inHealth, inBorder = Follows(program, event), Follows(border, event)
+		if inHealth or inBorder then
+			doHealth, doBorder = doHealth and inHealth, doBorder and inBorder
+		end
+	end
+	if doHealth then
 		P.Colors:Apply(program, env, widget.colorTarget, 'SetStatusBarColor')
 	end
-	if spec.borderColors and bar.border.kind then
-		P.Colors:Apply(P.Colors:Program(spec.borderColors, env.ctx), env, BarLib.BorderTarget(bar.border), 'SetVertexColor')
+	if doBorder then
+		P.Colors:Apply(border, env, BarLib.BorderTarget(bar.border), 'SetVertexColor')
 	end
 end
 
@@ -712,8 +770,10 @@ function Health.Update(widget, src, event)
 	if full or health or event == 'COLORS' or event == 'CONTEXT_CHANGED' then
 		UpdateOverlays(widget, src, program, env.ctx)
 	end
-	if full or not health or (program and program.events[event]) then
+	if full or event == 'COLORS' then
 		ApplyColors(widget, program, env)
+	elseif not health or Follows(program, event) then
+		ApplyColors(widget, program, env, event)
 	end
 end
 
@@ -738,7 +798,7 @@ function Health.Limits()
 	if secrets and (Prediction.failed or not P.Caps:Get('healPrediction')) then
 		out[#out + 1] = L['The glow for big shields and room for the whole shield only show when the game lets addons see shield amounts.']
 	end
-	if secrets and not P.Caps:Get('healthCurves') then
+	if secrets and not P.Caps:Get('healthCurves') and not (C_CurveUtil and C_CurveUtil.CreateCurve) then
 		out[#out + 1] = L['Low health and execute colors only show when the game lets addons see health.']
 	end
 	if not P.Caps:Get('clipChildren') then

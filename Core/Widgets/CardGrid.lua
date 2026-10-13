@@ -2,8 +2,10 @@
 -- as setup but smaller (four across). Use on a select option:
 --   dialogControl = 'SUICardGrid',
 --   arg = { cards = fun(): card[], size = 'look'|'compact'|'swatch', setVariant = fun(value, variant),
---           onHover = fun(value|nil) }  -- onHover is optional: the hovered card's value, nil on leave
--- Cards take the setup card fields: value, title, tag, tagStyle, art, variants, variant, recommended.
+--           onHover = fun(value|nil),  -- optional: the hovered card's value, nil on leave
+--           onContext = fun(value, card),  -- optional: right-click on a card
+--           noToggle = true }  -- optional: leave out the "Show larger tiles" button (a grid of one card)
+-- Cards take the setup card fields: value, title, caption, tag, tagStyle, art, variants, variant, recommended.
 -- values/get/set work as on any select; the option's values only need the card values as keys.
 
 local AceGUI = LibStub('AceGUI-3.0', true)
@@ -187,6 +189,16 @@ local function CardLeave(card)
 	end
 end
 
+-- Right-click: arg.onContext(value, card). Cards only register left clicks, but every mouse button
+-- sends OnMouseUp.
+local function CardMouseUp(card, button)
+	local owner = hoverOwner[card]
+	local data = owner and owner.customData
+	if button == 'RightButton' and data and data.onContext and card.data then
+		data.onContext(card.data.value, card)
+	end
+end
+
 local function Render(self)
 	local data = self.customData
 	local Kit = LibAT and LibAT.UI and LibAT.UI.Kit
@@ -225,14 +237,19 @@ local function Render(self)
 	if self.sizeToggle.ApplyColor then
 		self.sizeToggle:ApplyColor()
 	end
-	self.sizeToggle:Show()
+	-- A grid of one card (a pasted style) has no use for the size button
+	local top = data.noToggle and 0 or 26
+	self.sizeToggle:SetShown(not data.noToggle)
 	local grid = self.grid
+	grid:ClearAllPoints()
+	grid:SetPoint('TOPLEFT', self.frame, 'TOPLEFT', 0, -top)
 	local cards = type(data.cards) == 'function' and data.cards() or data.cards or {}
 	local list = {}
 	for _, card in ipairs(cards) do
 		list[#list + 1] = {
 			value = card.value,
 			title = card.title,
+			caption = card.caption,
 			tag = card.tag,
 			tagStyle = card.tagStyle,
 			art = card.art,
@@ -262,6 +279,7 @@ local function Render(self)
 		if hoverOwner[card] == nil then
 			card:HookScript('OnEnter', CardEnter)
 			card:HookScript('OnLeave', CardLeave)
+			card:HookScript('OnMouseUp', CardMouseUp)
 		end
 		hoverOwner[card] = self
 		local selected = card.data.value == self.value
@@ -273,7 +291,7 @@ local function Render(self)
 		end
 	end
 	grid:Show()
-	local height = grid:Layout(math.max(self.frame:GetWidth() or 0, 340)) + 26
+	local height = grid:Layout(math.max(self.frame:GetWidth() or 0, 340)) + top
 	self:SetHeight(math.max(height, 20))
 end
 

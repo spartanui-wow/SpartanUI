@@ -36,8 +36,10 @@ Regions.KINDS = { 'click', 'stack' }
 Regions.COLORS = { click = { 0.25, 0.75, 1 }, stack = { 1, 0.6, 0.15 } }
 Regions.LABELS = { click = L['Click area'], stack = L['Stacking area'] }
 Regions.FILL_ALPHA = 0.12
--- Above every part level a style can use (Plate ApplyCommon: base + 1 + rank + (layer + 8) * 32)
-Regions.LEVEL = 600
+-- Above every part level a style can use. Plate ApplyCommon puts a part at
+-- base + 1 + rank * PART_LEVELS + (layer + 8) * 32 * PART_LEVELS, with layer -8..8 and room for 32
+-- parts per layer, so the top layer ends below (8 + 8 + 1) * 32 * PART_LEVELS
+Regions.LEVEL = (8 + 8 + 1) * 32 * P.LayoutContext.PART_LEVELS + 1
 
 ----------------------------------------------------------------------------------------------------
 -- Boxes

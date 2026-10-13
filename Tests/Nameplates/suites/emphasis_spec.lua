@@ -20,6 +20,18 @@ local P = H.FreshCore()
 local Merge = P.Styles.Merge
 local Highlight, GlowLib, Art = P.Highlight, P.GlowLib, P.Data.ArtAliases
 local LSM = LibStub('LibSharedMedia-3.0')
+-- These renderer tests exercise the shape fallback before a host supplies artwork.
+for _, slots in pairs(P.Data.ArtAliases.SLOTS) do
+	for key, slot in pairs(slots) do
+		local fallback = {}
+		for field, value in pairs(slot) do
+			if field ~= 'file' then
+				fallback[field] = value
+			end
+		end
+		slots[key] = fallback
+	end
+end
 
 ---A secret where the client has secrets, a plain value elsewhere.
 local function Hidden(v)

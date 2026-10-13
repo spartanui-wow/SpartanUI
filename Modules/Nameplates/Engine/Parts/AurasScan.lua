@@ -359,11 +359,12 @@ end
 ---Row definitions for the scan path. harmful and helpful pick the polarities scanned; token rows
 ---read the CROWD_CONTROL filter where the game's spell flag is missing. Accept(aura, env) is also
 ---used by the purge glow (Glow.lua), with env = { settings, tank, tokenIDs, hostile }.
----@type table<string, { harmful?: boolean, helpful?: boolean, enemyOnly?: boolean, token?: boolean, Accept: fun(aura: table, env: table): boolean }>
+---@type table<string, { harmful?: boolean, helpful?: boolean, enemyOnly?: boolean, token?: boolean, tokenAdds?: boolean, Accept: fun(aura: table, env: table): boolean }>
 Scan.ROWS = {
 	myDebuffs = { harmful = true, token = true, Accept = AcceptMine },
 	removable = { helpful = true, enemyOnly = true, Accept = AcceptRemovable },
-	crowdControl = { harmful = true, token = true, Accept = AcceptCrowdControl },
+	-- tokenAdds: the token can add auras the spell tests miss (Scan.Relevant cannot judge them)
+	crowdControl = { harmful = true, token = true, tokenAdds = true, Accept = AcceptCrowdControl },
 	custom = { harmful = true, helpful = true, Accept = AcceptCustom },
 }
 
@@ -414,6 +415,16 @@ end
 ---@param out table
 ---@return boolean sorted
 local function Gather(src, filter, sort, accept, env, out)
+	if src.reading and src.AuraListPlain then
+		local list = src:AuraListPlain(filter)
+		for i = 1, #list do
+			local aura = list[i]
+			if accept(aura, env) then
+				out[#out + 1] = aura
+			end
+		end
+		return false
+	end
 	local rule, direction = BlizzardSort(sort)
 	if rule then
 		local ok, ids = pcall(src.AuraInstanceIDsPlain, src, filter, rule, direction)
@@ -515,6 +526,9 @@ function Scan.Collect(widget, src)
 	else
 		P.util.Wipe(env.tokenIDs)
 	end
+	-- Whether this scan used the filter token (another row may turn it off later: Scan.Relevant
+	-- then rescans this one)
+	widget.usedToken = def.token and Scan.UsesToken() or nil
 	local sorted = true
 	if def.harmful then
 		sorted = Gather(src, 'HARMFUL', spec.sort, def.Accept, env, picks) and sorted
@@ -748,6 +762,26 @@ function Scan.FormatRemaining(remaining)
 	return tostring(math.ceil(remaining))
 end
 
+---A number that changes exactly when Scan.FormatRemaining's text does, so the shared tick writes a
+---timer only when its text changes (whole seconds show for a full second, 5 ticks).
+---@param remaining number
+---@return number
+function Scan.RemainingKey(remaining)
+	if type(remaining) ~= 'number' or remaining <= 0 or remaining == math.huge then
+		return -1
+	end
+	if remaining >= 3600 then
+		return 200000 + math.ceil(remaining / 3600)
+	end
+	if remaining >= 60 then
+		return 100000 + math.ceil(remaining / 60)
+	end
+	if remaining < 3 then
+		return -10 - math.floor(remaining * 10 + 0.5)
+	end
+	return math.ceil(remaining)
+end
+
 -- Icons that need the shared tick (plain timer text or the pandemic check)
 local ticking = setmetatable({}, { __mode = 'k' })
 
@@ -761,7 +795,11 @@ local function TickIcon(icon, now)
 	end
 	local remaining = icon.expiration - now
 	if icon.plainTimer then
-		icon.timer:SetText(Scan.FormatRemaining(remaining))
+		local key = Scan.RemainingKey(remaining)
+		if key ~= icon.timerKey then
+			icon.timerKey = key
+			icon.timer:SetText(Scan.FormatRemaining(remaining))
+		end
 	end
 	if icon.watchPandemic then
 		SetPandemic(icon, remaining > 0 and remaining <= icon.total * Scan.PANDEMIC)
@@ -843,6 +881,21 @@ end
 ---@param now number
 local function DrawIcon(widget, icon, data, now)
 	local spec = widget.spec
+	if
+		icon.drawSpec == spec
+		and icon.drawIcon == data.icon
+		and icon.drawDuration == data.duration
+		and icon.drawExpiration == data.expiration
+		and icon.drawStacks == data.stacks
+		and icon.drawDispel == data.dispel
+		and icon.drawHarmful == data.harmful
+		and icon.drawMine == data.mine
+		and not data.frozen
+	then
+		return
+	end
+	icon.drawSpec, icon.drawIcon, icon.drawDuration, icon.drawExpiration = spec, data.icon, data.duration, data.expiration
+	icon.drawStacks, icon.drawDispel, icon.drawHarmful, icon.drawMine = data.stacks, data.dispel, data.harmful, data.mine
 	icon.spec = spec
 	icon.dispel, icon.harmful = data.dispel, data.harmful
 	icon.texture:SetTexture(data.icon)
@@ -855,6 +908,8 @@ local function DrawIcon(widget, icon, data, now)
 	local duration, expiration = data.duration or 0, data.expiration or 0
 	local timed = duration > 0 and expiration > 0
 	icon.expiration, icon.total = expiration, duration
+	-- Whatever this draw writes, the tick starts from it
+	icon.timerKey = nil
 	UnbindTimer(icon)
 	local pandemic = false
 	if timed then
@@ -909,6 +964,7 @@ local function HideFrom(widget, from)
 			P.GlowLib.Reset(icon.pglow)
 		end
 		icon.pandemic = nil
+		icon.drawSpec = nil
 		icon:Hide()
 	end
 end
@@ -1043,8 +1099,13 @@ local function AnyShown(shown, ids)
 	return false
 end
 
----Can this UNIT_AURA change the row? A full update, an added aura of a scanned polarity, or a
----change to an aura we show.
+local relevantEnv = { settings = {}, tank = {}, tokenIDs = {}, hostile = false }
+
+---Can this UNIT_AURA change the row? A full update, an added aura the row would show, or a change
+---to an aura it shows. Added auras come with their full data (the scan path runs only where aura
+---data is plain), so the row's own test decides: another player's debuff on a mob never makes the
+---"My debuffs" row scan again. A row that takes auras from the crowd control filter token cannot
+---judge one before its scan, so any aura of its kind counts there.
 ---@param widget table
 ---@param info table|nil updateInfo
 ---@return boolean
@@ -1052,16 +1113,36 @@ function Scan.Relevant(widget, info)
 	if type(info) ~= 'table' or info.isFullUpdate then
 		return true
 	end
-	local def = Scan.ROWS[widget.spec.row or 'myDebuffs']
+	local row = widget.spec.row or 'myDebuffs'
+	local def = Scan.ROWS[row]
 	if not def then
 		return false
 	end
+	-- The filter token was turned off since this row last scanned (another row found it
+	-- misbehaving): what it showed may be wrong now
+	if widget.usedToken and not Scan.UsesToken() then
+		return true
+	end
 	local added = info.addedAuras
-	if type(added) == 'table' then
+	if type(added) == 'table' and added[1] then
+		local judge = not (def.tokenAdds and Scan.UsesToken())
+		local env
 		for i = 1, #added do
 			local aura = added[i]
-			if (def.harmful and aura.isHarmful) or (def.helpful and aura.isHelpful) then
-				return true
+			if type(aura) == 'table' and ((def.harmful and aura.isHarmful) or (def.helpful and aura.isHelpful)) then
+				if not judge then
+					return true
+				end
+				if not env then
+					env = relevantEnv
+					Scan.RowSettings(row, env.settings)
+					Scan.RowSettings('tankDebuffs', env.tank)
+					env.hostile = widget.hostile == true
+					P.util.Wipe(env.tokenIDs)
+				end
+				if env.settings.on and def.Accept(aura, env) then
+					return true
+				end
 			end
 		end
 	end
@@ -1097,6 +1178,9 @@ P.Parts:Register({
 		widget.frame:SetSize(w, h)
 		ctx:Anchor(widget.frame, spec.anchor)
 		Scan.LayoutIcons(widget, spec, ctx)
+		for i = 1, #widget.icons do
+			widget.icons[i].drawSpec = nil
+		end
 		-- Redraw what we already have in the new places; settings changes rescan in Configure
 		local src = widget.plate.src
 		if src then

@@ -292,7 +292,11 @@ describe('cast data: interrupt lists', function()
 end)
 
 describe('cast data: Era channel lengths', function()
-	it('finds every rank by id', function()
+	it('finds every rank by id only on the Era content tier', function()
+		if P.Data.CLIENT_TIERS[P.Caps:Client()] ~= P.Data.CLIENT_TIERS.era then
+			assert.is_nil(Channels:Duration(5143))
+			return
+		end
 		assert.equal(Channels:Duration(5143), 3)
 		assert.equal(Channels:Duration(5144), 4)
 		assert.equal(Channels:Duration(25345), 5)
@@ -307,6 +311,10 @@ describe('cast data: Era channel lengths', function()
 	end)
 
 	it('falls back to the spell name with the longest listed length', function()
+		if P.Data.CLIENT_TIERS[P.Caps:Client()] ~= P.Data.CLIENT_TIERS.era then
+			assert.is_nil(Channels:Duration(99999))
+			return
+		end
 		Channels.names = nil
 		local restore = SwapIn(C_Spell, {
 			GetSpellName = function(id)
@@ -1039,6 +1047,11 @@ describe('cast part: Era channels from data', function()
 		end
 		local plate, widget = Live()
 		M.Fire('UNIT_SPELLCAST_CHANNEL_START', TOKEN, 'Cast-9', 5143, nil)
+		if P.Data.CLIENT_TIERS[P.Caps:Client()] ~= P.Data.CLIENT_TIERS.era then
+			assert.is_nil(widget.state, 'Era lengths are not used on later content tiers')
+			Done(plate)
+			return
+		end
 		assert.equal(widget.state, 'casting')
 		assert.equal(widget.kind, 'channel')
 		assert.is_true(Near(widget.times.finish - widget.times.start, 3))
@@ -1051,6 +1064,10 @@ describe('cast part: Era channels from data', function()
 	end)
 
 	it('knows Mind Control and Eyes of the Beast', function()
+		if P.Data.CLIENT_TIERS[P.Caps:Client()] ~= P.Data.CLIENT_TIERS.era then
+			assert.is_nil(Channels:Duration(605))
+			return
+		end
 		assert.equal(Channels:Duration(605), 60)
 		assert.equal(Channels:Duration(10912), 60)
 		assert.equal(Channels:Duration(1002), 60)

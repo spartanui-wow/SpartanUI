@@ -22,7 +22,8 @@ local Scheduler = P.Scheduler
 --   shield, aimed  textures faded by P.Secret.SetAlphaFromBoolean (always 1, 0)
 --   important   an orange P.GlowLib glow (look 'important') around the bar, shown through
 --               GlowLib.ShowWhenSecret from src:IsImportantSecret() (S11 on the Classic family)
---   target      UnitSpellTargetName text, colored by C_ClassColor.GetClassColor (nil-guarded)
+--   target      UnitSpellTargetName text, colored by C_ClassColor.GetClassColor (the color table
+--               is indexed only after Secret.CanIndex; white otherwise)
 --   kick        the mark where the player's interrupt comes back (spec.kickMark; spec.kickFill
 --               also tints the part of the bar after it). Two hidden status bars: the first
 --               holds the cast's elapsed time, the second (anchored to the first one's fill
@@ -151,13 +152,25 @@ local function SetArt(texture, art)
 	return art.file ~= nil
 end
 
----r, g, b, 1 from a color the game handed back (possibly secret parts, only for color sinks).
-local function ColorParts(color)
-	if color.GetRGB then
-		local r, g, b = color:GetRGB()
-		return r, g, b, 1
+---Color a font string by a possibly hidden class token (C_ClassColor accepts secrets). The game may
+---hand back a table addon code must not index (contract 9): then the text turns plain white, or
+---keeps its color when `keep` is set, instead of breaking the cast update.
+---@param fontString table
+---@param classSecret any
+---@param keep? boolean
+local function SetClassTextColorSecret(fontString, classSecret, keep)
+	local colorSecret
+	if type(classSecret) ~= 'nil' and C_ClassColor and C_ClassColor.GetClassColor then
+		colorSecret = C_ClassColor.GetClassColor(classSecret)
 	end
-	return color.r, color.g, color.b, 1
+	if not Secret.CanIndex(colorSecret) then
+		if not keep then
+			fontString:SetTextColor(1, 1, 1, 1)
+		end
+		return
+	end
+	local rSecret, gSecret, bSecret = Secret.ColorChannels(colorSecret, 1, 1, 1)
+	fontString:SetTextColor(rSecret, gSecret, bSecret, 1)
 end
 
 local function SetReverse(bar, on)
@@ -245,7 +258,24 @@ end
 -- Shared tasks (one each, running only while something needs them)
 ----------------------------------------------------------------------------------------------------
 
-local function TimeTextPlain(widget)
+---A number that changes exactly when Cast.FormatSeconds' text does (tenths under 10 seconds,
+---whole seconds above), so the shared tick writes the text only when it changes.
+---@param seconds number
+---@return integer
+local function SecondsKey(seconds)
+	if seconds < 0 then
+		seconds = 0
+	end
+	if seconds < 10 then
+		return math.floor(seconds * 10 + 0.5)
+	end
+	return 1000 + math.floor(seconds)
+end
+
+---Plain time text. The tick passes no `force` and skips writing a text that would not change.
+---@param widget table
+---@param force? boolean
+local function TimeTextPlain(widget, force)
 	local times = widget.times
 	if not times then
 		return
@@ -254,8 +284,14 @@ local function TimeTextPlain(widget)
 	local total = times.finish - times.start
 	local remaining = times.finish - now
 	local format = widget.spec.timeFormat
+	local elapsed = math.min(now - times.start, total)
+	local key = SecondsKey(format == 'elapsed' and elapsed or remaining)
+	if not force and key == widget.timeKey then
+		return
+	end
+	widget.timeKey = key
 	if format == 'elapsed' then
-		widget.time:SetText(Cast.FormatSeconds(math.min(now - times.start, total)))
+		widget.time:SetText(Cast.FormatSeconds(elapsed))
 	elseif format == 'both' then
 		widget.time:SetText(Cast.FormatSeconds(remaining) .. ' / ' .. Cast.FormatSeconds(total))
 	else
@@ -316,6 +352,9 @@ end
 ---@param spell integer|nil
 ---@return any cooldownSecret
 local function KickCooldownSecret(spell)
+	if P.Driver and P.Driver.active and P.Context.kickDurationSpell == spell then
+		return P.Context.kickDuration
+	end
 	if not spell or not (C_Spell and C_Spell.GetSpellCooldownDuration) then
 		return nil
 	end
@@ -837,7 +876,7 @@ local function ApplyTime(widget, src)
 		end
 	end
 	if widget.times then
-		TimeTextPlain(widget)
+		TimeTextPlain(widget, true)
 		WatchText(widget, true)
 		return
 	end
@@ -861,16 +900,7 @@ local function ApplyTarget(widget, src)
 		return
 	end
 	target:SetText(nameSecret)
-	local classSecret = src:SpellTargetClassSecret()
-	local color
-	if type(classSecret) ~= 'nil' and C_ClassColor and C_ClassColor.GetClassColor then
-		color = C_ClassColor.GetClassColor(classSecret)
-	end
-	if type(color) == 'table' then
-		target:SetTextColor(ColorParts(color))
-	else
-		target:SetTextColor(1, 1, 1, 1)
-	end
+	SetClassTextColorSecret(target, src:SpellTargetClassSecret())
 end
 
 ---Shield, important glow, aimed frame, colors and the kick frame's alpha: everything that changes
@@ -1054,13 +1084,7 @@ local function Finish(widget, outcome, interrupter)
 			name:SetText(GameText('INTERRUPTED', L['Interrupted']))
 		else
 			name:SetFormattedText(GameText('SPELL_INTERRUPTED_BY', L['Interrupted by %s']), nameSecret)
-			local classColor
-			if type(classSecret) ~= 'nil' and C_ClassColor and C_ClassColor.GetClassColor then
-				classColor = C_ClassColor.GetClassColor(classSecret)
-			end
-			if type(classColor) == 'table' then
-				name:SetTextColor(ColorParts(classColor))
-			end
+			SetClassTextColorSecret(name, classSecret, true)
 		end
 	end
 	local content = widget.content
@@ -1223,7 +1247,7 @@ P.Parts:Register({
 		holder:SetScript('OnSizeChanged', function(_, w, h)
 			local width, height = Secret.Plain(w), Secret.Plain(h)
 			if type(width) == 'number' and width > 0 and type(height) == 'number' and height > 0 then
-				widget.barWidth = width
+				widget.barWidth, widget.measuredWidth = width, width
 				marker:SetSize(width, height)
 			end
 		end)
@@ -1254,6 +1278,11 @@ P.Parts:Register({
 			holder:SetPoint(from[1], region, to[1], anchor[4] or 0, anchor[5] or 0)
 			holder:SetPoint(from[2], region, to[2], anchor[4] or 0, anchor[5] or 0)
 			holder:SetHeight(height)
+			-- The width the holder last measured is still right when this layout keeps its size
+			-- (OnSizeChanged then does not fire again, for example a re-layout of the grown
+			-- target plate); before the first measure, the width of the part it hangs from
+			local regionSpec = ctx.style and ctx.style.parts and ctx.style.parts[anchor[2]]
+			width = widget.measuredWidth or (regionSpec and BarLib.LayoutWidth(regionSpec, ctx.plate, ctx.width)) or ctx.plate.emW or ctx.width
 		else
 			holder:SetSize(width, height)
 			ctx:Anchor(holder, anchor)

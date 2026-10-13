@@ -265,7 +265,7 @@ describe('text parts: forces, title and threat', function()
 		P.Context.place = 'world'
 		local tip = P.Source.ScanTooltip()
 		assert.not_nil(tip, 'the scan tooltip exists')
-		assert.not_nil(rawget(_G, P.host.globalPrefix .. 'ScanTip'), 'named from the host prefix')
+		assert.is_nil(tip:GetName(), 'the scanner has no global frame name')
 		local lines = {}
 		local function Line(text)
 			return {

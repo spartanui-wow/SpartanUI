@@ -1,22 +1,483 @@
 local _, ns = ...
 local P = ns.Plates
 
--- Old art keys mapped to new ones (5.1). Empty at launch on purpose: share strings carry LSM keys
--- for years, and art gets renamed. Add a line here whenever a key changes; never reuse an old key
--- for different art.
-
----@class Plates.Data
 P.Data = P.Data or {}
 
 ---@class Plates.ArtAliases
 local ArtAliases = { map = {} }
 P.Data.ArtAliases = ArtAliases
 
----The current key for a possibly renamed art key (follows chains, stops on loops).
----@param key string
----@return string
+---Source-pixel margins are left, top, right, bottom. Colors are default picker tints;
+---parts supply their own state and role colors. All files are white with straight alpha.
+ArtAliases.MEDIA = {
+	highlight = 'nameplatehighlight',
+	glow = 'nameplateglow',
+	art = 'nameplateart',
+	border = 'nameplatenineslice',
+	bar = 'statusbar',
+	aura = 'nameplateauraborder',
+	spark = 'nameplatespark',
+	icon = 'nameplateicon',
+	pip = 'statusbar',
+	mask = 'nameplatemask',
+}
+
+ArtAliases.ENTRIES = {
+	arrows = {
+		alias = 'arrows',
+		file = 'Arrows.tga',
+		kind = 'highlight',
+		recipe = 'arrows',
+		preview = { 8, 16 },
+		name = 'Nameplates Arrows',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'pair',
+		aspect = 0.5,
+		fit = 'arrow',
+	},
+	doubleArrows = {
+		alias = 'doubleArrows',
+		file = 'DoubleArrows.tga',
+		kind = 'highlight',
+		recipe = 'doubleArrows',
+		preview = { 16, 16 },
+		name = 'Nameplates Double Arrows',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'pair',
+		aspect = 0.95,
+		fit = 'arrow',
+	},
+	brackets = {
+		alias = 'brackets',
+		file = 'Brackets.tga',
+		kind = 'highlight',
+		recipe = 'brackets',
+		preview = { 132, 14 },
+		name = 'Nameplates Brackets',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	glow = {
+		alias = 'glow',
+		file = 'HighlightGlow.tga',
+		kind = 'highlight',
+		recipe = 'highlightGlow',
+		preview = { 132, 14 },
+		name = 'Nameplates Highlight Glow',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'glow',
+		look = 'soft',
+		margins = { 8, 8, 8, 8 },
+	},
+	underline = {
+		alias = 'underline',
+		file = 'Underline.tga',
+		kind = 'highlight',
+		recipe = 'underline',
+		preview = { 132, 3 },
+		name = 'Nameplates Underline',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'below',
+		height = 3,
+	},
+	sideBars = {
+		alias = 'sideBars',
+		file = 'SideBars.tga',
+		kind = 'highlight',
+		recipe = 'sideBars',
+		preview = { 3, 16 },
+		name = 'Nameplates Side Bars',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'pair',
+		aspect = 0.2,
+		fit = 'plate',
+	},
+	borderPixel = {
+		alias = 'borderPixel',
+		file = 'PixelBorder.tga',
+		kind = 'border',
+		recipe = 'borderPixel',
+		preview = { 132, 16 },
+		name = 'Nameplates Pixel Border',
+		tint = { 0.7, 0.76, 0.84, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	borderThick = {
+		alias = 'borderThick',
+		file = 'ThickBorder.tga',
+		kind = 'border',
+		recipe = 'borderThick',
+		preview = { 132, 16 },
+		name = 'Nameplates Thick Border',
+		tint = { 0.7, 0.76, 0.84, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	borderShadow = {
+		alias = 'borderShadow',
+		file = 'ShadowBorder.tga',
+		kind = 'border',
+		recipe = 'borderShadow',
+		preview = { 132, 16 },
+		name = 'Nameplates Shadow Border',
+		tint = { 0.7, 0.76, 0.84, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	borderBeveled = {
+		alias = 'borderBeveled',
+		file = 'BeveledBorder.tga',
+		kind = 'border',
+		recipe = 'borderBeveled',
+		preview = { 132, 16 },
+		name = 'Nameplates Beveled Border',
+		tint = { 0.7, 0.76, 0.84, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	barFlat = {
+		alias = 'barFlat',
+		file = 'Flat.tga',
+		kind = 'bar',
+		recipe = 'barFlat',
+		preview = { 132, 10 },
+		name = 'Nameplates Flat',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barSoftGradient = {
+		alias = 'barSoftGradient',
+		file = 'SoftGradient.tga',
+		kind = 'bar',
+		recipe = 'barSoftGradient',
+		preview = { 132, 10 },
+		name = 'Nameplates Soft Gradient',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barGlossy = {
+		alias = 'barGlossy',
+		file = 'Glossy.tga',
+		kind = 'bar',
+		recipe = 'barGlossy',
+		preview = { 132, 10 },
+		name = 'Nameplates Glossy',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barStriped = {
+		alias = 'barStriped',
+		file = 'Striped.tga',
+		kind = 'bar',
+		recipe = 'barStriped',
+		preview = { 132, 10 },
+		name = 'Nameplates Striped',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barTopLine = {
+		alias = 'barTopLine',
+		file = 'TopLine.tga',
+		kind = 'bar',
+		recipe = 'barTopLine',
+		preview = { 132, 10 },
+		name = 'Nameplates Top Line',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barMatte = {
+		alias = 'barMatte',
+		file = 'Matte.tga',
+		kind = 'bar',
+		recipe = 'barMatte',
+		preview = { 132, 10 },
+		name = 'Nameplates Matte',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barInset = {
+		alias = 'barInset',
+		file = 'Inset.tga',
+		kind = 'bar',
+		recipe = 'barInset',
+		preview = { 132, 10 },
+		name = 'Nameplates Inset',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barSmooth = {
+		alias = 'barSmooth',
+		file = 'Smooth.tga',
+		kind = 'bar',
+		recipe = 'barSmooth',
+		preview = { 132, 10 },
+		name = 'Nameplates Smooth',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	barRounded = {
+		alias = 'barRounded',
+		file = 'Rounded.tga',
+		kind = 'bar',
+		recipe = 'barRounded',
+		preview = { 132, 14 },
+		name = 'Nameplates Rounded',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+		mask = 'roundedMask',
+	},
+	sparkFine = {
+		alias = 'sparkFine',
+		file = 'SparkFine.tga',
+		kind = 'spark',
+		recipe = 'sparkFine',
+		preview = { 6, 20 },
+		name = 'Nameplates Spark Fine',
+		tint = { 1, 0.9, 0.65, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	sparkSoft = {
+		alias = 'sparkSoft',
+		file = 'SparkSoft.tga',
+		kind = 'spark',
+		recipe = 'sparkSoft',
+		preview = { 6, 20 },
+		name = 'Nameplates Spark Soft',
+		tint = { 1, 0.9, 0.65, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	soft = {
+		alias = 'soft',
+		file = 'SoftGlow.tga',
+		kind = 'glow',
+		recipe = 'glowsoft',
+		preview = { 132, 28 },
+		name = 'Nameplates Soft Glow',
+		tint = { 0.5, 0.8, 1, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 16, 16, 16, 16 },
+	},
+	important = {
+		alias = 'important',
+		file = 'ImportantGlow.tga',
+		kind = 'glow',
+		recipe = 'glowimportant',
+		preview = { 132, 28 },
+		name = 'Nameplates Important Glow',
+		tint = { 1, 0.55, 0.1, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 16, 16, 16, 16 },
+	},
+	purge = {
+		alias = 'purge',
+		file = 'PurgeGlow.tga',
+		kind = 'glow',
+		recipe = 'glowpurge',
+		preview = { 132, 28 },
+		name = 'Nameplates Purge Glow',
+		tint = { 0.3, 0.75, 1, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 16, 16, 16, 16 },
+	},
+	pandemic = {
+		alias = 'pandemic',
+		file = 'PandemicGlow.tga',
+		kind = 'glow',
+		recipe = 'glowpandemic',
+		preview = { 132, 28 },
+		name = 'Nameplates Pandemic Glow',
+		tint = { 1, 0.7, 0.2, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	threat = {
+		alias = 'threat',
+		file = 'ThreatGlow.tga',
+		kind = 'glow',
+		recipe = 'glowthreat',
+		preview = { 132, 28 },
+		name = 'Nameplates Threat Glow',
+		tint = { 1, 0.25, 0.18, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 16, 16, 16, 16 },
+	},
+	auraThin = {
+		alias = 'auraThin',
+		file = 'AuraThin.tga',
+		kind = 'aura',
+		recipe = 'auraThin',
+		preview = { 24, 24 },
+		name = 'Nameplates Aura Thin',
+		tint = { 0.8, 0.86, 0.92, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	auraThick = {
+		alias = 'auraThick',
+		file = 'AuraThick.tga',
+		kind = 'aura',
+		recipe = 'auraThick',
+		preview = { 24, 24 },
+		name = 'Nameplates Aura Thick',
+		tint = { 0.8, 0.86, 0.92, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	auraRounded = {
+		alias = 'auraRounded',
+		file = 'AuraRounded.tga',
+		kind = 'aura',
+		recipe = 'auraRounded',
+		preview = { 24, 24 },
+		name = 'Nameplates Aura Rounded',
+		tint = { 0.8, 0.86, 0.92, 1 },
+		recolor = true,
+		draw = 'sliced',
+		margins = { 8, 8, 8, 8 },
+	},
+	focus = { alias = 'focus', file = 'Focus.tga', kind = 'icon', recipe = 'focus', preview = { 16, 16 }, name = 'Nameplates Focus', tint = { 0.38, 0.78, 0.9, 1 }, recolor = true, draw = 'fixed' },
+	star = { alias = 'star', file = 'Star.tga', kind = 'icon', recipe = 'star', preview = { 16, 16 }, name = 'Nameplates Star', tint = { 0.38, 0.78, 0.9, 1 }, recolor = true, draw = 'fixed' },
+	pip = { alias = 'pip', file = 'PowerPip.tga', kind = 'pip', recipe = 'pip', preview = { 6, 6 }, name = 'Nameplates Power Pip', tint = { 0.38, 0.78, 0.9, 1 }, recolor = true, draw = 'fixed' },
+	absorb = {
+		alias = 'absorb',
+		file = 'AbsorbStripes.tga',
+		kind = 'bar',
+		recipe = 'absorb',
+		preview = { 132, 10 },
+		name = 'Nameplates Absorb Stripes',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	healAbsorb = {
+		alias = 'healAbsorb',
+		file = 'HealAbsorb.tga',
+		kind = 'bar',
+		recipe = 'healAbsorb',
+		preview = { 132, 10 },
+		name = 'Nameplates Heal Absorb',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	roundedFrame = {
+		alias = 'roundedFrame',
+		file = 'RoundedFrame.tga',
+		kind = 'art',
+		recipe = 'roundedFrame',
+		preview = { 132, 14 },
+		name = 'Nameplates Rounded Frame',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	roundedBackground = {
+		alias = 'roundedBackground',
+		file = 'RoundedBackground.tga',
+		kind = 'art',
+		recipe = 'roundedBackground',
+		preview = { 132, 14 },
+		name = 'Nameplates Rounded Background',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	roundedMask = {
+		alias = 'roundedMask',
+		file = 'RoundedMask.tga',
+		kind = 'mask',
+		recipe = 'roundedMask',
+		preview = { 132, 14 },
+		name = 'Nameplates Rounded Mask',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'stretched',
+	},
+	shield = {
+		alias = 'shield',
+		file = 'Shield.tga',
+		kind = 'icon',
+		recipe = 'shield',
+		preview = { 16, 16 },
+		name = 'Nameplates Shield',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'fixed',
+	},
+	quest = { alias = 'quest', file = 'Quest.tga', kind = 'icon', recipe = 'quest', preview = { 14, 14 }, name = 'Nameplates Quest', tint = { 0.38, 0.78, 0.9, 1 }, recolor = true, draw = 'fixed' },
+	boss = { alias = 'boss', file = 'Boss.tga', kind = 'icon', recipe = 'boss', preview = { 16, 16 }, name = 'Nameplates Boss', tint = { 0.38, 0.78, 0.9, 1 }, recolor = true, draw = 'fixed' },
+	factionAlliance = {
+		alias = 'factionAlliance',
+		file = 'FactionAlliance.tga',
+		kind = 'icon',
+		recipe = 'factionAlliance',
+		preview = { 16, 16 },
+		name = 'Nameplates Faction Alliance',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'fixed',
+	},
+	factionHorde = {
+		alias = 'factionHorde',
+		file = 'FactionHorde.tga',
+		kind = 'icon',
+		recipe = 'factionHorde',
+		preview = { 16, 16 },
+		name = 'Nameplates Faction Horde',
+		tint = { 0.38, 0.78, 0.9, 1 },
+		recolor = true,
+		draw = 'fixed',
+	},
+}
+
+ArtAliases.SLOTS = {}
+for alias, entry in pairs(ArtAliases.ENTRIES) do
+	local slots = ArtAliases.SLOTS[entry.kind]
+	if not slots then
+		slots = {}
+		ArtAliases.SLOTS[entry.kind] = slots
+	end
+	slots[alias] = entry
+	slots[entry.name] = entry
+	if entry.kind == 'border' then
+		ArtAliases.SLOTS.art = ArtAliases.SLOTS.art or {}
+		ArtAliases.SLOTS.art[alias] = entry
+		ArtAliases.SLOTS.art[entry.name] = entry
+	end
+end
+
+---The current media name for an alias, following renames and stopping on loops.
 function ArtAliases:Resolve(key)
-	-- Called on every layout; a key that was never renamed makes no table
 	if not self.map[key] then
 		return key
 	end
@@ -28,44 +489,23 @@ function ArtAliases:Resolve(key)
 	return key
 end
 
----LibSharedMedia types the art set registers its pictures under (5.5); other addons may add more
----pictures there. A style's art key is looked up with ctx:Texture(key, ArtAliases.MEDIA[kind]).
-ArtAliases.MEDIA = { highlight = 'nameplatehighlight', glow = 'nameplateglow', art = 'nameplateart' }
-
----Art slots the art set fills (Phase 4a), by part kind and key. Until a slot has a picture (an
----LSM entry under MEDIA[kind] with the slot key, or `file` here, relative to the host's media
----path), the parts draw a stand-in built from plain textures and lines, so every key always draws
----something. Pictures are white on alpha and tinted by the part.
---- draw 'pair'   one picture left of the plate, mirrored on the right; `aspect` is its width per
----               height; `fit` 'arrow' sizes it from the plate height, 'plate' stretches it to it
---- draw 'sliced' one picture around the plate, cut with nine-slice `margins` { l, t, r, b }
---- draw 'below'  a strip under the plate, `height` pixels tall
---- draw 'glow'   drawn by P.GlowLib with the named glow `look`
-ArtAliases.SLOTS = {
-	highlight = {
-		arrows = { draw = 'pair', aspect = 0.5, fit = 'arrow' },
-		doubleArrows = { draw = 'pair', aspect = 0.95, fit = 'arrow' },
-		brackets = { draw = 'sliced', margins = { 8, 8, 8, 8 } },
-		glow = { draw = 'glow', look = 'soft' },
-		underline = { draw = 'below', height = 3 },
-		sideBars = { draw = 'pair', aspect = 0.2, fit = 'plate' },
-	},
-	glow = {
-		soft = { draw = 'sliced', margins = { 16, 16, 16, 16 } },
-		important = { draw = 'sliced', margins = { 16, 16, 16, 16 } },
-		purge = { draw = 'sliced', margins = { 16, 16, 16, 16 } },
-		pandemic = { draw = 'sliced', margins = { 8, 8, 8, 8 } },
-	},
-}
-
----The slot for an art key, or nil (art from another addon, drawn stretched).
----@param kind string 'highlight' | 'glow'
----@param key string|nil
----@return table|nil
 function ArtAliases:Slot(kind, key)
 	local slots = self.SLOTS[kind]
 	if not slots or type(key) ~= 'string' then
 		return nil
 	end
 	return slots[self:Resolve(key)]
+end
+
+---Called only by the namespace's enable-time media hook. LSM accepts custom media types.
+function ArtAliases:Register(media, mediaPath)
+	for alias, entry in pairs(self.ENTRIES) do
+		local path = mediaPath .. entry.file
+		media:Register(self.MEDIA[entry.kind], entry.name, path)
+		media:Register(self.MEDIA[entry.kind], alias, path)
+		if entry.kind == 'border' then
+			media:Register(self.MEDIA.art, entry.name, path)
+			media:Register(self.MEDIA.art, alias, path)
+		end
+	end
 end

@@ -146,8 +146,10 @@ end
 ---@param ctx Plates.LayoutContext
 function BarLib.Style(bar, spec, ctx)
 	local texture = ctx:Texture(spec.texture) or BarLib.WHITE
-	bar:SetStatusBarTexture(texture)
-	bar.bg:SetTexture(BarLib.WHITE)
+	if bar.mediaTexture ~= texture then
+		bar.mediaTexture = texture
+		bar:SetStatusBarTexture(texture)
+	end
 	bar.bg:SetVertexColor(ctx:Color(spec.bg or { 0, 0, 0, 0 }))
 	BarLib.StyleBorder(bar.border, spec.border, ctx)
 	if bar.SetReverseFill then

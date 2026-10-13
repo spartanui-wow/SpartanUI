@@ -169,6 +169,8 @@ describe('config: run-once steps', function()
 		local calls = {}
 		local P = H.FreshCore({
 			before = function(P)
+				-- The real legacy import uses the same guards; this test checks the guard pattern alone
+				P.Migrate.steps.legacyImport = function() end
 				P.Migrate:AddStep('importOld', function(profile, key, global)
 					calls[#calls + 1] = key
 					global.migratedFromOld = global.migratedFromOld or {}

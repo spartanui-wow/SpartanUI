@@ -52,6 +52,7 @@ Secret.SINKS = {
 	'P.Secret.CanAccess',
 	'P.Secret.CanIndex',
 	'P.Secret.IsSecret',
+	'P.Secret.ColorChannels',
 	'P.Colors:Apply',
 	'P.Conditions:FoldSecret',
 	'P.Conditions:FoldColorSecret',
@@ -96,6 +97,23 @@ function Secret.CanIndex(value)
 		return canaccesstable(value) and true or false
 	end
 	return true
+end
+
+---r, g, b of a color table the game made (C_ClassColor.GetClassColor on a hidden class token, a
+---curve's color), or the fallback channels when the table may not be indexed (indexing a table the
+---game forbids raises an error). The channels may be secret: hand them to a sink only.
+---@param colorSecret any ColorMixin, maybe secret or forbidden
+---@param r any Fallback channels
+---@param g any
+---@param b any
+---@return any rSecret
+---@return any gSecret
+---@return any bSecret
+function Secret.ColorChannels(colorSecret, r, g, b)
+	if not Secret.CanIndex(colorSecret) then
+		return r, g, b
+	end
+	return colorSecret.r, colorSecret.g, colorSecret.b
 end
 
 ---Readable value or nil, plus whether it was readable. The building block of every Plain method.

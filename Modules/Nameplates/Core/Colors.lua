@@ -49,6 +49,7 @@ local L = P.L
 ---@field overlay? Plates.ColorRow First curve row, drawn by the bar as an overlay
 ---@field events table<string, boolean>
 ---@field messages table<string, boolean>
+---@field whenKeys table<string, boolean> Context keys the rows' "When" clauses read (place, inCombat)
 ---@field scheme string
 
 ---@class Plates.Colors
@@ -199,7 +200,16 @@ function Colors:Compile(piece, settings, ctx)
 	end
 
 	local palette = P.Roles.Palette(settings.colorBlind, settings.threat and settings.threat.colors)
-	local program = { piece = piece, rows = {}, fallback = Color4(custom.fallback or self.FALLBACK[piece] or { 1, 1, 1, 1 }), events = {}, messages = {}, scheme = scheme }
+	local program = {
+		piece = piece,
+		rows = {},
+		fallback = Color4(custom.fallback or self.FALLBACK[piece] or { 1, 1, 1, 1 }),
+		events = {},
+		messages = {},
+		whenKeys = {},
+		contextKeys = { role = true },
+		scheme = scheme,
+	}
 	for _, entry in ipairs(entries) do
 		local kind = self.kinds[entry.id]
 		local off = custom.off and custom.off[entry.id]
@@ -232,6 +242,9 @@ function Colors:Compile(piece, settings, ctx)
 			else
 				program.rows[#program.rows + 1] = row
 			end
+			if row.id == 'unitInCombat' then
+				program.readsCombat = true
+			end
 			if row.expr then
 				P.Conditions:CollectEvents(row.expr, program.events, program.messages)
 			end
@@ -241,9 +254,50 @@ function Colors:Compile(piece, settings, ctx)
 			for _, m in ipairs(kind.messages or {}) do
 				program.messages[m] = true
 			end
+			local deps = program.contextKeys
+			if row.id == 'threat' or row.id == 'offTank' or row.id == 'petTank' then
+				deps.inGroup, deps.petTank, deps.place = true, true, true
+			elseif row.id == 'mobType' then
+				deps.playerLevel = true
+			end
+			-- Context keys this row's "When" clause reads (Colors:ReadsContext)
+			local when = row.when
+			if when == 'combat' then
+				program.whenKeys.inCombat = true
+				deps.inCombat = true
+				program.messages.CONTEXT_CHANGED = true
+			elseif when ~= 'everywhere' and when ~= 'never' then
+				program.whenKeys.place = true
+				deps.place = true
+				program.messages.CONTEXT_CHANGED = true
+			end
 		end
 	end
 	return program
+end
+
+---Whether a changed context key can affect one compiled program, or any program when omitted.
+---@param keys? table<string, boolean>
+---@param program? Plates.ColorProgram
+---@return boolean
+function Colors:ReadsContext(keys, program)
+	if keys == nil then
+		return true
+	end
+	if program then
+		for key in pairs(program.contextKeys) do
+			if keys[key] then
+				return true
+			end
+		end
+		return false
+	end
+	for i = 1, #self.PIECES do
+		if self:ReadsContext(keys, self:Program(self.PIECES[i])) then
+			return true
+		end
+	end
+	return false
 end
 
 ---Compiled program for a piece, cached until settings, role or context change. Preview plates
@@ -425,8 +479,12 @@ P:On('STORE_CHANGED', function(reasons)
 		Colors:Invalidate()
 	end
 end, Colors)
-P:On('CONTEXT_CHANGED', function()
-	Colors:Invalidate()
+P:On('CONTEXT_CHANGED', function(keys)
+	-- Programs are compiled from the role only (its scheme and threat rows); other keys change
+	-- what rows answer, not the programs
+	if keys == nil or keys.role then
+		Colors:Invalidate()
+	end
 end, Colors)
 
 ----------------------------------------------------------------------------------------------------
@@ -613,8 +671,20 @@ Colors:RegisterKind({
 	default = {},
 	Resolve = function(env, row)
 		local facts = env.facts or {}
-		local token = facts.isPlayer and facts.classToken
+		if not facts.isPlayer then
+			return false
+		end
+		local token = facts.classToken
 		if not token then
+			-- The game hides this player's class (identity restricted): the engine colors it from
+			-- the hidden token (FoldSecret), where the client takes one and gives a token at all
+			local src = env.src
+			if src and not src.isSample and P.Caps:Get('classColor') then
+				local classSecret = src:ClassTokenSecret()
+				if type(classSecret) ~= 'nil' then
+					return nil
+				end
+			end
 			return false
 		end
 		local mine = row.colors[token]
@@ -626,6 +696,21 @@ Colors:RegisterKind({
 			return false
 		end
 		return true, color.r, color.g, color.b, 1
+	end,
+	-- Every player has a class, so with the token hidden the row still wins over the rows below it:
+	-- the class color from C_ClassColor (which takes a hidden token) replaces their color. A color
+	-- table the game will not let us index leaves the rows below in place.
+	FoldSecret = function(env, _, rSecret, gSecret, bSecret)
+		local src = env.src
+		if not (src and C_ClassColor and C_ClassColor.GetClassColor) then
+			return rSecret, gSecret, bSecret
+		end
+		local classSecret = src:ClassTokenSecret()
+		if type(classSecret) == 'nil' then
+			return rSecret, gSecret, bSecret
+		end
+		local colorSecret = C_ClassColor.GetClassColor(classSecret)
+		return P.Secret.ColorChannels(colorSecret, rSecret, gSecret, bSecret)
 	end,
 	Sentence = function()
 		return L['Class colors for players']

@@ -61,7 +61,8 @@ local EMPTY = {} -- read only
 ---@field match? fun(spec: table, plate: Plates.Plate): boolean Extra test when kinds are shared
 ---@field priority? number Higher wins when several implementations match (default 0)
 ---@field events? string[]|fun(spec: table): string[] Unit events for RegisterUnitEvent
----@field messages? string[] Bus messages delivered through OnMessage (or Update)
+---@field messages? string[]|fun(spec: table): string[] Bus messages delivered through OnMessage (or Update)
+---@field contextKeys? table<string, boolean>|fun(spec: table): table<string, boolean> Context fields the part reads
 ---@field reasons? table<string, boolean> Refresh reasons that call Layout again (look and size always do)
 ---@field Create fun(plate: Plates.Plate, id: string, spec: table): Plates.Widget
 ---@field Layout fun(widget: Plates.Widget, spec: table, ctx: Plates.LayoutContext)
@@ -234,8 +235,19 @@ end
 ---@param fontString table
 ---@param font table|nil { face, size, flags }
 ---@param forNames? boolean
+local fontState = setmetatable({}, { __mode = 'k' })
+
 function Ctx:ApplyFont(fontString, font, forNames)
 	local face, size, flags = self:Font(font)
+	local cached = fontState[fontString]
+	if cached and cached.face == face and cached.size == size and cached.flags == flags and cached.names == forNames then
+		return
+	end
+	if not cached then
+		cached = {}
+		fontState[fontString] = cached
+	end
+	cached.face, cached.size, cached.flags, cached.names = face, size, flags, forNames
 	local object = forNames and P.Fonts:Family(face, size, flags) or nil
 	if object then
 		fontString:SetFontObject(object)
@@ -285,12 +297,30 @@ function Ctx:ApplyCommon(widget, spec, rank)
 	end
 end
 
----Size of one physical pixel in this plate's UI units (for 1 px borders).
+---Plain effective scale of a region, or nil when it cannot be read (a frame inside the game's
+---nameplate tree can report its scale as a hidden value on 12.1).
+---@param region table|nil
+---@return number|nil
+local function PlainScale(region)
+	if not (region and region.GetEffectiveScale) then
+		return nil
+	end
+	local ok, scale = pcall(region.GetEffectiveScale, region)
+	scale = ok and Secret.Plain(scale) or nil
+	if type(scale) ~= 'number' or scale <= 0 then
+		return nil
+	end
+	return scale
+end
+
+---Size of one physical pixel in this plate's UI units (for 1 px borders). Never secret: a hidden
+---plate scale falls back to the UI parent's.
 ---@return number
 function Ctx:Pixel()
-	local scale = self.plate.art.GetEffectiveScale and self.plate.art:GetEffectiveScale() or 1
+	local scale = PlainScale(self.plate.art) or PlainScale(UIParent) or 1
 	local physical = GetPhysicalScreenSize and select(2, GetPhysicalScreenSize()) or 768
-	if not physical or physical <= 0 or scale <= 0 then
+	physical = Secret.Plain(physical)
+	if type(physical) ~= 'number' or physical <= 0 then
 		return 1
 	end
 	return 768 / physical / scale
@@ -439,6 +469,10 @@ function Plate.New(parent, isPreview, ctx)
 	plate.env = { facts = plate.facts, ctx = ctx or P.Context, states = plate.states, src = nil }
 	plate.easeKey = tostring(plate)
 	plate.easeSizeId, plate.easeAlphaId = plate.easeKey .. 'w', plate.easeKey .. 'a'
+	plate.threatJobId, plate.threatSeen = plate.easeKey .. 'threat', {}
+	plate.flushThreat = function()
+		plate:FlushThreat()
+	end
 	-- Made once per plate, so a target change eases every plate without making closures
 	plate.applySize = function(t)
 		local fromW, fromH = plate.emFromW, plate.emFromH
@@ -502,6 +536,7 @@ local function EventsOf(widget)
 end
 
 local COLOR_FIELDS = { 'colors', 'borderColors' }
+local THREAT_EVENTS = { 'UNIT_THREAT_LIST_UPDATE', 'UNIT_THREAT_SITUATION_UPDATE' }
 
 local function Add(map, key, widget)
 	local list = map[key]
@@ -509,11 +544,30 @@ local function Add(map, key, widget)
 		list = {}
 		map[key] = list
 	end
+	for i = 1, #list do
+		if list[i] == widget then
+			return
+		end
+	end
 	list[#list + 1] = widget
 end
 
 ---Rebuild the event and message maps (and, when bound, the unit event registrations).
 function Plate:RebuildEvents()
+	local cache = self.eventMapCache
+	if not cache then
+		cache = setmetatable({}, { __mode = 'k' })
+		self.eventMapCache = cache
+	end
+	local cached = self.style and cache[self.style]
+	if cached and cached.ctx == self.env.ctx then
+		self.mapPrograms, self.mapCtx = cached.programs, cached.ctx
+		if self:EventMapsCurrent() then
+			self.eventWidgets, self.messageWidgets = cached.events, cached.messages
+			self:RegisterUnitEvents()
+			return
+		end
+	end
 	local eventWidgets, messageWidgets, programs = {}, {}, {}
 	self.mapBuilds = (self.mapBuilds or 0) + 1
 	for i = 1, #self.active do
@@ -522,7 +576,11 @@ function Plate:RebuildEvents()
 		for j = 1, #events do
 			Add(eventWidgets, events[j], widget)
 		end
-		local messages = widget.impl.messages or EMPTY
+		local messages = widget.impl.messages
+		if type(messages) == 'function' then
+			messages = messages(widget.spec)
+		end
+		messages = messages or EMPTY
 		for j = 1, #messages do
 			Add(messageWidgets, messages[j], widget)
 		end
@@ -543,6 +601,9 @@ function Plate:RebuildEvents()
 	end
 	self.eventWidgets, self.messageWidgets = eventWidgets, messageWidgets
 	self.mapPrograms, self.mapCtx = programs, self.env.ctx
+	if self.style then
+		cache[self.style] = { events = eventWidgets, messages = messageWidgets, programs = programs, ctx = self.env.ctx }
+	end
 	self:RegisterUnitEvents()
 end
 
@@ -552,7 +613,28 @@ function Plate:RegisterUnitEvents()
 	if not (frame and self.unit) then
 		return
 	end
+	local old = self.registeredMap
+	local same = self.registeredUnit == self.unit and old ~= nil
+	if same then
+		for event in pairs(old) do
+			if not self.eventWidgets[event] then
+				same = false
+				break
+			end
+		end
+		for event in pairs(self.eventWidgets) do
+			if not old[event] then
+				same = false
+				break
+			end
+		end
+	end
+	if same then
+		self.registeredMap = self.eventWidgets
+		return
+	end
 	frame:UnregisterAllEvents()
+	self.registeredUnit, self.registeredMap = self.unit, self.eventWidgets
 	for event in pairs(self.eventWidgets) do
 		pcall(frame.RegisterUnitEvent, frame, event, self.unit)
 	end
@@ -596,6 +678,13 @@ function Plate:ApplyStyle(resolved)
 	local ctx = PointCtx(self)
 	self.art:SetSize(resolved.width, resolved.height)
 
+	-- Remember what was showing: a part the new style drops is reset below (a cast part that goes
+	-- away mid-cast would otherwise never see its stop event and keep the casting state)
+	local before = self.before or {}
+	self.before = before
+	for i = 1, #self.active do
+		before[i] = self.active[i]
+	end
 	for _, widget in pairs(self.widgets) do
 		widget.active = false
 	end
@@ -616,6 +705,13 @@ function Plate:ApplyStyle(resolved)
 			self.active[#self.active + 1] = widget
 			impl.Layout(widget, spec, ctx)
 			ctx:ApplyCommon(widget, spec, #self.active)
+		end
+	end
+	for i = #before, 1, -1 do
+		local widget = before[i]
+		before[i] = nil
+		if not widget.active and self.src then
+			widget.impl.Reset(widget)
 		end
 	end
 	for _, widget in pairs(self.widgets) do
@@ -654,23 +750,74 @@ function Plate:UpdateAll(event)
 	if not src then
 		return
 	end
+	-- One dispatch reads the game once: live sources keep cast info for its length
+	local begin = src.BeginRead
+	if begin then
+		begin(src)
+	end
 	for i = 1, #self.active do
 		local widget = self.active[i]
 		widget.impl.Update(widget, src, event or 'FULL')
+	end
+	if begin then
+		src:EndRead()
+	end
+end
+
+---Merge the paired threat notifications; a list-only notification flushes next frame.
+function Plate:FlushThreat()
+	local src, unit = self.src, self.threatUnit
+	self.threatPending, self.threatUnit = nil, nil
+	P.Scheduler.nextFrame[self.threatJobId] = nil
+	if not src or unit ~= self.unit then
+		return
+	end
+	local seen = self.threatSeen
+	P.util.Wipe(seen)
+	if src.BeginRead then
+		src:BeginRead()
+	end
+	for _, event in ipairs(THREAT_EVENTS) do
+		local list = self.eventWidgets[event] or EMPTY
+		for i = 1, #list do
+			local widget = list[i]
+			if not seen[widget] then
+				seen[widget] = true
+				widget.impl.Update(widget, src, event, unit)
+			end
+		end
+	end
+	if src.EndRead then
+		src:EndRead()
 	end
 end
 
 ---Unit event from this plate's own frame.
 ---@param event string
 function Plate:OnEvent(event, ...)
+	if self.src and event == 'UNIT_THREAT_LIST_UPDATE' then
+		self.threatPending, self.threatUnit = true, self.unit
+		P.Scheduler:NextFrame(self.threatJobId, self.flushThreat)
+		return
+	elseif event == 'UNIT_THREAT_SITUATION_UPDATE' and self.threatPending then
+		self:FlushThreat()
+		return
+	end
 	local list = self.eventWidgets[event]
 	local src = self.src
 	if not list or not src then
 		return
 	end
+	local begin = src.BeginRead
+	if begin then
+		begin(src)
+	end
 	for i = 1, #list do
 		local widget = list[i]
 		widget.impl.Update(widget, src, event, ...)
+	end
+	if begin then
+		src:EndRead()
 	end
 end
 
@@ -678,16 +825,43 @@ end
 ---@param message string
 function Plate:OnMessage(message, ...)
 	local list = self.messageWidgets[message]
-	if not list or not self.src then
+	local src = self.src
+	if not list or not src then
 		return
 	end
+	local begin = src.BeginRead
+	if begin then
+		begin(src)
+	end
+	local keys = message == 'CONTEXT_CHANGED' and select(1, ...) or nil
 	for i = 1, #list do
 		local widget = list[i]
-		if widget.impl.OnMessage then
-			widget.impl.OnMessage(widget, message, ...)
-		else
-			widget.impl.Update(widget, self.src, message, ...)
+		local relevant = keys == nil
+		if keys then
+			for j = 1, #COLOR_FIELDS do
+				local piece = widget.spec[COLOR_FIELDS[j]]
+				if piece and P.Colors:ReadsContext(keys, P.Colors:Program(piece, self.env.ctx)) then
+					relevant = true
+				end
+			end
+			local reads = widget.impl.contextKeys
+			if type(reads) == 'function' then
+				reads = reads(widget.spec)
+			end
+			for key in pairs(reads or EMPTY) do
+				if keys[key] then
+					relevant = true
+				end
+			end
 		end
+		if relevant and widget.impl.OnMessage then
+			widget.impl.OnMessage(widget, message, ...)
+		elseif relevant then
+			widget.impl.Update(widget, src, message, ...)
+		end
+	end
+	if begin then
+		src:EndRead()
 	end
 end
 
@@ -723,6 +897,9 @@ end
 
 ---Stop events, reset every part and hide.
 function Plate:Unbind()
+	self.threatPending, self.threatUnit = nil, nil
+	P.Scheduler.nextFrame[self.threatJobId] = nil
+	self.registeredUnit, self.registeredMap = nil, nil
 	if self.events then
 		self.events:UnregisterAllEvents()
 	end
@@ -783,7 +960,8 @@ function Plate:SetStateSecret(state, boolSecret)
 		local widget = self.active[i]
 		if widget.spec.state == state and widget.frame then
 			widget.frame:Show()
-			Secret.SetAlphaFromBoolean(widget.frame, boolSecret, 1, 0)
+			-- The part's own alpha (ApplyCommon set it) when shown, so a faded part stays faded
+			Secret.SetAlphaFromBoolean(widget.frame, boolSecret, widget.spec.alpha or 1, 0)
 		end
 		if widget.impl.OnStateSecret then
 			widget.impl.OnStateSecret(widget, state, boolSecret)
@@ -875,7 +1053,11 @@ end
 ---@param reasons table<string, boolean>
 function Plate:Refresh(reasons)
 	if reasons.colors then
-		self:RebuildEvents()
+		-- New color programs need new event maps; the same programs keep the maps and the unit
+		-- event registrations (a context change that left the programs alone makes no tables)
+		if not self:EventMapsCurrent() then
+			self:RebuildEvents()
+		end
 		self:UpdateAll('COLORS')
 	end
 	if reasons.auras then

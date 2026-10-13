@@ -1,0 +1,893 @@
+[
+  {
+    "alias": "arrows",
+    "file": "Arrows.tga",
+    "kind": "highlight",
+    "recipe": "arrows",
+    "preview": [
+      8,
+      16
+    ],
+    "name": "Nameplates Arrows",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "pair",
+    "aspect": 0.5,
+    "fit": "arrow"
+  },
+  {
+    "alias": "doubleArrows",
+    "file": "DoubleArrows.tga",
+    "kind": "highlight",
+    "recipe": "doubleArrows",
+    "preview": [
+      16,
+      16
+    ],
+    "name": "Nameplates Double Arrows",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "pair",
+    "aspect": 0.95,
+    "fit": "arrow"
+  },
+  {
+    "alias": "brackets",
+    "file": "Brackets.tga",
+    "kind": "highlight",
+    "recipe": "brackets",
+    "preview": [
+      132,
+      14
+    ],
+    "name": "Nameplates Brackets",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "glow",
+    "file": "HighlightGlow.tga",
+    "kind": "highlight",
+    "recipe": "highlightGlow",
+    "preview": [
+      132,
+      14
+    ],
+    "name": "Nameplates Highlight Glow",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "glow",
+    "look": "soft",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "underline",
+    "file": "Underline.tga",
+    "kind": "highlight",
+    "recipe": "underline",
+    "preview": [
+      132,
+      3
+    ],
+    "name": "Nameplates Underline",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "below",
+    "height": 3
+  },
+  {
+    "alias": "sideBars",
+    "file": "SideBars.tga",
+    "kind": "highlight",
+    "recipe": "sideBars",
+    "preview": [
+      3,
+      16
+    ],
+    "name": "Nameplates Side Bars",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "pair",
+    "aspect": 0.2,
+    "fit": "plate"
+  },
+  {
+    "alias": "borderPixel",
+    "file": "PixelBorder.tga",
+    "kind": "border",
+    "recipe": "borderPixel",
+    "preview": [
+      132,
+      16
+    ],
+    "name": "Nameplates Pixel Border",
+    "tint": [
+      0.7,
+      0.76,
+      0.84,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "borderThick",
+    "file": "ThickBorder.tga",
+    "kind": "border",
+    "recipe": "borderThick",
+    "preview": [
+      132,
+      16
+    ],
+    "name": "Nameplates Thick Border",
+    "tint": [
+      0.7,
+      0.76,
+      0.84,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "borderShadow",
+    "file": "ShadowBorder.tga",
+    "kind": "border",
+    "recipe": "borderShadow",
+    "preview": [
+      132,
+      16
+    ],
+    "name": "Nameplates Shadow Border",
+    "tint": [
+      0.7,
+      0.76,
+      0.84,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "borderBeveled",
+    "file": "BeveledBorder.tga",
+    "kind": "border",
+    "recipe": "borderBeveled",
+    "preview": [
+      132,
+      16
+    ],
+    "name": "Nameplates Beveled Border",
+    "tint": [
+      0.7,
+      0.76,
+      0.84,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "barFlat",
+    "file": "Flat.tga",
+    "kind": "bar",
+    "recipe": "barFlat",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Flat",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barSoftGradient",
+    "file": "SoftGradient.tga",
+    "kind": "bar",
+    "recipe": "barSoftGradient",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Soft Gradient",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barGlossy",
+    "file": "Glossy.tga",
+    "kind": "bar",
+    "recipe": "barGlossy",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Glossy",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barStriped",
+    "file": "Striped.tga",
+    "kind": "bar",
+    "recipe": "barStriped",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Striped",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barTopLine",
+    "file": "TopLine.tga",
+    "kind": "bar",
+    "recipe": "barTopLine",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Top Line",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barMatte",
+    "file": "Matte.tga",
+    "kind": "bar",
+    "recipe": "barMatte",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Matte",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barInset",
+    "file": "Inset.tga",
+    "kind": "bar",
+    "recipe": "barInset",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Inset",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barSmooth",
+    "file": "Smooth.tga",
+    "kind": "bar",
+    "recipe": "barSmooth",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Smooth",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "barRounded",
+    "file": "Rounded.tga",
+    "kind": "bar",
+    "recipe": "barRounded",
+    "preview": [
+      132,
+      14
+    ],
+    "name": "Nameplates Rounded",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched",
+    "mask": "roundedMask"
+  },
+  {
+    "alias": "sparkFine",
+    "file": "SparkFine.tga",
+    "kind": "spark",
+    "recipe": "sparkFine",
+    "preview": [
+      6,
+      20
+    ],
+    "name": "Nameplates Spark Fine",
+    "tint": [
+      1,
+      0.9,
+      0.65,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "sparkSoft",
+    "file": "SparkSoft.tga",
+    "kind": "spark",
+    "recipe": "sparkSoft",
+    "preview": [
+      6,
+      20
+    ],
+    "name": "Nameplates Spark Soft",
+    "tint": [
+      1,
+      0.9,
+      0.65,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "soft",
+    "file": "SoftGlow.tga",
+    "kind": "glow",
+    "recipe": "glowsoft",
+    "preview": [
+      132,
+      28
+    ],
+    "name": "Nameplates Soft Glow",
+    "tint": [
+      0.5,
+      0.8,
+      1,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      16,
+      16,
+      16,
+      16
+    ]
+  },
+  {
+    "alias": "important",
+    "file": "ImportantGlow.tga",
+    "kind": "glow",
+    "recipe": "glowimportant",
+    "preview": [
+      132,
+      28
+    ],
+    "name": "Nameplates Important Glow",
+    "tint": [
+      1,
+      0.55,
+      0.1,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      16,
+      16,
+      16,
+      16
+    ]
+  },
+  {
+    "alias": "purge",
+    "file": "PurgeGlow.tga",
+    "kind": "glow",
+    "recipe": "glowpurge",
+    "preview": [
+      132,
+      28
+    ],
+    "name": "Nameplates Purge Glow",
+    "tint": [
+      0.3,
+      0.75,
+      1,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      16,
+      16,
+      16,
+      16
+    ]
+  },
+  {
+    "alias": "pandemic",
+    "file": "PandemicGlow.tga",
+    "kind": "glow",
+    "recipe": "glowpandemic",
+    "preview": [
+      132,
+      28
+    ],
+    "name": "Nameplates Pandemic Glow",
+    "tint": [
+      1,
+      0.7,
+      0.2,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "threat",
+    "file": "ThreatGlow.tga",
+    "kind": "glow",
+    "recipe": "glowthreat",
+    "preview": [
+      132,
+      28
+    ],
+    "name": "Nameplates Threat Glow",
+    "tint": [
+      1,
+      0.25,
+      0.18,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      16,
+      16,
+      16,
+      16
+    ]
+  },
+  {
+    "alias": "auraThin",
+    "file": "AuraThin.tga",
+    "kind": "aura",
+    "recipe": "auraThin",
+    "preview": [
+      24,
+      24
+    ],
+    "name": "Nameplates Aura Thin",
+    "tint": [
+      0.8,
+      0.86,
+      0.92,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "auraThick",
+    "file": "AuraThick.tga",
+    "kind": "aura",
+    "recipe": "auraThick",
+    "preview": [
+      24,
+      24
+    ],
+    "name": "Nameplates Aura Thick",
+    "tint": [
+      0.8,
+      0.86,
+      0.92,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "auraRounded",
+    "file": "AuraRounded.tga",
+    "kind": "aura",
+    "recipe": "auraRounded",
+    "preview": [
+      24,
+      24
+    ],
+    "name": "Nameplates Aura Rounded",
+    "tint": [
+      0.8,
+      0.86,
+      0.92,
+      1
+    ],
+    "recolor": true,
+    "draw": "sliced",
+    "margins": [
+      8,
+      8,
+      8,
+      8
+    ]
+  },
+  {
+    "alias": "focus",
+    "file": "Focus.tga",
+    "kind": "icon",
+    "recipe": "focus",
+    "preview": [
+      16,
+      16
+    ],
+    "name": "Nameplates Focus",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  },
+  {
+    "alias": "star",
+    "file": "Star.tga",
+    "kind": "icon",
+    "recipe": "star",
+    "preview": [
+      16,
+      16
+    ],
+    "name": "Nameplates Star",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  },
+  {
+    "alias": "pip",
+    "file": "PowerPip.tga",
+    "kind": "pip",
+    "recipe": "pip",
+    "preview": [
+      6,
+      6
+    ],
+    "name": "Nameplates Power Pip",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  },
+  {
+    "alias": "absorb",
+    "file": "AbsorbStripes.tga",
+    "kind": "bar",
+    "recipe": "absorb",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Absorb Stripes",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "healAbsorb",
+    "file": "HealAbsorb.tga",
+    "kind": "bar",
+    "recipe": "healAbsorb",
+    "preview": [
+      132,
+      10
+    ],
+    "name": "Nameplates Heal Absorb",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "roundedFrame",
+    "file": "RoundedFrame.tga",
+    "kind": "art",
+    "recipe": "roundedFrame",
+    "preview": [
+      132,
+      14
+    ],
+    "name": "Nameplates Rounded Frame",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "roundedBackground",
+    "file": "RoundedBackground.tga",
+    "kind": "art",
+    "recipe": "roundedBackground",
+    "preview": [
+      132,
+      14
+    ],
+    "name": "Nameplates Rounded Background",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "roundedMask",
+    "file": "RoundedMask.tga",
+    "kind": "mask",
+    "recipe": "roundedMask",
+    "preview": [
+      132,
+      14
+    ],
+    "name": "Nameplates Rounded Mask",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "stretched"
+  },
+  {
+    "alias": "shield",
+    "file": "Shield.tga",
+    "kind": "icon",
+    "recipe": "shield",
+    "preview": [
+      16,
+      16
+    ],
+    "name": "Nameplates Shield",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  },
+  {
+    "alias": "quest",
+    "file": "Quest.tga",
+    "kind": "icon",
+    "recipe": "quest",
+    "preview": [
+      14,
+      14
+    ],
+    "name": "Nameplates Quest",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  },
+  {
+    "alias": "boss",
+    "file": "Boss.tga",
+    "kind": "icon",
+    "recipe": "boss",
+    "preview": [
+      16,
+      16
+    ],
+    "name": "Nameplates Boss",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  },
+  {
+    "alias": "factionAlliance",
+    "file": "FactionAlliance.tga",
+    "kind": "icon",
+    "recipe": "factionAlliance",
+    "preview": [
+      16,
+      16
+    ],
+    "name": "Nameplates Faction Alliance",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  },
+  {
+    "alias": "factionHorde",
+    "file": "FactionHorde.tga",
+    "kind": "icon",
+    "recipe": "factionHorde",
+    "preview": [
+      16,
+      16
+    ],
+    "name": "Nameplates Faction Horde",
+    "tint": [
+      0.38,
+      0.78,
+      0.9,
+      1
+    ],
+    "recolor": true,
+    "draw": "fixed"
+  }
+]

@@ -498,7 +498,7 @@ describe('health: low health and execute', function()
 		Done(plate)
 	end)
 
-	it('keeps the curve after a read error, and uses plain health after the game refuses its color (S5)', function()
+	it('keeps the curve after a read error, and uses an alpha curve after the game refuses its color (S5)', function()
 		Store:Set('scheme', 'custom')
 		Store:Set('colors.health.order', { 'lowHealth', 'reaction' })
 		local plate, widget, unit = Live(nil, { health = 200, healthMax = 1000 })
@@ -525,10 +525,10 @@ describe('health: low health and execute', function()
 		for _, line in ipairs(P.Parts:Get('health').Limits()) do
 			found = found or line:find('see health', 1, true)
 		end
-		assert.not_nil(found, 'the options say why')
+		assert.is_nil(found, 'the alpha curve still supports hidden health')
 		M.SetRestricted(true)
 		Hit(unit, 100)
-		assert.equal(VertexAlpha(widget.low), 0, 'hidden health: clear instead of guessing')
+		assert.equal(VertexAlpha(widget.low), 1, 'hidden health drives the numeric alpha curve')
 		widget.low.SetVertexColorFromBoolean = nil
 		P.Caps.recorded.healthCurves = nil
 		Done(plate)

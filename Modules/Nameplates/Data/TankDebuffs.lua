@@ -59,8 +59,9 @@ P.Data.TANK_DEBUFF_SOURCES = {
 	{ 'curseOfWeakness', 'era', 'wrath', 702, 1108, 6205, 7646, 11707, 11708 }, -- Curse of Weakness
 	{ 'curseOfWeakness', 'tbc', 'wrath', 27224, 30909 }, -- Curse of Weakness
 	{ 'curseOfWeakness', 'wrath', 'wrath', 50511 }, -- Curse of Weakness
-	-- Vindication (Paladin): attack power
+	-- Vindication (Paladin): attack power (Wrath), all stats (TBC, which has a third rank)
 	{ 'vindication', 'tbc', 'wrath', 67, 26017 }, -- Vindication
+	{ 'vindication', 'tbc', 'tbc', 26018 }, -- Vindication (rank 3, -15% all stats)
 	-- Wrath attack speed debuffs: Frost Fever (Death Knight), Infected Wounds (Druid), Judgements
 	-- of the Just (Paladin)
 	{ 'frostFever', 'wrath', 'wrath', 55095 }, -- Frost Fever

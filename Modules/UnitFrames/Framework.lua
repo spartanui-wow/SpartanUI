@@ -1229,6 +1229,16 @@ function UF:GetPresetCards(recommendLook)
 	return cards
 end
 
+---The answer to setup's "How do you play?" this session: 'healer', 'tank', 'dps', or nil when the
+---player kept "Use my spec" (or setup did not ask). Other parts of setup read it so they do not ask again.
+---@return 'healer'|'tank'|'dps'|nil
+function UF:GetSetupRole()
+	if UF.setupRole == 'spec' then
+		return nil
+	end
+	return UF.setupRole
+end
+
 function UF:RegisterSetupWizardPages()
 	local reg = SUI.Setup and SUI.Setup.registration
 	if not reg or reg:GetStep('unitframes') then
@@ -1280,6 +1290,7 @@ function UF:RegisterSetupWizardPages()
 			end,
 			set = function(value)
 				role = value
+				UF.setupRole = value
 			end,
 		},
 		cards = BuildPresetCards,

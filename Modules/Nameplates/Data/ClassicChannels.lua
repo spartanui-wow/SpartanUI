@@ -168,6 +168,10 @@ end
 ---@param spellID integer
 ---@return number|nil seconds
 function Channels:Duration(spellID)
+	local tier = P.Data.CLIENT_TIERS[P.Caps:Client()]
+	if tier ~= P.Data.CLIENT_TIERS.era then
+		return nil
+	end
 	if type(spellID) ~= 'number' then
 		return nil
 	end

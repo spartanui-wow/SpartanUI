@@ -300,14 +300,20 @@ local function Refresh(widget, src)
 		GlowLib.Hide(widget.glow)
 		return
 	end
-	local palette = P.Roles.Palette(profile.colorBlind, threat.colors)
 	local glows = Threat.GlowStates(role)
 	if unsure then
-		FoldHidden(widget, src, state, glows, palette, hidden, petHidden)
+		widget.shownColor = nil
+		FoldHidden(widget, src, state, glows, P.Roles.Palette(profile.colorBlind, threat.colors), hidden, petHidden)
 		return
 	end
-	local color = state and glows[state] and palette[state]
+	-- The state's color from the palette (Roles.Palette's own rule, without building the table)
+	local color = state and glows[state] and ((threat.colors and threat.colors[state]) or (profile.colorBlind and P.Roles.PALETTE_COLORBLIND or P.Roles.PALETTE)[state])
 	if color then
+		-- Threat events come many times a second in a pull: redraw only when the color changed
+		if color == widget.shownColor and GlowLib.IsShown(widget.glow) then
+			return
+		end
+		widget.shownColor = color
 		GlowLib.SetColor(widget.glow, color[1], color[2], color[3], color[4] or 1)
 		GlowLib.Show(widget.glow)
 	else
@@ -341,6 +347,7 @@ P.Parts:Register({
 	end,
 	events = { 'UNIT_THREAT_LIST_UPDATE', 'UNIT_THREAT_SITUATION_UPDATE' },
 	messages = { 'CONTEXT_CHANGED', 'TANKS_CHANGED', 'FACTS_POLLED' },
+	contextKeys = { role = true, place = true, inGroup = true, petTank = true },
 	reasons = { colors = true },
 	Create = function(plate)
 		local holder = CreateFrame('Frame', nil, plate.art)
@@ -356,14 +363,21 @@ P.Parts:Register({
 		local GlowLib = P.GlowLib
 		GlowLib.Layout(widget.glow, widget.frame, GlowLib.Opts(GlowLib.LookFor(spec), spec.size, spec.art, spec.blend, spec.animate), ctx)
 		widget.textures = widget.glow.textures
+		-- A new layout needs its color set again
+		widget.shownColor = nil
 		if widget.plate.src then
 			Refresh(widget, widget.plate.src)
 		end
 	end,
-	Update = function(widget, src)
+	Update = function(widget, src, event)
+		if event == 'FACTS_POLLED' and widget.lastCanAttack == widget.plate.facts.canAttack then
+			return
+		end
+		widget.lastCanAttack = widget.plate.facts.canAttack
 		Refresh(widget, src)
 	end,
 	Reset = function(widget)
+		widget.shownColor = nil
 		P.GlowLib.Reset(widget.glow)
 		if widget.growW ~= 0 or widget.growH ~= 0 then
 			SetGrow(widget, 0, 0, true)

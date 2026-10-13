@@ -1869,7 +1869,7 @@ for name, spec in pairs(D.functions) do
 	end
 end
 for name in pairs(D.engine or {}) do
-	if rawget(_G, name) == nil then
+	if rawget(_G, name) == nil and not (D.fxml[name] and FX.models[name]) then
 		_G[name] = wrapFunction(name, nil, FN[name] or genericFunction(name))
 	end
 end

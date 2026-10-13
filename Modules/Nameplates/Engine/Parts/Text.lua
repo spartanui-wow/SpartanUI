@@ -24,6 +24,8 @@ local L = P.L
 --   title          src:TitlePlain(): an NPC's title line from its tooltip, or a player's guild.
 --   threatPercent  src:ThreatPercentPlain() where the game lets us read it; else the secret
 --                  value straight into SetFormattedText.
+--   threatLead     your threat as a percent of the highest other threat (over 100 = you lead):
+--                  src:ThreatLeadPlain(), else src:ThreatLeadSecret() into SetFormattedText.
 --   castName, castTarget, castTime   the running cast; castTarget in the target's class color;
 --                  castTime through a duration text binding where the client has one (and Quirk
 --                  plainCastText is off), else plain math on one shared Scheduler task.
@@ -66,7 +68,7 @@ local CAST_EVENTS = {
 local HEALTH_EVENTS = { 'UNIT_HEALTH', 'UNIT_MAXHEALTH' }
 
 -- Bus messages a text source may use (impl.messages is one list for every source)
-local MESSAGES = { 'CONTEXT_CHANGED', 'FACTS_POLLED', 'ARENA_CHANGED' }
+local CONTEXT_KEYS = { level = { playerLevel = true }, forces = { challengeActive = true, place = true }, arena = { place = true } }
 local OWN_MESSAGES = { CONTEXT_CHANGED = true, FACTS_POLLED = true, ARENA_CHANGED = true }
 
 ----------------------------------------------------------------------------------------------------
@@ -224,11 +226,21 @@ local function SecondsFormatter()
 	return secondsFormatter or nil
 end
 
-local function SetRemaining(text, remaining)
+---Plain cast time text (tenths under 10 seconds). The shared tick skips a write whose text would
+---not change; `force` writes anyway (a new cast).
+---@param widget table
+---@param remaining number
+---@param force? boolean
+local function SetRemaining(widget, remaining, force)
+	local key = remaining < 10 and math.floor(remaining * 10 + 0.5) or (1000 + math.floor(remaining + 0.5))
+	if not force and key == widget.castTimeKey then
+		return
+	end
+	widget.castTimeKey = key
 	if remaining < 10 then
-		text:SetFormattedText('%.1f', remaining)
+		widget.text:SetFormattedText('%.1f', remaining)
 	else
-		text:SetFormattedText('%.0f', remaining)
+		widget.text:SetFormattedText('%.0f', remaining)
 	end
 end
 
@@ -245,7 +257,7 @@ local function Tick(now)
 			end
 		end
 		if remaining > 0 then
-			SetRemaining(widget.text, remaining)
+			SetRemaining(widget, remaining)
 		else
 			ticking[widget] = nil
 			widget.text:SetText('')
@@ -313,7 +325,7 @@ local function FillCastTime(widget, src)
 		return
 	end
 	ticking[widget] = finish
-	SetRemaining(text, math.max(finish - P.services.GetTime(), 0))
+	SetRemaining(widget, math.max(finish - P.services.GetTime(), 0), true)
 	if not P.Scheduler:IsRunning(TICK_ID) then
 		P.Scheduler:Every(TICK_ID, 0.1, Tick)
 	end
@@ -540,6 +552,31 @@ Define('threatPercent', {
 	end,
 })
 
+-- Your threat as a percent of the highest threat on this enemy not counting yours, from
+-- UnitThreatPercentageOfLead: above 100 while you hold it, under 100 while someone else does
+-- (all six clients)
+Define('threatLead', {
+	events = { 'UNIT_THREAT_LIST_UPDATE', 'UNIT_THREAT_SITUATION_UPDATE' },
+	Fill = function(widget, src)
+		local text = widget.text
+		local lead, readable = src:ThreatLeadPlain()
+		if readable then
+			if type(lead) == 'number' and lead > 0 then
+				text:SetFormattedText('%.0f%%', lead)
+			else
+				text:SetText('')
+			end
+			return
+		end
+		local leadSecret = src:ThreatLeadSecret()
+		if type(leadSecret) == 'nil' then
+			text:SetText('')
+		else
+			text:SetFormattedText('%.0f%%', leadSecret)
+		end
+	end,
+})
+
 Define('castName', {
 	events = CAST_EVENTS,
 	Fill = function(widget, src)
@@ -633,6 +670,8 @@ function TextParts.Limit(source)
 		return L['Shows only in arenas']
 	elseif source == 'threatPercent' then
 		return L['Empty when the game hides threat, often on bosses']
+	elseif source == 'threatLead' then
+		return L['Empty when you are not on its threat list. Over 100% means you hold it.']
 	elseif source == 'title' then
 		return L['Shows only in the open world']
 	end
@@ -657,7 +696,13 @@ P.Parts:Register({
 		local def = SOURCES[spec.source]
 		return def and def.events or NO_EVENTS
 	end,
-	messages = MESSAGES,
+	messages = function(spec)
+		local def = SOURCES[spec.source]
+		return def and def.messages or NO_EVENTS
+	end,
+	contextKeys = function(spec)
+		return CONTEXT_KEYS[spec.source]
+	end,
 	Create = function(plate)
 		local holder = CreateFrame('Frame', nil, plate.art)
 		holder:SetSize(1, 1)
@@ -710,7 +755,7 @@ P.Parts:Register({
 		end
 		if event == 'FULL' or def.on[event] then
 			widget.ownsColor = def.Fill(widget, src, event) == true
-		elseif OWN_MESSAGES[event] then
+		elseif OWN_MESSAGES[event] and not (widget.spec.colors and P.Colors:Program(widget.spec.colors, widget.plate.env.ctx).messages[event]) then
 			-- Every text part gets these; this source does not use this one
 			return
 		end

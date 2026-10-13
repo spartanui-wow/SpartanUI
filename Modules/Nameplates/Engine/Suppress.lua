@@ -18,10 +18,11 @@ local P = ns.Plates
 --   4. Always: alpha 0 on the UnitFrame (also under rolesets, until S7 confirms they hide it), and
 --      UnregisterAllEvents on it and on UnitFrame.CastBarsContainer.castBar (nil-guarded;
 --      UnitFrame.castBar is checked only as a fallback shape).
--- Forbidden plates are never touched. Widget-only plates (facts.widgetsOnly) and game objects get
--- the same treatment as drawn plates: the Driver then draws nothing, so only the rescued widget
--- container and soft-target icon show. The player's own plate (Classic family personal plate) is
--- left to Blizzard: the Driver calls Release(base), which gives back a pooled frame we touched.
+-- Forbidden plates are never touched. Widget-only plates (facts.widgetsOnly) get the same
+-- treatment as drawn plates: the Driver then draws nothing, so only the rescued widget container
+-- and soft-target icon show. The player's own plate (Classic family personal plate) and game
+-- objects (Blizzard draws their name) are left to Blizzard: the Driver calls Release(base), which
+-- gives back a pooled frame we touched.
 -- RestoreAll() gives every touched frame back (profile.enabled = false, engine off): rolesets
 -- cleared with SetRolesets(nil), the frame back on its base plate at full alpha, widgets back on
 -- their unit frame. Events stay unregistered until Blizzard sets the frame up again on its next

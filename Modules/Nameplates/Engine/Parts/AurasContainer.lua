@@ -187,7 +187,8 @@ end
 function AuraRows.NormalizeFilter(filter)
 	local polarity
 	local others, seen = {}, {}
-	for token in string.gmatch(filter or '', '[^|%s]+') do
+	for rawToken in string.gmatch(filter or '', '[^|%s]+') do
+		local token = rawToken
 		if token == 'NOT_CANCELABLE' then
 			token = '!CANCELABLE'
 		end
@@ -615,6 +616,9 @@ function AuraRows.Limit(feature, rowId)
 			end
 		end
 	elseif feature == 'important' then
+		if not secrets and not P.Caps:Get('importantSeen') then
+			return L['This game version may never mark a cast as important, so this may not show.']
+		end
 		if containers and not AuraRows.KnowsToken(AuraRows.Token('Important', 'IMPORTANT')) then
 			return L['This game version cannot tell which enemy buffs are important.']
 		end
@@ -1595,8 +1599,10 @@ end
 ---@param plate Plates.Plate
 ---@return table[] rows
 ---@return table|nil health The health widget
+local NO_PRESENCE_ROWS = {}
+
 function Presence:Rows(plate)
-	local out = {}
+	local out = NO_PRESENCE_ROWS
 	local health = HealthWidget(plate)
 	if not health or not plate.style then
 		return out, nil
@@ -1608,6 +1614,9 @@ function Presence:Rows(plate)
 		if kind then
 			local mine, any = AuraRows.SpellSets(P.Store:Get({ 'colors', piece, 'spells', row.id }))
 			if next(mine) or next(any) then
+				if out == NO_PRESENCE_ROWS then
+					out = {}
+				end
 				out[#out + 1] = { kind = kind, id = row.id, rank = rank, color = row.color or { 1, 1, 1, 1 }, when = row.when, mine = mine, any = any }
 			end
 		end

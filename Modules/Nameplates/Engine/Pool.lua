@@ -4,11 +4,14 @@ local P = ns.Plates
 -- The plate pool and pre-warm (6.5, 6.6). Owner: Phase 2.
 --
 -- Plates:
---   * Pre-warm out of combat after login: PREWARM plates, one every PREWARM_STEP seconds (one plate
---     per step is the whole budget), each laid out for a style the profile uses (enemy NPCs most
---     often), so NAME_PLATE_CREATED during the first pull takes a ready plate instead of building
---     frames mid-pull. Only while the profile wants plates (Driver:ProfileWantsPlates); the Driver
---     starts it again when it stands up.
+--   * Pre-warm out of combat after login: as many plates as the most an earlier session needed
+--     (global.poolPeak, at least PREWARM and at most PREWARM_MAX), one every PREWARM_STEP seconds
+--     (one plate per step is the whole budget), each laid out for a style the profile uses (enemy
+--     NPCs most often), so NAME_PLATE_CREATED during the first pull takes a ready plate instead of
+--     building frames mid-pull. Warm plates wait on a holder at the base plates' frame level
+--     (global.poolBaseLevel, learned from the first base plate), so most keep their layout when a
+--     base plate takes them. Only while the profile wants plates (Driver:ProfileWantsPlates); the
+--     Driver starts it again when it stands up.
 --   * NAME_PLATE_CREATED takes a warm plate or builds one (Plate.New(base, false)); the pool grows
 --     on demand with no cap (never 40, never parse NamePlateN names). A plate then stays with its
 --     base plate for the session: Blizzard reuses base plates, and the Driver re-binds on each add.
@@ -29,6 +32,7 @@ local Pool = { free = {}, built = 0, warmed = 0, containerPlates = 0, running = 
 P.Pool = Pool
 
 Pool.PREWARM = 20
+Pool.PREWARM_MAX = 50 -- pre-warm follows the most plates seen in earlier sessions, up to this
 Pool.PREWARM_STEP = 0.1
 Pool.PREWARM_CONTAINER_PLATES = 20
 Pool.FEWER_CONTAINER_PLATES = 6
@@ -38,14 +42,59 @@ local PREWARM_KINDS = { 'enemyNPC', 'enemyNPC', 'enemyNPC', 'minor', 'enemyNPC',
 local TICK_ID = 'Pool.prewarm'
 local EMPTY = {}
 
----Frame that holds plates nobody uses right now.
+---The account's bookkeeping table (direct writes: these numbers are not settings).
+---@return table|nil
+local function Global()
+	return P.db and P.db.global or nil
+end
+
+---Frame that holds plates nobody uses right now. It sits at the frame level the game's base
+---plates had (remembered from earlier sessions), so a warm plate keeps its part levels, and with
+---them its layout, when its first base plate takes it.
 ---@return table
 function Pool:Holder()
 	if not self.holder then
 		self.holder = CreateFrame('Frame')
 		self.holder:Hide()
+		local global = Global()
+		local level = global and global.poolBaseLevel
+		if type(level) == 'number' and level > 0 then
+			self.holder:SetFrameLevel(level)
+		end
 	end
 	return self.holder
+end
+
+---Remember how many plates this session needed and the base plates' frame level (for the next
+---session's pre-warm).
+---@param base table
+function Pool:Note(base)
+	local global = Global()
+	if not global then
+		return
+	end
+	if (tonumber(global.poolPeak) or 0) < self.built then
+		global.poolPeak = self.built
+	end
+	if not self.baseLevelNoted and base and base.GetFrameLevel then
+		local level = P.Secret.Plain(base:GetFrameLevel())
+		if type(level) == 'number' then
+			self.baseLevelNoted = true
+			global.poolBaseLevel = level
+		end
+	end
+end
+
+---How many plates pre-warm builds: the most seen in an earlier session (PREWARM to PREWARM_MAX),
+---or the count Prewarm was last given.
+---@return integer
+function Pool:WarmTarget()
+	if self.target then
+		return self.target
+	end
+	local global = Global()
+	local peak = global and tonumber(global.poolPeak) or 0
+	return math.max(self.PREWARM, math.min(peak, self.PREWARM_MAX))
 end
 
 ---A plate for a base nameplate: a warm one when available, else a new one.
@@ -66,6 +115,7 @@ function Pool:Acquire(base)
 			end
 		end
 	end
+	self:Note(base)
 	plate.base = base
 	return plate
 end
@@ -132,7 +182,8 @@ end
 ---Build one plate for the pool. Returns false when pre-warm should stop.
 ---@return boolean more
 function Pool:WarmOne()
-	if self.built >= self.PREWARM then
+	local target = self:WarmTarget()
+	if self.built >= target then
 		return false
 	end
 	local plate = P.Plate.New(self:Holder(), false)
@@ -145,7 +196,7 @@ function Pool:WarmOne()
 		WarmContainers(plate)
 	end
 	self.free[#self.free + 1] = plate
-	return self.built < self.PREWARM
+	return self.built < target
 end
 
 ---True when pre-warm may run now: engine on, the profile wants plates, nothing restricted.
@@ -176,13 +227,13 @@ end
 Pool.Step = Step
 
 ---Build plates ahead of the first pull, one per step, out of combat only.
----@param count? integer Total plates the pool should have built (default PREWARM)
+---@param count? integer Total plates the pool should have built (default Pool:WarmTarget())
 function Pool:Prewarm(count)
 	if count then
-		self.PREWARM = count
+		self.target = count
 		self.done = false
 	end
-	if self.done or self.built >= self.PREWARM or P.Scheduler:IsRunning(TICK_ID) then
+	if self.done or self.built >= self:WarmTarget() or P.Scheduler:IsRunning(TICK_ID) then
 		return
 	end
 	if not MayWarm() then

@@ -18,6 +18,12 @@
 	<Script file="Core\Styles\Registry.lua" />
 	<Script file="Core\Styles\Merge.lua" />
 	<Script file="Core\Styles\Builtin_Clean.lua" />
+	<Script file="Core\Styles\Builtin_Slim.lua" />
+	<Script file="Core\Styles\Builtin_Bold.lua" />
+	<Script file="Core\Styles\Builtin_Bordered.lua" />
+	<Script file="Core\Styles\Builtin_Blizzard.lua" />
+	<Script file="Core\Styles\Builtin_Rounded.lua" />
+	<Script file="Core\Styles\Builtin_Blank.lua" />
 	<Script file="Core\Styles\Builtin_NamesOnly.lua" />
 	<Script file="Core\Styles\Builtin_Mini.lua" />
 	<Script file="Core\Share.lua" />
@@ -58,6 +64,7 @@
 	<Script file="UI\Gallery.lua" />
 	<Script file="UI\Designer.lua" />
 	<Script file="UI\SetupSteps.lua" />
+	<Script file="UI\WhenBuilder.lua" />
 	<!-- Developer probe (Phase 0b): left out of release builds by the packager -->
 	<!--@do-not-package@-->
 	<Script file="UI\Probe.lua" />
@@ -69,5 +76,6 @@
 	<Script file="Options\Colors.lua" />
 	<Script file="Options\Auras.lua" />
 	<Script file="Options\WhoAndWhere.lua" />
+	<Script file="Options\Exchange.lua" />
 	<Script file="Options\Sharing.lua" />
 </Ui>

@@ -81,10 +81,13 @@ local CLIENTS = {
 			WARLOCK = { 132409, 119910 }, -- Spell Lock (sacrificed), Command Demon: Spell Lock
 			WARRIOR = { 6552, 102060 }, -- Pummel, Disrupting Shout
 		},
-		pet = { 19647, 115781 }, -- Spell Lock (Felhunter), Optical Blast (Observer)
+		-- Axe Toss (Felguard) stops a cast by stunning it (no school lockout on Mists); Command Demon
+		-- (119914) is Felstorm there, not Axe Toss, so it stays out
+		pet = { 19647, 115781, 89766 }, -- Spell Lock (Felhunter), Optical Blast (Observer), Axe Toss (Felguard)
 		unverified = {
 			[19647] = 'pet cooldown read',
 			[115781] = 'pet cooldown read',
+			[89766] = 'pet cooldown read',
 			[119910] = 'command demon cooldown follows the pet',
 		},
 	},

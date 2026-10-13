@@ -66,12 +66,28 @@ Source.Live = Live
 ---@param unit? string
 ---@return Plates.LiveSource
 function Source.NewLive(unit)
-	return setmetatable({ unit = unit, isSample = false, Call = Direct }, Live)
+	return setmetatable({ unit = unit, isSample = false, Call = Direct, readStamp = 0, castInfo = { n = 0 }, tankInfo = {}, auraLists = {} }, Live)
 end
 
 ---@param unit string|nil
 function Live:SetUnit(unit)
 	self.unit = unit
+	self.readStamp = self.readStamp + 1
+end
+
+---One dispatch (an event, a message or a full update handed to every part of a plate) reads the
+---unit's cast once: UnitCastingInfo and UnitChannelInfo answer the same for its whole length, so
+---every cast helper picks its field from one read. The Plate calls BeginRead before handing the
+---event to its parts and EndRead after. Reads outside a dispatch (shared timers) are never cached,
+---and the cache also ends with the frame's time, so a dispatch an error cut short cannot leave a
+---stale answer behind.
+function Live:BeginRead()
+	self.readStamp = self.readStamp + 1
+	self.reading = true
+end
+
+function Live:EndRead()
+	self.reading = false
 end
 
 ---Wrap every read in pcall (restricted PvP tokens). Cheap enough to leave on for a whole match.
@@ -127,7 +143,7 @@ function Live:ReadFacts(facts)
 		local _, token = call(Fn(UnitClass), u)
 		facts.classToken = Plain(token)
 	end
-	facts.isQuest = facts.questBoss or self:QuestPlain() or nil
+	facts.isQuest = facts.questBoss or (not facts.isPlayer and self:QuestCachedPlain()) or nil
 	facts.mobType = P.Situation.MobType(facts, P.Context)
 	return facts
 end
@@ -230,17 +246,26 @@ function Live:RaidMarkerSecret()
 	return self.Call(Fn(GetRaidTargetIndex), self.unit)
 end
 
-function Live:ThreatStatusSecret()
-	return self.Call(Fn(UnitThreatSituation), 'player', self.unit)
+local function ReadThreatStatus(self)
+	if self.reading and self.threatStamp == self.readStamp then
+		return self.threatRaw
+	end
+	self.threatRaw = self.Call(Fn(UnitThreatSituation), 'player', self.unit)
+	self.threatStamp = self.readStamp
+	return self.threatRaw
 end
 
----@return integer|nil status 0-3, nil when not on the threat list or hidden
+function Live:ThreatStatusSecret()
+	return ReadThreatStatus(self)
+end
+
+---@return integer|nil status
 ---@return boolean readable
 function Live:ThreatStatusPlain()
 	if Secret.ShouldUnitThreatStateBeSecret('player', self.unit) then
 		return nil, false
 	end
-	return Plain(self.Call(Fn(UnitThreatSituation), 'player', self.unit))
+	return Plain(ReadThreatStatus(self))
 end
 
 ---Scaled threat percent (only for text sinks).
@@ -259,52 +284,113 @@ function Live:ThreatPercentPlain()
 	return Plain(scaled)
 end
 
----Whether another unit (a group tank, 'pet') is tanking this one.
----@param tank string
+---The player's threat as a percent of the highest threat on this unit not counting the player's
+---(over 100 while the player leads; only for text sinks).
+function Live:ThreatLeadSecret()
+	return (self.Call(Fn(UnitThreatPercentageOfLead), 'player', self.unit))
+end
+
+---@return number|nil percentOfLead
+---@return boolean readable
+function Live:ThreatLeadPlain()
+	if Secret.ShouldUnitThreatValuesBeSecret('player', self.unit) then
+		return nil, false
+	end
+	return Plain((self.Call(Fn(UnitThreatPercentageOfLead), 'player', self.unit)))
+end
+
+local function ReadTanking(self, tank)
+	local cached = self.tankInfo[tank]
+	if not cached then
+		cached = {}
+		self.tankInfo[tank] = cached
+	end
+	if self.reading and cached.stamp == self.readStamp then
+		return cached.raw
+	end
+	cached.raw = (self.Call(Fn(UnitDetailedThreatSituation), tank, self.unit))
+	cached.stamp = self.readStamp
+	return cached.raw
+end
+
+---Whether another unit is tanking this one, for secret-safe sinks.
 function Live:IsTankingSecret(tank)
-	return (self.Call(Fn(UnitDetailedThreatSituation), tank, self.unit))
+	return ReadTanking(self, tank)
 end
 
 ---@param tank string
 ---@return boolean|nil
 ---@return boolean readable
 function Live:IsTankingPlain(tank)
-	return Plain((self.Call(Fn(UnitDetailedThreatSituation), tank, self.unit)))
+	return Plain(ReadTanking(self, tank))
+end
+
+---Copy a call's returns into a reused list (values stay as the game gave them; only kept, never
+---looked at here).
+---@param list table
+---@return table list
+local function FillList(list, ...)
+	local n = select('#', ...)
+	for i = 1, n do
+		list[i] = (select(i, ...))
+	end
+	for i = n + 1, list.n do
+		list[i] = nil
+	end
+	list.n = n
+	return list
+end
+
+---The unit's cast info, read once per dispatch: kind ('cast' | 'channel' | 'empower' | nil) and
+---the returns of UnitCastingInfo (cast) or UnitChannelInfo (channel, empower) in castInfo.
+---@param self Plates.LiveSource
+---@return string|nil kind
+---@return table info
+local function ReadCast(self)
+	local info = self.castInfo
+	local now = P.services.GetTime()
+	if self.reading and info.stamp == self.readStamp and info.time == now then
+		return info.kind, info
+	end
+	local kind
+	FillList(info, self.Call(Fn(UnitCastingInfo), self.unit))
+	if type(info[1]) ~= 'nil' then
+		kind = 'cast'
+	else
+		FillList(info, self.Call(Fn(UnitChannelInfo), self.unit))
+		if type(info[1]) ~= 'nil' then
+			-- isEmpowered (the ninth return) is NeverSecret
+			kind = info[9] and 'empower' or 'channel'
+		end
+	end
+	info.kind, info.stamp, info.time = kind, self.reading and self.readStamp or nil, now
+	return kind, info
 end
 
 ---'cast' | 'channel' | 'empower' | nil. Plain: decided by presence (type) and NeverSecret flags.
 ---@return string|nil
 function Live:CastKind()
-	local name = self.Call(Fn(UnitCastingInfo), self.unit)
-	if type(name) ~= 'nil' then
-		return 'cast'
-	end
-	local channelName, _, _, _, _, _, _, _, isEmpowered = self.Call(Fn(UnitChannelInfo), self.unit)
-	if type(channelName) ~= 'nil' then
-		-- isEmpowered is NeverSecret
-		return isEmpowered and 'empower' or 'channel'
-	end
-	return nil
+	return (ReadCast(self))
 end
 
 ---castBarID is NeverSecret on both info calls.
 ---@return integer|nil
 function Live:CastBarID()
-	local kind = self:CastKind()
+	local kind, info = ReadCast(self)
 	if kind == 'cast' then
-		return (select(10, self.Call(Fn(UnitCastingInfo), self.unit)))
+		return info[10]
 	elseif kind then
-		return (select(11, self.Call(Fn(UnitChannelInfo), self.unit)))
+		return info[11]
 	end
 	return nil
 end
 
 local function CastField(self, castIndex, channelIndex)
-	local kind = self:CastKind()
+	local kind, info = ReadCast(self)
 	if kind == 'cast' then
-		return (select(castIndex, self.Call(Fn(UnitCastingInfo), self.unit)))
+		return info[castIndex]
 	elseif kind then
-		return (select(channelIndex, self.Call(Fn(UnitChannelInfo), self.unit)))
+		return info[channelIndex]
 	end
 	return nil
 end
@@ -372,12 +458,25 @@ function Live:CastTimesPlain()
 	return startMS / 1000, endMS / 1000, true
 end
 
+-- S11: the API exists on all six clients, but the Classic family may never flag a spell. The
+-- first readable "yes" from a real cast records Caps 'importantSeen' (the probe starts true only
+-- where secrets exist), so option badges stop warning once the game has shown it answers.
+local importantSeen = false
+
 function Live:IsImportantSecret()
 	local spellIDSecret = self:SpellIDSecret()
 	if type(spellIDSecret) == 'nil' or not (C_Spell and C_Spell.IsSpellImportant) then
 		return false
 	end
-	return C_Spell.IsSpellImportant(spellIDSecret)
+	local answer = C_Spell.IsSpellImportant(spellIDSecret)
+	if not importantSeen then
+		local plain, readable = Plain(answer)
+		if readable and plain == true then
+			importantSeen = true
+			P.Caps:Record('importantSeen', true)
+		end
+	end
+	return answer
 end
 
 ---@return boolean|nil
@@ -466,17 +565,79 @@ function Live:CreatureIDPlain()
 	return nil
 end
 
+local LINE_TYPE = Enum and Enum.TooltipDataLineType
+local QUEST_OBJECTIVE = LINE_TYPE and LINE_TYPE.QuestObjective or 8
+local QUEST_TITLE = LINE_TYPE and LINE_TYPE.QuestTitle or 17
+local QUEST_PLAYER = LINE_TYPE and LINE_TYPE.QuestPlayer or 18
+
+---A goal's own text still short of done: "3/8", or a percent under 100. Classic tooltips mark
+---percent goals with a leading dash ("- 45%"); structured objective lines need no dash.
+---@param text string
+---@param needDash? boolean
+---@return boolean
+local function OpenGoalText(text, needDash)
+	local have, need = string.match(text, '(%d+)%s*/%s*(%d+)')
+	if have and tonumber(have) < tonumber(need) then
+		return true
+	end
+	local percent = string.match(text, needDash and '^%s*%-.-(%d+)%%' or '(%d+)%%')
+	return percent ~= nil and tonumber(percent) < 100
+end
+
+local playerGUID, playerName
+
+---True when a QuestPlayer line names the player (grouped tooltips list every member's progress
+---under their name). The GUID decides; the name is a fallback (Forever shows only its first word).
+---A line that says neither counts as ours, like a solo tooltip.
+---@param line table
+---@return boolean
+local function IsPlayerSection(line)
+	if not playerGUID then
+		playerGUID = Plain(UnitGUID and UnitGUID('player'))
+		playerName = Plain(UnitName and UnitName('player'))
+	end
+	local guid = Plain(line.guid)
+	if type(guid) == 'string' and type(playerGUID) == 'string' then
+		return guid == playerGUID
+	end
+	local text = Plain(line.leftText)
+	if type(text) ~= 'string' or type(playerName) ~= 'string' then
+		return true
+	end
+	return text == playerName or string.find(playerName, text .. ' ', 1, true) == 1
+end
+
+---Is this objective line unfinished? The line's `completed` flag (not in the generated docs, but
+---carried by the game's tooltip data) decides when present; otherwise its text does.
+---@param line table
+---@return boolean
+local function ObjectiveOpen(line)
+	local completed, readable = Plain(line.completed)
+	if readable and type(completed) == 'boolean' then
+		return completed == false
+	end
+	local text = Plain(line.leftText)
+	return type(text) == 'string' and OpenGoalText(text)
+end
+
+---An unfinished objective of the player's own in tooltip data. Sections under another group
+---member's name (QuestPlayer) are skipped until the next quest title.
+---@param data table
+---@return boolean|nil
 local function QuestLines(data)
 	local lines = data.lines
 	if not Secret.CanIndex(lines) then
 		return nil
 	end
-	local objective = Enum and Enum.TooltipDataLineType and Enum.TooltipDataLineType.QuestObjective or 8
+	local others = false
 	for _, line in ipairs(lines) do
 		if Secret.CanIndex(line) then
 			local lineType = Plain(line.type)
-			local completed, readable = Plain(line.completed)
-			if lineType == objective and readable and completed == false then
+			if lineType == QUEST_TITLE then
+				others = false
+			elseif lineType == QUEST_PLAYER then
+				others = not IsPlayerSection(line)
+			elseif lineType == QUEST_OBJECTIVE and not others and ObjectiveOpen(line) then
 				return true
 			end
 		end
@@ -484,8 +645,7 @@ local function QuestLines(data)
 	return false
 end
 
--- Unit tooltips on clients without C_TooltipInfo (the Classic family): one hidden tooltip, made on
--- first use (only while plates are bound, so loading stays inert), named from host.globalPrefix.
+-- Unit tooltips on clients without C_TooltipInfo: one anonymous hidden tooltip, made on first use.
 -- Quirk 'noTooltipScan' turns every scan off (same-day escape hatch).
 local scanTip
 local scanLines = {}
@@ -495,13 +655,23 @@ local scanLines = {}
 function Source.ScanTooltip()
 	if scanTip == nil then
 		scanTip = false
-		local prefix = P.host and P.host.globalPrefix or 'Nameplates'
-		local ok, tip = pcall(CreateFrame, 'GameTooltip', prefix .. 'ScanTip', nil, 'GameTooltipTemplate')
+		local ok, tip = pcall(CreateFrame, 'GameTooltip', nil, nil, 'GameTooltipTemplate')
 		if ok and tip then
 			scanTip = tip
 		end
 	end
 	return scanTip or nil
+end
+
+---Point the hidden tooltip at a unit (made once, so a scan makes no closure).
+---@param tip table
+---@param unit string
+local function PrepareTip(tip, unit)
+	tip:SetOwner(WorldFrame or UIParent, 'ANCHOR_NONE')
+	if tip.ClearLines then
+		tip:ClearLines()
+	end
+	tip:SetUnit(unit)
 end
 
 ---Left text of every line of a unit's tooltip, through the hidden tooltip. nil when the client
@@ -517,13 +687,7 @@ local function ScanLines(unit)
 	if not (tip and tip.SetOwner and tip.SetUnit and tip.NumLines) then
 		return nil, 0
 	end
-	local ok = pcall(function()
-		tip:SetOwner(WorldFrame or UIParent, 'ANCHOR_NONE')
-		if tip.ClearLines then
-			tip:ClearLines()
-		end
-		tip:SetUnit(unit)
-	end)
+	local ok = pcall(PrepareTip, tip, unit)
 	if not ok then
 		return nil, 0
 	end
@@ -559,30 +723,51 @@ local function ScanQuest(self)
 	end
 	for i = 2, count do
 		local text = lines[i]
-		if text then
-			local have, need = string.match(text, '(%d+)%s*/%s*(%d+)')
-			if have and tonumber(have) < tonumber(need) then
-				return true
-			end
-			local percent = string.match(text, '^%s*%-.-(%d+)%%')
-			if percent and tonumber(percent) < 100 then
-				return true
-			end
+		if text and OpenGoalText(text, true) then
+			return true
 		end
 	end
 	return false
 end
 
----Quest objective: questBoss, or an unfinished objective line in the unit tooltip
----(C_TooltipInfo on Retail and Forever, the hidden tooltip on the Classic family). Tooltip reads
----are skipped inside instances and whenever identity is secret (S13).
+---False when the game says the unit has nothing to do with the player's quests (Retail and
+---Forever), so its tooltip is never read. nil when it cannot say. Quirk 'noQuestGate' turns the
+---check off (same-day escape hatch if the game's answer misses quest mobs).
+---@param self Plates.LiveSource
+---@return boolean|nil
+local function RelatedToQuest(self)
+	local fn = C_QuestLog and C_QuestLog.UnitIsRelatedToActiveQuest
+	if not fn or P.Caps:Quirk('noQuestGate') then
+		return nil
+	end
+	local ok, answer = pcall(fn, self.unit)
+	if not ok then
+		return nil
+	end
+	local related, readable = Plain(answer)
+	if readable and type(related) == 'boolean' then
+		return related
+	end
+	return nil
+end
+
+---Quest objective: questBoss, or an unfinished objective line of the player's own in the unit
+---tooltip (C_TooltipInfo on Retail and Forever, the hidden tooltip on the Classic family). Tooltip
+---reads are skipped inside instances, whenever identity is secret (S13), and for units the game
+---says are not part of any active quest.
 ---@return boolean|nil
 function Live:QuestPlain()
+	if Plain(self.Call(Fn(UnitIsPlayer), self.unit)) then
+		return false
+	end
 	if P.Context.place ~= 'world' or Secret.ShouldUnitIdentityBeSecret(self.unit) then
 		return nil
 	end
 	if not (C_TooltipInfo and C_TooltipInfo.GetUnit) then
 		return ScanQuest(self)
+	end
+	if RelatedToQuest(self) == false then
+		return false
 	end
 	local data = Plain(self.Call(C_TooltipInfo.GetUnit, self.unit))
 	if not Secret.CanIndex(data) then
@@ -593,6 +778,29 @@ function Live:QuestPlain()
 	if not ok then
 		return nil
 	end
+	return found
+end
+
+local questCache = {}
+
+function Source.ClearQuestCache()
+	P.util.Wipe(questCache)
+end
+
+function Live:QuestCachedPlain()
+	if P.Context.place ~= 'world' or Secret.ShouldUnitIdentityBeSecret(self.unit) then
+		return nil
+	end
+	local guid = Plain(self.Call(Fn(UnitGUID), self.unit))
+	if type(guid) ~= 'string' then
+		return self:QuestPlain()
+	end
+	local found = questCache[guid]
+	if found ~= nil then
+		return found
+	end
+	found = self:QuestPlain()
+	questCache[guid] = found
 	return found
 end
 
@@ -687,7 +895,10 @@ end
 ---Is this unit the same as another token (S4 fallback). Possibly secret: alpha sinks only.
 ---@param token string
 function Live:IsUnitSecret(token)
-	return self.Call(Fn(UnitIsUnit), self.unit, token)
+	if not Secret.CanCompareUnitTokens(self.unit, token) then
+		return nil
+	end
+	return Guarded(Fn(UnitIsUnit), self.unit, token)
 end
 
 function Live:PowerSecret(powerType)
@@ -798,6 +1009,48 @@ function Live:AuraByInstancePlain(auraInstanceID)
 		return nil
 	end
 	return aura
+end
+
+---Plain aura list shared by rows in one dispatch; sorting stays with each row.
+function Live:AuraListPlain(filter)
+	local cached = self.auraLists[filter]
+	if not cached then
+		cached = { list = {} }
+		self.auraLists[filter] = cached
+	end
+	if self.reading and cached.stamp == self.readStamp then
+		return cached.list
+	end
+	local list = cached.list
+	P.util.Wipe(list)
+	local ids
+	if P.Caps:Get('auraInstanceIDs') then
+		local ok, answer = pcall(self.AuraInstanceIDsPlain, self, filter)
+		if ok then
+			ids = answer
+		else
+			P.Caps:Record('auraInstanceIDs', false)
+			P.log.warning('Sorted aura lists failed; reading auras by index: ' .. tostring(answer))
+		end
+	end
+	if Secret.CanIndex(ids) then
+		for i = 1, #ids do
+			local aura = self:AuraByInstancePlain(ids[i])
+			if aura then
+				list[#list + 1] = aura
+			end
+		end
+	else
+		for i = 1, 40 do
+			local aura = self:AuraByIndexPlain(i, filter)
+			if not aura then
+				break
+			end
+			list[#list + 1] = aura
+		end
+	end
+	cached.stamp = self.readStamp
+	return list
 end
 
 -- Reads for the text and icon parts (level, health text, classification, faction, arena labels).
@@ -982,6 +1235,19 @@ end
 
 function Sample:ThreatPercentPlain()
 	return self:ThreatPercentSecret(), true
+end
+
+---sample.threatLead, else made up from the threat status (130% while holding it, 75% otherwise).
+function Sample:ThreatLeadSecret()
+	local sample = self.sample
+	if sample.threatLead ~= nil then
+		return sample.threatLead
+	end
+	return sample.threat and (sample.threat >= 2 and 130 or 75) or nil
+end
+
+function Sample:ThreatLeadPlain()
+	return self:ThreatLeadSecret(), true
 end
 
 function Sample:IsTankingSecret(tank)
