@@ -25,7 +25,7 @@ local L = P.L
 local Options = { pages = {}, order = {} }
 P.Options = Options
 
-Options.LOCKED_REASON = L['The game does not allow aura changes right now. They unlock after combat.']
+Options.LOCKED_REASON = L['The game blocks this change right now, in a fight or in some dungeons and raids. It unlocks when that is over.']
 
 Options.PAGES = { 'style', 'customize', 'colors', 'auras', 'whoAndWhere', 'sharing' }
 
@@ -172,8 +172,34 @@ function Options.Placeholder(name)
 	}
 end
 
----Ask the host to redraw the options once on the next frame. rebuild also asks for a new table
----(pages whose groups depend on the current style, such as Customize).
+---True while a control of the open window is still in use: a slider is being dragged (the mouse
+---button is down) or the color picker is open. A redraw then would release that control under
+---the player's hands, so the refresh waits until it is let go.
+---@return boolean
+function Options.Busy()
+	if type(IsMouseButtonDown) == 'function' and IsMouseButtonDown('LeftButton') then
+		return true
+	end
+	local picker = ColorPickerFrame
+	return type(picker) == 'table' and type(picker.IsShown) == 'function' and picker:IsShown() and true or false
+end
+
+local function RunRefresh()
+	if Options.Busy() then
+		P.Scheduler:NextFrame('Options.refresh', RunRefresh)
+		return
+	end
+	local host = P.host
+	local wanted = Options.rebuildWanted
+	Options.rebuildWanted = false
+	if host and host.RefreshOptions then
+		host.RefreshOptions(wanted)
+	end
+end
+
+---Ask the host to redraw the options once on the next frame, after any slider drag or open color
+---picker is done. rebuild also asks for a new table (pages whose groups depend on the current
+---style, such as Customize).
 ---@param rebuild? boolean
 function Options:RequestRefresh(rebuild)
 	local host = P.host
@@ -181,11 +207,7 @@ function Options:RequestRefresh(rebuild)
 		return
 	end
 	self.rebuildWanted = self.rebuildWanted or rebuild or false
-	P.Scheduler:NextFrame('Options.refresh', function()
-		local wanted = Options.rebuildWanted
-		Options.rebuildWanted = false
-		host.RefreshOptions(wanted)
-	end)
+	P.Scheduler:NextFrame('Options.refresh', RunRefresh)
 end
 
 P:On('STORE_CHANGED', function(reasons)

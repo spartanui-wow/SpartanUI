@@ -15,7 +15,7 @@ local util = P.util
 --   whole style       profile.tweaks[styleId].changes.parts[id]
 --   only these plates profile.tweaks[styleId].situations[kind].parts[id]
 --   added parts       profile.tweaks[styleId].add[id]
--- so "Undo my changes" and "Reset this part" always work. Undo and redo keep 20 steps per session;
+-- so "Reset my changes" and "Reset this part" always work. Undo and redo keep 20 steps per session;
 -- each step is a copy of tweaks[styleId] taken before the edit (a drag copies it when it starts).
 --
 -- Moving: click a part to select it, then drag it. The Stage turns the cursor movement into plate
@@ -1857,10 +1857,14 @@ end
 ---Panel hint on the Customize page.
 ---@return string
 function Designer:Hint()
-	if not self:Primary() then
+	local primary = self:Primary()
+	if not primary then
 		return L['Click a part to change it. Shift-click picks more than one.']
 	end
-	return L['Drag to move. Arrow keys nudge, Delete hides, Ctrl-Z undoes.']
+	if not Designer.Movable(self:Spec(primary)) then
+		return L['Change this part with the settings on the left. Delete hides it. Ctrl-Z undoes.']
+	end
+	return L['Drag to move it. Arrow keys move it a little. Delete hides it. Ctrl-Z undoes.']
 end
 
 ---"Undo move" at the bottom of the panel while there is something to undo.

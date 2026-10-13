@@ -554,7 +554,10 @@ end
 ---ones again starts them at once when the old ones never ran this session, else after a reload.
 ---@param old boolean
 local function SetOldPlates(old)
-	P.Config:SetEngineChoice(old and 'old' or 'new')
+	-- Going back to the new plates stores nothing (the launch default), never the tester mark
+	-- 'new': ImportLegacy treats that mark as "keeps what it has" and would skip bringing over the
+	-- old settings of profiles first loaded on the old plates
+	P.Config:SetEngineChoice(old and 'old' or nil)
 	if old then
 		StopEngine()
 		P.CVars:RestoreAll()
@@ -858,10 +861,27 @@ local function ImportProfile(data)
 	if (tonumber(data.profile.schema) or 0) > P.Config.SCHEMA.profile then
 		return false, 'These nameplate settings come from a newer version of SpartanUI'
 	end
+	-- The same checks as a pasted share string: styles are validated, the profile keeps only known
+	-- keys with values of the right type
+	local Exchange = P.Exchange
+	if not (Exchange and Exchange.CleanProfile) then
+		return false, 'Nameplates are not loaded'
+	end
+	local okClean, cleaned = pcall(Exchange.CleanProfile, Exchange, { profile = data.profile, styles = data.styles })
+	if not okClean or type(cleaned) ~= 'table' then
+		return false, 'This is not nameplate data'
+	end
 	local added = false
-	for id, entry in pairs(type(data.styles) == 'table' and data.styles or {}) do
-		if type(id) == 'string' and type(entry) == 'table' and P.Store:Get({ 'styles', id }, 'global') == nil then
-			P.Store:Set({ 'styles', id }, entry, 'global')
+	for id, entry in pairs(cleaned.styles) do
+		if P.Store:Get({ 'styles', id }, 'global') == nil then
+			local raw = type(data.styles) == 'table' and data.styles[id]
+			local source = entry.source
+			if type(raw) == 'table' and type(raw.source) == 'table' and raw.source.kind == 'copy' then
+				source = { kind = 'copy' }
+			end
+			local base = Copy(entry.base)
+			base.id, base.name = id, entry.name
+			P.Store:Set({ 'styles', id }, { name = entry.name, schema = P.Styles.Schema.CURRENT, base = base, source = source }, 'global')
 			added = true
 		end
 	end
@@ -873,8 +893,23 @@ local function ImportProfile(data)
 	for _, key in ipairs(keys) do
 		rawset(profile, key, nil)
 	end
-	for key, value in pairs(data.profile) do
+	for key, value in pairs(cleaned.profile) do
 		profile[key] = Copy(value)
+	end
+	-- A backup of the player's own profile also brings their role and game settings back
+	if Exchange.CleanOwnSettings then
+		for key, value in pairs(Exchange:CleanOwnSettings(data.profile)) do
+			profile[key] = Copy(value)
+		end
+	end
+	-- This profile's own switches come from the backup too, when they are plain switches
+	for _, key in ipairs({ 'enabled', 'followHostProfile' }) do
+		if type(data.profile[key]) == 'boolean' then
+			profile[key] = data.profile[key]
+		end
+	end
+	if type(data.profile.schema) == 'number' then
+		profile.schema = data.profile.schema
 	end
 	-- Never bring the old plates' settings over this profile, even after a reset
 	profile.migratedFromOld = true
@@ -1026,14 +1061,14 @@ local function AddLaunchControls(tbl)
 	local function On()
 		return P.Store:Get('enabled') ~= false
 	end
-	tbl.args.plateStatus = {
+	local status = {
 		type = 'description',
 		order = 0.1,
 		fontSize = 'medium',
 		name = L['Nameplates are off for this profile, so the game draws its own.'],
 		hidden = On,
 	}
-	tbl.args.turnOn = {
+	local turnOn = {
 		type = 'execute',
 		order = 0.2,
 		primary = true,
@@ -1045,10 +1080,26 @@ local function AddLaunchControls(tbl)
 			P.Store:Set('enabled', true)
 		end,
 	}
+	tbl.args.plateStatus = status
+	tbl.args.turnOn = turnOn
+	-- The Style page says it too: a player who opens it from the sidebar would otherwise pick
+	-- styles that change nothing in the world
+	local stylePage = type(tbl.args.style) == 'table' and tbl.args.style
+	if stylePage and type(stylePage.args) == 'table' then
+		stylePage.args.plateStatus = P.util.Copy(status)
+		stylePage.args.plateStatus.hidden = On
+		stylePage.args.turnOn = P.util.Copy(turnOn)
+		stylePage.args.turnOn.hidden = On
+		stylePage.args.turnOn.func = turnOn.func
+	end
 	if oldModuleHere then
-		tbl.args.useOldPlates = {
+		-- Kept off the root so the root stays empty and opens the Style page
+		local sharing = type(tbl.args.sharing) == 'table' and type(tbl.args.sharing.args) == 'table' and tbl.args.sharing
+		local holder = sharing or tbl
+		holder.args.useOldPlates = {
 			type = 'toggle',
-			order = 0.9,
+			order = sharing and 900 or 0.9,
+			advanced = sharing and true or nil,
 			width = 'full',
 			name = L['Use the old nameplates'],
 			desc = L['Go back to the nameplates from before this update, for this character. They will be removed in a later update. You need to reload.'],
@@ -1212,6 +1263,14 @@ local function HostConfig()
 		RegisterPreview = function(provider)
 			if SUI.OptionsWindow and SUI.OptionsWindow.Stage then
 				SUI.OptionsWindow.Stage:Register(provider)
+			end
+		end,
+		-- Redraws only the preview panel, so a hovered card or a scene change never rebuilds the
+		-- settings under the mouse
+		RedrawPreview = function()
+			local Stage = SUI.OptionsWindow and SUI.OptionsWindow.Stage
+			if Stage and Stage.MarkDirty then
+				Stage:MarkDirty()
 			end
 		end,
 		ImportLegacy = ImportLegacy,

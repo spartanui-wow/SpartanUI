@@ -751,7 +751,7 @@ local function ResolvedStyle()
 end
 
 ---Change the player's changes to the current style (profile.tweaks[style]) with fn(overlay,
----styleId). Empty tables are dropped, so "Undo my changes" shows only when something is left.
+---styleId). Empty tables are dropped, so "Reset my changes" shows only when something is left.
 ---@param fn fun(overlay: table, styleId: string)
 function ColorsPage.EditOverlay(fn)
 	if Options.Locked() then
@@ -982,13 +982,18 @@ end
 ---A description that gives the lock reason while the game restricts changes.
 local function DescWhenLocked(text)
 	return function()
+		local desc = text
+		if type(text) == 'function' then
+			desc = text()
+		end
 		if Locked() then
+			-- Keep what the setting does and add why it cannot be changed now
+			if type(desc) == 'string' and desc ~= '' then
+				return desc .. '\n\n' .. Options.LOCKED_REASON
+			end
 			return Options.LOCKED_REASON
 		end
-		if type(text) == 'function' then
-			return text()
-		end
-		return text
+		return desc
 	end
 end
 

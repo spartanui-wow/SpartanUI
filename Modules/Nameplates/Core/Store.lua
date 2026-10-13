@@ -237,6 +237,16 @@ end
 function Store:ProfileSwapped(forced)
 	local db = P.db
 	local reasons = forced and Store.Union(forced) or {}
+	-- "Follow my host profile" lives in the profile it controls. A player who turned it off and
+	-- then picked another profile meant to stop following: carry the choice over, or the new
+	-- profile (default on) would lock the picker and switch back at the next load
+	local leftKey, newKey = self.trackedKey, self:ProfileKey()
+	if leftKey and newKey and leftKey ~= newKey and db.profiles then
+		local left = db.profiles[leftKey]
+		if type(left) == 'table' and left.followHostProfile == false and db.profile.followHostProfile ~= false then
+			db.profile.followHostProfile = false
+		end
+	end
 	if not forced then
 		local old = self.trackedKey and db.profiles and db.profiles[self.trackedKey] or {}
 		local new = db.profile

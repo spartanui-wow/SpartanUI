@@ -319,6 +319,17 @@ describe('sharing page: layout', function()
 		assert.is_true(page.args.follow.disabled())
 	end)
 
+	it('keeps following off when the player picks another profile', function()
+		local before = Store:ProfileKey()
+		Store:Set('followHostProfile', false)
+		Store:SetProfile('Picked by hand')
+		assert.is_false(Store:Get('followHostProfile'), 'the picked profile does not lock the picker again')
+		Store:Set('followHostProfile', true)
+		Store:SetProfile(before)
+		assert.is_false(Store:Get('followHostProfile'), 'each profile keeps its own choice')
+		Store:Set('followHostProfile', true)
+	end)
+
 	it('has a profile picker that works without AceDBOptions', function()
 		local profiles = Page().args.profiles
 		assert.equal(profiles.type, 'group')
@@ -387,6 +398,33 @@ describe('export', function()
 		assert.equal(info.name, 'Hosted two')
 		assert.is_nil(info.style.matchesHost, 'a pasted style is never the host look')
 		assert.is_nil(Exchange:BuildExport('style', { styleId = 'nothing' }) and nil, 'a missing style falls back to Clean')
+	end)
+
+	it('decides on purpose about every profile key a page can write', function()
+		local known = {}
+		for _, key in ipairs(Exchange.PROFILE_KEYS) do
+			known[key] = 'shared'
+		end
+		for _, key in ipairs(Exchange.PROFILE_KEYS_KEPT_OUT) do
+			assert.is_nil(known[key], key .. ' is both shared and kept out')
+			known[key] = 'kept out'
+		end
+		for key in pairs(P.Store.REASONS.profile) do
+			assert.not_nil(known[key], 'profile key ' .. key .. ' would be dropped by imports: add it to Exchange.PROFILE_KEYS or PROFILE_KEYS_KEPT_OUT')
+		end
+		for _, key in ipairs(Exchange.PROFILE_KEYS) do
+			assert.not_nil(P.Store.REASONS.profile[key], key .. ' is shared but no page writes it')
+		end
+	end)
+
+	it('checks the role and game settings a backup brings back', function()
+		local own = Exchange:CleanOwnSettings({ role = 'tank', cvars = { nameplateMaxDistance = '40', nameplateShowEnemies = true, nameplateMotion = 1, junk = 3 } })
+		assert.equal(own.role, 'tank')
+		assert.equal(own.cvars.nameplateMaxDistance, 40)
+		assert.is_true(own.cvars.nameplateShowEnemies)
+		assert.is_nil(own.cvars.nameplateMotion)
+		assert.is_nil(own.cvars.junk)
+		assert.is_nil(Exchange:CleanOwnSettings({ role = 'boss' }).role)
 	end)
 
 	it('leaves the role, the game settings and the host switches out of everything', function()
@@ -926,6 +964,16 @@ describe('import: using a string', function()
 		assert.is_true(Exchange:Undo())
 		assert.equal(Store:Get('when')[1].size, 'large')
 		assert.is_false(Exchange:Undo(), 'one undo')
+	end)
+
+	it('forgets the undo when the profile changes', function()
+		Store:Set('when', { { size = 'large' } })
+		Exchange:Paste(Share:Encode('when', { when = { { conditions = { { id = 'place', args = 'raid' } }, style = 'mini' } } }))
+		assert.is_true(Exchange:Do('replace').ok)
+		assert.is_true(Exchange:HasUndo())
+		P:Fire('PROFILE_CHANGED', {})
+		assert.is_false(Exchange:HasUndo(), 'it would write into another profile')
+		assert.is_false(Exchange:Undo())
 	end)
 
 	it('uses an empty "When" list to clear the list', function()

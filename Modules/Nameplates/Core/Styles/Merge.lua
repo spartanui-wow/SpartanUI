@@ -590,7 +590,7 @@ function Merge:StaleChanges(styleId)
 	return count
 end
 
----True when the player changed this style (shows "Undo my changes").
+---True when the player changed this style (shows "Reset my changes").
 ---@param styleId string
 ---@return boolean
 function Merge:HasChanges(styleId)

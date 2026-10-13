@@ -238,7 +238,7 @@ describe('style page: locked while the game restricts changes', function()
 		end
 		assert.is_false(page.args.status.hidden(), 'the reason is on the page')
 		assert.equal(page.args.status.args.locked.name, Options.LOCKED_REASON)
-		assert.matches(page.args.style.desc(), 'unlock after combat')
+		assert.matches(page.args.style.desc(), 'unlocks when that is over')
 		locked = false
 		assert.is_false(page.args.style.disabled())
 		assert.is_true(page.args.status.hidden())
@@ -693,6 +693,35 @@ describe('style page: card menu answers', function()
 		assert.is_true(page.args.status.hidden())
 		M.Advance(30)
 		assert.equal(redraws, 2, 'and then it is quiet')
+		P.host.RefreshOptions = original
+	end)
+
+	it('waits with a redraw while a slider is dragged or the color picker is open', function()
+		local redraws = 0
+		local original = P.host.RefreshOptions
+		P.host.RefreshOptions = function()
+			redraws = redraws + 1
+		end
+		local mouseDown, pickerShown = true, false
+		local savedMouse, savedPicker = _G.IsMouseButtonDown, _G.ColorPickerFrame
+		_G.IsMouseButtonDown = function()
+			return mouseDown
+		end
+		_G.ColorPickerFrame = {
+			IsShown = function()
+				return pickerShown
+			end,
+		}
+		P.Options:RequestRefresh(false)
+		M.Advance(0.5)
+		assert.equal(redraws, 0, 'not while the slider is held')
+		mouseDown, pickerShown = false, true
+		M.Advance(0.5)
+		assert.equal(redraws, 0, 'not while the color picker is open')
+		pickerShown = false
+		M.Advance(0.2)
+		assert.equal(redraws, 1, 'once both are let go')
+		_G.IsMouseButtonDown, _G.ColorPickerFrame = savedMouse, savedPicker
 		P.host.RefreshOptions = original
 	end)
 

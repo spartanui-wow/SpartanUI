@@ -282,7 +282,7 @@ function Driver:OwnsSettings()
 		return false
 	end
 	local Config = P.Config
-	if Config and Config.GetSessionEngine and Config:GetSessionEngine() == 'new' and Config:GetEngineChoice() == 'old' then
+	if Config and Config.GetSessionEngine and Config:GetSessionEngine() ~= 'old' and Config:GetEngineChoice() == 'old' then
 		return false
 	end
 	return true
@@ -1732,6 +1732,7 @@ Driver.HiddenEverywhere = HiddenEverywhere
 local wantValues = {}
 local wantBits = {} -- [cvar] = { [bitKey] = on }
 local bitTables = {}
+local wantRequired = {} -- [cvar] = true for settings the plates need to work (kept after a hand back)
 
 local function WantBit(name, key, on)
 	local bits = wantBits[name]
@@ -1749,6 +1750,7 @@ local function Collect()
 	local self = Driver
 	P.util.Wipe(wantValues)
 	P.util.Wipe(wantBits)
+	P.util.Wipe(wantRequired)
 	local ctx = P.Context
 	local profile = P.db and P.db.profile or EMPTY
 	local CVars = P.CVars
@@ -1824,6 +1826,7 @@ local function Collect()
 			for j = 1, #AURA_BITS do
 				WantBit(AURA_BIT_CVARS[i], AURA_BITS[j], false)
 			end
+			wantRequired[AURA_BIT_CVARS[i]] = true
 		end
 	end
 end
@@ -1838,8 +1841,9 @@ function Driver:ApplyPlaceSettings()
 	local CVars = P.CVars
 	Collect()
 	local applied, yielded = self.placeApplied, self.yielded
+	local handedBack = self:HandedBack()
 	for name, value in pairs(wantValues) do
-		if not yielded[name] then
+		if not yielded[name] and not (handedBack and not wantRequired[name]) then
 			local result = CVars:Set(name, value, 'place')
 			if result ~= 'missing' and result ~= 'locked' then
 				applied[name] = true
@@ -1847,7 +1851,7 @@ function Driver:ApplyPlaceSettings()
 		end
 	end
 	for name, bits in pairs(wantBits) do
-		if not yielded[name] then
+		if not yielded[name] and not (handedBack and not wantRequired[name]) then
 			for key, on in pairs(bits) do
 				local result = CVars:SetBit(name, key, on, 'place')
 				if result ~= 'missing' and result ~= 'locked' then
@@ -1863,6 +1867,40 @@ function Driver:ApplyPlaceSettings()
 				CVars:Restore(name)
 			end
 		end
+	end
+end
+
+---True after the player gave the game back its settings: the place and the profile stop
+---writing them (only the settings the plates need to work stay) until the player changes a
+---related setting. Kept per character across reloads.
+---@return boolean
+function Driver:HandedBack()
+	local char = P.db and P.db.char
+	return char ~= nil and char.handedBack == true
+end
+
+---"Give the game back its settings": cancel queued writes, put back every backed-up setting and
+---stop writing them until the player changes a related setting (ClearHandBack).
+---@return boolean done false when some settings wait for combat to end
+function Driver:HandBack()
+	local char = P.db and P.db.char
+	if char then
+		char.handedBack = true
+	end
+	P.util.Wipe(self.placeApplied)
+	local done = P.CVars:RestoreAll()
+	-- The settings the plates need to work come straight back
+	if self.standing then
+		self:ApplyPlaceSettings()
+	end
+	return done
+end
+
+---The player changed a setting the place settings follow: write them again.
+function Driver:ClearHandBack()
+	local char = P.db and P.db.char
+	if char and char.handedBack ~= nil then
+		char.handedBack = nil
 	end
 end
 
@@ -1965,6 +2003,7 @@ function Driver:SettingsChanged(reasons)
 	end
 	if reasons.cvars or reasons.assignment then
 		P.util.Wipe(self.yielded)
+		self:ClearHandBack()
 		self:ReadBehavior()
 		self:ApplyPlaceSettings()
 		self:ApplyInsets()
@@ -2159,6 +2198,9 @@ function Driver:Disable()
 end
 
 P:On('STORE_CHANGED', function(reasons)
+	if reasons and (reasons.cvars or reasons.assignment) then
+		Driver:ClearHandBack()
+	end
 	if Driver.active and reasons then
 		Driver:SettingsChanged(reasons)
 	end

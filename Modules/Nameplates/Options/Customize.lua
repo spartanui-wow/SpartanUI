@@ -1112,7 +1112,13 @@ function KindArgs.highlight(id, spec, args)
 end
 
 function KindArgs.glow(id, spec, args)
-	args.color = Color(id, 'color', 3, L['Color'], spec.source == 'threat' and L['The threat glow uses the threat colors from the Colors page.'] or nil)
+	-- The threat glow only takes the threat colors: a color picker here would do nothing
+	if spec.source == 'threat' then
+		args.color = ColorLink(3)
+		args.color.desc = L['The threat glow uses the threat colors from the Colors page.']
+	else
+		args.color = Color(id, 'color', 3, L['Color'], nil)
+	end
 	args.size = Range(id, 'size', 4, L['Size'], nil, 0, 32, 1)
 	args.animate = Select(id, 'animate', 5, L['Motion'], nil, { none = L['None'], pulse = L['Pulse'] }, { 'none', 'pulse' }, { fallback = 'none' })
 	args.blend = Select(id, 'blend', 100, L['Blend'], nil, BLEND, { 'BLEND', 'ADD' }, { advanced = true, fallback = 'BLEND' })

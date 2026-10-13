@@ -864,6 +864,43 @@ describe('driver: game settings by place and combat', function()
 		P.Config.sessionEngine = session
 		P.db.char.engine = nil
 	end)
+
+	it('changes no settings after the switch is turned off in a session that started on the default', function()
+		local session = P.Config.sessionEngine
+		P.Config.sessionEngine = nil
+		P.db.char.engine = 'old'
+		assert.is_false(Driver:OwnsSettings())
+		P.Config.sessionEngine = session
+		P.db.char.engine = nil
+	end)
+
+	it('keeps settings given back until the player changes a related setting', function()
+		M.SetCVarState('nameplateShowEnemies', { value = '0' })
+		Store:Set('behavior', { enemies = 'always' })
+		assert.equal(CVar('nameplateShowEnemies'), '1')
+		Driver:HandBack()
+		assert.equal(CVar('nameplateShowEnemies'), '0', 'given back')
+		assert.is_true(Driver:HandedBack())
+		M.SetPlace({ inInstance = true, instanceType = 'party', difficultyID = 1 })
+		Driver:ApplyPlaceSettings()
+		assert.equal(CVar('nameplateShowEnemies'), '0', 'a place change does not write it again')
+		Driver:StandDown()
+		Driver:StandUp()
+		assert.equal(CVar('nameplateShowEnemies'), '0', 'still given back after the plates stand up again')
+		Store:Set('behavior', { enemies = 'always', stacking = {} })
+		assert.is_false(Driver:HandedBack())
+		assert.equal(CVar('nameplateShowEnemies'), '1', 'the player changed a setting: written again')
+		M.SetPlace({ inInstance = false, instanceType = 'none', difficultyID = 0 })
+	end)
+
+	it('drops writes waiting for combat when the settings are given back', function()
+		M.SetCVarState('nameplateShowEnemies', { value = '0' })
+		CVars:Queue('nameplateShowEnemies', { value = '1', why = 'place' })
+		Driver:HandBack()
+		CVars:FlushQueue()
+		assert.equal(CVar('nameplateShowEnemies'), '0')
+		Store:Set('behavior', { stacking = {} })
+	end)
 end)
 
 describe('driver: stopping', function()

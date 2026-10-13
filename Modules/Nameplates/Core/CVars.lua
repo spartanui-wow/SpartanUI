@@ -322,15 +322,25 @@ function CVars:Restore(name)
 	return true
 end
 
+---Drop every write still waiting for combat to end (queued restores stay).
+function CVars:CancelQueued()
+	for key, entry in pairs(self.queue) do
+		if not entry.restore then
+			self.queue[key] = nil
+		end
+	end
+end
+
 ---Give the game back every setting we changed ("Give the game back its settings", turning the
----module off, turning the tester switch off). Settings the game locks in combat are queued and
----written when combat ends.
+---module off, turning the tester switch off). Writes still waiting for combat are dropped first.
+---Settings the game locks in combat are queued and written when combat ends.
 ---@return boolean done false when some settings wait for combat to end
 function CVars:RestoreAll()
 	local db = P.db
 	if not db then
 		return true
 	end
+	self:CancelQueued()
 	local names = {}
 	for _, scope in ipairs({ db.global, db.char }) do
 		for name in pairs(scope.cvarBackup or {}) do

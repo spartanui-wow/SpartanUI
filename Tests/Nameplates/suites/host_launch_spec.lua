@@ -239,6 +239,21 @@ describe('host launch', function()
 		assert.equal(answer.action, 'later')
 	end)
 
+	it('still brings old settings over after switching back to the new plates', function()
+		if retail then
+			skip('no old plates on Retail')
+		end
+		P.Config.sessionEngine = 'old'
+		P.Config:SetEngineChoice('old')
+		assert.equal(module.ImportLegacy('Default').action, 'later')
+		RootOptions().args.sharing.args.useOldPlates.set(nil, false)
+		-- The next session starts on the new plates
+		P.Config.sessionEngine = nil
+		local answer = module.ImportLegacy('Default')
+		assert.is_true(answer == nil or answer.action ~= 'later')
+		assert.is_false(P.Config:GetEngineChoice() == 'new', 'never marked as a tester')
+	end)
+
 	it('reads the role from the unit frames setup answer', function()
 		local UF = rawget(SUI, 'UF')
 		rawset(SUI, 'UF', {
@@ -280,7 +295,20 @@ describe('host launch', function()
 		local newer = P.util.Copy(data)
 		newer.profile.schema = 999
 		assert.is_false((component.import(newer)))
+		-- A hand-made or damaged backup goes through the same checks as a share string
+		local bad = P.util.Copy(data)
+		bad.styles = { badstyle = { name = 'Bad', base = { id = 'badstyle', parts = 'nope' } } }
+		bad.profile.size = 'huge'
+		bad.profile.junk = { 1, 2, 3 }
+		bad.profile.cvars = { nameplateMaxDistance = 40, nameplateMotion = 1 }
+		assert.is_true((component.import(bad)))
+		assert.is_nil(P.Store:Get({ 'styles', 'badstyle' }, 'global'), 'a broken style is not saved')
+		assert.is_nil(P.db.profile.junk)
+		assert.not_equal(P.db.profile.size, 'huge')
+		assert.equal(P.Store:Get({ 'cvars', 'nameplateMaxDistance' }), 40)
+		assert.is_nil(P.Store:Get({ 'cvars', 'nameplateMotion' }))
 		P.Store:Reset('size')
+		P.Store:Reset('cvars')
 	end)
 
 	it('offers launch controls on the settings root', function()
@@ -289,13 +317,18 @@ describe('host launch', function()
 		assert.is_true(root.args.turnOn.hidden(), 'plates are on')
 		P.Store:Set('enabled', false)
 		assert.is_false(root.args.turnOn.hidden())
+		assert.is_false(root.args.style.args.turnOn.hidden(), 'the Style page says it too')
 		root.args.turnOn.func()
 		assert.is_true(P.db.profile.enabled)
+		assert.is_true(root.args.style.args.turnOn.hidden())
+		assert.is_nil(root.args.useOldPlates, 'the root stays empty so it opens the Style page')
 		if retail then
-			assert.is_nil(root.args.useOldPlates, 'Retail has no old plates')
+			assert.is_nil(root.args.sharing.args.useOldPlates, 'Retail has no old plates')
 		else
-			assert.not_nil(root.args.useOldPlates)
-			assert.is_false(root.args.useOldPlates.get())
+			local old = root.args.sharing.args.useOldPlates
+			assert.not_nil(old)
+			assert.is_true(old.advanced)
+			assert.is_false(old.get())
 		end
 	end)
 
@@ -307,12 +340,12 @@ describe('host launch', function()
 		M.SetCVarState(name, { value = '40', account = true })
 		P.CVars.info[name] = nil
 		P.CVars:Set(name, 60)
-		RootOptions().args.useOldPlates.set(nil, true)
+		RootOptions().args.sharing.args.useOldPlates.set(nil, true)
 		assert.equal(P.Config:GetEngineChoice(), 'old')
 		assert.is_false(P.enabled, 'the new plates stop at once')
 		assert.equal(C_CVar.GetCVar(name), '40')
-		assert.is_true(RootOptions().args.useOldPlates.get())
-		RootOptions().args.useOldPlates.set(nil, false)
-		assert.equal(P.Config:GetEngineChoice(), 'new')
+		assert.is_true(RootOptions().args.sharing.args.useOldPlates.get())
+		RootOptions().args.sharing.args.useOldPlates.set(nil, false)
+		assert.is_nil(P.Config:GetEngineChoice(), 'the launch default, not the tester mark')
 	end)
 end)

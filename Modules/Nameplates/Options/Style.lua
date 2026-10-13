@@ -5,14 +5,14 @@ local Options = P.Options
 
 -- Style page (3.2 #1). A gallery of live cards (the host's card grid; P.Gallery draws them with the
 -- real renderer), the plate size, and the actions on the style in use: Customize this style
--- (primary), Undo my changes (only when there are changes), Make a copy, Share and Import.
+-- (primary), Reset my changes (only when there are changes), Make a copy, Share and Import.
 -- Hovering a card shows that style in the preview panel (P.Gallery:SetHover); right-click opens
 -- Use, Make a copy, Share and, for the player's own styles, Rename and Delete (P.Gallery.OnMenuPick,
 -- answered here). Rename and Delete ask on the page itself, because a popup would open behind the
 -- settings window.
 -- More settings: exact plate width and height, bar texture (a picker with pictures), font face (each
 -- name drawn in its own face) and text size. They write the style's overlay (profile.tweaks[id]), so
--- "Undo my changes" takes them back with everything else.
+-- "Reset my changes" takes them back with everything else.
 --
 -- Rules kept here: get and set read the Store on every call; settings that change what the plates
 -- look like are locked while the game restricts changes, with the reason shown on the page.
@@ -104,7 +104,7 @@ function Overlay.SetIn(root, path, value)
 end
 
 ---Change a style's overlay in one write. fn(overlay) edits a copy (Overlay.SetIn on
----{ 'changes', ... }); an overlay left with nothing in it is removed, so "Undo my changes" only
+---{ 'changes', ... }); an overlay left with nothing in it is removed, so "Reset my changes" only
 ---shows when something is really different.
 ---@param styleId string
 ---@param fn fun(overlay: table)
@@ -417,7 +417,16 @@ Options:AddPage('style', 1, function()
 		end,
 		get = CardValue,
 		set = function(_, value)
-			Store:Set('style', value)
+			Store:Batch(function()
+				Store:Set('style', value)
+				-- Picking a style on a profile with the plates off means the player wants them
+				if Store:Get('enabled') == false then
+					Store:Set('enabled', true)
+				end
+			end)
+			if P.Migrate and P.Migrate.FinishMakeover then
+				P.Migrate:FinishMakeover()
+			end
 		end,
 		disabled = Options.Locked,
 	}
@@ -576,8 +585,10 @@ Options:AddPage('style', 1, function()
 			},
 			undo = {
 				type = 'execute',
-				name = L['Undo my changes'],
+				name = L['Reset my changes'],
 				desc = Describe(L['Go back to the style as it was made. Your other settings stay.']),
+				confirm = true,
+				confirmText = L['Remove all your changes to this style?'],
 				order = 31,
 				hidden = function()
 					return not Merge:HasChanges(Store:Get('style'))

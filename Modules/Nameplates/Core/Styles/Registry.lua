@@ -122,18 +122,24 @@ end
 ---@field source 'builtin'|'host'|'saved'
 ---@field matchesHost? boolean
 
----Every style for the gallery: built-ins and host styles in registration order (internal ones
----skipped unless asked), then saved and imported styles by name.
+---Every style for the gallery: built-ins and host styles by their order (then registration
+---order; internal ones skipped unless asked), then saved and imported styles by name.
 ---@param includeInternal? boolean
 ---@return Plates.StyleListItem[]
 function Registry:List(includeInternal)
 	local out = {}
-	for _, id in ipairs(self.order) do
+	for index, id in ipairs(self.order) do
 		local style, source = self:Get(id)
 		if style and (includeInternal or not style.internal) then
-			out[#out + 1] = { id = id, name = style.name, description = style.description, source = source, matchesHost = style.matchesHost, order = style.order or 0 }
+			out[#out + 1] = { id = id, name = style.name, description = style.description, source = source, matchesHost = style.matchesHost, order = style.order or 0, index = index }
 		end
 	end
+	table.sort(out, function(a, b)
+		if a.order ~= b.order then
+			return a.order < b.order
+		end
+		return a.index < b.index
+	end)
 	local saved = {}
 	for id, entry in pairs(Saved() or {}) do
 		saved[#saved + 1] = { id = id, name = entry.name or id, source = 'saved', order = 0 }

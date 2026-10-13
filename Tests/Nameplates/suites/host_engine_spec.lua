@@ -187,7 +187,7 @@ describe('host with the switch on', function()
 
 	it('starts the new plates again in the same session when they are picked again', function()
 		H.sui.commands.np.fn('preview')
-		assert.equal(P.Config:GetEngineChoice(), 'new')
+		assert.is_nil(P.Config:GetEngineChoice(), 'the launch default, not the tester mark')
 		M.Advance(1)
 		assert.is_true(P.enabled, 'the old plates never ran this session, so no reload is needed')
 	end)

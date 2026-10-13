@@ -63,12 +63,18 @@ SetupSteps.BEHAVIOR_TEXT = {
 ---Roles the host may report from its own setup.
 local ROLES = { tank = true, damage = true, healer = true }
 
+---The looks the first-run step offers (the Style page gallery shows every style).
+SetupSteps.LOOKS = { host = true, clean = true, slim = true, bold = true, bordered = true, blizzard = true }
+
 ---Gallery cards with the size row on each.
 ---@return table[] cards
 function SetupSteps.Cards()
-	local cards = P.Gallery:Cards()
-	for _, card in ipairs(cards) do
-		card.variants = SetupSteps.SIZES
+	local cards = {}
+	for _, card in ipairs(P.Gallery:Cards()) do
+		if SetupSteps.LOOKS[card.value] then
+			card.variants = SetupSteps.SIZES
+			cards[#cards + 1] = card
+		end
 	end
 	return cards
 end
@@ -195,6 +201,9 @@ function SetupSteps:RestoreGame()
 			P.Store:Set({ 'behavior', key }, nil)
 		end
 	end)
+	if P.Driver and P.Driver.HandBack then
+		return P.Driver:HandBack()
+	end
 	return P.CVars:RestoreAll()
 end
 

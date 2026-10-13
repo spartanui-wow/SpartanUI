@@ -190,7 +190,7 @@ describe('load order: the old module and the host, old plates picked', function(
 
 	it('switches back to the new plates for the next session only', function()
 		H.sui.commands.np.fn('preview')
-		assert.equal(P.Config:GetEngineChoice(), 'new')
+		assert.is_nil(P.Config:GetEngineChoice(), 'the launch default, not the tester mark')
 		assert.equal(P.Config:GetSessionEngine(), 'old')
 		assert.is_false(P.enabled)
 		H.sui.commands.np.fn('preview')

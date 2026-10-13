@@ -179,7 +179,7 @@ describe('who and where: the page', function()
 			assert.is_nil(page.args[key].advanced, key)
 		end
 		local behavior = Group(page, 'behavior')
-		for _, key in ipairs({ 'friendMinions', 'gameOverlap', 'onlyFighting', 'wallsAmount', 'rangeAmount', 'rangeYards' }) do
+		for _, key in ipairs({ 'friendMinions', 'gameOverlap', 'onlyFighting', 'wallsAmount', 'rangeAmount', 'rangeYards', 'clickThrough', 'fadeWalls', 'rangeFade', 'distance' }) do
 			assert.is_true(behavior.args[key].advanced, key)
 		end
 	end)
@@ -368,7 +368,7 @@ describe('who and where: locks', function()
 		end
 		M.EnterCombat()
 		assert.is_false(page.args.locked.hidden({}))
-		assert.equal(page.args.locked.name, 'The game does not allow plate changes right now. They unlock after combat.')
+		assert.equal(page.args.locked.name, 'The game blocks this change right now, in a fight or in some dungeons and raids. It unlocks when that is over.')
 		for _, kind in ipairs(Situation.KINDS) do
 			local row = Group(page, 'kinds', kind).args
 			assert.is_true(row.mode.disabled({}), kind)

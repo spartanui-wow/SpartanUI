@@ -28,7 +28,7 @@ local WhenBuilder = P.WhenBuilder
 local W = { editing = nil, copyTarget = 'friendlyPlayer', copySource = 'enemyPlayer' }
 Options.WhoAndWhere = W
 
-W.LOCKED = L['The game does not allow plate changes right now. They unlock after combat.']
+W.LOCKED = L['The game blocks this change right now, in a fight or in some dungeons and raids. It unlocks when that is over.']
 
 -- Space between plates is the game's vertical overlap setting. It is defined here until the CVar
 -- registry carries it; defining is inert and repeating it changes nothing.
@@ -602,7 +602,12 @@ end
 ---"Give the game back its settings". Returns true when everything is back already.
 ---@return boolean done
 function W.RestoreGame()
-	local done = CVars:RestoreAll()
+	local done
+	if P.Driver and P.Driver.HandBack then
+		done = P.Driver:HandBack()
+	else
+		done = CVars:RestoreAll()
+	end
 	if not done then
 		P.log.info('Some nameplate settings come back when combat ends')
 	end
@@ -974,6 +979,7 @@ local function KindsGroup()
 		end,
 	}
 	args.friendlyNames = {
+		advanced = true,
 		type = 'toggle',
 		order = 21,
 		width = 'full',
@@ -1129,6 +1135,7 @@ local function BehaviorGroup()
 	}
 
 	args.clickThrough = {
+		advanced = true,
 		type = 'toggle',
 		name = L['Click through friendly plates'],
 		desc = L['Clicks go to the player or object behind a friendly plate.'],
@@ -1147,6 +1154,7 @@ local function BehaviorGroup()
 	args.clickThroughNote = FeatureNote('clickThroughFriendly', 5.1)
 
 	args.fadeWalls = {
+		advanced = true,
 		type = 'toggle',
 		name = L['Fade plates behind walls'],
 		desc = L['Plates fade when something blocks your view of the enemy.'],
@@ -1161,6 +1169,7 @@ local function BehaviorGroup()
 	args.fadeWallsNote = FeatureNote('fadeBehindWalls', 6.1)
 
 	args.rangeFade = {
+		advanced = true,
 		type = 'toggle',
 		name = L['Fade plates out of range'],
 		desc = L['Plates of enemies that are far away look fainter.'],
@@ -1175,6 +1184,7 @@ local function BehaviorGroup()
 	args.rangeFadeNote = FeatureNote('rangeFade', 7.1)
 
 	args.distance = {
+		advanced = true,
 		type = 'range',
 		name = L['How far away plates show'],
 		desc = L['In yards. A bigger number shows more plates and can cost speed in big pulls.'],
@@ -1382,7 +1392,7 @@ local function GameGroup()
 	args.restore = {
 		type = 'execute',
 		name = L['Give the game back its settings'],
-		desc = L['Puts back every game nameplate setting we changed. Some wait for combat to end. Your plate choices can change them again.'],
+		desc = L['Puts back every game nameplate setting we changed. Some wait for combat to end. They stay that way until you change a setting on this page again.'],
 		order = 21,
 		func = function()
 			W.RestoreGame()

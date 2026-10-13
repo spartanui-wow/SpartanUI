@@ -27,6 +27,14 @@ Exchange.MAX_LENGTH = 400000
 ---with the player.
 Exchange.PROFILE_KEYS = { 'style', 'size', 'assign', 'modes', 'when', 'tweaks', 'scheme', 'colors', 'threat', 'colorBlind', 'behavior', 'auras' }
 
+-- Profile keys a share string never carries on purpose: the player's own role and game settings
+-- (personal, not part of a look), this profile's own switches, bookkeeping, and keys no page
+-- writes yet. Every other key in Store.REASONS.profile must be in PROFILE_KEYS (a test checks
+-- this, so a page that writes a new key cannot have it dropped on import without anyone deciding).
+Exchange.PROFILE_KEYS_KEPT_OUT = { 'role', 'cvars', 'enabled', 'followHostProfile', 'schema', 'migratedFromOld', 'legacy', 'casts', 'actions' }
+
+local ROLES = { auto = true, tank = true, damage = true, healer = true }
+
 Exchange.EXPORT_KINDS = { 'style', 'colors', 'when', 'everything' }
 
 ----------------------------------------------------------------------------------------------------
@@ -531,6 +539,35 @@ local function CleanAurasField(source, report)
 		else
 			Drop(report, here)
 		end
+	end
+	return out
+end
+
+---The player's own settings a share string leaves out (role, game settings), checked, for a
+---restore from the player's own backup (the host's full profile import).
+---@param source table A profile
+---@return table cleaned { role?, cvars? }
+function Exchange:CleanOwnSettings(source)
+	local report, out = NewReport(), {}
+	if type(source) ~= 'table' then
+		return out
+	end
+	if source.role ~= nil then
+		out.role = OneOf(source.role, ROLES, report, 'profile.role')
+	end
+	if type(source.cvars) == 'table' then
+		-- Only the game settings a page offers, with values of the right kind and range
+		local cvars = {}
+		for name, value in pairs(source.cvars) do
+			local def = type(name) == 'string' and P.CVars.defs[name]
+			local here = 'profile.cvars.' .. tostring(name)
+			if def and def.page and def.kind == 'bool' then
+				cvars[name] = Boolean(value, report, here)
+			elseif def and def.page and def.kind == 'number' then
+				cvars[name] = Number(tonumber(value), def.min or 0, def.max or 1000, report, here)
+			end
+		end
+		out.cvars = next(cvars) and cvars or nil
 	end
 	return out
 end
@@ -1106,6 +1143,15 @@ end
 function Exchange:HasUndo()
 	return self.undo ~= nil
 end
+
+-- The undo belongs to the profile it was made on: after a switch, copy or reset it would write
+-- that profile's old values into another one
+P:On('PROFILE_CHANGED', function()
+	if Exchange.undo then
+		Exchange.undo = nil
+		P:Fire('EXCHANGE_CHANGED')
+	end
+end, Exchange)
 
 ---Put back what the last replace changed.
 ---@return boolean undone

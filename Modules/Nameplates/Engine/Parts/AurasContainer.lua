@@ -1460,7 +1460,7 @@ function Containers:Explain(widget)
 	elseif widget.noRoom then
 		return L['The game would not make this aura row.']
 	elseif pendingWidgets[widget] then
-		return L['The game does not allow aura changes right now. They apply after combat.']
+		return L['The game blocks this change right now, in a fight or in some dungeons and raids. It applies when that is over.']
 	elseif not AuraRows.RowOn(d.row) then
 		return L['This row is turned off.']
 	elseif d.max == 0 or #d.groups == 0 then

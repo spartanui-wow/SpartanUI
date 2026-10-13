@@ -174,10 +174,7 @@ local function Curated(row)
 end
 
 local function ShortLockedReason()
-	if InCombatLockdown and InCombatLockdown() then
-		return L['Locked until combat ends.']
-	end
-	return L['Aura changes are locked right now.']
+	return Options.LOCKED_REASON
 end
 
 ----------------------------------------------------------------------------------------------------
