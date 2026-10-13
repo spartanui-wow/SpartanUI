@@ -124,9 +124,9 @@ local Secret = P.Secret
 --                                         combat flags (S16) show the plate and record Caps
 --                                         'unitCombat' = false
 --   rangeFade = 0..1, rangeYards = 40     root alpha out of range: LibRangeCheck-3.0's harm
---                                         checker through LibStub when present, else the
---                                         interrupt's own range (C_Spell.IsSpellInRange), else off
---                                         (FeatureState says why). Hidden answers never fade (S9)
+--                                         checker, found through LibStub (the host ships it; the
+--                                         core treats it as optional), else off (FeatureState says
+--                                         why). Hidden answers never fade (S9)
 --   places = { [place] = { same keys } }  per-place overrides (World, Dungeon, Raid, ...)
 -- A kind hidden in every place (an explicit profile.modes entry and no "When" entry showing it)
 -- also turns off its show CVar, so the game makes no plate for it. profile.cvars[name] holds values
@@ -973,7 +973,7 @@ function Driver:FeatureState(id)
 			end
 			return true
 		end
-		return false, L['This needs a way to tell how far away enemies are, and none was found.']
+		return false, L['The range check did not load, so plates do not fade. Try a reload.']
 	elseif id == 'onlyFighting' then
 		if not P.Caps:Get('unitCombat') then
 			return false, L['The game hides whether enemies are fighting, so every enemy shows.']
@@ -2252,6 +2252,3 @@ end, 'Range to enemies can be read (a hidden answer on a real plate records fals
 Caps:AddProbe('rangeLibrary', function()
 	return LibStub ~= nil and LibStub('LibRangeCheck-3.0', true) ~= nil
 end, 'LibRangeCheck-3.0 is loaded for range fade')
-Caps:AddProbe('spellRange', function()
-	return C_Spell ~= nil and C_Spell.IsSpellInRange ~= nil
-end, 'C_Spell.IsSpellInRange for range fade without the library')

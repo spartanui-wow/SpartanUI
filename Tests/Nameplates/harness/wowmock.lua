@@ -715,11 +715,17 @@ W.GetAlpha = function(self)
 	end
 	return st.alpha
 end
+-- A hidden alpha anywhere up the chain (SetAlphaFromBoolean with a secret) gives the frame a
+-- secret Alpha aspect: the client then answers with a secret (SecretReturnsForAspect Alpha)
 W.GetEffectiveAlpha = function(self)
-	local alpha, obj = 1, self
+	local alpha, obj, secret = 1, self, false
 	while obj and state[obj] do
 		alpha = alpha * (state[obj].alpha or 1)
+		secret = secret or state[obj].alphaSecret == true
 		obj = state[obj].parent
+	end
+	if secret then
+		return S.Wrap(alpha)
 	end
 	return alpha
 end

@@ -630,6 +630,9 @@ function Makeover:Text()
 	local lines = {}
 	if state == 'import' then
 		lines[#lines + 1] = L['We kept your plate size and text size. Pick a new style any time.']
+		if oldModuleHere then
+			lines[#lines + 1] = L['Prefer the old ones? Turn on Use the old nameplates under Nameplates, Sharing and profiles, More settings.']
+		end
 	else
 		lines[#lines + 1] = L['SpartanUI can draw your nameplates now, with ready-made styles and a live preview.']
 	end
@@ -638,9 +641,14 @@ function Makeover:Text()
 		lines[#lines + 1] = string.format(L['%s draws your nameplates now. Turn its nameplates off in its own settings to use these.'], AddonTitle(conflict))
 	elseif conflict then
 		lines[#lines + 1] = string.format(L['%s draws your nameplates now. Picking a style turns it off for this character and reloads your screen.'], AddonTitle(conflict))
-		lines[#lines + 1] = L['From now on, setup asks before another addon draws your nameplates.']
+		if state == 'import' then
+			lines[#lines + 1] = L['From now on, setup asks before another addon draws your nameplates.']
+		end
 	end
-	return L['Your nameplates got a makeover'], table.concat(lines, '\n\n')
+	if state == 'import' then
+		return L['Your nameplates got a makeover'], table.concat(lines, '\n\n')
+	end
+	return L['SpartanUI nameplates are here'], table.concat(lines, '\n\n')
 end
 
 ---The first button: it only acknowledges while the player has to turn the other plates off alone.
@@ -660,6 +668,11 @@ end
 ---Closed for good by a button that says nothing more (the toast's close button, the chat line).
 function Makeover:Dismiss()
 	self:NotNow()
+	if FindConflict() then
+		-- No nameplate settings this session: another addon draws the plates
+		Print(L['To use SpartanUI nameplates, turn off the other nameplate addon, or run SpartanUI setup again.'])
+		return
+	end
 	Print(L['You can pick a nameplate style any time. Open SpartanUI settings and look under Nameplates.'])
 end
 
@@ -1470,6 +1483,8 @@ function module:OnInitialize()
 	P:On('PROFILE_CHANGED', MaybeStartEngine, module)
 end
 
+local disabledAtLogin
+
 function module:OnEnable()
 	SUI:AddChatCommand('np', Command, 'Nameplate tools', { preview = 'Switch this character between the new and the old nameplates' }, true)
 	RegisterProfileManager()
@@ -1484,6 +1499,15 @@ function module:OnEnable()
 		if reason == 'old' and oldEnable then
 			oldEnable(self)
 			OfferNewPlates()
+		end
+		-- SpartanUI does not disable listed modules at load, so AceAddon still ran this OnEnable and
+		-- counts the module as on: the module list's toggle would then call an Enable() that does
+		-- nothing until a reload. Mark it off so turning it on runs OnEnable again.
+		if reason == 'disabled' then
+			disabledAtLogin = true
+			self:Disable()
+			disabledAtLogin = nil
+			return
 		end
 		-- Another nameplate addon: the card says what switching means
 		if reason and reason:find('^conflict:') then
@@ -1503,6 +1527,10 @@ end
 
 function module:OnDisable()
 	newPlatesActive = false
+	-- Marking a module that was off at login as off: nothing ran, and leftovers were already restored
+	if disabledAtLogin then
+		return
+	end
 	if engineRunning then
 		StopEngine()
 		return

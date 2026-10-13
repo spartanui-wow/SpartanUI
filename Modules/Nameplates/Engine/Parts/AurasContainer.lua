@@ -1613,8 +1613,8 @@ local function HealthWidget(plate)
 	return nil
 end
 
----Presence rows in the plate's health color list, top first. Empty until Phase 5 makes the two
----row kinds available.
+---Presence rows in the plate's health color list, top first (rows with no spells picked are left
+---out).
 ---@param plate Plates.Plate
 ---@return table[] rows
 ---@return table|nil health The health widget

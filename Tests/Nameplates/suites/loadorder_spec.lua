@@ -72,6 +72,21 @@ describe('load order: TOC', function()
 		end
 	end)
 
+	it('ships the range library before the module folder (range fade, plan 6.1)', function()
+		local files = TocFiles()
+		local lib, modules
+		for i, file in ipairs(files) do
+			if file == 'libs/LibRangeCheck-3.0/LibRangeCheck-3.0.lua' then
+				lib = i
+			elseif file == 'Modules/LoadAll.xml' then
+				modules = i
+			end
+		end
+		assert.not_nil(lib, 'LibRangeCheck-3.0 is listed in the TOC')
+		assert.truthy(modules and lib < modules, 'LibRangeCheck-3.0 loads before Modules/LoadAll.xml')
+		assert.truthy(H.Exists(ROOT .. 'libs/LibRangeCheck-3.0/LICENSE'), 'the library keeps its license file')
+	end)
+
 	it('lists only files that exist', function()
 		local missing = {}
 		for _, file in ipairs(TocFiles()) do

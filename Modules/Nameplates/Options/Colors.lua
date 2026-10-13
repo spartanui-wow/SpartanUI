@@ -265,11 +265,12 @@ end
 ---@param custom table colors[piece] (may be empty)
 ---@param settings table
 ---@param natural table<string, boolean>
+---@param piece string
 ---@return Plates.RuleRow|nil
-local function BuildRow(entry, custom, settings, natural)
+local function BuildRow(entry, custom, settings, natural, piece)
 	local id = entry.id
 	local kind = Colors:GetKind(id)
-	if not kind or kind.available == false then
+	if not Colors:IsAvailable(kind, piece) then
 		return nil
 	end
 	local mine = custom.color[id]
@@ -333,7 +334,7 @@ function ColorsPage.Rows(piece)
 	local natural = NaturalIds(piece)
 	local rows = {}
 	for _, entry in ipairs(Entries(piece)) do
-		local row = BuildRow(entry, custom, settings, natural)
+		local row = BuildRow(entry, custom, settings, natural, piece)
 		if row then
 			rows[#rows + 1] = row
 		end
@@ -503,7 +504,7 @@ function ColorsPage.AddChoices(piece)
 	local seen, out = {}, {}
 	local function Offer(id)
 		local kind = Colors:GetKind(id)
-		if seen[id] or not kind or kind.available == false or not KindFits(kind, piece) then
+		if seen[id] or not Colors:IsAvailable(kind, piece) or not KindFits(kind, piece) then
 			return
 		end
 		if THREAT_ROWS[id] and id ~= 'threat' then
@@ -1045,14 +1046,10 @@ local function BuildThreatGroup()
 			order = 2,
 			name = L['My role'],
 			desc = L['Threat works the other way around for tanks. Pick your role here, or let the game pick it from your spec.'],
-			values = { auto = L['Automatic from my spec'], tank = L['Tank'], damage = L['Damage or healer'] },
-			sorting = { 'auto', 'tank', 'damage' },
+			values = { auto = L['Automatic from my spec'], tank = L['Tank'], damage = L['Damage'], healer = L['Healer'] },
+			sorting = { 'auto', 'tank', 'damage', 'healer' },
 			get = function()
-				local value = P.Store:Get('role')
-				if value == 'healer' then
-					value = 'damage'
-				end
-				return value or 'auto'
+				return P.Store:Get('role') or 'auto'
 			end,
 			set = function(_, value)
 				ColorsPage.SetRole(value)
@@ -1074,7 +1071,7 @@ local function BuildThreatGroup()
 			type = 'multiselect',
 			order = 4,
 			name = L['Show threat on'],
-			desc = L['At least one stays on. To turn threat off, set Show threat to Never.'],
+			desc = L['At least one stays on. To turn threat off, set Show threat when to Never.'],
 			values = {
 				bar = L['Bar color'],
 				border = L['Border'],
@@ -1334,6 +1331,98 @@ end
 local function NPCField(field)
 	local id = SelectedNPC()
 	return id and P.Store:Get({ 'colors', 'npcs', id, field })
+end
+
+----------------------------------------------------------------------------------------------------
+-- Spells for the aura rows ("Has a spell", "My debuff is missing"), stored in
+-- colors[piece].spells[rowId] as { [spellID] = 'mine'|'any' } (P.AuraPresence and AurasScan read it)
+----------------------------------------------------------------------------------------------------
+
+ColorsPage.SPELL_ROWS = { hasAura = 'any', auraMissing = 'mine' }
+
+---@param piece string
+---@param id string
+---@return table<integer, string>
+function ColorsPage.ReadSpells(piece, id)
+	local out = {}
+	local raw = P.Store:Get({ 'colors', piece, 'spells', id })
+	if type(raw) == 'table' then
+		for key, value in pairs(raw) do
+			if type(value) == 'number' then
+				out[value] = 'any'
+			elseif type(key) == 'number' and value then
+				out[key] = value == 'mine' and 'mine' or 'any'
+			end
+		end
+	end
+	return out
+end
+
+---Write a row's spells whole. An empty list removes the key.
+---@param piece string
+---@param id string
+---@param list table<integer, string>
+function ColorsPage.WriteSpells(piece, id, list)
+	if Locked() or not ColorsPage.SPELL_ROWS[id] then
+		Options:RequestRefresh(false)
+		return false
+	end
+	local clean = {}
+	for key, value in pairs(type(list) == 'table' and list or {}) do
+		if type(key) == 'number' and key > 0 and value then
+			clean[key] = value == 'mine' and 'mine' or 'any'
+		end
+	end
+	P.Store:Set({ 'colors', piece, 'spells', id }, next(clean) ~= nil and clean or nil)
+end
+
+---True when a piece's list shows this row (on or off).
+---@param piece string
+---@param id string
+---@return boolean
+function ColorsPage.HasRow(piece, id)
+	for _, entry in ipairs(Entries(piece)) do
+		if entry.id == id then
+			return true
+		end
+	end
+	return false
+end
+
+local function SpellOption(id, order)
+	return {
+		type = 'select',
+		dialogControl = P.Widgets:TypeName('SpellList'),
+		name = id == 'hasAura' and L['Spells for the Has a spell color'] or L['Debuffs for the My debuff is missing color'],
+		order = order,
+		width = 'full',
+		advanced = true,
+		hidden = function()
+			local piece = state.piece
+			return not (ColorsPage.HasRow(piece, id) and Colors:IsAvailable(Colors:GetKind(id), piece))
+		end,
+		values = {},
+		get = function()
+			return nil
+		end,
+		set = function() end,
+		disabled = Locked,
+		arg = {
+			list = function()
+				return ColorsPage.ReadSpells(state.piece, id)
+			end,
+			onChange = function(list)
+				ColorsPage.WriteSpells(state.piece, id, list)
+			end,
+			defaultWho = ColorsPage.SPELL_ROWS[id],
+			curated = function()
+				return {}
+			end,
+			lockedReason = function()
+				return Options.LOCKED_REASON
+			end,
+		},
+	}
 end
 
 local function BuildSpecialMobs()
@@ -1622,6 +1711,8 @@ Options:AddPage('colors', 3, function()
 					P.Store:Set({ 'colors', state.piece }, nil)
 				end,
 			},
+			hasAuraSpells = SpellOption('hasAura', 44),
+			auraMissingSpells = SpellOption('auraMissing', 45),
 		},
 	}
 end)

@@ -32,6 +32,7 @@ local L = P.L
 ---@field FoldSecret? fun(env: table, row: Plates.ColorRow, r: any, g: any, b: any): any, any, any
 ---@field Sentence? fun(row: Plates.ColorRow): string
 ---@field available? boolean false until the phase that builds it
+---@field Unavailable? fun(piece?: string): string|nil Why the row cannot work on this client (nil when it can)
 ---@field limits? table<string, string> Client name -> badge text
 
 ---@class Plates.ColorRow
@@ -184,6 +185,17 @@ local function Color4(c)
 	return { c[1] or c.r or 1, c[2] or c.g or 1, c[3] or c.b or 1, c[4] or c.a or 1 }
 end
 
+---Whether a row kind can work for a piece on this client.
+---@param kind Plates.ColorKind
+---@param piece? string
+---@return boolean
+function Colors:IsAvailable(kind, piece)
+	if not kind or kind.available == false then
+		return false
+	end
+	return not (kind.Unavailable and kind.Unavailable(piece))
+end
+
 ---Compile one piece's list into a program (pure; cached by Colors:Program).
 ---@param piece string
 ---@param settings table Profile view: scheme, colors, threat, colorBlind
@@ -228,7 +240,7 @@ function Colors:Compile(piece, settings, ctx)
 	for _, entry in ipairs(entries) do
 		local kind = self.kinds[entry.id]
 		local off = custom.off and custom.off[entry.id]
-		if kind and kind.available ~= false and not off then
+		if kind and self:IsAvailable(kind, piece) and not off then
 			local row = { id = entry.id, kind = kind, expr = kind.expr }
 			row.when = (custom.when and custom.when[entry.id]) or entry.when or kind.when or 'everywhere'
 			local mine = custom.color and custom.color[entry.id]
@@ -527,8 +539,23 @@ Boolean('importantCast', L['Important cast'], 'importantCast', { 0.85, 0.35, 1, 
 Boolean('aimedAtMe', L['Aimed at you'], 'aimedAtMe', { 1, 0.3, 0.3, 1 }, { 'cast', 'border' }, L['Red when the cast is aimed at you'])
 Boolean('fixed', L['Fixed color'], nil, { 1, 1, 1, 1 }, { 'health', 'border', 'name', 'cast' }, L['Always this color'])
 Boolean('unitInCombat', L['Fighting'], 'unitInCombat', { 0.9, 0.4, 0.2, 1 }, { 'health', 'border' }, L['Orange when it is fighting'], { available = false })
-Boolean('auraMissing', L['My debuff is missing'], 'auraMissing', { 1, 0.5, 0.1, 1 }, { 'health', 'border' }, L['Orange when your debuff is missing'], { available = false })
-Boolean('hasAura', L['Has a spell'], 'auraPresent', { 0.3, 0.8, 1, 1 }, { 'health', 'border' }, L['Blue when it has the spell you picked'], { available = false })
+
+-- Aura presence rows (S19). Plain reads answer them on clients that show auras (AurasScan wraps the
+-- conditions); where the game hides auras only collapsing aura slots can, and those tint the health
+-- bar alone.
+local function PresenceUnavailable(piece)
+	local rows = P.AuraRows
+	local reason = rows and rows.Limit and rows.Limit('tints')
+	if reason then
+		return reason
+	end
+	if piece and piece ~= 'health' and P.Caps:Get('secrets') then
+		return L['On this version of WoW this color can only tint the health bar.']
+	end
+	return nil
+end
+Boolean('auraMissing', L['My debuff is missing'], 'auraMissing', { 1, 0.5, 0.1, 1 }, { 'health', 'border' }, L['Orange when your debuff is missing'], { Unavailable = PresenceUnavailable })
+Boolean('hasAura', L['Has a spell'], 'auraPresent', { 0.3, 0.8, 1, 1 }, { 'health', 'border' }, L['Blue when it has the spell you picked'], { Unavailable = PresenceUnavailable })
 
 local function Readable(src, method, ...)
 	if not src then

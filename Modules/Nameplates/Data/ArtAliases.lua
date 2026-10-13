@@ -18,9 +18,18 @@ ArtAliases.MEDIA = {
 	aura = 'nameplateauraborder',
 	spark = 'nameplatespark',
 	icon = 'nameplateicon',
-	pip = 'statusbar',
+	pip = 'nameplatefill',
 	mask = 'nameplatemask',
+	-- Fills that are not bar textures (shield stripes, power pips) stay out of the shared bar list
+	fill = 'nameplatefill',
 }
+
+---The media type an entry is registered under (entry.media overrides its kind).
+---@param entry table
+---@return string
+function ArtAliases:MediaType(entry)
+	return self.MEDIA[entry.media or entry.kind]
+end
 
 ArtAliases.ENTRIES = {
 	arrows = {
@@ -372,6 +381,7 @@ ArtAliases.ENTRIES = {
 		alias = 'absorb',
 		file = 'AbsorbStripes.tga',
 		kind = 'bar',
+		media = 'fill',
 		recipe = 'absorb',
 		preview = { 132, 10 },
 		name = 'Nameplates Absorb Stripes',
@@ -383,6 +393,7 @@ ArtAliases.ENTRIES = {
 		alias = 'healAbsorb',
 		file = 'HealAbsorb.tga',
 		kind = 'bar',
+		media = 'fill',
 		recipe = 'healAbsorb',
 		preview = { 132, 10 },
 		name = 'Nameplates Heal Absorb',
@@ -461,7 +472,11 @@ ArtAliases.ENTRIES = {
 }
 
 ArtAliases.SLOTS = {}
+-- Every entry by alias and by readable name
+ArtAliases.byKey = {}
 for alias, entry in pairs(ArtAliases.ENTRIES) do
+	ArtAliases.byKey[alias] = entry
+	ArtAliases.byKey[entry.name] = entry
 	local slots = ArtAliases.SLOTS[entry.kind]
 	if not slots then
 		slots = {}
@@ -497,12 +512,17 @@ function ArtAliases:Slot(kind, key)
 	return slots[self:Resolve(key)]
 end
 
----Called only by the namespace's enable-time media hook. LSM accepts custom media types.
+---Called only by the namespace's enable-time media hook. LSM accepts custom media types. The
+---shared 'statusbar' list (every addon's bar picker shows it) gets readable names only; Ctx:Texture
+---maps the short aliases styles use to those names.
 function ArtAliases:Register(media, mediaPath)
 	for alias, entry in pairs(self.ENTRIES) do
 		local path = mediaPath .. entry.file
-		media:Register(self.MEDIA[entry.kind], entry.name, path)
-		media:Register(self.MEDIA[entry.kind], alias, path)
+		local mediaType = self:MediaType(entry)
+		media:Register(mediaType, entry.name, path)
+		if mediaType ~= 'statusbar' then
+			media:Register(mediaType, alias, path)
+		end
 		if entry.kind == 'border' then
 			media:Register(self.MEDIA.art, entry.name, path)
 			media:Register(self.MEDIA.art, alias, path)

@@ -646,7 +646,7 @@ function W.WhoChanged(name)
 	local host = P:HostName()
 	if attribution then
 		if attribution.by == 'other' then
-			return L['The game or another add-on']
+			return L['The game or another addon']
 		end
 		local why = WHY_LABELS[attribution.why]
 		if why then
@@ -1131,6 +1131,10 @@ local function KindsGroup()
 		end,
 		disabled = function()
 			return not FeatureOK('friendlyNames')
+		end,
+		-- Only clients with secrets hand friendly plates in instances back to the game
+		hidden = function()
+			return not P.Caps:Get('secrets')
 		end,
 	}
 	args.friendlyNamesNote = FeatureNote('friendlyNames', 22)

@@ -751,8 +751,10 @@ local function Common(id, spec, args)
 	args.layer = Range(id, 'layer', 201, L['Layer'], L['Parts on a higher layer draw on top of lower ones.'], -8, 8, 1, { advanced = true, fallback = 0 })
 	args.alpha = Range(id, 'alpha', 202, L['See-through'], L['How solid the part is. 100% is fully solid.'], 0, 1, 0.05, { advanced = true, isPercent = true, fallback = 1 })
 	args.pixelSnap = Toggle(id, 'pixelSnap', 203, L['Keep edges sharp'], L['Lines up the part with screen pixels, so thin lines stay crisp.'], { advanced = true })
-	args.above =
-		Toggle(id, 'above', 204, spec.kind == 'cast' and L['Lift casts above other plates'] or L['Draw above other plates'], L['Draws this part over plates that overlap it.'], { advanced = true })
+	-- Only the cast bar can be drawn above other plates (Engine/Parts/Cast.lua lifts it)
+	if spec.kind == 'cast' then
+		args.above = Toggle(id, 'above', 204, L['Lift casts above other plates'], L['Draws the cast bar over plates that overlap it.'], { advanced = true })
+	end
 	if Designer.Movable(spec) then
 		args.hangsFrom = HangsFrom(id, 205)
 	end

@@ -50,8 +50,8 @@ local EMPTY = {} -- read only
 --   * Common fields are applied by the plate right after Layout (ApplyCommon): spec.alpha on
 --     widget.frame, draw order (frame level from the part's place in style.order plus spec.layer)
 --     and spec.pixelSnap on the textures listed in widget.textures (plus a bar's fill texture).
---     spec.above ("draw above other plates") is the Driver's lift frame (Phase 5); the plate
---     leaves it alone.
+--     spec.above (cast parts only: "Lift casts above other plates") is handled by the cast part,
+--     which moves its bar into a high frame while a cast shows; the plate leaves it alone.
 -- Fonts: ctx:ApplyFont(fontString, fontSpec, forNames). Text that can show a player name passes
 -- forNames = true and gets a font family (P.Fonts), so Cyrillic, Korean and Chinese names render.
 
@@ -196,11 +196,23 @@ function Ctx:Texture(key, mediaType)
 	if type(key) ~= 'string' then
 		return nil
 	end
-	key = P.Data.ArtAliases:Resolve(key)
+	local Art = P.Data.ArtAliases
+	key = Art:Resolve(key)
 	local media = P.services.media
 	mediaType = mediaType or 'statusbar'
-	if media and media.IsValid and media:IsValid(mediaType, key) then
-		return media:Fetch(mediaType, key)
+	if media and media.IsValid then
+		if media:IsValid(mediaType, key) then
+			return media:Fetch(mediaType, key)
+		end
+		-- Our own art by alias: bar fills are listed under their readable names only, and shield
+		-- stripes and pips under their own media type
+		local entry = Art.byKey[key]
+		if entry then
+			local own = Art:MediaType(entry)
+			if media:IsValid(own, entry.name) then
+				return media:Fetch(own, entry.name)
+			end
+		end
 	end
 	-- A key no media library knows is only usable when it is a file path
 	if string.find(key, '[\\/]') then
@@ -1000,6 +1012,9 @@ function Plate:Unbind()
 	self.src = nil
 	self.env.src = nil
 	P.util.Wipe(self.states)
+	if self.hiddenStates then
+		P.util.Wipe(self.hiddenStates)
+	end
 	-- States start off for the next unit: hide state-tied parts now, because SetState(state, false)
 	-- does nothing for a state that is already off
 	for i = 1, #self.active do
@@ -1018,7 +1033,15 @@ end
 ---@param on boolean
 function Plate:SetState(state, on)
 	on = on and true or false
+	local hidden = self.hiddenStates
+	local wasHidden = hidden and hidden[state]
+	if wasHidden then
+		hidden[state] = nil
+	end
 	if (self.states[state] or false) == on then
+		if wasHidden then
+			self:ApplyEmphasis(false)
+		end
 		return
 	end
 	self.states[state] = on or nil
@@ -1049,6 +1072,9 @@ end
 ---@param boolSecret any
 function Plate:SetStateSecret(state, boolSecret)
 	self.states[state] = nil
+	-- Known only as a hidden answer: emphasis that would need the answer stays off (Roles.Quiet)
+	self.hiddenStates = self.hiddenStates or {}
+	self.hiddenStates[state] = true
 	for i = 1, #self.active do
 		local widget = self.active[i]
 		if widget.spec.state == state and widget.frame then
@@ -1092,6 +1118,8 @@ function Plate:ApplyEmphasis(instant)
 	for _, extra in pairs(self.grows or EMPTY) do
 		width, height = width + extra[1], height + extra[2]
 	end
+	-- Negative grows ("When" actions can shrink a plate) never collapse or flip it
+	width, height = math.max(1, width), math.max(1, height)
 	local alpha = 1
 	if not self.isPreview and ctx.hasTarget and not states.target then
 		alpha = stateSpecs.notTarget and stateSpecs.notTarget.alpha or 1

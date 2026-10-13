@@ -116,7 +116,8 @@ describe('host launch', function()
 	it("shows the What's new card once the player is in the world", function()
 		assert.is_true(module.Makeover:Due())
 		local title, text = module.Makeover:Text()
-		assert.equal(title, 'Your nameplates got a makeover')
+		-- A profile that never had these plates (Retail) is told they are here, not that they changed
+		assert.equal(title, retail and 'SpartanUI nameplates are here' or 'Your nameplates got a makeover')
 		if retail then
 			assert.matches(text, 'can draw your nameplates now')
 		else

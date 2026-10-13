@@ -171,7 +171,8 @@ function Roles.QuietOn(role)
 end
 
 ---Whether a plate is quiet right now (plain): healer emphasis is on, the plate is an enemy NPC or
----a minor enemy, and it is not the target, focus, under the mouse or casting. Previews follow it
+---a minor enemy, and it is not the target, focus, under the mouse or casting, and none of those is
+---known only as a hidden answer (S4). Previews follow it
 ---only where they show fades (plate.previewFade).
 ---@param plate Plates.Plate
 ---@return boolean
@@ -185,6 +186,12 @@ function Roles.Quiet(plate)
 	end
 	local kind = plate.situation or (plate.style and plate.style.situation)
 	if not Roles.QUIET_KINDS[kind] then
+		return false
+	end
+	-- While the game answers "is this the target?" only with a hidden value, the real target could
+	-- be any plate: quiet nothing rather than shrink it (the same rule that keeps hasTarget false)
+	local hidden = plate.hiddenStates
+	if hidden and (hidden.target or hidden.focus or hidden.mouseover) then
 		return false
 	end
 	local states = plate.states

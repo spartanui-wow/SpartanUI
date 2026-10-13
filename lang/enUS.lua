@@ -1718,6 +1718,9 @@ L['SpartanUI can draw your nameplates now, with ready-made styles and a live pre
 L['%s draws your nameplates now. Turn its nameplates off in its own settings to use these.'] = true
 L['%s draws your nameplates now. Picking a style turns it off for this character and reloads your screen.'] = true
 L['From now on, setup asks before another addon draws your nameplates.'] = true
+L['Prefer the old ones? Turn on Use the old nameplates under Nameplates, Sharing and profiles, More settings.'] = true
+L['SpartanUI nameplates are here'] = true
+L['To use SpartanUI nameplates, turn off the other nameplate addon, or run SpartanUI setup again.'] = true
 L['Your nameplates got a makeover'] = true
 L['Got it'] = true
 L['Pick a style'] = true

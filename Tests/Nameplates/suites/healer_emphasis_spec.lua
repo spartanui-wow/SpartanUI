@@ -78,6 +78,23 @@ describe('healer emphasis: quiet enemy plates', function()
 		end
 	end)
 
+	it('quiets nothing while the target is known only as a hidden answer (S4)', function()
+		local S = M.S
+		for _, state in ipairs({ 'target', 'focus', 'mouseover' }) do
+			local plate = LivePlate('enemyNPC')
+			local base = plate.baseStyle
+			plate:SetStateSecret(state, S.Wrap(true))
+			M.Advance(0.5)
+			local w, h = Size(plate)
+			assert.truthy(w >= base.width and h >= base.height, state .. ': full size while hidden: ' .. tostring(w))
+			assert.truthy(M.Get(plate.art, 'alpha') > Roles.QUIET.alpha, state .. ': not dimmed while hidden')
+			-- The game answers plainly again: this plate is not it, so it is quiet again
+			plate:SetState(state, false)
+			M.Advance(0.5)
+			assert.equal(Size(plate), (Roles.QuietSize(base.width, base.height)), state .. ' quiet again')
+		end
+	end)
+
 	it('quiets minor enemies but never enemy players or friends', function()
 		assert.is_true(Roles.Quiet(LivePlate('minor')))
 		assert.is_false(Roles.Quiet(LivePlate('enemyPlayer', nil, { name = 'Rogue', isPlayer = true, canAttack = true, reaction = 2, health = 100, healthMax = 100 })))
@@ -176,6 +193,28 @@ describe('healer emphasis: a stronger removable buffs row', function()
 		assert.equal(a.style, b.style, 'shared, not rebuilt per plate')
 		local damage = LivePlate('enemyNPC', Ctx('damage'))
 		assert.is_nil(damage.style.parts.healerRemovable)
+	end)
+
+	it('lets old styles go when settings change (no healer style pins its base)', function()
+		local kept = setmetatable({}, { __mode = 'k' })
+		local plate = LivePlate('enemyNPC')
+		for i = 1, 12 do
+			Store:Set('size', i % 2 == 0 and 'large' or 'medium')
+			Merge:Invalidate()
+			local resolved = Merge:Resolve('clean', 'enemyNPC', i % 2 == 0 and 'large' or 'medium')
+			kept[resolved] = true
+			kept[Roles.StyleFor(resolved, plate)] = true
+		end
+		Store:Set('size', nil)
+		Merge:Invalidate()
+		plate:ApplyStyle(Merge:Resolve('clean', 'enemyNPC', 'medium'))
+		collectgarbage('collect')
+		collectgarbage('collect')
+		local count = 0
+		for _ in pairs(kept) do
+			count = count + 1
+		end
+		assert.truthy(count <= 4, 'old resolved and healer styles are collected: ' .. count)
 	end)
 
 	it('lays out again with the base style, never a healer style of a healer style', function()

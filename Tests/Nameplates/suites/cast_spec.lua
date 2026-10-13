@@ -1139,6 +1139,41 @@ describe('cast part: above other plates', function()
 		assert.is_false(P.Scheduler:IsRunning('cast.lift'), 'the shared task stops with no lifted casts')
 	end)
 
+	it('keeps the cast in its plate while a hidden answer fades the plate', function()
+		if not P.Caps:Get('castLift') then
+			skip('this client cannot lift frames out of a plate')
+		end
+		local plate, widget, unit = Live({ above = true })
+		local fader = plate.fader or plate.root
+		fader:SetAlphaFromBoolean(S.Wrap(false), 1, 0.4)
+		M.StartCast(unit, { name = 'Bolt', spellID = 778, duration = 3 })
+		assert.is_nil(widget.lifted, 'not lifted: the lift could not copy a hidden fade')
+		assert.equal(widget.content:GetParent(), widget.frame)
+		fader:SetAlpha(1)
+		M.StopCast(unit, 'stop')
+		M.Advance(0.5)
+		M.StartCast(unit, { name = 'Bolt', spellID = 778, duration = 3 })
+		assert.is_true(widget.lifted)
+		fader:SetAlphaFromBoolean(S.Wrap(true), 1, 0.4)
+		M.Advance(0.15)
+		assert.is_nil(widget.lifted, 'a hidden fade that starts during the cast puts it back in its plate')
+		assert.equal(widget.content:GetParent(), widget.frame)
+		-- An alpha read that errors (RequiresScriptObjectAlphaAccess) is treated the same way
+		fader:SetAlpha(1)
+		local original = widget.frame.GetEffectiveAlpha
+		widget.frame.GetEffectiveAlpha = function()
+			error('no alpha access')
+		end
+		M.StopCast(unit, 'stop')
+		M.Advance(0.5)
+		M.StartCast(unit, { name = 'Bolt', spellID = 778, duration = 3 })
+		assert.is_nil(widget.lifted)
+		widget.frame.GetEffectiveAlpha = original
+		M.StopCast(unit, 'stop')
+		M.Advance(0.5)
+		Done(plate)
+	end)
+
 	it('stays on the plate without the setting', function()
 		local plate, widget, unit = Live()
 		M.StartCast(unit, { name = 'Bolt', spellID = 778, duration = 1 })

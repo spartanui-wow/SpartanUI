@@ -1304,6 +1304,10 @@ end
 local PRESENCE_FILTERS = { 'HARMFUL', 'HELPFUL' }
 local MINE_FILTERS = { 'HARMFUL' }
 
+local function Matches(set, aura, mineOnly)
+	return (set.ids[aura.spellId] or (aura.name and set.names[aura.name])) and (not mineOnly or Scan.IsMine(aura)) and true or false
+end
+
 ---Whether the unit has one of the spells (from anyone, or only mine). Plain reads only.
 ---@param src Plates.Source
 ---@param args table|nil
@@ -1326,13 +1330,23 @@ function Scan.HasAura(src, args, mineOnly)
 		return false
 	end
 	for _, filter in ipairs(mineOnly and MINE_FILTERS or PRESENCE_FILTERS) do
-		for index = 1, Scan.MAX_SCAN do
-			local aura = src:AuraByIndexPlain(index, filter)
-			if not aura then
-				break
+		if src.AuraListPlain then
+			-- The list the aura rows already read this dispatch (cached per read stamp)
+			local list = src:AuraListPlain(filter)
+			for i = 1, #list do
+				if Matches(set, list[i], mineOnly) then
+					return true
+				end
 			end
-			if (set.ids[aura.spellId] or (aura.name and set.names[aura.name])) and (not mineOnly or Scan.IsMine(aura)) then
-				return true
+		else
+			for index = 1, Scan.MAX_SCAN do
+				local aura = src:AuraByIndexPlain(index, filter)
+				if not aura then
+					break
+				end
+				if Matches(set, aura, mineOnly) then
+					return true
+				end
 			end
 		end
 	end

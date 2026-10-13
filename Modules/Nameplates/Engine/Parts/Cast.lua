@@ -611,17 +611,27 @@ local function PlateScale(widget)
 end
 
 ---The alpha the cast would have on the plate (our fades and the game's own plate alpha, such
----as plates behind walls); the plate's eased alpha when the game will not say.
+---as plates behind walls), or nil when it cannot be read: a "When" fade drawn from a hidden answer
+---gives the fader a hidden alpha, and GetEffectiveAlpha then errors or answers with a secret. A cast
+---whose plate alpha cannot be read stays in its plate, so it fades with it.
+---@return number|nil
 local function PlateAlpha(widget)
 	local frame = widget.frame
-	if frame.GetEffectiveAlpha then
-		local alpha, readable = Secret.Plain(frame:GetEffectiveAlpha())
-		if readable and type(alpha) == 'number' then
-			return alpha
-		end
+	if not frame.GetEffectiveAlpha then
+		return widget.plate.emA or 1
 	end
-	return widget.plate.emA or 1
+	local ok, value = pcall(frame.GetEffectiveAlpha, frame)
+	if not ok then
+		return nil
+	end
+	local alpha, readable = Secret.Plain(value)
+	if readable and type(alpha) == 'number' then
+		return alpha
+	end
+	return nil
 end
+
+local Unlift
 
 ---Keep the lifted cast at the plate's scale and alpha (plates scale with distance), and out of
 ---sight while the holder is not visible.
@@ -637,6 +647,10 @@ SyncLift = function(widget)
 		lift:SetScale(scale)
 	end
 	local alpha = PlateAlpha(widget)
+	if not alpha then
+		Unlift(widget)
+		return
+	end
 	if alpha ~= widget.liftAlpha then
 		widget.liftAlpha = alpha
 		lift:SetAlpha(alpha)
@@ -645,7 +659,7 @@ SyncLift = function(widget)
 	lift:SetShown(visible ~= false)
 end
 
-local function Unlift(widget)
+Unlift = function(widget)
 	if not widget.lifted then
 		return
 	end
@@ -673,7 +687,8 @@ local function Lift(widget)
 		return
 	end
 	local scale = PlateScale(widget)
-	if not scale then
+	local alpha = PlateAlpha(widget)
+	if not scale or not alpha then
 		return
 	end
 	local lift = widget.lift
@@ -691,8 +706,8 @@ local function Lift(widget)
 	-- Matches the plate's own scale so the cast keeps its size in whole plate pixels
 	widget.liftScale = scale
 	lift:SetScale(scale)
-	widget.liftAlpha = PlateAlpha(widget)
-	lift:SetAlpha(widget.liftAlpha)
+	widget.liftAlpha = alpha
+	lift:SetAlpha(alpha)
 	lift:Show()
 	local content = widget.content
 	content:SetParent(lift)

@@ -1097,6 +1097,17 @@ local function RunMarks(plate, st, env)
 	end
 end
 
+-- Module level, so a run allocates no closure (bench contract: no garbage per update)
+local function RunAll(plate, st, env)
+	RunGrow(plate, st, env)
+	RunFade(plate, st, env)
+	RunGlow(plate, st, env)
+	RunPaintHealth(plate, st, env)
+	RunPaintBorder(plate, st, env)
+	RunPaintName(plate, st, env)
+	RunMarks(plate, st, env)
+end
+
 ---Run a plate's rules now (an event or message they listen to arrived, a state changed, or a part
 ---they paint over redrew itself).
 ---@param plate Plates.Plate
@@ -1119,15 +1130,7 @@ function Actions:Run(plate)
 		self:Layout(plate)
 	end
 	st.drawn = true
-	local ok, err = pcall(function()
-		RunGrow(plate, st, env)
-		RunFade(plate, st, env)
-		RunGlow(plate, st, env)
-		RunPaintHealth(plate, st, env)
-		RunPaintBorder(plate, st, env)
-		RunPaintName(plate, st, env)
-		RunMarks(plate, st, env)
-	end)
+	local ok, err = pcall(RunAll, plate, st, env)
 	if not ok then
 		WarnOnce('run', 'A "When" action could not run: ' .. tostring(err))
 	end

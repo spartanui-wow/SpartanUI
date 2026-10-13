@@ -1563,7 +1563,7 @@ function WhenBuilder:Group(opts)
 	conditionArgs.npcs = {
 		type = 'input',
 		name = L['NPC IDs'],
-		desc = L['Type NPC IDs with spaces or commas between them. Turn on IDs in tooltips to find them.'],
+		desc = L['Type NPC IDs with spaces or commas between them. To find an ID, target the mob and use Add my target under Colors, More settings, Special mobs.'],
 		order = 7.5,
 		width = 'full',
 		get = function()

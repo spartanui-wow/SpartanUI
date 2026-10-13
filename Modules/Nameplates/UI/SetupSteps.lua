@@ -62,6 +62,17 @@ SetupSteps.BEHAVIOR_TEXT = {
 	{ key = 'pinScale', text = L['Plates keep one size at any distance'], cvars = { 'nameplateMinScale', 'nameplateMaxScale', 'nameplateSelectedScale' } },
 }
 
+---Whether a setup game setting does anything on this client: only clients that hide units in
+---instances hand friendly plates there back to the game, so friendlyNames changes nothing elsewhere.
+---@param key string
+---@return boolean
+function SetupSteps.BehaviorApplies(key)
+	if key == 'friendlyNames' then
+		return P.Caps:Get('secrets') == true
+	end
+	return true
+end
+
 ---Roles the host may report from its own setup.
 local ROLES = { tank = true, damage = true, healer = true }
 
@@ -80,6 +91,9 @@ function SetupSteps.Cards()
 	end
 	return cards
 end
+
+---The step's recommended value for LibAT's quick paths (no card uses it, see P:GetSetupSteps).
+SetupSteps.RECOMMENDED = '@recommended'
 
 ---The style the step shows as picked: the pending pick, else the profile's.
 ---@return string
@@ -148,7 +162,7 @@ function SetupSteps:Apply()
 			P.Store:Set('role', role)
 		end
 		for key, value in pairs(self.BEHAVIOR) do
-			if P.Store:Get({ 'behavior', key }) == nil then
+			if P.Store:Get({ 'behavior', key }) == nil and SetupSteps.BehaviorApplies(key) then
 				P.Store:Set({ 'behavior', key }, value)
 			end
 		end
@@ -166,7 +180,7 @@ function SetupSteps:ChangedSettings()
 	local list, covered = {}, {}
 	for _, item in ipairs(self.BEHAVIOR_TEXT) do
 		local value = P.Store:Get({ 'behavior', item.key })
-		if value ~= nil and value ~= false then
+		if value ~= nil and value ~= false and SetupSteps.BehaviorApplies(item.key) then
 			list[#list + 1] = item.text
 			for _, name in ipairs(item.cvars) do
 				covered[name] = true
@@ -190,6 +204,12 @@ function SetupSteps:Summary()
 	local changed = self:ChangedSettings()
 	if #changed > 0 then
 		text = text .. ' ' .. string.format(L['Game settings we change: %s.'], table.concat(changed, ', '))
+	end
+	-- Healer emphasis changes how enemy plates look the most; say so where the player looks
+	local setting = P.Store:Get('role')
+	local role = (setting and setting ~= 'auto') and setting or (P.Context and P.Context.role)
+	if P.Roles.QuietOn(role) then
+		text = text .. ' ' .. L['Because you heal, enemy plates stay small and soft until they matter. Change this in Who and where, More settings.']
 	end
 	return text
 end
@@ -222,11 +242,20 @@ function P:GetSetupSteps()
 			title = L['Pick how your nameplates look'],
 			text = L['The bars over enemy and friendly plates. You can change any part later.'],
 			cards = SetupSteps.Cards,
+			-- "Use recommended" (LibAT ApplyRecommended) calls set() only when get() differs from
+			-- this, and never calls onLeave. No card has this value, so the recommended run always
+			-- reaches set(), which keeps the player's style and applies the rest of the step.
+			recommended = SetupSteps.RECOMMENDED,
 			get = function()
 				return SetupSteps:Style()
 			end,
-			set = function(value)
-				SetupSteps.pending.style = value
+			set = function(value, ctx)
+				if value ~= SetupSteps.RECOMMENDED then
+					SetupSteps.pending.style = value
+				end
+				if ctx and ctx.recommendedRun then
+					SetupSteps:Apply()
+				end
 			end,
 			-- One size for every style, so the card's style does not change the answer
 			getVariant = function()

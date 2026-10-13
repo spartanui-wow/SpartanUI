@@ -590,7 +590,7 @@ local function CreateRow(self)
 	row.whenButton.label:SetJustifyH('LEFT')
 	row.whenButton.glyph = Draw.Arrow(row.whenButton, 'DOWN', 3)
 	row.whenButton.glyph.anchor:SetPoint('RIGHT', -6, 0)
-	Draw.SetTooltip(row.whenButton, L['When'], L['Where this applies.'])
+	Draw.SetTooltip(row.whenButton, L['When'], L['When this applies.'])
 	row.whenText = Draw.Text(row, 11, 'muted')
 	row.whenText:SetJustifyH('RIGHT')
 

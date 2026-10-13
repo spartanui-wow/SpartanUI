@@ -100,11 +100,51 @@ describe('setup: the look step', function()
 		assert.equal(P.db.profile.style, 'clean')
 		assert.equal(P.db.profile.size, 'small')
 		assert.same(P.db.profile.behavior.stacking, { enemy = true })
-		assert.is_true(P.db.profile.behavior.friendlyNames)
+		-- Friendly names only change something where the game draws friendly plates in instances
+		assert.equal(P.db.profile.behavior.friendlyNames, P.Caps:Get('secrets') and true or nil)
 		assert.is_true(P.db.profile.behavior.pinScale)
 		assert.is_true(P.db.profile.enabled)
 		assert.is_nil(P.SetupSteps.pending.style, 'the pending pick is cleared')
 		assert.equal(P.db.profile.role, 'auto', 'no host answer keeps the role from the spec')
+	end)
+
+	-- LibAT's quick paths ("Use recommended", Setup:ApplyRecommended in Libs-AddonTools
+	-- Systems/Setup/Setup.lua) call set(recommended, ctx) only when get() differs from the step's
+	-- recommended value (step.recommended, else the card marked recommended), and never call onLeave.
+	local function ApplyRecommended(step)
+		local recommended = step.recommended
+		if recommended == nil then
+			for _, card in ipairs(step.cards()) do
+				if card.recommended then
+					recommended = card.value
+				end
+			end
+		end
+		if recommended ~= nil and step.get() ~= recommended then
+			step.set(recommended, { recommendedRun = true })
+		end
+	end
+
+	it('applies the step from "Use recommended", keeping the style already chosen', function()
+		local P = H.FreshCore()
+		HostStyle(P)
+		local step = Step(P)
+		assert.equal(step.get(), 'host', 'the recommended card still shows as picked')
+		ApplyRecommended(step)
+		assert.is_true(P.db.profile.enabled)
+		assert.is_true(P.db.profile.behavior.pinScale)
+		assert.same(P.db.profile.behavior.stacking, { enemy = true })
+		assert.equal(P.db.profile.style, 'host')
+		assert.equal(step.get(), 'host')
+
+		local Q = H.FreshCore({ saved = { profileKeys = {}, profiles = { Default = { style = 'mini' } } } })
+		local other = Step(Q)
+		other.setVariant('clean', 'large')
+		ApplyRecommended(other)
+		assert.equal(Q.db.profile.style, 'clean', 'a pick staged before the quick path is applied, not replaced')
+		assert.equal(Q.db.profile.size, 'large')
+		assert.is_true(Q.db.profile.enabled)
+		assert.is_nil(Q.SetupSteps.pending.style)
 	end)
 
 	it('keeps a game setting the player already chose', function()
@@ -175,7 +215,11 @@ describe('setup: the Done page', function()
 		step.onLeave({})
 		local after = step.summary()
 		assert.matches(after, 'Plates do not overlap')
-		assert.matches(after, 'Friendly players show names only')
+		if P.Caps:Get('secrets') then
+			assert.matches(after, 'Friendly players show names only')
+		else
+			assert.is_nil(after:find('Friendly players', 1, true), 'not claimed where it changes nothing')
+		end
 		assert.matches(after, 'Plates keep one size')
 	end)
 

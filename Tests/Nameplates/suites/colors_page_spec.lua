@@ -161,6 +161,44 @@ describe('colors page: layout', function()
 	end)
 end)
 
+describe('colors page: aura rows (S19)', function()
+	local P, page
+
+	before_each(function()
+		P, page = Build()
+	end)
+
+	it('offers Has a spell and My debuff is missing where the client can show them, with a spell list each', function()
+		local Page = P.Options.ColorsPage
+		local can = P.Colors:IsAvailable(P.Colors:GetKind('hasAura'), 'health')
+		local offered = {}
+		for _, choice in ipairs(Page.AddChoices('health')) do
+			offered[choice.id] = true
+		end
+		assert.equal(offered.hasAura == true, can)
+		assert.equal(offered.auraMissing == true, can)
+		if not can then
+			return
+		end
+		-- No row yet: the spell lists stay hidden
+		assert.is_true(page.args.hasAuraSpells.hidden())
+		P.Store:Set('scheme', 'custom')
+		P.Store:Set({ 'colors', 'health', 'order' }, { 'hasAura', 'auraMissing', 'reaction' })
+		P.Colors:Invalidate()
+		assert.is_false(page.args.hasAuraSpells.hidden())
+		assert.is_false(page.args.auraMissingSpells.hidden())
+		assert.equal(page.args.hasAuraSpells.dialogControl, P.Widgets:TypeName('SpellList'))
+		page.args.auraMissingSpells.arg.onChange({ [589] = 'mine' })
+		assert.same(P.Store:Get({ 'colors', 'health', 'spells', 'auraMissing' }), { [589] = 'mine' })
+		assert.same(page.args.auraMissingSpells.arg.list(), { [589] = 'mine' })
+		assert.equal(page.args.auraMissingSpells.arg.defaultWho, 'mine')
+		page.args.auraMissingSpells.arg.onChange({})
+		assert.is_nil(P.Store:Get({ 'colors', 'health', 'spells', 'auraMissing' }))
+		local ids = ProgramIds(P, 'health')
+		assert.truthy(Has(ids, 'hasAura'), 'the row compiles')
+	end)
+end)
+
 describe('colors page: scheme picker', function()
 	local P, page
 
@@ -242,14 +280,15 @@ describe('colors page: the threat row', function()
 		assert.matches(page.args.threatSummary.name(), 'in instances')
 	end)
 
-	it('picks the role and maps a stored healer to the second choice', function()
+	it('picks the role, healer included', function()
 		local role = page.args.threat.args.role
-		assert.same(role.sorting, { 'auto', 'tank', 'damage' })
+		assert.same(role.sorting, { 'auto', 'tank', 'damage', 'healer' })
 		assert.equal(role.get(), 'auto')
 		role.set({}, 'tank')
 		assert.equal(P.Store:Get('role'), 'tank')
-		P.Store:Set('role', 'healer')
-		assert.equal(role.get(), 'damage')
+		role.set({}, 'healer')
+		assert.equal(P.Store:Get('role'), 'healer')
+		assert.equal(role.get(), 'healer')
 		role.set({}, 'auto')
 		assert.equal(role.get(), 'auto')
 	end)

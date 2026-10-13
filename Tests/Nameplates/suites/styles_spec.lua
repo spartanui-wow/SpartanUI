@@ -83,10 +83,17 @@ describe('styles: built-ins', function()
 			local art = P.Data.ArtAliases
 			local media = P.services.media
 			for alias, entry in pairs(art.ENTRIES) do
-				local mediaType = art.MEDIA[entry.kind]
+				local mediaType = art:MediaType(entry)
 				assert.is_true(media:IsValid(mediaType, entry.name), entry.name)
-				assert.is_true(media:IsValid(mediaType, alias), alias)
+				if mediaType == 'statusbar' then
+					-- The shared bar list (every addon's picker) gets readable names only
+					assert.is_false(media:IsValid('statusbar', alias) and alias ~= entry.name, alias .. ' stays out of the bar list')
+				else
+					assert.is_true(media:IsValid(mediaType, alias), alias)
+					assert.is_false(media:IsValid('statusbar', entry.name), entry.name .. ' is not a bar fill')
+				end
 				assert.equal(media:Fetch(mediaType, entry.name), P.host.mediaPath .. entry.file)
+				assert.equal(P.LayoutContext:Texture(alias, mediaType == 'nameplatefill' and nil or mediaType), P.host.mediaPath .. entry.file, 'styles reach ' .. alias .. ' by its alias')
 				assert.is_true(art:Slot(entry.kind, alias) == entry)
 				assert.is_true(art:Slot(entry.kind, entry.name) == entry)
 			end

@@ -385,8 +385,14 @@ describe('customize page', function()
 	it('puts common controls under More settings for every part', function()
 		for id in pairs(D:Parts()) do
 			local args = Args(id)
-			for _, key in ipairs({ 'layer', 'alpha', 'pixelSnap', 'above', 'label' }) do
+			for _, key in ipairs({ 'layer', 'alpha', 'pixelSnap', 'label' }) do
 				assert.is_true(args[key].advanced, id .. ':' .. key)
+			end
+			-- Only the cast bar can be lifted above other plates: no toggle that does nothing
+			if D:Parts()[id].kind == 'cast' then
+				assert.is_true(args.above.advanced, id .. ':above')
+			else
+				assert.is_nil(args.above, id .. ' offers no lift toggle')
 			end
 		end
 	end)

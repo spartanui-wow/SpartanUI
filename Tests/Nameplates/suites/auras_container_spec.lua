@@ -1011,16 +1011,14 @@ describe('aura presence tints', function()
 	local missingKind = P.Colors:GetKind('auraMissing')
 
 	before_each(function()
-		hasKind.available = true
-		missingKind.available = true
+		assert.is_true(P.Colors:IsAvailable(hasKind, 'health'), 'the shipped kind is available here')
+		assert.is_true(P.Colors:IsAvailable(missingKind, 'health'))
 		P.Store:Set({ 'scheme' }, 'custom')
 		P.Store:Set({ 'colors', 'health', 'order' }, { 'hasAura', 'auraMissing', 'reaction' })
 		P.Store:Set({ 'colors', 'health', 'spells' }, { hasAura = { [589] = 'mine' }, auraMissing = { [172] = 'mine', [980] = 'mine' } })
 		P.Colors:Invalidate()
 	end)
 	after_each(function()
-		hasKind.available = false
-		missingKind.available = false
 		P.Store:Set({ 'colors' }, nil)
 		P.Store:Reset({ 'scheme' })
 		P.Colors:Invalidate()
@@ -1028,8 +1026,7 @@ describe('aura presence tints', function()
 	end)
 
 	it('makes no slots container while no presence row is on', function()
-		hasKind.available = false
-		missingKind.available = false
+		P.Store:Set({ 'colors', 'health', 'order' }, { 'reaction' })
 		P.Colors:Invalidate()
 		local plate, token = NewLivePlate(Hostile())
 		assert.is_nil(P.AuraPresence:State(plate))

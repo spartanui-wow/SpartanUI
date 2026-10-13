@@ -927,9 +927,9 @@ describe('who and where: game settings we change', function()
 		assert.not_nil(row, 'a setting someone else changed is listed')
 		assert.equal(row.was, '-', 'we never backed it up')
 		assert.equal(row.now, '80')
-		assert.equal(row.by, 'The game or another add-on')
+		assert.equal(row.by, 'The game or another addon')
 		CVars.attribution.nameplateMaxDistance.stack = 'Interface/AddOns/SomeOtherAddon/Core.lua:12: in function <x>\nInterface/AddOns/Blizzard_Foo/Bar.lua:1: in function <y>'
-		assert.equal(W.WhoChanged('nameplateMaxDistance'), 'The game or another add-on')
+		assert.equal(W.WhoChanged('nameplateMaxDistance'), 'The game or another addon')
 		CVars:Disable()
 	end)
 

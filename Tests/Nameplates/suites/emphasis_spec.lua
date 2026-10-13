@@ -216,6 +216,23 @@ describe('emphasis: states', function()
 		assert.near(M.Get(same.inner, 'alpha'), Highlight.STATE_LOOK.focus.alpha, 1e-6)
 	end)
 
+	it('never shrinks a plate below one pixel, whatever "When" grows ask for', function()
+		local plate = NewPlate({}, { target = { grow = { -200, -30 } } })
+		plate.grows = { actions = { -40, -40 }, threat = { -100, 0 } }
+		plate:ApplyEmphasis(true)
+		assert.equal(M.Get(plate.art, 'w'), 1)
+		assert.equal(M.Get(plate.art, 'h'), 1)
+		plate:SetState('target', true)
+		plate:ApplyEmphasis(true)
+		assert.equal(M.Get(plate.art, 'w'), 1)
+		assert.equal(M.Get(plate.art, 'h'), 1)
+		plate.grows = nil
+		plate:SetState('target', false)
+		plate:ApplyEmphasis(true)
+		assert.equal(M.Get(plate.art, 'w'), 132)
+		assert.equal(M.Get(plate.art, 'h'), 10)
+	end)
+
 	it('shows a target known only as a secret at the target look, without testing it', function()
 		local plate = NewPlate({ arrows = { order = 1, kind = 'highlight', state = 'target', art = 'arrows', animate = 'bounce' } })
 		local widget = plate:GetWidget('arrows')
