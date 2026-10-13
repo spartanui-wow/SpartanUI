@@ -545,3 +545,92 @@ describe('customize page: rules', function()
 		Check(page.args, '')
 	end)
 end)
+
+describe('customize: aura text', function()
+	before_each(function()
+		locked = false
+		P.Store:Set('style', 'clean')
+		P.Store:Set('tweaks', nil)
+		D.history:Clear()
+		D:SetScope('all')
+		D.state.kind = 'enemyNPC'
+	end)
+
+	it('has one advanced section with grids, independent sizes and reset', function()
+		local group = Args('mine').auraText
+		assert.equal(group.name, 'Aura text')
+		assert.is_true(group.advanced)
+		local args = group.args
+		assert.equal(args.timerPosition.dialogControl, P.Widgets:TypeName('AnchorGrid'))
+		assert.equal(args.timerSize.get(), 9)
+		assert.equal(args.stackSize.get(), 9)
+		args.timerPosition.set(info, 'TOP')
+		args.stackPosition.arg.onNudge(-2, 0.5)
+		args.timerSize.set(info, 15)
+		assert.same(D:AuraText('mine', 'timerAnchor'), { point = 'TOP', relPoint = 'TOP', x = 0, y = 0, size = 15 })
+		assert.equal(D:AuraText('mine', 'stackAnchor').x, -1)
+		assert.equal(args.stackSize.get(), 9)
+		assert.is_nil(Args('mine').fontSize, 'size settings have one home')
+	end)
+
+	it('reads saved callbacks from the current profile and scope each time', function()
+		local args = Args('mine').auraText.args
+		args.timerSize.set(info, 15)
+		P.Store:Set('tweaks', nil)
+		assert.equal(args.timerSize.get(), 9)
+		D:SetScope('kind')
+		D:SetPreviewKind('enemyPlayer')
+		args.stackPosition.set(info, 'LEFT')
+		assert.equal(P.Store:Get('tweaks.clean.situations.enemyPlayer.parts.mine.stackAnchor.point'), 'LEFT')
+		assert.is_nil(Change('mine'))
+	end)
+
+	it('rejects stale setters, nudges and resets while restricted', function()
+		local group = Args('mine').auraText
+		local args = group.args
+		args.timerPosition.arg.onNudge(3, 0)
+		local before = P.util.Copy(P.Store:Get('tweaks.clean'))
+		local steps = #D.history.undo
+		locked = true
+		assert.is_true(group.disabled())
+		args.timerPosition.set(info, 'BOTTOM')
+		args.timerPosition.arg.onNudge(2, 0)
+		args.timerPosition.arg.onReset()
+		args.stackSize.set(info, 16)
+		args.reset.func()
+		assert.same(P.Store:Get('tweaks.clean'), before)
+		assert.equal(#D.history.undo, steps)
+		locked = false
+	end)
+
+	it('resets both text positions and sizes but keeps other row changes', function()
+		local args = Args('mine').auraText.args
+		Args('mine').size.set(info, 26)
+		args.timerSize.set(info, 15)
+		args.stackPosition.set(info, 'TOPLEFT')
+		args.reset.func()
+		assert.is_nil(Change('mine', 'timerAnchor'))
+		assert.is_nil(Change('mine', 'stackAnchor'))
+		assert.equal(Change('mine', 'size'), 26)
+		D:Undo()
+		assert.equal(args.timerSize.get(), 15)
+		assert.equal(args.stackPosition.get(), 'TOPLEFT')
+	end)
+end)
+
+describe('customize: stale aura text controls', function()
+	it('keeps old getters safe after an added aura row is removed', function()
+		locked = false
+		P.Store:Set('style', 'clean')
+		P.Store:Set('tweaks', nil)
+		D:SetScope('all')
+		local id = D:AddPart('auras')
+		local args = Args(id).auraText.args
+		D:RemovePart(id)
+		assert.equal(args.timerPosition.get(), 'CENTER')
+		assert.equal(args.timerSize.get(), 9)
+		assert.same({ args.stackPosition.arg.offset() }, { 0, 0 })
+		args.timerSize.set(info, 18)
+		assert.is_nil(P.Store:Get('tweaks.clean'))
+	end)
+end)

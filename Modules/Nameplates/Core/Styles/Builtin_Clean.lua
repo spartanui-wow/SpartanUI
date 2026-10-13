@@ -60,5 +60,7 @@ P.Styles.Registry:RegisterBuiltin({
 	},
 	situations = {
 		friendlyPlayer = { hide = { 'health', 'cast', 'hp' }, parts = { name = { font = { size = 12 } } } },
+		-- Crowd control on an enemy player decides fights, so its row is larger (plan 3.1)
+		enemyPlayer = { parts = { cc = { size = 32, max = 3 } } },
 	},
 })

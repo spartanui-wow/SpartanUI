@@ -219,9 +219,10 @@ describe('when builder: conditions come from the catalog', function()
 		assert.is_true(Has(emphasis, 'target'), 'states only change emphasis')
 		assert.is_false(Has(emphasis, 'testPicker'))
 		assert.is_false(Has(emphasis, 'testLater'))
+		local phase = WB.PHASE
 		WB.PHASE = 99
 		assert.is_true(Has(Keys(WB:Choices('layout')), 'testLater'), 'a later phase raises the line')
-		WB.PHASE = 4
+		WB.PHASE = phase
 	end)
 
 	it('shows a catalog limit as a badge on this client', function()

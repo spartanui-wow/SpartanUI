@@ -22,6 +22,13 @@ P.Share = Share
 Share.PREFIX = '!NP:'
 Share.KINDS = { style = true, colors = true, when = true, profile = true }
 
+-- Size limits for text from other players. C_EncodingUtil.DecompressString has no output limit
+-- of its own, so the packed size is capped before it is unpacked (a packed string can grow about
+-- a thousand times) and the unpacked size is capped before the reader builds any table from it.
+-- A whole profile with several styles is far under both.
+Share.MAX_COMPRESSED = 120000
+Share.MAX_DECOMPRESSED = 1000000
+
 ---@class Plates.ShareDecoded
 ---@field kind string
 ---@field schema integer
@@ -76,7 +83,7 @@ end
 ---Read a share string. Never trusts the payload; callers validate it for their kind.
 ---@param text string
 ---@return Plates.ShareDecoded|nil decoded
----@return string|nil reason 'format' | 'newer' | 'kind' | 'unavailable' | 'decode'
+---@return string|nil reason 'format' | 'newer' | 'kind' | 'unavailable' | 'decode' | 'tooLong'
 function Share:Decode(text)
 	text = Clean(text)
 	local schema, kind, body = string.match(text, '^!NP:(%d+):(%a+)!(.+)$')
@@ -95,10 +102,26 @@ function Share:Decode(text)
 		return nil, 'unavailable'
 	end
 	body = string.gsub(body, '%s', '')
-	local ok, payload = pcall(function()
-		return E.DeserializeCBOR(E.DecompressString(E.DecodeBase64(body)))
-	end)
-	if not ok or type(payload) ~= 'table' then
+	-- Base64 writes 4 characters for every 3 bytes
+	if #body > math.ceil(self.MAX_COMPRESSED / 3) * 4 then
+		return nil, 'tooLong'
+	end
+	local okPacked, packed = pcall(E.DecodeBase64, body)
+	if not okPacked or type(packed) ~= 'string' then
+		return nil, 'decode'
+	end
+	if #packed > self.MAX_COMPRESSED then
+		return nil, 'tooLong'
+	end
+	local okRaw, raw = pcall(E.DecompressString, packed)
+	if not okRaw or type(raw) ~= 'string' then
+		return nil, 'decode'
+	end
+	if #raw > self.MAX_DECOMPRESSED then
+		return nil, 'tooLong'
+	end
+	local okPayload, payload = pcall(E.DeserializeCBOR, raw)
+	if not okPayload or type(payload) ~= 'table' then
 		return nil, 'decode'
 	end
 	return { kind = kind, schema = schema, payload = payload }
@@ -116,6 +139,8 @@ function Share:ReasonText(reason)
 		return L['This text is not something this page can use.']
 	elseif reason == 'cycle' then
 		return L['This style has parts that point at each other in a loop.']
+	elseif reason == 'tooLong' then
+		return L['That text is too long to be a nameplate share string.']
 	end
 	return L['This text is not a nameplate style.']
 end
@@ -130,16 +155,13 @@ end
 ---@field updateOf? string Saved style id this string updates
 ---@field isNewer? boolean The string carries a newer version than the saved copy
 
----Decode and check a style string without saving anything (for the live preview card).
----@param text string
+---Check an already decoded style string without saving anything. Callers that have read the text
+---with Decode use this, so a string is never unpacked twice.
+---@param decoded Plates.ShareDecoded
 ---@return Plates.ImportPreview|nil preview
 ---@return string|nil reason
-function Share:InspectStyle(text)
-	local decoded, reason = self:Decode(text)
-	if not decoded then
-		return nil, reason
-	end
-	if decoded.kind ~= 'style' then
+function Share:InspectDecoded(decoded)
+	if type(decoded) ~= 'table' or decoded.kind ~= 'style' then
 		return nil, 'kind'
 	end
 	local payload = decoded.payload
@@ -169,6 +191,18 @@ function Share:InspectStyle(text)
 		end
 	end
 	return preview
+end
+
+---Decode and check a style string without saving anything (for the live preview card).
+---@param text string
+---@return Plates.ImportPreview|nil preview
+---@return string|nil reason
+function Share:InspectStyle(text)
+	local decoded, reason = self:Decode(text)
+	if not decoded then
+		return nil, reason
+	end
+	return self:InspectDecoded(decoded)
 end
 
 ---Import a style string. mode 'new' adds a style (never overwrites); 'update' replaces the base

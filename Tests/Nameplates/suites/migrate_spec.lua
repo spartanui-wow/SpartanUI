@@ -137,6 +137,28 @@ describe('migrate: legacy import', function()
 		assert.equal(P.db.profile.tweaks.clean.add.removable.row, 'removable')
 	end)
 
+	it('remembers the class icon above player plates when it was on, for the parts that show a class', function()
+		local off = Import({ elements = { ClassIcon = { enabled = false } } })
+		assert.is_nil(off.db.profile.legacy.classIcon, 'off stays off')
+		local untouched = Import({})
+		assert.is_nil(untouched.db.profile.legacy.classIcon, 'never set up, never remembered')
+		local on = Import({ elements = { ClassIcon = { enabled = true, size = 24 } } })
+		assert.is_true(on.db.profile.legacy.classIcon)
+		assert.is_true(on.db.profile.legacy.healerMarks, 'the other remembered flags stay')
+		assert.same(on.db.profile.tweaks.clean, off.db.profile.tweaks.clean, 'it changes no part of the style')
+		local _, _, flags = on.Migrate.LegacyOverlay({ elements = { ClassIcon = { enabled = true } } }, OldDefaults())
+		assert.is_true(flags.classIcon)
+	end)
+
+	it('keeps the remembered flags out of share strings', function()
+		local P = Import({ elements = { ClassIcon = { enabled = true } } })
+		local kept = false
+		for _, key in ipairs(P.Exchange.PROFILE_KEYS_KEPT_OUT) do
+			kept = kept or key == 'legacy'
+		end
+		assert.is_true(kept)
+	end)
+
 	it('ignores wildcards and unrelated or malformed old keys', function()
 		local start = #(H.logs.host or {})
 		local P

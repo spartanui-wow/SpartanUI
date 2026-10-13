@@ -20,7 +20,8 @@ P.Exchange = Exchange
 local Registry, Merge, Schema = P.Styles.Registry, P.Styles.Merge, P.Styles.Schema
 local util = P.util
 
----Longest string Inspect reads (a whole profile with styles is far smaller).
+---Longest text Inspect looks at, before it reads anything (a whole profile with styles is far
+---smaller). P.Share then caps the packed and unpacked sizes.
 Exchange.MAX_LENGTH = 400000
 
 ---Profile keys a profile string carries. Role, game settings (cvars) and the host switches stay
@@ -821,7 +822,7 @@ function Exchange:Read(text)
 	end
 	local kind = decoded.kind
 	if kind == 'style' then
-		local preview, why = P.Share:InspectStyle(text)
+		local preview, why = P.Share:InspectDecoded(decoded)
 		if not preview then
 			return nil, why
 		end
@@ -882,8 +883,7 @@ function Exchange:Describe(info)
 	elseif info.kind == 'colors' then
 		lines[#lines + 1] = L['A set of colors. Using it replaces your own colors.']
 	elseif info.kind == 'when' then
-		lines[#lines + 1] =
-			Plural(info.count or 0, L['A "When" list with 1 special case. Using it replaces your own list.'], L['A "When" list with %d special cases. Using it replaces your own list.'])
+		lines[#lines + 1] = Plural(info.count or 0, L['A list with 1 special case. Using it replaces your special cases.'], L['A list with %d special cases. Using it replaces your special cases.'])
 	elseif info.kind == 'profile' then
 		lines[#lines + 1] = Plural(
 			info.count or 0,
@@ -1062,12 +1062,12 @@ function Exchange:ApplyReplace(info)
 		local list = util.Copy(info.payload)
 		Store:Set('when', #list > 0 and list or nil)
 		self.undo = {
-			label = L['"When" list'],
+			label = L['special cases'],
 			restore = function()
 				RestoreKeys(snapshot, { 'when' })
 			end,
 		}
-		return { ok = true, message = L['Using this "When" list now.'] }
+		return { ok = true, message = L['Using these special cases now.'] }
 	elseif info.kind == 'profile' then
 		return self:ApplyProfile(info)
 	end

@@ -2,12 +2,14 @@ local _, ns = ...
 local P = ns.Plates
 local L = P.L
 
--- The condition catalog (6.4) under color rows, "When" special cases and, from Phase 8, more
--- actions. Each condition is one of:
+-- The condition catalog (6.4) under color rows, "When" special cases and the "When" actions
+-- (Phase 8, Engine/Actions.lua). Each condition is one of:
 --   plain    never secret: any action is allowed (style swap, hide, names only, size, color, ...)
---   engine   may be secret on Retail and Forever: color, alpha and showing overlay pieces only
+--   engine   may be secret on Retail and Forever: color, alpha, glow and marks only (overlay
+--            pieces the engine fades or tints); secretActions narrows that further
 --   identity NPC id, unit name, spell id: checked with C_Secrets.ShouldUnitIdentityBeSecret first;
---            when hidden the condition simply does not match
+--            when hidden the condition simply does not match, so it never needs the engine and
+--            allows every action
 --
 -- Contract for a condition:
 --   Test(env, args)       -> true | false | nil. nil means "the game hides the answer"; only
@@ -27,6 +29,8 @@ local L = P.L
 ---@field argType? 'place'|'mobType'|'reaction'|'role'|'spellList'|'npcList'|'number'
 ---@field phase? integer Not offered before this phase
 ---@field limits? table<string, string> Client name -> short badge text shown next to it
+---@field secretActions? table<string, boolean> Engine conditions: the actions they allow where the game hides answers (default color, alpha, glow, mark)
+---@field Unavailable? fun(): string|nil A player sentence when the condition cannot work on this client
 ---@field Test fun(env: table, args: any): boolean|nil
 ---@field TestSecret? fun(env: table, args: any): any
 
@@ -52,7 +56,17 @@ function Conditions:Get(id)
 	return self.catalog[id]
 end
 
----Actions a condition allows on a client with secrets.
+---Every action key (WhenBuilder action `needs`): layout (style, hide, name, size) and emphasis
+---(grow in whole pixels, alpha, color, glow, mark).
+Conditions.ACTION_KEYS = { 'style', 'hide', 'name', 'size', 'grow', 'alpha', 'color', 'glow', 'mark' }
+
+-- What an answer the game hides can still drive: sinks that take a secret boolean (alpha, color,
+-- glow, a mark's alpha). Never layout or size.
+Conditions.ENGINE_ACTIONS = { alpha = true, color = true, glow = true, mark = true }
+
+---Actions a condition allows on this client. Plain and identity conditions always answer in Lua
+---(identity answers "no" when hidden), so they allow everything; engine conditions allow only
+---the sinks on clients with secrets.
 ---@param id string
 ---@return table<string, boolean>
 function Conditions:AllowedActions(id)
@@ -60,10 +74,51 @@ function Conditions:AllowedActions(id)
 	if not cond then
 		return {}
 	end
-	if cond.kind == 'plain' or not P.Caps:Get('secrets') then
-		return { style = true, hide = true, name = true, size = true, alpha = true, color = true, glow = true }
+	local out = {}
+	if cond.kind ~= 'engine' or not P.Caps:Get('secrets') then
+		for _, key in ipairs(self.ACTION_KEYS) do
+			out[key] = true
+		end
+		return out
 	end
-	return { alpha = true, color = true, glow = true }
+	for key in pairs(cond.secretActions or self.ENGINE_ACTIONS) do
+		out[key] = true
+	end
+	return out
+end
+
+---Settle a clause list (all must hold, the shape of a "When" entry) as far as Lua can.
+---@param clauses table[] { { id, args?, negate? } }
+---@param env table
+---@return boolean|nil result true or false when settled, nil when the game decides
+---@return table|nil leaf The one clause the game decides (nil when none or several do)
+---@return integer unknown How many clauses the game decides
+function Conditions:Reduce(clauses, env)
+	local leaf, unknown = nil, 0
+	for i = 1, #clauses do
+		local clause = clauses[i]
+		local cond = self.catalog[clause.id]
+		if not cond then
+			return false, nil, 0
+		end
+		local r = cond.Test(env, clause.args)
+		if r == nil then
+			unknown = unknown + 1
+			leaf = clause
+		else
+			r = r == true
+			if clause.negate then
+				r = not r
+			end
+			if not r then
+				return false, nil, 0
+			end
+		end
+	end
+	if unknown == 0 then
+		return true, nil, 0
+	end
+	return nil, unknown == 1 and leaf or nil, unknown
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -648,13 +703,24 @@ Conditions:Register({
 	end,
 })
 
--- Phase 5 (S19): aura presence comes from aura slots that move a tint, never from a read
+-- Aura presence ("Has <spell>", "My debuff is missing"). The Classic family answers with plain reads
+-- (Engine/Parts/AurasScan.lua wraps Test, adds UNIT_AURA and reads the spell list in args). Where
+-- the game hides auras, only the health color rows can use them, through aura slots (S19); a
+-- "When" action cannot, so the condition says why and the builder grays it out.
+local function AurasHidden()
+	if P.Caps:Get('secrets') then
+		return L['The game hides which spells are on a unit on this version of WoW, so this cannot be checked here.']
+	end
+	return nil
+end
+
 Conditions:Register({
 	id = 'auraPresent',
 	kind = 'engine',
 	label = L['Has a spell on it'],
 	argType = 'spellList',
-	phase = 5,
+	phase = 8,
+	Unavailable = AurasHidden,
 	Test = function()
 		return false
 	end,
@@ -667,12 +733,89 @@ Conditions:Register({
 	kind = 'engine',
 	label = L['Your debuff is missing'],
 	argType = 'spellList',
-	phase = 5,
+	phase = 8,
+	Unavailable = AurasHidden,
 	Test = function()
 		return false
 	end,
 	TestSecret = function()
 		return false
+	end,
+})
+
+-- Low health. args is the percent (1-99, default 35). Readable health is plain math; where the game
+-- hides it there is no yes or no answer at all, only a curve the engine evaluates, so the actions
+-- that can use it are the ones drawn on a texture whose alpha the curve sets (Conditions.LowHealthCurve).
+Conditions.LOW_HEALTH_DEFAULT = 35
+
+---@param args any
+---@return number threshold 0.01-0.99
+function Conditions.LowHealthThreshold(args)
+	local percent = tonumber(args) or Conditions.LOW_HEALTH_DEFAULT
+	percent = math.max(1, math.min(99, percent))
+	return percent / 100
+end
+
+local lowCurves = {}
+
+---A step curve from health (0-1) to alpha: alphaOn at or below the threshold, 0 above (the other
+---way round for negate, "not low"). Cached per threshold, alpha and direction. nil on clients
+---without curves.
+---@param args any
+---@param alphaOn number
+---@param negate? boolean
+---@return table|nil curve
+function Conditions.LowHealthCurve(args, alphaOn, negate)
+	if not (C_CurveUtil and C_CurveUtil.CreateCurve) then
+		return nil
+	end
+	alphaOn = alphaOn or 1
+	local threshold = Conditions.LowHealthThreshold(args)
+	local key = string.format('%.3f|%.3f|%s', threshold, alphaOn, negate and 'n' or 'y')
+	local curve = lowCurves[key]
+	if not curve then
+		local low, high = alphaOn, 0
+		if negate then
+			low, high = 0, alphaOn
+		end
+		curve = C_CurveUtil.CreateCurve()
+		if curve.SetType and Enum and Enum.LuaCurveType and Enum.LuaCurveType.Step then
+			curve:SetType(Enum.LuaCurveType.Step)
+		end
+		curve:AddPoint(0, low)
+		curve:AddPoint(threshold, high)
+		curve:AddPoint(1, high)
+		lowCurves[key] = curve
+	end
+	return curve
+end
+
+Conditions:Register({
+	id = 'lowHealth',
+	kind = 'engine',
+	label = L['Low health'],
+	argType = 'percent',
+	curve = true,
+	secretActions = { color = true, mark = true },
+	events = { 'UNIT_HEALTH', 'UNIT_MAXHEALTH' },
+	Test = function(env, args)
+		local src = env.src
+		if not src then
+			return false
+		end
+		local health, readable = src:HealthPlain()
+		local maxValue, maxReadable = src:HealthMaxPlain()
+		if not (readable and maxReadable) or type(health) ~= 'number' or type(maxValue) ~= 'number' then
+			return nil
+		end
+		if maxValue <= 0 then
+			return false
+		end
+		return health / maxValue <= Conditions.LowHealthThreshold(args)
+	end,
+	-- No boolean exists for hidden health: folds treat it as "no" and sinks use LowHealthCurve
+	TestSecret = function()
+		return nil
 	end,
 })
 
@@ -683,6 +826,7 @@ local function IdentityHidden(env)
 	return not src or (src.unit and P.Secret.ShouldUnitIdentityBeSecret(src.unit))
 end
 
+---A list { 589, 172 } or a set { [589] = true } or { [589] = 'mine' | 'any' } (SpellList).
 local function InList(list, value)
 	if type(list) ~= 'table' or value == nil then
 		return false
@@ -692,8 +836,10 @@ local function InList(list, value)
 			return true
 		end
 	end
-	return list[value] == true
+	local entry = list[value]
+	return entry ~= nil and entry ~= false
 end
+Conditions.InList = InList
 
 Conditions:Register({
 	id = 'npcID',
@@ -722,5 +868,25 @@ Conditions:Register({
 		end
 		local id = env.src:SpellIDPlain()
 		return InList(args, id)
+	end,
+})
+
+-- Totems: known totems by NPC (Data/Totems, Classic family) and the player's own totems (Retail and
+-- Forever) through the source; anything the game hides is not a totem here.
+Conditions:Register({
+	id = 'totem',
+	kind = 'identity',
+	label = L['Totem'],
+	facts = { 'isMinion', 'playerControlled' },
+	Test = function(env)
+		local src = env.src
+		if not src or not src.TotemIconPlain then
+			return false
+		end
+		if src.unit and P.Secret.ShouldUnitIdentityBeSecret(src.unit) then
+			return false
+		end
+		local ok, icon = pcall(src.TotemIconPlain, src)
+		return ok and icon ~= nil
 	end,
 })

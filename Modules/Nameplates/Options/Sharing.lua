@@ -27,6 +27,11 @@ P.SharingPage = SharingPage
 -- Export
 ----------------------------------------------------------------------------------------------------
 
+---Where the Style page's Share and Import buttons land. AceConfigDialog scrolls to real controls
+---only, never to an inline group's own key, so each is a path to the first control worth reading
+---inside its group: the groups first, the control last (host.OpenOptions takes a path like this).
+SharingPage.FOCUS = { export = { 'export', 'exportText' }, import = { 'import', 'importText' } }
+
 ---Point the export box at something (the Style page's Share button and the card menu use this).
 ---@param what? 'style'|'colors'|'when'|'everything'
 ---@param styleId? string Style value (a style id, or 'host')
@@ -61,7 +66,7 @@ end
 local EXPORT_VALUES = {
 	style = L['This style'],
 	colors = L['My colors'],
-	when = L['My "When" list'],
+	when = L['My special cases'],
 	everything = L['Everything'],
 }
 

@@ -6,6 +6,8 @@ local L = P.L
 -- and for the setup look step.
 --
 -- Cards: P.Gallery:Cards() returns card-grid cards (value, title, caption, tag, recommended, art).
+-- Match my look is first. On Era, TBC and Forever (Gallery.SUGGEST_BORDERED) Bordered follows it,
+-- tagged "Suggested", because players there remember the old framed plates.
 -- Each card's picture is drawn by the real renderer: a few preview plates (Plate.New(parent, true))
 -- fed by SampleSource, so a card shows the player's own changes and the host's theme look. The
 -- picture comes through LibAT's card art hook (LibAT.Capabilities.cardArtDraw, feature-detected):
@@ -53,6 +55,11 @@ Gallery.THUMB_PAD = 4
 Gallery.THUMB_GAP = 5
 
 local SIZE_KEYS = { small = true, medium = true, large = true }
+
+---Games where players remember the old framed plates. Bordered is suggested first there: it is the
+---card right after "Match my look" and carries a "Suggested" tag (a presentation rule, not a
+---capability).
+Gallery.SUGGEST_BORDERED = { era = true, tbc = true, forever = true }
 
 local function Trim(text)
 	return (string.gsub(string.gsub(text or '', '^%s+', ''), '%s+$', ''))
@@ -104,6 +111,15 @@ function Gallery:Caption(item)
 	return item.description or ''
 end
 
+---The style this game suggests first, or nil.
+---@return string|nil styleId
+function Gallery:SuggestedStyle()
+	if self.SUGGEST_BORDERED[P.Caps:Client()] and Registry:Get('bordered') then
+		return 'bordered'
+	end
+	return nil
+end
+
 ---Card data for every style the player can pick (internal styles left out). The host style
 ---(matchesHost) is the "Match my look" card with value 'host'.
 ---@param opts? { page?: boolean } page = true is the settings page: no "In use" tag (the grid marks the picked card itself) and no "Recommended" badge (the setup step recommends the host look)
@@ -113,15 +129,19 @@ function Gallery:Cards(opts)
 	local current = P.Store:Get('style')
 	local cards = {}
 	local art = self:CanDraw() and self.ART or nil
+	local suggested = self:SuggestedStyle()
+	local suggestedCard
 	for _, item in ipairs(Registry:List(false)) do
 		local tag
 		if item.matchesHost then
 			tag = L['Matches your look']
+		elseif item.id == suggested then
+			tag = L['Suggested']
 		end
 		if not opts.page and (item.id == current or (current == 'host' and item.matchesHost)) then
 			tag = L['In use']
 		end
-		cards[#cards + 1] = {
+		local card = {
 			value = item.matchesHost and 'host' or item.id,
 			title = item.matchesHost and L['Match my look'] or item.name,
 			caption = self:Caption(item),
@@ -131,6 +151,16 @@ function Gallery:Cards(opts)
 			styleId = item.id,
 			source = item.source,
 		}
+		if item.id == suggested then
+			suggestedCard = card
+		else
+			cards[#cards + 1] = card
+		end
+	end
+	if suggestedCard then
+		-- Right after "Match my look", which stays first
+		local at = (cards[1] and cards[1].value == 'host') and 2 or 1
+		table.insert(cards, at, suggestedCard)
 	end
 	return cards
 end

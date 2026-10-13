@@ -806,8 +806,12 @@ local function StyleButton(button, s)
 		p.dispelOn = false
 	end
 
-	p.timer:SetFont(s.face, s.fontSize, s.flags)
-	p.stacks:SetFont(s.face, s.fontSize, s.flags)
+	p.timer:SetFont(s.face, s.timerAnchor.size, s.flags)
+	p.stacks:SetFont(s.face, s.stackAnchor.size, s.flags)
+	p.timer:ClearAllPoints()
+	p.timer:SetPoint(s.timerAnchor.point, button, s.timerAnchor.relPoint, s.timerAnchor.x, s.timerAnchor.y)
+	p.stacks:ClearAllPoints()
+	p.stacks:SetPoint(s.stackAnchor.point, button, s.stackAnchor.relPoint, s.stackAnchor.x, s.stackAnchor.y)
 	if s.timer and not p.timerOn then
 		button:SetDurationText(p.timer, {})
 		p.timer:Show()
@@ -860,6 +864,9 @@ local pools = setmetatable({}, { __mode = 'k' }) -- plate -> { free = { rec, ...
 ---@field key? string Signature of the settings last applied
 
 local function InitButton(rec, button)
+	if button.IsForbidden and button:IsForbidden() then
+		return
+	end
 	local ok, err = pcall(BuildButton, button)
 	if not ok then
 		WarnOnce('initButton', 'Could not set up an aura icon; that icon stays empty: ' .. tostring(err))
@@ -1169,6 +1176,8 @@ function AuraRows.Desired(spec, ctx)
 		pandemic = spec.pandemic == true,
 		face = face,
 		fontSize = fontSize,
+		timerAnchor = P.Styles.Merge.AuraText(spec, 'timerAnchor'),
+		stackAnchor = P.Styles.Merge.AuraText(spec, 'stackAnchor'),
 		flags = flags or '',
 		ink = ink,
 		glow = { glow[1], glow[2], glow[3], glow[4] or 1 },
@@ -1188,6 +1197,16 @@ function AuraRows.Desired(spec, ctx)
 		table.concat(ink, ','),
 		table.concat(b.glow, ','),
 		b.glowSize,
+		b.timerAnchor.point,
+		b.timerAnchor.relPoint,
+		b.timerAnchor.x,
+		b.timerAnchor.y,
+		b.timerAnchor.size,
+		b.stackAnchor.point,
+		b.stackAnchor.relPoint,
+		b.stackAnchor.x,
+		b.stackAnchor.y,
+		b.stackAnchor.size,
 	}, '|')
 	local sigs = {}
 	for i, group in ipairs(d.groups) do

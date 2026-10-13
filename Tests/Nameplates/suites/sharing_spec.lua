@@ -659,7 +659,7 @@ describe('import: reading a string', function()
 		local when = Exchange:Inspect(Share:Encode('when', { when = { { conditions = { { id = 'place', args = 'raid' } }, size = 'small' } } }))
 		assert.equal(when.kind, 'when')
 		assert.equal(when.count, 1)
-		assert.matches(Exchange:Describe(when)[1], '1 special case%. Using it replaces your own list')
+		assert.matches(Exchange:Describe(when)[1], '1 special case%. Using it replaces your special cases')
 		local profile = Exchange:Inspect(Share:Encode('profile', { profile = { size = 'large' }, styles = {} }))
 		assert.equal(profile.kind, 'profile')
 		assert.matches(Exchange:Describe(profile)[1], '0 styles')
@@ -1194,5 +1194,166 @@ describe('pasted style in the preview panel', function()
 		Exchange:Clear()
 		Options.RequestRefresh = before
 		assert.equal(asked, 2)
+	end)
+end)
+
+----------------------------------------------------------------------------------------------------
+-- Polish: size limits for text from other players, and one read per string
+----------------------------------------------------------------------------------------------------
+
+describe('share: size limits', function()
+	before_each(Reset)
+
+	---Run fn with some codec functions swapped, and put them back whatever happens.
+	local function With(swaps, fn)
+		local E = C_EncodingUtil
+		local originals = {}
+		for name, replacement in pairs(swaps) do
+			originals[name] = E[name]
+			E[name] = replacement(originals[name])
+		end
+		local ok, err = pcall(fn)
+		for name, original in pairs(originals) do
+			E[name] = original
+		end
+		assert.is_true(ok, tostring(err))
+	end
+
+	it('refuses a packed string over the limit before unpacking it', function()
+		local unpacked = 0
+		With({
+			DecompressString = function(original)
+				return function(text)
+					unpacked = unpacked + 1
+					return original(text)
+				end
+			end,
+		}, function()
+			local body = string.rep('A', math.ceil(Share.MAX_COMPRESSED / 3) * 4 + 4)
+			local decoded, reason = Share:Decode('!NP:' .. Schema.CURRENT .. ':style!' .. body)
+			assert.is_nil(decoded)
+			assert.equal(reason, 'tooLong')
+			local info, why = Exchange:Inspect('!NP:' .. Schema.CURRENT .. ':style!' .. body)
+			assert.is_nil(info)
+			assert.equal(why, 'tooLong')
+		end)
+		assert.equal(unpacked, 0, 'nothing was unpacked')
+	end)
+
+	it('refuses an unpacked string over the limit before reading it', function()
+		local text = Share:Encode('colors', { scheme = 'class' })
+		local read = 0
+		With({
+			DecompressString = function()
+				return function()
+					return string.rep('x', Share.MAX_DECOMPRESSED + 1)
+				end
+			end,
+			DeserializeCBOR = function(original)
+				return function(raw)
+					read = read + 1
+					return original(raw)
+				end
+			end,
+		}, function()
+			local decoded, reason = Share:Decode(text)
+			assert.is_nil(decoded)
+			assert.equal(reason, 'tooLong')
+			local info, why = Exchange:Inspect(text)
+			assert.is_nil(info)
+			assert.equal(why, 'tooLong')
+			assert.is_nil((P.API:ImportStyle(text)))
+		end)
+		assert.equal(read, 0, 'nothing was read')
+	end)
+
+	it('says so in plain words', function()
+		assert.matches(Share:ReasonText('tooLong'), 'too long')
+		assert.equal(Exchange:ReasonText('tooLong'), Share:ReasonText('tooLong'))
+	end)
+
+	it('still takes a large honest profile string', function()
+		local styles = {}
+		for i = 1, 12 do
+			local style = Merge:Bake('clean')
+			style.id = 'big' .. i
+			style.name = 'Big ' .. i
+			styles['sty' .. i] = { name = 'Big ' .. i, base = style }
+		end
+		local text = Share:Encode('profile', { profile = { size = 'large' }, styles = styles })
+		assert.truthy(#text < Exchange.MAX_LENGTH)
+		local info = Exchange:Inspect(text)
+		assert.not_nil(info)
+		assert.equal(info.kind, 'profile')
+	end)
+end)
+
+describe('share: one read per string', function()
+	before_each(Reset)
+
+	local function Counting(fn)
+		local E = C_EncodingUtil
+		local names = { 'DecodeBase64', 'DecompressString', 'DeserializeCBOR' }
+		local originals, counts = {}, {}
+		for _, name in ipairs(names) do
+			originals[name] = E[name]
+			counts[name] = 0
+			E[name] = function(...)
+				counts[name] = counts[name] + 1
+				return originals[name](...)
+			end
+		end
+		local ok, err = pcall(fn)
+		for _, name in ipairs(names) do
+			E[name] = originals[name]
+		end
+		assert.is_true(ok, tostring(err))
+		return counts
+	end
+
+	it('decodes a style string once when it is looked at', function()
+		local text = StyleString({}, 'Jane', 1, 'Once')
+		local counts = Counting(function()
+			assert.not_nil(Exchange:Inspect(text))
+		end)
+		assert.same(counts, { DecodeBase64 = 1, DecompressString = 1, DeserializeCBOR = 1 })
+	end)
+
+	it('decodes a style string once when it is imported through the public function', function()
+		local text = StyleString({ id = 'onceB' }, 'Jane', 1, 'Once B')
+		local counts = Counting(function()
+			assert.not_nil((P.API:ImportStyle(text)))
+		end)
+		assert.same(counts, { DecodeBase64 = 1, DecompressString = 1, DeserializeCBOR = 1 })
+	end)
+
+	it('decodes a style string once when it is checked on its own', function()
+		local text = StyleString({ id = 'onceC' }, 'Jane', 1, 'Once C')
+		local counts = Counting(function()
+			assert.not_nil(Share:InspectStyle(text))
+			assert.not_nil((Share:ImportStyle(text)))
+		end)
+		assert.same(counts, { DecodeBase64 = 2, DecompressString = 2, DeserializeCBOR = 2 }, 'once for each call, never twice in one')
+	end)
+
+	it('checks a string that was read already', function()
+		local decoded = Share:Decode(StyleString({ id = 'onceD' }, 'Jane', 3, 'Once D'))
+		local preview = Share:InspectDecoded(decoded)
+		assert.equal(preview.name, 'Once D')
+		assert.equal(preview.version, 3)
+		local colors = Share:Decode(Share:Encode('colors', { scheme = 'class' }))
+		local none, reason = Share:InspectDecoded(colors)
+		assert.is_nil(none)
+		assert.equal(reason, 'kind')
+		assert.equal(select(2, Share:InspectDecoded(nil)), 'kind')
+	end)
+end)
+
+describe('search words: raid icons', function()
+	it('finds the raid marker when a player says raid icon', function()
+		local words = Options.SEARCH_WORDS
+		assert.equal(words.icon, 'marker')
+		assert.equal(words.icons, 'marker')
+		assert.equal(words.skull[1], 'marker')
 	end)
 end)

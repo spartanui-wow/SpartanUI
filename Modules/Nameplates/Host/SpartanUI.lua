@@ -580,6 +580,16 @@ end
 ----------------------------------------------------------------------------------------------------
 -- What's new card (3.1): "Your nameplates got a makeover"
 ----------------------------------------------------------------------------------------------------
+--
+-- Buttons, every one with somewhere to go:
+--   * "Pick a style": plates on for this profile and the Style page opens. With another nameplate
+--     addon loaded it is turned off for this character first, the screen reloads, and the Style
+--     page opens after the reload. While ElvUI's nameplates are on only the player can turn them
+--     off, so this button reads "Got it" and says how.
+--   * "Not now": the card goes away until the next login.
+--   * "Don't show again": the card is done for this profile (the toast's close button does the same).
+-- Escape counts as "Not now". Without the window kit the card is a toast, and without the toast a
+-- chat line; both close for good so they never repeat.
 
 ---@class SUI.Nameplates.Makeover
 local Makeover = { tries = 0 }
@@ -631,22 +641,78 @@ function Makeover:Text()
 	return L['Your nameplates got a makeover'], table.concat(lines, '\n\n')
 end
 
----"Not now": the card does not come back for this profile. Plates that were off stay off.
+---The first button: it only acknowledges while the player has to turn the other plates off alone.
+---@return string
+function Makeover:PickLabel()
+	if FindConflict() == SUITE then
+		return L['Got it']
+	end
+	return L['Pick a style']
+end
+
+---"Don't show again": the card does not come back for this profile. Plates that were off stay off.
 function Makeover:NotNow()
 	P.Migrate:FinishMakeover()
 end
 
+---Closed for good by a button that says nothing more (the toast's close button, the chat line).
+function Makeover:Dismiss()
+	self:NotNow()
+	Print(L['You can pick a nameplate style any time. Open SpartanUI settings and look under Nameplates.'])
+end
+
+---The next login or after a reload: do not open a window over a fight, a cinematic or setup.
+---@return boolean
+function Makeover:Blocked()
+	local hub = LibAT and LibAT.Setup and LibAT.Setup.Hub
+	local setupOpen = false
+	if hub and type(hub.IsShown) == 'function' then
+		local ok, shown = pcall(hub.IsShown, hub)
+		setupOpen = ok and shown == true
+	end
+	return (InCombatLockdown and InCombatLockdown()) or CinematicPlaying() or setupOpen
+end
+
+---Open the Style page when nothing is in the way (retries for a while).
+function Makeover:OpenStyleWhenSafe()
+	if self:Blocked() then
+		self.openTries = (self.openTries or 0) + 1
+		if self.openTries < 30 and C_Timer and C_Timer.After then
+			C_Timer.After(10, function()
+				Makeover:OpenStyleWhenSafe()
+			end)
+		end
+		return
+	end
+	SUI.Options:OpenTo({ 'Nameplates', 'style' })
+end
+
+---After the reload that "Pick a style" asked for, the Style page opens by itself, once.
+function Makeover:ResumeAfterReload()
+	if not P.Store:Get('styleAfterReload', 'char') then
+		return
+	end
+	P.Store:Set('styleAfterReload', nil, 'char', {})
+	if C_Timer and C_Timer.After then
+		C_Timer.After(MAKEOVER_DELAY, function()
+			Makeover:OpenStyleWhenSafe()
+		end)
+	end
+end
+
 ---"Pick a style": plates on for this profile and the style page opens. Another nameplate addon is
----turned off for this character first, then the screen reloads.
+---turned off for this character first, then the screen reloads and the page opens after it.
 function Makeover:Pick()
 	P.Migrate:FinishMakeover()
 	P.Store:Set('enabled', true)
 	local conflict = FindConflict()
 	if conflict == SUITE then
 		-- Its nameplates must be turned off in its own settings; ours start once they are
+		Print(string.format(L['%s draws your nameplates now. Turn its nameplates off in its own settings, then reload, to use these.'], AddonTitle(conflict)))
 		return
 	end
 	local others = ConflictsToTurnOff()
+	local turnedOff = false
 	-- This character only, like the setup conflicts step (never every character)
 	local character = Player():NamePlain()
 	if #others > 0 and type(character) == 'string' and character ~= '' and C_AddOns and C_AddOns.DisableAddOn then
@@ -657,10 +723,16 @@ function Makeover:Pick()
 		if C_AddOns.SaveAddOns then
 			C_AddOns.SaveAddOns()
 		end
-		if conflict and ReloadUI then
+		turnedOff = true
+	end
+	if conflict then
+		if turnedOff and ReloadUI then
+			P.Store:Set('styleAfterReload', true, 'char', {})
 			ReloadUI()
-			return
+		else
+			Print(string.format(L['%s draws your nameplates now. Turn it off in your addon list, then reload, to use these.'], AddonTitle(conflict)))
 		end
+		return
 	end
 	SUI.Options:OpenTo({ 'Nameplates', 'style' })
 end
@@ -673,7 +745,7 @@ local function BuildCard()
 		return nil
 	end
 	local ok, shell =
-		pcall(Kit.CreateShell, Kit, { name = 'SUI_NameplatesMakeover', title = L['Your nameplates got a makeover'], width = 440, height = 210, crest = false, titleFrame = true, close = false })
+		pcall(Kit.CreateShell, Kit, { name = 'SUI_NameplatesMakeover', title = L['Your nameplates got a makeover'], width = 480, height = 210, crest = false, titleFrame = true, close = false })
 	if not ok or type(shell) ~= 'table' or not shell.CreateFontString then
 		return nil
 	end
@@ -685,10 +757,13 @@ local function BuildCard()
 	text:SetJustifyH('LEFT')
 	text:SetWordWrap(true)
 	card.text = text
-	local pick = Kit:CreateButton(body, L['Pick a style'], 'primary', 150)
-	pick:SetPoint('BOTTOMRIGHT', body, 'BOTTOMRIGHT', -16, 14)
-	local later = Kit:CreateButton(body, L['Not now'], 'secondary', 110)
-	later:SetPoint('RIGHT', pick, 'LEFT', -8, 0)
+	local never = Kit:CreateButton(body, L["Don't show again"], 'secondary', 150)
+	never:SetPoint('BOTTOMRIGHT', body, 'BOTTOMRIGHT', -16, 14)
+	local later = Kit:CreateButton(body, L['Not now'], 'secondary', 100)
+	later:SetPoint('RIGHT', never, 'LEFT', -8, 0)
+	local pick = Kit:CreateButton(body, L['Pick a style'], 'primary', 140)
+	pick:SetPoint('RIGHT', later, 'LEFT', -8, 0)
+	card.pick, card.later, card.never = pick, later, never
 	pick:SetScript('OnClick', function()
 		card.answered = true
 		shell:Hide()
@@ -697,19 +772,17 @@ local function BuildCard()
 	later:SetScript('OnClick', function()
 		card.answered = true
 		shell:Hide()
+	end)
+	never:SetScript('OnClick', function()
+		card.answered = true
+		shell:Hide()
 		Makeover:NotNow()
 	end)
-	-- Escape counts as "Not now", but a cinematic closing every window does not
-	shell:HookScript('OnHide', function()
-		if not card.answered and not CinematicPlaying() then
-			card.answered = true
-			Makeover:NotNow()
-		end
-	end)
+	-- Escape counts as "Not now", and so does a cinematic closing every window
 	return card
 end
 
----Show the card now. Falls back to a toast with the same choice when the window kit is missing.
+---Show the card now. Falls back to a toast with the same choices when the window kit is missing.
 function Makeover:Show()
 	local title, text = self:Text()
 	if not self.card then
@@ -720,17 +793,31 @@ function Makeover:Show()
 	if card then
 		card.answered = false
 		card.text:SetText(text)
+		card.pick:SetText(self:PickLabel())
+		-- "Got it" already closes the card for good
+		if FindConflict() == SUITE then
+			card.never:Hide()
+		else
+			card.never:Show()
+		end
 		card.shell:Show()
 		return
 	end
 	local hub = LibAT and LibAT.Setup and LibAT.Setup.Hub
 	if hub and hub.ShowToast then
-		hub:ShowToast(title .. '. ' .. text, L['Pick a style'], function()
+		hub:ShowToast(title .. '. ' .. text, self:PickLabel(), function()
 			Makeover:Pick()
-		end, { duration = 30 })
+		end, {
+			duration = 30,
+			onDismiss = function()
+				Makeover:Dismiss()
+			end,
+		})
 		return
 	end
+	-- Nothing else can show it: say it once, with the way back to the styles
 	Print(title .. '. ' .. text)
+	self:Dismiss()
 end
 
 ---Try to show the card: never in combat, during a cinematic or over the setup window. Retries for
@@ -739,13 +826,7 @@ function Makeover:Try()
 	if self.shown or not self:Due() then
 		return
 	end
-	local hub = LibAT and LibAT.Setup and LibAT.Setup.Hub
-	local setupOpen = false
-	if hub and type(hub.IsShown) == 'function' then
-		local ok, shown = pcall(hub.IsShown, hub)
-		setupOpen = ok and shown == true
-	end
-	if (InCombatLockdown and InCombatLockdown()) or CinematicPlaying() or setupOpen then
+	if self:Blocked() then
 		self.tries = self.tries + 1
 		if self.tries < 30 then
 			self:Schedule(10)
@@ -990,16 +1071,26 @@ local function SetupStepHidden()
 	return false
 end
 
+---Under the look step while another nameplate addon draws the plates. The pick is saved either way
+---and starts working once the other plates are off: the Conflicts step turns an addon off (setup
+---reloads the screen at the end), ElvUI's nameplates can only be turned off in its own settings.
+---@return table|nil
 local function SetupBanner()
 	local folder = EnabledConflict()
-	if not folder then
-		return nil
+	if folder then
+		return {
+			title = string.format(L['%s draws your nameplates now'], AddonTitle(folder)),
+			text = L['Turn it off on the Conflicts step. Your pick starts when setup reloads your screen.'],
+			step = 'conflicts',
+		}
 	end
-	return {
-		title = string.format(L['%s draws your nameplates now'], AddonTitle(folder)),
-		text = L['Your pick is used once you turn it off on the Conflicts step.'],
-		step = 'conflicts',
-	}
+	if SuitePlatesOn(SUITE) then
+		return {
+			title = string.format(L['%s draws your nameplates now'], AddonTitle(SUITE)),
+			text = L['Turn its nameplates off in its own settings, then reload. Your pick starts after that.'],
+		}
+	end
+	return nil
 end
 
 ---Add the core's look step to SpartanUI's setup, next to the other look steps (after the unit
@@ -1019,8 +1110,11 @@ local function AddSetupStep()
 	P.host.AddSetupSteps(steps)
 end
 
----The Done page links (3.1): "Change what shows" and "Give the game back its settings".
-local function AddFinishLinks()
+---The Done page links (3.1): "Change what shows" and "Give the game back its settings". While
+---another nameplate addon draws the plates there is no settings page to open, so only the second
+---link is added: the setup step has still saved its choices, and this undoes them.
+---@param restoreOnly? boolean
+local function AddFinishLinks(restoreOnly)
 	local reg = SUI.Setup and SUI.Setup.registration
 	local config = type(reg) == 'table' and rawget(reg, 'config')
 	local finish = type(config) == 'table' and config.finish
@@ -1029,13 +1123,15 @@ local function AddFinishLinks()
 	end
 	module.finishLinksAdded = true
 	finish.links = finish.links or {}
-	table.insert(finish.links, {
-		title = L['Change what shows'],
-		caption = L['The parts on your nameplates and where they sit'],
-		onClick = function()
-			SUI.Options:OpenTo({ 'Nameplates', 'customize' })
-		end,
-	})
+	if not restoreOnly then
+		table.insert(finish.links, {
+			title = L['Change what shows'],
+			caption = L['The parts on your nameplates and where they sit'],
+			onClick = function()
+				SUI.Options:OpenTo({ 'Nameplates', 'customize' })
+			end,
+		})
+	end
 	table.insert(finish.links, {
 		title = L['Give the game back its settings'],
 		caption = L['Undo the game settings your nameplates changed'],
@@ -1121,6 +1217,22 @@ local function BuildOptions()
 	return tbl
 end
 
+---"Show all parts" draws boxes on the plates in the world. It is a look-around switch, so it goes
+---back off when the settings window closes (the Stage calls Close on every provider then).
+---@param provider table
+local function ResetShowAllOnClose(provider)
+	local close = provider.Close
+	provider.Close = function(...)
+		local regions = P.Regions
+		if regions and regions.SetShowAll then
+			regions:SetShowAll(false)
+		end
+		if close then
+			return close(...)
+		end
+	end
+end
+
 local function RegisterOptions()
 	if module.optionsAdded then
 		return
@@ -1129,6 +1241,7 @@ local function RegisterOptions()
 	SUI.Options:AddOptions(BuildOptions(), 'Nameplates', 'Root')
 	local provider = P:BuildPreviewProvider()
 	if provider and SUI.OptionsWindow and SUI.OptionsWindow.Stage then
+		ResetShowAllOnClose(provider)
 		SUI.OptionsWindow.Stage:Register(provider)
 	end
 end
@@ -1197,7 +1310,7 @@ local function Command(args)
 		for name, value in pairs(P.Caps:Snapshot()) do
 			P.log.info(name .. ' = ' .. tostring(value))
 		end
-		Print(L['Capabilities were written to the log.'])
+		Print(L['What this version of WoW can do was written to the log.'])
 	elseif cmd == 'cap' and rest then
 		local name, value = strsplit(' ', rest, 2)
 		local setting = nil
@@ -1221,6 +1334,24 @@ end
 -- Host configuration (6.11) and lifecycle
 ----------------------------------------------------------------------------------------------------
 
+---Open the settings window on a nameplate page, optionally scrolled to a control. The window only
+---scrolls to real controls, never to an inline group's own key, so a control inside an inline group
+---comes as a path: the groups first, the control last (for example { 'export', 'exportText' }).
+---@param page? string
+---@param optionKey? string|string[]
+local function OpenOptionsAt(page, optionKey)
+	local path = page and { 'Nameplates', page } or { 'Nameplates' }
+	local key = optionKey
+	if type(optionKey) == 'table' then
+		for i = 1, #optionKey - 1 do
+			path[#path + 1] = optionKey[i]
+		end
+		key = optionKey[#optionKey]
+	end
+	SUI.Options:OpenTo(path, key)
+end
+module.OpenOptionsAt = OpenOptionsAt
+
 ---@return Plates.HostConfig
 local function HostConfig()
 	return {
@@ -1238,9 +1369,7 @@ local function HostConfig()
 			end
 			return { 'Nameplates' }
 		end,
-		OpenOptions = function(page, optionKey)
-			SUI.Options:OpenTo(page and { 'Nameplates', page } or { 'Nameplates' }, optionKey)
-		end,
+		OpenOptions = OpenOptionsAt,
 		AddSetupSteps = function(steps)
 			local reg = SUI.Setup and SUI.Setup.registration
 			if not reg then
@@ -1262,6 +1391,7 @@ local function HostConfig()
 		end,
 		RegisterPreview = function(provider)
 			if SUI.OptionsWindow and SUI.OptionsWindow.Stage then
+				ResetShowAllOnClose(provider)
 				SUI.OptionsWindow.Stage:Register(provider)
 			end
 		end,
@@ -1319,6 +1449,7 @@ ActivateNewPlates = function()
 		if ProfileWantsPlates() then
 			StartEngine()
 		end
+		Makeover:ResumeAfterReload()
 		Makeover:Schedule(MAKEOVER_DELAY)
 	end)
 end
@@ -1352,6 +1483,11 @@ function module:OnEnable()
 		end
 		-- Another nameplate addon: the card says what switching means
 		if reason and reason:find('^conflict:') then
+			-- Data only (no game events, hooks, settings or windows): setup's look step still offers
+			-- "Match my look" and the War style, preselected, and its Done page can still hand the
+			-- game its settings back
+			RefreshLook()
+			AddFinishLinks(true)
 			WhenLoggedIn(function()
 				Makeover:Schedule(MAKEOVER_DELAY)
 			end)

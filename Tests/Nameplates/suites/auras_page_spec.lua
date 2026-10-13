@@ -14,7 +14,7 @@ if not H.ModuleExists() then
 end
 
 local EM_DASH = '\226\128\148'
-local REASON = 'Not available for enemy buffs on this version of WoW'
+local REASON = 'On this version of WoW, spell lists cannot pick enemy buffs. The row shows every buff you can remove.'
 
 local builds = 0
 

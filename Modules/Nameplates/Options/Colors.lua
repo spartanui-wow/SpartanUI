@@ -187,7 +187,7 @@ local function Entries(piece)
 		end
 		entries = Colors:SchemeRows(scheme, piece, settings, role)
 	end
-	return entries
+	return Colors:IncludeNPC(entries, piece, settings)
 end
 
 ---The kinds any scheme puts on a piece, so a row the player added can be told apart.
@@ -277,7 +277,7 @@ local function BuildRow(entry, custom, settings, natural)
 		id = id,
 		sentence = Colors:Sentence({ id = id }),
 		on = not custom.off[id],
-		removable = not natural[id],
+		removable = id ~= 'npc' and not natural[id],
 		badge = BadgeFor(kind),
 	}
 	if THREAT_ROWS[id] then
@@ -1217,11 +1217,251 @@ local function ListArg()
 			elseif id == 'mobType' then
 				ColorsPage.OpenHome('mobType')
 				return true
+			elseif id == 'npc' then
+				local host = P.host
+				if host and host.OpenOptions then
+					host.OpenOptions('colors', 'target')
+				end
+				return true
 			elseif id == 'class' then
 				return true
 			end
 			return false
 		end,
+	}
+end
+
+local NPC_PATH = { 'colors', 'npcs' }
+local function MobId(value)
+	local id = tonumber(value)
+	if not id or id ~= id or id < 1 or id > 10000000 or id ~= math.floor(id) then
+		return nil
+	end
+	return tostring(math.floor(id))
+end
+local function MobText(value)
+	if type(value) ~= 'string' then
+		return nil
+	end
+	local text = value:gsub('|', ''):gsub('^%s+', ''):gsub('%s+$', ''):sub(1, 80)
+	return text ~= '' and text or nil
+end
+
+function ColorsPage.AddNPC(id, hint)
+	if Options.Locked() then
+		return false
+	end
+	local key = MobId(id)
+	if not key then
+		state.npcNote = L['Type a mob id using numbers.']
+		return false
+	end
+	local row = P.util.Copy(P.Store:Get({ 'colors', 'npcs', key })) or {}
+	row.hint = row.hint or MobText(hint) or (L['Mob'] .. ' ' .. key)
+	P.Store:Set({ 'colors', 'npcs', key }, row)
+	state.npcId, state.npcNote = key, nil
+	Options:RequestRefresh(true)
+	return true
+end
+
+local function SelectedNPC()
+	local rows = P.Store:Get(NPC_PATH)
+	if type(rows) ~= 'table' then
+		return nil
+	end
+	if state.npcId and type(rows[state.npcId]) == 'table' then
+		return state.npcId
+	end
+	local first
+	for key, row in pairs(rows) do
+		if MobId(key) and type(row) == 'table' and (not first or tonumber(key) < tonumber(first)) then
+			first = key
+		end
+	end
+	return first
+end
+
+function ColorsPage.SetNPC(id, field, value)
+	if Options.Locked() then
+		return false
+	end
+	local key = MobId(id)
+	if not key or not P.Store:Get({ 'colors', 'npcs', key }) then
+		return false
+	end
+	if field == 'rename' or field == 'hint' then
+		value = MobText(value)
+	elseif field == 'color' then
+		if value ~= nil then
+			if type(value) ~= 'table' then
+				return false
+			end
+			for i = 1, 4 do
+				if type(value[i]) ~= 'number' or value[i] ~= value[i] or value[i] < 0 or value[i] > 1 then
+					return false
+				end
+			end
+		end
+	else
+		return false
+	end
+	return P.Store:Set({ 'colors', 'npcs', key, field }, value)
+end
+
+function ColorsPage.RemoveNPC(id)
+	if Options.Locked() then
+		return false
+	end
+	local key = MobId(id)
+	if not key then
+		return false
+	end
+	local changed = P.Store:Set({ 'colors', 'npcs', key }, nil)
+	state.npcId = nil
+	Options:RequestRefresh(true)
+	return changed
+end
+
+local function NPCField(field)
+	local id = SelectedNPC()
+	return id and P.Store:Get({ 'colors', 'npcs', id, field })
+end
+
+local function BuildSpecialMobs()
+	return {
+		type = 'group',
+		inline = true,
+		advanced = true,
+		order = 50,
+		name = L['Special mobs'],
+		args = {
+			note = { type = 'description', order = 1, name = L['Works out in the world and in old content. In current dungeons and raids the game hides which mob is which.'] },
+			status = {
+				type = 'description',
+				order = 2,
+				name = function()
+					return state.npcNote or ''
+				end,
+			},
+			target = {
+				type = 'execute',
+				order = 3,
+				name = L['Add my target'],
+				disabled = Options.Locked,
+				func = function()
+					local id, hint = P.Source.TargetMobPlain()
+					if not id then
+						state.npcNote = L['Target a mob whose name the game lets you see.']
+						return
+					end
+					ColorsPage.AddNPC(id, hint)
+				end,
+			},
+			id = {
+				type = 'input',
+				order = 4,
+				name = L['Add a mob id'],
+				disabled = Options.Locked,
+				get = function()
+					return ''
+				end,
+				set = function(_, value)
+					ColorsPage.AddNPC(value)
+				end,
+			},
+			mob = {
+				type = 'select',
+				order = 5,
+				name = L['Mob'],
+				values = function()
+					local values = {}
+					local rows = P.Store:Get(NPC_PATH)
+					if type(rows) ~= 'table' then
+						rows = {}
+					end
+					for key, row in pairs(rows) do
+						if MobId(key) and type(row) == 'table' then
+							values[key] = (type(row.hint) == 'string' and row.hint or L['Mob']) .. ' (' .. key .. ')'
+						end
+					end
+					return values
+				end,
+				get = SelectedNPC,
+				set = function(_, value)
+					state.npcId = value
+				end,
+			},
+			hint = {
+				type = 'input',
+				order = 6,
+				name = L['Name to help me find it'],
+				disabled = function()
+					return Options.Locked() or not SelectedNPC()
+				end,
+				get = function()
+					return NPCField('hint') or ''
+				end,
+				set = function(_, value)
+					ColorsPage.SetNPC(SelectedNPC(), 'hint', value)
+				end,
+			},
+			useColor = {
+				type = 'toggle',
+				order = 7,
+				name = L['Use a special color'],
+				disabled = function()
+					return Options.Locked() or not SelectedNPC()
+				end,
+				get = function()
+					return NPCField('color') ~= nil
+				end,
+				set = function(_, on)
+					ColorsPage.SetNPC(SelectedNPC(), 'color', on and { 1, 0.6, 0.1, 1 } or nil)
+				end,
+			},
+			color = {
+				type = 'color',
+				hasAlpha = false,
+				order = 8,
+				name = L['Plate color'],
+				disabled = function()
+					return Options.Locked() or NPCField('color') == nil
+				end,
+				get = function()
+					local c = NPCField('color') or { 1, 0.6, 0.1, 1 }
+					return c[1], c[2], c[3], c[4]
+				end,
+				set = function(_, r, g, b)
+					ColorsPage.SetNPC(SelectedNPC(), 'color', { r, g, b, 1 })
+				end,
+			},
+			rename = {
+				type = 'input',
+				order = 9,
+				name = L['New name'],
+				desc = L['Leave this empty to keep the mob name.'],
+				disabled = function()
+					return Options.Locked() or not SelectedNPC()
+				end,
+				get = function()
+					return NPCField('rename') or ''
+				end,
+				set = function(_, value)
+					ColorsPage.SetNPC(SelectedNPC(), 'rename', value)
+				end,
+			},
+			remove = {
+				type = 'execute',
+				order = 10,
+				name = L['Remove this mob'],
+				disabled = function()
+					return Options.Locked() or not SelectedNPC()
+				end,
+				func = function()
+					ColorsPage.RemoveNPC(SelectedNPC())
+				end,
+			},
+		},
 	}
 end
 
@@ -1236,6 +1476,7 @@ Options:AddPage('colors', 3, function()
 		type = 'group',
 		name = L['Colors'],
 		args = {
+			specialMobs = BuildSpecialMobs(),
 			scheme = {
 				type = 'select',
 				name = L['Color my plates by'],

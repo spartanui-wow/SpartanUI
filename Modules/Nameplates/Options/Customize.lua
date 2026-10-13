@@ -945,6 +945,91 @@ function KindArgs.icon(id, _, args)
 	args.color = Color(id, 'color', 100, L['Tint'], L['Colors the icon.'], { advanced = true })
 end
 
+local function AuraTextPosition(id, field, name, order)
+	local option = {
+		type = 'select',
+		name = name,
+		order = order,
+		desc = L['Pick where the text sits on each icon. The arrows move it a little.'],
+		values = POINT_LABELS,
+		sorting = P.Styles.Schema.POINTS,
+		disabled = LockedAuras,
+		get = function()
+			local anchor = Designer:AuraText(id, field)
+			return anchor and anchor.relPoint or 'CENTER'
+		end,
+		set = function(_, cell)
+			Designer:SetAuraTextCell(id, field, cell)
+		end,
+	}
+	if Widgets and Widgets:Has('AnchorGrid') then
+		option.dialogControl = Widgets:TypeName('AnchorGrid')
+		option.arg = {
+			step = 0.5,
+			bigStep = 2,
+			onNudge = function(dx, dy)
+				Designer:NudgeAuraText(id, field, dx, dy)
+			end,
+			offset = function()
+				local anchor = Designer:AuraText(id, field)
+				return anchor and anchor.x or 0, anchor and anchor.y or 0
+			end,
+			onReset = function()
+				Designer:SetAuraText(id, field, { x = 0, y = 0 })
+			end,
+		}
+	end
+	return option
+end
+
+local function AuraTextSize(id, field, name, order)
+	local range = P.Styles.Schema:FieldSpec('auras', field).fields.size
+	return {
+		type = 'range',
+		name = name,
+		order = order,
+		min = range.min,
+		max = range.max,
+		step = 1,
+		disabled = LockedAuras,
+		get = function()
+			local anchor = Designer:AuraText(id, field)
+			return anchor and anchor.size or 9
+		end,
+		set = function(_, size)
+			Designer:SetAuraText(id, field, { size = size }, 'auraTextSize:' .. id .. ':' .. field)
+		end,
+	}
+end
+
+function Customize.AuraTextGroup(id)
+	return {
+		type = 'group',
+		inline = true,
+		advanced = true,
+		name = L['Aura text'],
+		order = 107,
+		disabled = LockedAuras,
+		args = {
+			note = { type = 'description', order = 1, name = L['Move time left and stacks on the larger icon in the preview.'] },
+			timerPosition = AuraTextPosition(id, 'timerAnchor', L['Time left position'], 2),
+			timerSize = AuraTextSize(id, 'timerAnchor', L['Time left size'], 3),
+			stackPosition = AuraTextPosition(id, 'stackAnchor', L['Stack position'], 4),
+			stackSize = AuraTextSize(id, 'stackAnchor', L['Stack size'], 5),
+			reset = {
+				type = 'execute',
+				name = L['Reset aura text'],
+				order = 6,
+				disabled = LockedAuras,
+				desc = L['Put the time left and stacks back where this style puts them.'],
+				func = function()
+					Designer:ResetAuraText(id)
+				end,
+			},
+		},
+	}
+end
+
 function KindArgs.auras(id, _, args)
 	local locked = { disabled = LockedAuras }
 	args.lockNote = {
@@ -995,7 +1080,7 @@ function KindArgs.auras(id, _, args)
 		local limit = P.AuraRows and P.AuraRows.Limit and P.AuraRows.Limit('pandemic', Spec(id).row)
 		return (type(limit) == 'string' and limit ~= '') and limit or L['Your effects glow in their last 30% so you know to cast them again.']
 	end, { advanced = true, disabled = LockedAuras })
-	args.fontSize = Range(id, 'font.size', 107, L['Text size'], nil, 6, 40, 1, { advanced = true, disabled = LockedAuras })
+	args.auraText = Customize.AuraTextGroup(id)
 end
 
 function KindArgs.highlight(id, spec, args)

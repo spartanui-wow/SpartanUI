@@ -214,8 +214,9 @@ describe('style page: layout', function()
 		page.args.import.func()
 		page.args.share.func()
 		assert.same(calls[1], { 'customize' })
-		assert.same(calls[2], { 'sharing', 'import' })
-		assert.same(calls[3], { 'sharing', 'export' })
+		-- A path to the first control inside the inline group: the window never scrolls to a group's own key
+		assert.same(calls[2], { 'sharing', { 'import', 'importText' } })
+		assert.same(calls[3], { 'sharing', { 'export', 'exportText' } })
 		assert.equal(P.SharingPage.export.what, 'style')
 	end)
 
@@ -936,5 +937,130 @@ describe('style page: overlay writes', function()
 			Overlay.SetIn(overlay, { 'changes', 'tokens', 'bar' }, nil)
 		end)
 		assert.is_true(Store:Get({ 'tweaks', 'clean', 'remove', 'forces' }))
+	end)
+end)
+
+----------------------------------------------------------------------------------------------------
+-- Polish: where Share and Import land, and the style a game suggests first
+----------------------------------------------------------------------------------------------------
+
+describe('style page: Share and Import buttons', function()
+	before_each(Fresh)
+
+	it('land on real controls inside the Sharing page groups', function()
+		local sharing = P:BuildOptionsTable().args.sharing
+		for _, which in ipairs({ 'export', 'import' }) do
+			local path = P.SharingPage.FOCUS[which]
+			assert.truthy(#path >= 2, 'a path: the group first, a control last')
+			local node = sharing
+			for _, key in ipairs(path) do
+				node = node.args and node.args[key]
+				assert.not_nil(node, which .. ': ' .. key .. ' is on the page')
+			end
+			assert.not_equal(node.type, 'group', which .. ' ends on a control')
+			assert.is_nil(node.args, which .. ' ends on a control')
+		end
+	end)
+
+	it('send the host that path, not the key of the group', function()
+		local calls = {}
+		local before = P.host.OpenOptions
+		P.host.OpenOptions = function(page, key)
+			calls[#calls + 1] = { page, key }
+		end
+		local page = Page()
+		page.args.share.func()
+		page.args.import.func()
+		P.host.OpenOptions = before
+		assert.same(calls[1], { 'sharing', { 'export', 'exportText' } })
+		assert.same(calls[2], { 'sharing', { 'import', 'importText' } })
+	end)
+
+	it('send the card menu Share there too', function()
+		local calls = {}
+		local before = P.host.OpenOptions
+		P.host.OpenOptions = function(page, key)
+			calls[#calls + 1] = { page, key }
+		end
+		Style:Do('share', 'clean')
+		P.host.OpenOptions = before
+		assert.same(calls[1], { 'sharing', { 'export', 'exportText' } })
+		assert.equal(P.SharingPage.export.styleId, 'clean')
+	end)
+end)
+
+describe('gallery: the style a game suggests first', function()
+	before_each(Fresh)
+	local suggests = FLAVOR == 'era' or FLAVOR == 'tbc' or FLAVOR == 'forever'
+
+	local function Find(cards, value)
+		for index, card in ipairs(cards) do
+			if card.value == value then
+				return index, card
+			end
+		end
+	end
+
+	it('puts Bordered right after Match my look on Era, TBC and Forever only', function()
+		local values = Values(Gallery:Cards())
+		assert.equal(values[1], 'host', 'Match my look stays first')
+		local at, card = Find(Gallery:Cards(), 'bordered')
+		if suggests then
+			assert.equal(at, 2)
+			assert.equal(card.tag, 'Suggested')
+			assert.equal(values[3], 'clean')
+		else
+			assert.equal(values[2], 'clean')
+			assert.truthy(at > 2, 'in its usual place')
+			assert.is_nil(card.tag)
+		end
+	end)
+
+	it('does the same on the Style page and in the setup cards', function()
+		local at = Find(Gallery:Cards({ page = true }), 'bordered')
+		local cards = P.SetupSteps.Cards()
+		local inSetup = Find(cards, 'bordered')
+		assert.not_nil(inSetup, 'Bordered is one of the setup looks')
+		if suggests then
+			assert.equal(at, 2)
+			assert.equal(inSetup, 2)
+		else
+			assert.truthy(at > 2)
+			assert.truthy(inSetup > 2)
+		end
+	end)
+
+	it('shows In use instead of the suggestion on the card in use', function()
+		Store:Set('style', 'bordered')
+		local _, card = Find(Gallery:Cards(), 'bordered')
+		assert.equal(card.tag, 'In use')
+	end)
+
+	it('keeps every other card where the list puts it', function()
+		local values = Values(Gallery:Cards())
+		local without = {}
+		for _, value in ipairs(values) do
+			if value ~= 'bordered' then
+				without[#without + 1] = value
+			end
+		end
+		local order = {}
+		for _, item in ipairs(Registry:List(false)) do
+			if item.id ~= 'bordered' then
+				order[#order + 1] = item.matchesHost and 'host' or item.id
+			end
+		end
+		assert.same(without, order)
+	end)
+end)
+
+describe('style page: clean enemy players', function()
+	it('gives Clean a larger crowd control row for enemy players only', function()
+		local player = Merge:Resolve('clean', 'enemyPlayer', 'medium')
+		local npc = Merge:Resolve('clean', 'enemyNPC', 'medium')
+		assert.truthy(player.parts.cc.size > npc.parts.cc.size)
+		assert.truthy(player.parts.cc.max > npc.parts.cc.max)
+		local friend = Merge:Resolve('clean', 'friendlyPlayer', 'medium')
+		assert.equal(friend.parts.cc.size, npc.parts.cc.size)
 	end)
 end)

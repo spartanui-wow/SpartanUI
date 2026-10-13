@@ -213,3 +213,50 @@ describe('setup: the Done page', function()
 		assert.equal(#P.SetupSteps:ChangedSettings(), 0)
 	end)
 end)
+
+describe('setup: polish', function()
+	it('says the style and the size in words on the Done page', function()
+		local P = H.FreshCore()
+		HostStyle(P)
+		local step = Step(P)
+		assert.matches(step.summary(), '^Style: Host Look%. Size: Medium%.')
+		step.setVariant('clean', 'large')
+		assert.matches(step.summary(), '^Style: Clean%. Size: Large%.')
+		step.onLeave({})
+		assert.matches(step.summary(), '^Style: Clean%. Size: Large%. Game settings we change: ')
+		P.SetupSteps.pending = {}
+	end)
+
+	it('says friendly plates, not friends', function()
+		local P = H.FreshCore()
+		assert.equal(Step(P).text, 'The bars over enemy and friendly plates. You can change any part later.')
+	end)
+
+	it('puts Bordered right after Match my look on Era, TBC and Forever', function()
+		local P = H.FreshCore()
+		HostStyle(P)
+		local values = {}
+		for _, card in ipairs(Step(P).cards()) do
+			values[#values + 1] = card.value
+		end
+		assert.equal(values[1], 'host')
+		if FLAVOR == 'era' or FLAVOR == 'tbc' or FLAVOR == 'forever' then
+			assert.equal(values[2], 'bordered')
+		else
+			assert.equal(values[2], 'clean')
+		end
+	end)
+
+	it('offers no Match my look card until the host registers one, and the profile still falls back to Clean', function()
+		local P = H.FreshCore()
+		local step = Step(P)
+		local found = false
+		for _, card in ipairs(step.cards()) do
+			found = found or card.value == 'host'
+		end
+		assert.is_false(found, 'no host look, no Match my look card')
+		step.onLeave({})
+		assert.equal(P.db.profile.style, 'host', 'the profile still follows the host look, which falls back to Clean')
+		assert.equal(P.Styles.Registry:ResolveId('host'), 'clean')
+	end)
+end)

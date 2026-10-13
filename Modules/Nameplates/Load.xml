@@ -51,6 +51,7 @@
 	<Script file="Engine\Parts\AurasScan.lua" />
 	<Script file="Engine\Parts\ClassPower.lua" />
 	<Script file="Engine\Parts\Region.lua" />
+	<Script file="Engine\Actions.lua" />
 	<Script file="Engine\Pool.lua" />
 	<Script file="Engine\Suppress.lua" />
 	<Script file="Engine\Driver.lua" />

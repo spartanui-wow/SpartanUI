@@ -392,14 +392,16 @@ end
 
 Define('name', {
 	names = true,
+	messages = { 'IDENTITY_CHANGED' },
 	events = { 'UNIT_NAME_UPDATE' },
 	Fill = function(widget, src)
-		widget.text:SetText(src:NameSecret())
+		widget.text:SetText(src:DisplayNameSecret())
 	end,
 })
 
 Define('nameFill', {
 	names = true,
+	messages = { 'IDENTITY_CHANGED' },
 	events = { 'UNIT_NAME_UPDATE', 'UNIT_HEALTH', 'UNIT_MAXHEALTH' },
 	Fill = function(widget, src, event)
 		local fill = widget.fill
@@ -407,7 +409,7 @@ Define('nameFill', {
 			return
 		end
 		if event ~= 'UNIT_HEALTH' and event ~= 'UNIT_MAXHEALTH' then
-			local nameSecret = src:NameSecret()
+			local nameSecret = src:DisplayNameSecret()
 			fill.bg:SetText(nameSecret)
 			fill.fg:SetText(nameSecret)
 		end
@@ -619,6 +621,19 @@ Define('castTime', {
 	end,
 })
 
+Define('specName', {
+	events = { 'UNIT_NAME_UPDATE', 'UNIT_FACTION' },
+	messages = { 'ARENA_CHANGED', 'PVP_CHANGED', 'CONTEXT_CHANGED', 'FACTS_POLLED', 'IDENTITY_CHANGED' },
+	Fill = function(widget, src)
+		local nameSecret = src:SpecNameSecret()
+		if type(nameSecret) == 'nil' then
+			widget.text:SetText('')
+		else
+			widget.text:SetText(nameSecret)
+		end
+	end,
+})
+
 Define('arena', {
 	messages = { 'CONTEXT_CHANGED', 'FACTS_POLLED', 'ARENA_CHANGED' },
 	Fill = function(widget, src, event)
@@ -662,6 +677,11 @@ function TextParts.Limit(source)
 			return L['Not on this game version']
 		end
 		return L['Shows only during a Mythic+ run']
+	elseif source == 'specName' then
+		if P.Caps:Client() == 'era' then
+			return L['Not on this game version']
+		end
+		return L['Shows enemy player specs when the game shares them']
 	elseif source == 'arena' then
 		-- A data rule (the game has arenas or not), not an engine gate
 		if P.Caps:Client() == 'era' then
@@ -753,7 +773,7 @@ P.Parts:Register({
 		if not def then
 			return
 		end
-		if event == 'FULL' or def.on[event] then
+		if event == 'FULL' or def.on[event] or (event == 'COLORS' and (widget.spec.source == 'name' or widget.spec.source == 'nameFill')) then
 			widget.ownsColor = def.Fill(widget, src, event) == true
 		elseif OWN_MESSAGES[event] and not (widget.spec.colors and P.Colors:Program(widget.spec.colors, widget.plate.env.ctx).messages[event]) then
 			-- Every text part gets these; this source does not use this one

@@ -25,8 +25,10 @@ local L = P.L
 --
 -- The host decides where the step sits (order, chapter), when it is hidden and any banner (for
 -- example another nameplate addon that the conflicts step can turn off). The step's summary() is
--- the Done page line: the style, the size and the game settings we changed. SetupSteps:RestoreGame
--- backs the Done page's "Give the game back its settings" link.
+-- the Done page line: "Style: Clean. Size: Large." and the game settings we changed.
+-- SetupSteps:RestoreGame backs the Done page's "Give the game back its settings" link, which the
+-- host also adds while another nameplate addon draws the plates (nothing runs then, but the step
+-- has saved its choices).
 
 ---@class Plates.SetupSteps
 local SetupSteps = { pending = {} }
@@ -184,7 +186,7 @@ end
 ---The Done page line.
 ---@return string
 function SetupSteps:Summary()
-	local text = string.format('%s, %s.', self:StyleName(self:Style()), self:SizeName(self:Size()))
+	local text = string.format(L['Style: %s. Size: %s.'], self:StyleName(self:Style()), self:SizeName(self:Size()))
 	local changed = self:ChangedSettings()
 	if #changed > 0 then
 		text = text .. ' ' .. string.format(L['Game settings we change: %s.'], table.concat(changed, ', '))
@@ -218,7 +220,7 @@ function P:GetSetupSteps()
 			scope = 'profile',
 			name = L['Nameplates'],
 			title = L['Pick how your nameplates look'],
-			text = L['The bars over enemies and friends. You can change any part later.'],
+			text = L['The bars over enemy and friendly plates. You can change any part later.'],
 			cards = SetupSteps.Cards,
 			get = function()
 				return SetupSteps:Style()

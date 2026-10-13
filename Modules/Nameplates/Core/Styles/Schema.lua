@@ -117,6 +117,7 @@ local SIZE2 = { t = 'size2', min = 1, max = 1024 }
 local GROW2 = { t = 'size2', min = 0, max = 64 }
 local PAD4 = { t = 'pad4', min = 0, max = 64 }
 local FONT = Fields({ face = TOKEN_OR_STRING, size = Num(6, 40, true), flags = Enum(Schema.FLAGS), shadow = BOOL })
+local AURA_TEXT_ANCHOR = Fields({ point = Enum(Schema.POINTS), relPoint = Enum(Schema.POINTS), x = Num(-64, 64), y = Num(-64, 64), size = Num(6, 40, true) })
 local BORDER = Fields({ kind = Enum({ 'none', 'pixel', 'thick', 'shadow', 'beveled' }), size = Num(0, 8, true), color = TOKEN_OR_COLOR })
 
 ---Fields every part may hold.
@@ -211,6 +212,8 @@ Schema.PART_FIELDS = {
 		sort = Enum({ 'default', 'time', 'name' }),
 		pandemic = BOOL,
 		font = FONT,
+		timerAnchor = AURA_TEXT_ANCHOR,
+		stackAnchor = AURA_TEXT_ANCHOR,
 	},
 	highlight = {
 		art = Str(64),

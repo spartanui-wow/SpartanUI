@@ -17,13 +17,16 @@ local L = P.L
 --   * Conditions: P.Conditions is the catalog. CHOICES below gives the ones with an argument (a
 --     place, a role) and the wording players see. Any other catalog condition without an argument
 --     is offered by itself under its catalog label, so a condition registered later shows up here
---     with no change to this file. Conditions with a picker (spell lists, NPC lists) wait for the
---     phase that adds one (cond.phase against WhenBuilder.PHASE).
+--     with no change to this file. Conditions with a picker (spell lists, NPC lists) are offered
+--     through CHOICES rows that name the picker (Phase 8); the editor adds the picker next to them.
+--     A condition that cannot work on this client (cond.Unavailable) is shown grayed out with why.
 --   * Actions: WhenBuilder:RegisterAction. An action says which Conditions:AllowedActions key it
 --     needs, how it reads and writes its entry fields, how it is described and which controls it
 --     adds. The editor lists only the actions every chosen condition allows on this client, and
 --     says why when some are cut ("On this version of WoW, X can only change color or fade").
 --   * Templates: WhenBuilder:RegisterTemplate adds starting points to the list's Add menu.
+--   * Phase 8 registers the emphasis actions here (grow, paint, fade, glow, mark); their entries live
+--     in profile.actions and Engine/Actions.lua draws them. Every rule that fits applies there.
 --
 -- Contexts: 'layout' (special cases: plain conditions only, because the layout never waits for an
 -- answer the game hides) and 'emphasis' (conditions the engine decides, state conditions, and the
@@ -66,10 +69,11 @@ local L = P.L
 ---@field phase integer
 ---@field available boolean False when the situation does not happen on this client
 ---@field badge? string
+---@field picker? 'spellList'|'npcList' The editor shows this picker next to the condition
 
 ---@class Plates.WhenBuilder
 local WhenBuilder = {
-	PHASE = 4, -- conditions with a later phase are not offered (the phase that adds their picker raises this)
+	PHASE = 8, -- conditions with a later phase are not offered (the phase that adds their picker raises this)
 	MAX_CONDITIONS = 4,
 	actions = {},
 	actionOrder = {},
@@ -149,6 +153,24 @@ local CHOICES = {
 	Plate({ id = 'reaction', args = 'hostile', label = L['Plate is hostile'], phrase = L['hostile plates'] }),
 	Plate({ id = 'reaction', args = 'neutral', label = L['Plate is neutral'], phrase = L['neutral plates'] }),
 	Plate({ id = 'reaction', args = 'friendly', label = L['Plate is friendly'], phrase = L['friendly plates'] }),
+
+	-- Phase 8: what the "When" actions use. States and answers the game may keep are offered only in
+	-- the emphasis context; Choices filters them out of special cases.
+	Plate({ id = 'target', label = L['Plate is your target'], phrase = L['your target'] }),
+	Plate({ id = 'target', negate = true, label = L['Plate is not your target'], phrase = L['plates that are not your target'] }),
+	Plate({ id = 'focus', label = L['Plate is your focus'], phrase = L['your focus'] }),
+	Plate({ id = 'mouseover', label = L['Plate is under your mouse'], phrase = L['the plate under your mouse'] }),
+	Plate({ id = 'casting', label = L['Plate is casting'], phrase = L['plates that are casting'] }),
+	Plate({ id = 'unitInCombat', label = L['Enemy is fighting'], phrase = L['enemies that are fighting'] }),
+	Plate({ id = 'unitInCombat', negate = true, label = L['Enemy is not fighting'], phrase = L['enemies that are not fighting'] }),
+	Plate({ id = 'lowHealth', args = 20, label = L['Health is below 20%'], phrase = L['plates below 20% health'] }),
+	Plate({ id = 'lowHealth', args = 35, label = L['Health is below 35%'], phrase = L['plates below 35% health'] }),
+	Plate({ id = 'lowHealth', args = 50, label = L['Health is below half'], phrase = L['plates below half health'] }),
+	Plate({ id = 'totem', label = L['Plate is a totem'], phrase = L['totem plates'] }),
+	Plate({ id = 'auraPresent', picker = 'spellList', label = L['Has a spell I pick'], phrase = L['plates with a spell you picked'] }),
+	Plate({ id = 'auraMissing', picker = 'spellList', label = L['My debuff is missing'], phrase = L['plates missing your debuff'] }),
+	Plate({ id = 'castSpell', picker = 'spellList', label = L['Casting a spell I pick'], phrase = L['plates casting a spell you picked'] }),
+	Plate({ id = 'npcID', picker = 'npcList', label = L['Is an NPC I pick'], phrase = L['NPCs you picked'] }),
 }
 
 -- Conditions where two different arguments can never both be true
@@ -230,10 +252,17 @@ local function BuildAll(self)
 			kind = cond.kind,
 			phase = cond.phase or 0,
 			available = true,
+			picker = row.picker,
 		}
 		if Contains(row.notOn, client) then
 			choice.available = false
 			choice.badge = L['Does not happen on this version of WoW']
+		end
+		local reason = cond.Unavailable and cond.Unavailable()
+		if type(reason) == 'string' then
+			choice.available = false
+			choice.badge = L['Not on this version of WoW']
+			choice.reason = reason
 		end
 		local limit = cond.limits and cond.limits[client]
 		if type(limit) == 'string' then
@@ -417,7 +446,14 @@ function WhenBuilder:AllowedSet(conditions)
 			end
 		end
 	end
-	return allowed or { style = true, hide = true, name = true, size = true, alpha = true, color = true, glow = true }
+	if allowed then
+		return allowed
+	end
+	local all = {}
+	for _, key in ipairs(P.Conditions.ACTION_KEYS) do
+		all[key] = true
+	end
+	return all
 end
 
 ---Actions that can work for these conditions here, in menu order. Only these are offered.
@@ -684,6 +720,257 @@ WhenBuilder:RegisterAction({
 })
 
 ----------------------------------------------------------------------------------------------------
+-- The emphasis actions (Phase 8): profile.actions, drawn by Engine/Actions.lua
+----------------------------------------------------------------------------------------------------
+
+local EFFECTS = P.Actions and P.Actions.EFFECTS or {}
+
+local function ClearEffects(entry)
+	for _, def in pairs(EFFECTS) do
+		for field in pairs(def.fields) do
+			entry[field] = nil
+		end
+	end
+end
+
+local function ColorControl(ctx, name, field, order, advanced)
+	return {
+		type = 'color',
+		name = name,
+		order = order,
+		hasAlpha = true,
+		advanced = advanced,
+		get = function()
+			local entry = ctx.get()
+			local c = entry and entry[field] or { 1, 1, 1, 1 }
+			return c[1] or 1, c[2] or 1, c[3] or 1, c[4] or 1
+		end,
+		set = function(_, r, g, b, a)
+			ctx.update(function(entry)
+				entry[field] = { r, g, b, a or 1 }
+			end)
+		end,
+	}
+end
+
+local function Effect(id)
+	return EFFECTS[id] or {
+		Active = function()
+			return false
+		end,
+	}
+end
+
+WhenBuilder:RegisterAction({
+	id = 'grow',
+	label = L['Make it bigger'],
+	order = 110,
+	context = 'emphasis',
+	needs = 'grow',
+	Active = function(entry)
+		return Effect('grow').Active(entry)
+	end,
+	Start = function(entry)
+		ClearEffects(entry)
+		entry.grow = { 20, 4 }
+	end,
+	Clear = ClearEffects,
+	Describe = function(entry)
+		local g = entry.grow or { 0, 0 }
+		return string.format(L['make it %d pixels wider and %d taller'], g[1] or 0, g[2] or 0)
+	end,
+	Short = function(entry)
+		local g = entry.grow or { 0, 0 }
+		return string.format(L['Bigger by %d'], g[1] or 0)
+	end,
+	Controls = function(ctx)
+		local function Slider(name, index, order)
+			return {
+				type = 'range',
+				name = name,
+				desc = L['Plates grow in whole pixels, so edges stay sharp. Use a number below 0 to make them smaller.'],
+				order = order,
+				min = P.Actions and P.Actions.GROW_MIN or -40,
+				max = P.Actions and P.Actions.GROW_MAX or 60,
+				step = 1,
+				get = function()
+					local entry = ctx.get()
+					return entry and entry.grow and entry.grow[index] or 0
+				end,
+				set = function(_, value)
+					ctx.update(function(entry)
+						entry.grow = entry.grow or { 0, 0 }
+						entry.grow[index] = math.floor(value + 0.5)
+					end)
+				end,
+			}
+		end
+		return { width = Slider(L['Wider by'], 1, 1), height = Slider(L['Taller by'], 2, 2) }
+	end,
+})
+
+WhenBuilder:RegisterAction({
+	id = 'paint',
+	label = L['Change a color'],
+	order = 120,
+	context = 'emphasis',
+	needs = 'color',
+	Active = function(entry)
+		return Effect('paint').Active(entry)
+	end,
+	Start = function(entry)
+		ClearEffects(entry)
+		entry.paint = 'health'
+		entry.color = { 1, 0.5, 0.1, 1 }
+	end,
+	Clear = ClearEffects,
+	Describe = function(entry)
+		local labels = P.Actions and P.Actions.PIECE_LABELS or {}
+		return string.format(L['color the %s'], string.lower(labels[entry.paint] or tostring(entry.paint)))
+	end,
+	Short = function(entry)
+		local labels = P.Actions and P.Actions.PIECE_LABELS or {}
+		return string.format(L['%s color'], labels[entry.paint] or tostring(entry.paint))
+	end,
+	Controls = function(ctx)
+		return {
+			piece = {
+				type = 'select',
+				name = L['Color this'],
+				order = 1,
+				values = P.Actions and P.Actions.PIECE_LABELS or {},
+				sorting = P.Actions and P.Actions.PIECES or {},
+				get = function()
+					local entry = ctx.get()
+					return entry and entry.paint
+				end,
+				set = function(_, value)
+					ctx.update(function(entry)
+						entry.paint = value
+					end)
+				end,
+			},
+			color = ColorControl(ctx, L['Color'], 'color', 2),
+		}
+	end,
+})
+
+WhenBuilder:RegisterAction({
+	id = 'fade',
+	label = L['Fade the plate'],
+	order = 130,
+	context = 'emphasis',
+	needs = 'alpha',
+	Active = function(entry)
+		return Effect('fade').Active(entry)
+	end,
+	Start = function(entry)
+		ClearEffects(entry)
+		entry.fade = 0.4
+	end,
+	Clear = ClearEffects,
+	Describe = function(entry)
+		return string.format(L['fade it to %d%%'], math.floor((entry.fade or 1) * 100 + 0.5))
+	end,
+	Short = function(entry)
+		return string.format(L['Faded to %d%%'], math.floor((entry.fade or 1) * 100 + 0.5))
+	end,
+	Controls = function(ctx)
+		return {
+			fade = {
+				type = 'range',
+				name = L['How much shows'],
+				desc = L['0% hides the picture, 100% shows it fully. You can still click a faded plate.'],
+				order = 1,
+				min = 0,
+				max = 1,
+				step = 0.05,
+				isPercent = true,
+				get = function()
+					local entry = ctx.get()
+					return entry and entry.fade or 1
+				end,
+				set = function(_, value)
+					ctx.update(function(entry)
+						entry.fade = value
+					end)
+				end,
+			},
+		}
+	end,
+})
+
+WhenBuilder:RegisterAction({
+	id = 'glow',
+	label = L['Make it glow'],
+	order = 140,
+	context = 'emphasis',
+	needs = 'glow',
+	Active = function(entry)
+		return Effect('glow').Active(entry)
+	end,
+	Start = function(entry)
+		ClearEffects(entry)
+		entry.glow = { 1, 0.6, 0.1, 1 }
+	end,
+	Clear = ClearEffects,
+	Describe = function()
+		return L['make it glow']
+	end,
+	Short = function()
+		return L['Glow']
+	end,
+	Controls = function(ctx)
+		return { glow = ColorControl(ctx, L['Glow color'], 'glow', 1) }
+	end,
+})
+
+WhenBuilder:RegisterAction({
+	id = 'mark',
+	label = L['Show a mark'],
+	order = 150,
+	context = 'emphasis',
+	needs = 'mark',
+	Active = function(entry)
+		return Effect('mark').Active(entry)
+	end,
+	Start = function(entry)
+		ClearEffects(entry)
+		entry.mark = 'star'
+	end,
+	Clear = ClearEffects,
+	Describe = function(entry)
+		local labels = P.Actions and P.Actions.MARK_LABELS or {}
+		return string.format(L['show a %s above it'], string.lower(labels[entry.mark] or tostring(entry.mark)))
+	end,
+	Short = function(entry)
+		local labels = P.Actions and P.Actions.MARK_LABELS or {}
+		return string.format(L['%s mark'], labels[entry.mark] or tostring(entry.mark))
+	end,
+	Controls = function(ctx)
+		return {
+			mark = {
+				type = 'select',
+				name = L['Mark'],
+				order = 1,
+				values = P.Actions and P.Actions.MARK_LABELS or {},
+				sorting = P.Actions and P.Actions.MARK_ORDER or {},
+				get = function()
+					local entry = ctx.get()
+					return entry and entry.mark
+				end,
+				set = function(_, value)
+					ctx.update(function(entry)
+						entry.mark = value
+					end)
+				end,
+			},
+			markColor = ColorControl(ctx, L['Mark color'], 'markColor', 2, true),
+		}
+	end,
+})
+
+----------------------------------------------------------------------------------------------------
 -- Templates (starting points in the list's Add menu)
 ----------------------------------------------------------------------------------------------------
 
@@ -771,6 +1058,61 @@ WhenBuilder:RegisterTemplate({
 	-- Changes nothing until the player edits it: it picks the style the plates already use
 	entry = function()
 		return { conditions = { { id = 'place', args = 'dungeon' } }, style = P.Store:Get('style') or 'host' }
+	end,
+})
+
+WhenBuilder:RegisterTemplate({
+	id = 'casters',
+	label = L['Make casters stand out'],
+	order = 110,
+	context = 'emphasis',
+	entry = function()
+		return { conditions = { { id = 'casting' } }, kinds = { 'enemyNPC', 'enemyPlayer' }, glow = { 1, 0.6, 0.1, 1 } }
+	end,
+})
+WhenBuilder:RegisterTemplate({
+	id = 'notFighting',
+	label = L["Fade enemies I'm not fighting"],
+	order = 120,
+	context = 'emphasis',
+	entry = function()
+		return { conditions = { { id = 'unitInCombat', negate = true } }, kinds = { 'enemyNPC', 'minor' }, fade = 0.4 }
+	end,
+})
+WhenBuilder:RegisterTemplate({
+	id = 'focusBig',
+	label = L['Big plate for my focus'],
+	order = 130,
+	context = 'emphasis',
+	entry = function()
+		return { conditions = { { id = 'focus' } }, grow = { 24, 4 } }
+	end,
+})
+WhenBuilder:RegisterTemplate({
+	id = 'lowHealthWarn',
+	label = L['Warn when low on health'],
+	order = 140,
+	context = 'emphasis',
+	entry = function()
+		return { conditions = { { id = 'lowHealth', args = 35 } }, kinds = { 'enemyNPC', 'enemyPlayer' }, paint = 'health', color = { 1, 0.85, 0.1, 1 } }
+	end,
+})
+WhenBuilder:RegisterTemplate({
+	id = 'totems',
+	label = L['Mark totems'],
+	order = 150,
+	context = 'emphasis',
+	entry = function()
+		return { conditions = { { id = 'totem' } }, mark = 'triangle', markColor = { 0.4, 1, 0.4, 1 } }
+	end,
+})
+WhenBuilder:RegisterTemplate({
+	id = 'blankAction',
+	label = L['Start from scratch'],
+	order = 190,
+	context = 'emphasis',
+	entry = function()
+		return { conditions = { { id = 'target' } }, glow = { 1, 1, 1, 1 } }
 	end,
 })
 
@@ -961,6 +1303,32 @@ function WhenBuilder:Problems(entry, context)
 	if type(entry.kinds) == 'table' and #entry.kinds == 0 then
 		out[#out + 1] = L['No kinds of plates are picked.']
 	end
+	for _, clause in ipairs(entry.conditions or {}) do
+		local choice = self:ChoiceFor(clause)
+		if choice.reason then
+			out[#out + 1] = choice.reason
+		end
+		if choice.picker == 'spellList' and (type(clause.args) ~= 'table' or next(clause.args) == nil) then
+			out[#out + 1] = string.format(L['Pick at least one spell for "%s".'], choice.label)
+		elseif choice.picker == 'npcList' and (type(clause.args) ~= 'table' or next(clause.args) == nil) then
+			out[#out + 1] = string.format(L['Type at least one NPC ID for "%s".'], choice.label)
+		end
+	end
+	if action and P.Caps:Get('secrets') then
+		local hidden = 0
+		for _, clause in ipairs(entry.conditions or {}) do
+			local cond = Conditions:Get(clause.id)
+			if cond and cond.kind == 'engine' then
+				hidden = hidden + 1
+				if cond.curve and (action.needs == 'alpha' or action.needs == 'glow' or (action.needs == 'color' and entry.paint == 'name')) then
+					out[#out + 1] = L['On this version of WoW, low health can only tint the health bar or border, or show a mark.']
+				end
+			end
+		end
+		if hidden > 1 and (action.needs == 'alpha' or action.needs == 'glow') then
+			out[#out + 1] = L['On this version of WoW, fading or a glow can only wait for one condition the game decides. Remove one.']
+		end
+	end
 	return out
 end
 
@@ -1002,6 +1370,10 @@ local function SlotValues(opts, index)
 				text = text .. ' (' .. choice.badge .. ')'
 			end
 			values[choice.key] = text
+			order[#order + 1] = choice.key
+		elseif choice.reason and not used[choice.key] then
+			-- Grayed out: it cannot work on this client; picking it shows why under the editor
+			values[choice.key] = '|cff808080' .. choice.label .. ' (' .. choice.badge .. ')|r'
 			order[#order + 1] = choice.key
 		end
 	end
@@ -1118,6 +1490,111 @@ function WhenBuilder:Group(opts)
 			disabled = Disabled,
 		}
 	end
+
+	-- Pickers for conditions that take a list (spells, NPCs). Two spell lists and one NPC list per
+	-- entry: the n-th clause with that picker is edited by the n-th control.
+	local function PickerClause(entry, picker, nth)
+		local seen = 0
+		for index, clause in ipairs(entry and entry.conditions or {}) do
+			if WhenBuilder:ChoiceFor(clause).picker == picker then
+				seen = seen + 1
+				if seen == nth then
+					return clause, index
+				end
+			end
+		end
+		return nil, nil
+	end
+	local spellType = P.Widgets and P.Widgets.Has and P.Widgets:Has('SpellList') and P.Widgets:TypeName('SpellList') or nil
+	for nth = 1, 2 do
+		conditionArgs['spells' .. nth] = {
+			type = 'select',
+			name = function()
+				local entry = opts.get()
+				local clause = PickerClause(entry, 'spellList', nth)
+				return clause and string.format(L['Spells for "%s"'], WhenBuilder:ChoiceFor(clause).label) or ''
+			end,
+			order = 7 + nth / 10,
+			width = 'full',
+			dialogControl = spellType,
+			values = {},
+			get = function()
+				return nil
+			end,
+			set = function() end,
+			hidden = function()
+				local entry = opts.get()
+				return spellType == nil or PickerClause(entry, 'spellList', nth) == nil
+			end,
+			disabled = Disabled,
+			arg = {
+				list = function()
+					local clause = PickerClause(opts.get(), 'spellList', nth)
+					local list = {}
+					if clause and type(clause.args) == 'table' then
+						for key, value in pairs(clause.args) do
+							if type(key) == 'number' and value ~= false then
+								list[key] = (value == 'mine' or value == 'any') and value or 'any'
+							elseif type(value) == 'number' then
+								list[value] = 'any'
+							end
+						end
+					end
+					return list
+				end,
+				onChange = function(list)
+					Update(function(entry)
+						local _, index = PickerClause(entry, 'spellList', nth)
+						if not index then
+							return false
+						end
+						local copy = {}
+						for id, who in pairs(list or {}) do
+							copy[id] = who
+						end
+						entry.conditions[index].args = next(copy) and copy or nil
+					end)
+				end,
+				defaultWho = 'any',
+				empty = L['No spells picked yet.'],
+			},
+		}
+	end
+	conditionArgs.npcs = {
+		type = 'input',
+		name = L['NPC IDs'],
+		desc = L['Type NPC IDs with spaces or commas between them. Turn on IDs in tooltips to find them.'],
+		order = 7.5,
+		width = 'full',
+		get = function()
+			local clause = PickerClause(opts.get(), 'npcList', 1)
+			local ids = {}
+			for _, id in ipairs(clause and type(clause.args) == 'table' and clause.args or {}) do
+				ids[#ids + 1] = tostring(id)
+			end
+			return table.concat(ids, ', ')
+		end,
+		set = function(_, text)
+			Update(function(entry)
+				local _, index = PickerClause(entry, 'npcList', 1)
+				if not index then
+					return false
+				end
+				local ids = {}
+				for number in string.gmatch(text or '', '%d+') do
+					local id = tonumber(number)
+					if id and id > 0 and id < 2147483648 and #ids < 60 then
+						ids[#ids + 1] = id
+					end
+				end
+				entry.conditions[index].args = #ids > 0 and ids or nil
+			end)
+		end,
+		hidden = function()
+			return PickerClause(opts.get(), 'npcList', 1) == nil
+		end,
+		disabled = Disabled,
+	}
 
 	thenArgs.action = {
 		type = 'select',

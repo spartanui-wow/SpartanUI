@@ -162,6 +162,48 @@ local function Define(id, def)
 	SOURCES[id] = def
 end
 
+local PVP_MESSAGES = { 'ARENA_CHANGED', 'PVP_CHANGED', 'CONTEXT_CHANGED', 'FACTS_POLLED', 'IDENTITY_CHANGED' }
+local function FillDisplayIcon(widget, textureSecret, shownSecret)
+	widget.artKey = nil
+	widget.texture:SetTexture(textureSecret)
+	widget.texture:SetTexCoord(0, 1, 0, 1)
+	widget.texture:SetVertexColor(Unpack(widget.spec.color or WHITE))
+	widget.texture:Show()
+	Secret.SetAlphaFromBoolean(widget.texture, shownSecret, 1, 0)
+end
+
+Define('specIcon', {
+	events = { 'UNIT_NAME_UPDATE', 'UNIT_FACTION' },
+	messages = PVP_MESSAGES,
+	Fill = function(widget, src)
+		FillDisplayIcon(widget, src:SpecIconSecret(), src:HasSpecSecret())
+	end,
+})
+Define('roleIcon', {
+	events = { 'UNIT_NAME_UPDATE', 'UNIT_FACTION' },
+	messages = PVP_MESSAGES,
+	Fill = function(widget, src)
+		FillDisplayIcon(widget, src:RoleIconSecret(), src:ShowRoleIconSecret())
+	end,
+})
+Define('totem', {
+	events = { 'UNIT_NAME_UPDATE' },
+	messages = { 'FACTS_POLLED', 'IDENTITY_CHANGED' },
+	Fill = function(widget, src)
+		local icon = src:TotemIconPlain()
+		widget.artKey = nil
+		if icon then
+			widget.texture:SetTexture(icon)
+			widget.texture:SetTexCoord(0, 1, 0, 1)
+			widget.texture:SetVertexColor(Unpack(widget.spec.color or WHITE))
+			widget.texture:SetAlpha(1)
+			widget.texture:Show()
+		else
+			HideArt(widget)
+		end
+	end,
+})
+
 Define('raidMarker', {
 	messages = { 'RAID_TARGET_UPDATE' },
 	Fill = function(widget, src)
@@ -290,6 +332,13 @@ function IconParts.Limit(source)
 			return L['Shows only when the game lists quest goals in the mob tooltip']
 		end
 		return L['Shows only in the open world']
+	elseif source == 'specIcon' or source == 'roleIcon' then
+		if P.Caps:Client() == 'era' then
+			return L['Not on this game version']
+		end
+		return L['Shows enemy player specs when the game shares them']
+	elseif source == 'totem' then
+		return L['Shows known totems when the game shares their names']
 	elseif source == 'faction' then
 		return L['Shows only on players flagged for PvP']
 	end
@@ -308,7 +357,7 @@ local NO_EVENTS = {} -- read only
 P.Parts:Register({
 	id = 'icon',
 	kinds = { 'icon' },
-	messages = { 'RAID_TARGET_UPDATE', 'QUESTS_CHANGED', 'FOCUS_CHANGED' },
+	messages = { 'RAID_TARGET_UPDATE', 'QUESTS_CHANGED', 'FOCUS_CHANGED', 'ARENA_CHANGED', 'PVP_CHANGED', 'CONTEXT_CHANGED', 'FACTS_POLLED', 'IDENTITY_CHANGED' },
 	events = function(spec)
 		local def = SOURCES[spec.source]
 		return def and def.events or NO_EVENTS

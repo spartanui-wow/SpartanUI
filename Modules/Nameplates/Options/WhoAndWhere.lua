@@ -16,6 +16,8 @@ local WhenBuilder = P.WhenBuilder
 -- Where things are stored (all sparse, read again on every call):
 --   profile.assign[kind], profile.modes[kind]   style and Show choice per kind of plate
 --   profile.when                                 the special cases, written whole
+--   profile.actions                              the "When" actions (Phase 8), written whole
+--   profile.behavior.healerEmphasis              false turns healer emphasis off
 --   profile.behavior[key], behavior.places[place][key]   what the Driver reads (see Engine/Driver.lua)
 --   profile.cvars[name]                          game settings the player set on our pages
 --   profile.tweaks[styleId].changes.regions      click and stacking area padding
@@ -254,6 +256,142 @@ function W.ApplyWhenChange(change)
 	W.editing = editing
 	WriteWhen(list)
 	Options:RequestRefresh(true)
+end
+
+----------------------------------------------------------------------------------------------------
+-- "When" actions (Phase 8): profile.actions, every rule that fits applies (Engine/Actions.lua)
+----------------------------------------------------------------------------------------------------
+
+W.editingAction = nil
+
+local function ActionList()
+	local list = Store:Get('actions')
+	return type(list) == 'table' and Copy(list) or {}
+end
+
+local function WriteActions(list)
+	if #list == 0 then
+		Store:Set('actions', nil)
+	else
+		Store:Set('actions', list)
+	end
+end
+
+local function ActionIndex(id)
+	return type(id) == 'string' and tonumber(string.match(id, '^a(%d+)$')) or nil
+end
+
+---The "When" actions as RuleList rows ('a' plus the place in the list).
+---@return Plates.RuleRow[]
+function W.ActionRows()
+	local rows = {}
+	for index, entry in ipairs(ActionList()) do
+		local problems = WhenBuilder:Problems(entry, 'emphasis')
+		rows[#rows + 1] = {
+			id = 'a' .. index,
+			sentence = WhenBuilder:Sentence(entry),
+			whenText = WhenBuilder:Short(entry, 'emphasis'),
+			on = not entry.off,
+			removable = true,
+			badge = problems[1] or WhenBuilder:EntryBadge(entry, 'emphasis'),
+			tooltip = WhenBuilder:Describe(entry, 'emphasis'),
+		}
+	end
+	return rows
+end
+
+---The Add menu of the actions list: one choice per emphasis template.
+---@return table[]
+function W.ActionAddChoices()
+	local out = {}
+	for _, template in ipairs(WhenBuilder:Templates('emphasis')) do
+		out[#out + 1] = { id = 'tpl:' .. template.id, label = template.label }
+	end
+	return out
+end
+
+---Open (or close) the editor for an actions row.
+---@param id string|number
+---@return boolean open
+function W.ToggleActionEditing(id)
+	local index = ActionIndex(id)
+	if index and W.editingAction ~= index and ActionList()[index] then
+		W.editingAction = index
+	else
+		W.editingAction = nil
+	end
+	Options:RequestRefresh(true)
+	return W.editingAction ~= nil
+end
+
+---The action entry in the editor (a copy), or nil.
+---@return table|nil
+function W.EditedAction()
+	local index = W.editingAction
+	if not index then
+		return nil
+	end
+	local entry = ActionList()[index]
+	return entry and Copy(entry) or nil
+end
+
+---Store the edited action entry back in its place.
+---@param entry table
+function W.SetEditedAction(entry)
+	if Locked() then
+		return
+	end
+	local index = W.editingAction
+	local list = ActionList()
+	if index and list[index] then
+		list[index] = entry
+		WriteActions(list)
+	end
+end
+
+---Apply a RuleList change to the actions list (reorder, switch, remove or add from a template).
+---@param change Plates.RuleChange
+function W.ApplyActionChange(change)
+	if Locked() then
+		return
+	end
+	local old = ActionList()
+	local list = {}
+	local editing
+	for position, id in ipairs(change.order or {}) do
+		local entry
+		local index = ActionIndex(id)
+		if index and old[index] then
+			entry = Copy(old[index])
+			if index == W.editingAction then
+				editing = #list + 1
+			end
+		elseif type(id) == 'string' and string.sub(id, 1, 4) == 'tpl:' then
+			entry = WhenBuilder:NewEntry(string.sub(id, 5))
+			if entry and change.action == 'add' then
+				editing = #list + 1
+			end
+		end
+		if entry then
+			local row = change.rows and change.rows[position]
+			entry.off = (row and row.on == false) or nil
+			list[#list + 1] = entry
+		end
+	end
+	W.editingAction = editing
+	WriteActions(list)
+	Options:RequestRefresh(true)
+end
+
+---Healer emphasis: small, soft enemy plates for healers (on unless turned off).
+---@return boolean
+function W.HealerEmphasis()
+	return Store:Get({ 'behavior', 'healerEmphasis' }) ~= false
+end
+
+---@param on boolean
+function W.SetHealerEmphasis(on)
+	Store:Set({ 'behavior', 'healerEmphasis' }, (not on) and false or nil)
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -1045,6 +1183,53 @@ local function WhenGroup()
 	return { type = 'group', name = L['Special cases'], inline = true, order = 3, args = args }
 end
 
+local function ActionsGroup()
+	local listType = P.Widgets:Has('RuleList') and P.Widgets:TypeName('RuleList') or nil
+	local args = {}
+	args.list = {
+		type = 'select',
+		name = '',
+		order = 1,
+		width = 'full',
+		dialogControl = listType,
+		values = {},
+		get = function()
+			return W.editingAction and ('a' .. W.editingAction) or nil
+		end,
+		set = function() end,
+		disabled = Locked,
+		arg = {
+			header = L['Make plates stand out when something happens, like a mob starting to cast. Every rule that fits applies; when two change the same thing, the higher one wins. Click one to edit it.'],
+			addLabel = L['Add a rule'],
+			empty = L['No rules yet. Add one to make casters glow, fade enemies you are not fighting and more.'],
+			lockedReason = W.LOCKED,
+			rows = W.ActionRows,
+			addChoices = W.ActionAddChoices,
+			onChange = W.ApplyActionChange,
+			onEdit = function(id, what)
+				if what == 'row' then
+					W.ToggleActionEditing(id)
+					return true
+				end
+				return false
+			end,
+		},
+	}
+	args.editor = WhenBuilder:Group({
+		context = 'emphasis',
+		order = 2,
+		name = L['Edit this rule'],
+		get = W.EditedAction,
+		set = W.SetEditedAction,
+		disabled = Locked,
+		onDone = function()
+			W.editingAction = nil
+			Options:RequestRefresh(false)
+		end,
+	})
+	return { type = 'group', name = L['When something happens'], inline = true, order = 3.5, args = args }
+end
+
 local function BehaviorGroup()
 	local fadeWalls = ToggleNumber('fadeBehindWalls', 0.4)
 	local rangeFade = ToggleNumber('rangeFade', 0.5)
@@ -1265,6 +1450,18 @@ local function BehaviorGroup()
 		end,
 	}
 	args.onlyFightingNote = FeatureNote('onlyFighting', 21.1, true)
+	args.healerEmphasis = {
+		type = 'toggle',
+		name = L['Quiet enemy plates when I heal'],
+		desc = L['As a healer, enemy plates stay small and soft until they matter: your target, your focus, the one under your mouse and any enemy that casts. You also get a bigger row of buffs you can remove.'],
+		order = 21.5,
+		width = 'full',
+		advanced = true,
+		get = W.HealerEmphasis,
+		set = function(_, value)
+			W.SetHealerEmphasis(value)
+		end,
+	}
 	args.wallsAmount = {
 		type = 'range',
 		name = L['How much plates fade behind walls'],
@@ -1542,6 +1739,7 @@ end
 -- Another profile has another list: the editor must not point into it
 P:On('PROFILE_CHANGED', function()
 	W.editing = nil
+	W.editingAction = nil
 end, W)
 
 -- The game settings table follows what the Driver writes as places change
@@ -1564,6 +1762,7 @@ Options:AddPage('whoAndWhere', 5, function()
 			},
 			kinds = KindsGroup(),
 			when = WhenGroup(),
+			actions = ActionsGroup(),
 			behavior = BehaviorGroup(),
 			games = GameGroup(),
 			places = PlacesGroup(),

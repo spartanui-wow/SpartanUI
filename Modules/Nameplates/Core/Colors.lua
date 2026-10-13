@@ -163,7 +163,21 @@ function Colors:SchemeRows(scheme, piece, settings, role)
 			out[#out + 1] = { id = entry }
 		end
 	end
-	return out
+	return self:IncludeNPC(out, piece, settings)
+end
+
+function Colors:IncludeNPC(entries, piece, settings)
+	local npcs = settings.colors and settings.colors.npcs
+	if piece ~= 'health' or type(npcs) ~= 'table' or not next(npcs) then
+		return entries
+	end
+	for _, entry in ipairs(entries) do
+		if entry.id == 'npc' then
+			return entries
+		end
+	end
+	table.insert(entries, 1, { id = 'npc' })
+	return entries
 end
 
 local function Color4(c)
@@ -199,6 +213,7 @@ function Colors:Compile(piece, settings, ctx)
 		entries = self:SchemeRows(scheme, piece, settings, ctx.role)
 	end
 
+	self:IncludeNPC(entries, piece, settings)
 	local palette = P.Roles.Palette(settings.colorBlind, settings.threat and settings.threat.colors)
 	local program = {
 		piece = piece,
@@ -714,6 +729,35 @@ Colors:RegisterKind({
 	end,
 	Sentence = function()
 		return L['Class colors for players']
+	end,
+})
+
+Colors:RegisterKind({
+	id = 'npc',
+	label = L['Special mobs'],
+	messages = { 'IDENTITY_CHANGED' },
+	type = 'mapped',
+	pieces = { 'health', 'border', 'name' },
+	default = {},
+	events = { 'UNIT_NAME_UPDATE' },
+	Resolve = function(env)
+		if not env.src or (env.facts and env.facts.isPlayer) then
+			return false
+		end
+		local row = env.src:SpecialMobPlain()
+		local color = row and row.color
+		if type(color) ~= 'table' then
+			return false
+		end
+		for i = 1, 4 do
+			if type(color[i]) ~= 'number' or color[i] ~= color[i] or color[i] < 0 or color[i] > 1 then
+				return false
+			end
+		end
+		return true, color[1], color[2], color[3], color[4]
+	end,
+	Sentence = function()
+		return L['The color you picked for this mob']
 	end,
 })
 

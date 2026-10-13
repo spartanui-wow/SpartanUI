@@ -66,7 +66,7 @@ Source.Live = Live
 ---@param unit? string
 ---@return Plates.LiveSource
 function Source.NewLive(unit)
-	return setmetatable({ unit = unit, isSample = false, Call = Direct, readStamp = 0, castInfo = { n = 0 }, tankInfo = {}, auraLists = {} }, Live)
+	return setmetatable({ unit = unit, isSample = false, Call = Direct, readStamp = 0, castInfo = { n = 0 }, tankInfo = {}, auraLists = {}, scoreInfo = { n = 0 } }, Live)
 end
 
 ---@param unit string|nil
@@ -123,6 +123,9 @@ function Live:ReadFacts(facts)
 	facts.isPlayer = Plain(call(Fn(UnitIsPlayer), u))
 	facts.playerControlled = Plain(call(Fn(UnitPlayerControlled), u))
 	facts.isMinion = Optional(call, UnitIsMinion, u)
+	if P.Data.Totems:ForNPC(self:CreatureIDPlain(), P.Caps:Client()) then
+		facts.isMinion = true
+	end
 	facts.classification = Plain(call(Fn(UnitClassification), u))
 	facts.effectiveLevel = Plain(call(Fn(UnitEffectiveLevel), u))
 	facts.isBoss = Optional(call, UnitIsBossMob, u)
@@ -228,6 +231,18 @@ end
 ---@return boolean readable
 function Live:NamePlain()
 	return Plain((self.Call(Fn(UnitName), self.unit)))
+end
+
+function Live:FullNamePlain()
+	local name, realm = self.Call(Fn(UnitFullName), self.unit)
+	name, realm = Plain(name), Plain(realm)
+	if type(name) ~= 'string' then
+		return nil, false
+	end
+	if type(realm) == 'string' and realm ~= '' then
+		return name .. '-' .. realm, true
+	end
+	return name, true
 end
 
 function Live:ClassTokenSecret()
@@ -548,8 +563,11 @@ end
 ---Readable creature id, nil when identity is hidden (UnitCreatureID returns nothing then).
 ---@return integer|nil
 function Live:CreatureIDPlain()
-	if Secret.ShouldUnitIdentityBeSecret(self.unit) then
-		return nil
+	if C_Secrets and C_Secrets.ShouldUnitIdentityBeSecret then
+		local ok, hidden = pcall(C_Secrets.ShouldUnitIdentityBeSecret, self.unit)
+		if not ok or Plain(hidden) ~= false then
+			return nil
+		end
 	end
 	if UnitCreatureID then
 		return (Plain(self.Call(UnitCreatureID, self.unit)))
@@ -1117,6 +1135,262 @@ function Live:ArenaIndexPlain()
 	return nil
 end
 
+-- Phase 9 display reads. Role pictures are whole files so no hidden role needs Lua cropping.
+local ROLE_TEXTURES = {
+	TANK = 'Interface\\Icons\\Ability_Warrior_DefensiveStance',
+	HEALER = 'Interface\\Icons\\Spell_Holy_Heal',
+	DAMAGER = '',
+}
+Source.ROLE_TEXTURES = ROLE_TEXTURES
+local ROLE_OPTIONS = { displayRoleIcon = true, textureMap = ROLE_TEXTURES }
+local NPC_PATH = { 'colors', 'npcs' }
+
+function Source.ArenasAvailablePlain()
+	if P.Caps:Client() == 'era' then
+		return false
+	end
+	if not GetArenaOpponentSpec then
+		return false
+	end
+	if P.Caps:Client() == 'forever' then
+		local ok, active = pcall(Fn(IsActiveBattlefieldArena))
+		local arena = ok and Plain(active)
+		return arena == true
+	end
+	return true
+end
+
+local function EnemyPlayer(self)
+	return Plain(self.Call(Fn(UnitIsPlayer), self.unit)) == true and Plain(self.Call(Fn(UnitCanAttack), 'player', self.unit)) == true
+end
+
+local function SpecInfo(id, gender)
+	local getInfo = GetSpecializationInfoByID or GetSpecializationInfoForSpecID
+	if type(id) ~= 'number' or id <= 0 or not getInfo then
+		return nil
+	end
+	local ok, _, name, _, icon, role = pcall(getInfo, id, gender)
+	if ok then
+		return Plain(name), Plain(icon), Plain(role)
+	end
+end
+
+local CLASS_IDS = { WARRIOR = 1, PALADIN = 2, HUNTER = 3, ROGUE = 4, PRIEST = 5, DEATHKNIGHT = 6, SHAMAN = 7, MAGE = 8, WARLOCK = 9, MONK = 10, DRUID = 11, DEMONHUNTER = 12, EVOKER = 13 }
+local function ScoreDisplay(self, name)
+	local class = self:ClassTokenPlain()
+	local classID = class and CLASS_IDS[class]
+	local countFn = C_SpecializationInfo and C_SpecializationInfo.GetNumSpecializationsForClassID
+	if classID and countFn and GetSpecializationInfoForClassID then
+		local count = Plain(Guarded(countFn, classID))
+		if type(count) == 'number' then
+			for i = 1, count do
+				local _, specName, _, icon, role = Guarded(GetSpecializationInfoForClassID, classID, i)
+				specName, icon, role = Plain(specName), Plain(icon), Plain(role)
+				if specName == name then
+					return name, icon, role
+				end
+			end
+		end
+	end
+	return name, nil, nil
+end
+
+-- Score rows can have readable names but hidden stats. Stop at the first hidden field.
+local function ScoreSpec(self)
+	local name, readable = self:NamePlain()
+	if not readable or type(name) ~= 'string' then
+		return nil
+	end
+	local fullName = self:FullNamePlain()
+	local count = Guarded(Fn(GetNumBattlefieldScores))
+	count = Plain(count)
+	if type(count) ~= 'number' then
+		return nil
+	end
+	for i = 1, count do
+		local rowName, spec
+		if P.Caps:Get('secrets') and C_PvP and C_PvP.GetScoreInfo then
+			local info = Guarded(C_PvP.GetScoreInfo, i)
+			if not Secret.CanIndex(info) then
+				break
+			end
+			local hidden = false
+			for key, value in pairs(info) do
+				if not Secret.CanAccess(key) or not Secret.CanAccess(value) then
+					hidden = true
+					break
+				end
+			end
+			if hidden then
+				break
+			end
+			rowName, spec = info.name, info.talentSpec
+		elseif GetBattlefieldScore then
+			local info = FillList(self.scoreInfo, Guarded(GetBattlefieldScore, i))
+			rowName, spec = Plain(info[1]), Plain(info[16])
+		else
+			break
+		end
+		if (rowName == name or rowName == fullName) and type(spec) == 'string' and spec ~= '' then
+			return ScoreDisplay(self, spec)
+		end
+	end
+end
+
+local function ReadPvp(self)
+	if self.reading and self.pvpStamp == self.readStamp then
+		return
+	end
+	self.pvpStamp = self.reading and self.readStamp or nil
+	self.specNameRaw, self.specIconRaw, self.hasSpecRaw = nil, nil, false
+	self.roleIconRaw, self.showRoleRaw = nil, false
+	if not Source.ArenasAvailablePlain() or not EnemyPlayer(self) then
+		return
+	end
+	local index = self:ArenaIndexPlain()
+	local util = UnitFrameUtil
+	if index and util and util.GetArenaOpponentSpecDisplayInfo then
+		local ok, info = pcall(util.GetArenaOpponentSpecDisplayInfo, index, ROLE_TEXTURES)
+		if ok and Secret.CanIndex(info) then
+			self.specNameRaw, self.specIconRaw, self.hasSpecRaw = info.specName, info.specIcon, info.hasSpec
+			self.roleIconRaw, self.showRoleRaw = info.roleIconTexture, info.showRoleIcon
+			return
+		end
+	end
+	local name, icon, role
+	if index and GetArenaOpponentSpec then
+		local id, gender = Guarded(GetArenaOpponentSpec, index)
+		name, icon, role = SpecInfo(Plain(id), Plain(gender))
+	end
+	if not name then
+		name, icon, role = ScoreSpec(self)
+	end
+	self.specNameRaw, self.specIconRaw, self.hasSpecRaw = name, icon, name ~= nil
+	if role == 'HEALER' or role == 'TANK' then
+		self.roleIconRaw, self.showRoleRaw = ROLE_TEXTURES[role], true
+	elseif util and util.GetUnitRoleIconDisplayInfo then
+		local ok, info = pcall(util.GetUnitRoleIconDisplayInfo, self.unit, ROLE_OPTIONS)
+		if ok and Secret.CanIndex(info) then
+			self.roleIconRaw, self.showRoleRaw = info.roleIconTexture, info.showRoleIcon
+		end
+	end
+end
+
+function Live:SpecNameSecret()
+	ReadPvp(self)
+	return self.specNameRaw
+end
+function Live:SpecIconSecret()
+	ReadPvp(self)
+	return self.specIconRaw
+end
+function Live:HasSpecSecret()
+	ReadPvp(self)
+	return self.hasSpecRaw
+end
+function Live:RoleIconSecret()
+	ReadPvp(self)
+	return self.roleIconRaw
+end
+function Live:ShowRoleIconSecret()
+	ReadPvp(self)
+	return self.showRoleRaw
+end
+function Live:SpecNamePlain()
+	return Plain(self:SpecNameSecret())
+end
+function Live:SpecIconPlain()
+	return Plain(self:SpecIconSecret())
+end
+function Live:RoleIconPlain()
+	return Plain(self:RoleIconSecret())
+end
+
+function Live:SpecialMobPlain()
+	local id = self:CreatureIDPlain()
+	if not id then
+		return nil
+	end
+	NPC_PATH[3] = tostring(id)
+	local row = P.Store:Get(NPC_PATH)
+	return type(row) == 'table' and row or nil
+end
+
+function Live:DisplayNameSecret()
+	local row = self:SpecialMobPlain()
+	if row and type(row.rename) == 'string' and row.rename ~= '' then
+		return row.rename
+	end
+	return self:NameSecret()
+end
+
+function Live:IsTotemPlain()
+	local icon, readable = self:TotemIconPlain()
+	if not readable then
+		return nil, false
+	end
+	return icon ~= nil, true
+end
+
+function Live:TotemIconPlain()
+	local data = P.Data.Totems
+	local row = data:ForNPC(self:CreatureIDPlain(), P.Caps:Client())
+	if row then
+		return row.icon, true
+	end
+	if not P.Caps:Get('secrets') then
+		return nil, true
+	end
+	local minion = Optional(self.Call, UnitIsMinion, self.unit)
+	local controlled = Plain(self.Call(Fn(UnitPlayerControlled), self.unit))
+	if minion ~= true or controlled ~= true then
+		return nil, true
+	end
+	local owned = Plain(self.Call(Fn(UnitIsOwnerOrControllerOfUnit), 'player', self.unit))
+	if owned ~= true then
+		return nil, false
+	end
+	local name, readable = self:NamePlain()
+	if not readable or type(name) ~= 'string' or not GetTotemInfo then
+		return nil, false
+	end
+	for slot = 1, 4 do
+		local have, totemName, _, _, icon = Guarded(GetTotemInfo, slot)
+		have, totemName, icon = Plain(have), Plain(totemName), Plain(icon)
+		if have == true and totemName == name then
+			return icon, true
+		end
+	end
+	return nil, true
+end
+
+function Source.TargetMobPlain()
+	local target = Source.NewLive('target')
+	if Plain(target.Call(Fn(UnitIsPlayer), 'target')) == true then
+		return nil
+	end
+	return target:CreatureIDPlain(), target:NamePlain()
+end
+
+local function PvpChanged()
+	if P.Driver and P.Driver.Relay then
+		P.Driver:Relay('PVP_CHANGED')
+	end
+end
+P:On('ENGINE_ENABLED', function()
+	for _, event in ipairs({ 'UPDATE_BATTLEFIELD_SCORE', 'ARENA_PREP_OPPONENT_SPECIALIZATIONS', 'PLAYER_ROLES_ASSIGNED' }) do
+		P:RegisterEvent(event, 'Source.pvp', PvpChanged)
+	end
+end, 'Source.pvp')
+P:On('ENGINE_DISABLED', function()
+	P:UnregisterAllEvents('Source.pvp')
+end, 'Source.pvp')
+P:On('RESTRICTION_CHANGED', function()
+	if P.Driver and P.Driver.active then
+		P.Driver:Relay('IDENTITY_CHANGED')
+	end
+end, 'Source.identity')
+
 ---Previews only: live sources have no sample icons.
 ---@return nil
 function Live:SampleAuras()
@@ -1207,6 +1481,10 @@ end
 
 function Sample:NamePlain()
 	return self.sample.name or '', true
+end
+
+function Sample:FullNamePlain()
+	return self.sample.fullName or self.sample.name or '', true
 end
 
 function Sample:ClassTokenSecret()
@@ -1359,7 +1637,54 @@ function Sample:InCombatPlain()
 end
 
 function Sample:CreatureIDPlain()
-	return nil
+	return self.sample.npcID
+end
+
+function Sample:SpecNameSecret()
+	return self.sample.specName
+end
+function Sample:SpecIconSecret()
+	return self.sample.specIcon
+end
+function Sample:HasSpecSecret()
+	return self.sample.specName ~= nil or self.sample.specIcon ~= nil
+end
+function Sample:RoleIconSecret()
+	return ROLE_TEXTURES[self.sample.role]
+end
+function Sample:ShowRoleIconSecret()
+	return self.sample.role == 'HEALER' or self.sample.role == 'TANK'
+end
+function Sample:SpecNamePlain()
+	return self.sample.specName, true
+end
+function Sample:SpecIconPlain()
+	return self.sample.specIcon, true
+end
+function Sample:RoleIconPlain()
+	return self:RoleIconSecret(), true
+end
+function Sample:TotemIconPlain()
+	return self.sample.totemIcon, true
+end
+function Sample:IsTotemPlain()
+	return self.sample.totemIcon ~= nil, true
+end
+function Sample:SpecialMobPlain()
+	local id = self:CreatureIDPlain()
+	if not id then
+		return nil
+	end
+	NPC_PATH[3] = tostring(id)
+	local row = P.Store:Get(NPC_PATH)
+	return type(row) == 'table' and row or nil
+end
+function Sample:DisplayNameSecret()
+	local row = self:SpecialMobPlain()
+	if row and type(row.rename) == 'string' and row.rename ~= '' then
+		return row.rename
+	end
+	return self:NameSecret()
 end
 
 function Sample:QuestPlain()

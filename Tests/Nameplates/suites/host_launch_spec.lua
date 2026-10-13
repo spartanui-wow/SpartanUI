@@ -349,3 +349,286 @@ describe('host launch', function()
 		assert.is_nil(P.Config:GetEngineChoice(), 'the launch default, not the tester mark')
 	end)
 end)
+
+----------------------------------------------------------------------------------------------------
+-- Polish (stage C leftovers): opening settings, the What's new card and the LibAT stub
+----------------------------------------------------------------------------------------------------
+
+describe('host: opening settings', function()
+	it('opens a page and scrolls to one of its controls', function()
+		P.host.OpenOptions('colors', 'list')
+		assert.same(H.sui.openedTo.path, { 'Nameplates', 'colors' })
+		assert.equal(H.sui.openedTo.key, 'list')
+		P.host.OpenOptions()
+		assert.same(H.sui.openedTo.path, { 'Nameplates' })
+		assert.is_nil(H.sui.openedTo.key)
+	end)
+
+	it('takes a path to a control inside an inline group', function()
+		P.host.OpenOptions('sharing', { 'export', 'exportText' })
+		assert.same(H.sui.openedTo.path, { 'Nameplates', 'sharing', 'export' })
+		assert.equal(H.sui.openedTo.key, 'exportText')
+		P.host.OpenOptions('sharing', { 'import', 'importText' })
+		assert.same(H.sui.openedTo.path, { 'Nameplates', 'sharing', 'import' })
+		assert.equal(H.sui.openedTo.key, 'importText')
+	end)
+
+	it('lands the Style page Share and Import buttons on real controls of the Sharing page', function()
+		local sharing = RootOptions().args.sharing
+		for _, name in ipairs({ 'export', 'import' }) do
+			local node = sharing
+			for _, key in ipairs(P.SharingPage.FOCUS[name]) do
+				assert.not_nil(node.args, 'a group with controls before ' .. key)
+				node = node.args[key]
+				assert.not_nil(node, key .. ' is on the Sharing page')
+			end
+			assert.not_equal(node.type, 'group', name .. ' lands on a control, not on an inline group')
+		end
+	end)
+end)
+
+describe('host: the preview panel', function()
+	it('turns Show all parts off when the settings window closes', function()
+		local provider = H.sui.previews[1]
+		assert.not_nil(provider, 'the preview panel is registered')
+		P.Regions:SetShowAll(true)
+		assert.is_true(P.Regions:IsShowingAll())
+		provider:Close()
+		assert.is_false(P.Regions:IsShowingAll(), 'the boxes do not stay on the plates in the world')
+		-- Hiding the panel for another page leaves the switch alone: the player is still looking
+		P.Regions:SetShowAll(true)
+		provider:Hide()
+		assert.is_true(P.Regions:IsShowingAll())
+		P.Regions:SetShowAll(false)
+	end)
+end)
+
+describe("host: the What's new card", function()
+	local printed, reloads = {}, 0
+	local Makeover = module.Makeover
+
+	local function Fresh(state)
+		printed, reloads = {}, 0
+		rawset(SUI, 'Print', function(_, text)
+			printed[#printed + 1] = text
+		end)
+		rawset(_G, 'ReloadUI', function()
+			reloads = reloads + 1
+		end)
+		P.Store:Set({ 'seen', 'makeover', P.db:GetCurrentProfile() }, state or 'import', 'global')
+		Makeover.shown, Makeover.card, Makeover.tries = false, nil, 0
+		H.sui.openedTo = nil
+		M.loadedAddons = nil
+		M.enabledAddons = nil
+		rawset(_G, 'ElvUI', nil)
+	end
+
+	local function Said(text)
+		for _, line in ipairs(printed) do
+			if line:find(text, 1, true) then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function InstallKit()
+		local Kit = {}
+		function Kit.CreateShell()
+			local shell = CreateFrame('Frame', nil, UIParent)
+			shell.Body = CreateFrame('Frame', nil, shell)
+			return shell
+		end
+		function Kit.CreateButton(_, parent, text)
+			local button = CreateFrame('Button', nil, parent)
+			button.shownText = text
+			function button:SetText(value)
+				self.shownText = value
+			end
+			return button
+		end
+		rawset(LibAT.UI, 'Kit', Kit)
+	end
+
+	local function RemoveKit()
+		rawset(LibAT.UI, 'Kit', nil)
+	end
+
+	local function Click(button)
+		button:GetScript('OnClick')(button)
+	end
+
+	after_each(function()
+		RemoveKit()
+		M.loadedAddons, M.enabledAddons = nil, nil
+		rawset(_G, 'ElvUI', nil)
+		rawset(_G, 'ReloadUI', nil)
+		rawset(SUI, 'Print', nil)
+	end)
+
+	it('has a button for each choice, and every one leads somewhere', function()
+		Fresh()
+		InstallKit()
+		Makeover:Show()
+		local card = Makeover.card
+		assert.not_nil(card, 'the window kit draws the card')
+		assert.equal(card.pick.shownText, 'Pick a style')
+		assert.equal(card.later.shownText, 'Not now')
+		assert.equal(card.never.shownText, "Don't show again")
+		assert.is_true(card.shell:IsShown())
+		Click(card.pick)
+		assert.is_false(card.shell:IsShown())
+		assert.same(H.sui.openedTo.path, { 'Nameplates', 'style' })
+		assert.equal(P.Migrate:MakeoverState(), 'done')
+	end)
+
+	it('comes back at the next login after Not now', function()
+		Fresh()
+		InstallKit()
+		Makeover:Show()
+		Click(Makeover.card.later)
+		assert.is_false(Makeover.card.shell:IsShown())
+		assert.equal(P.Migrate:MakeoverState(), 'import', 'nothing was answered')
+		assert.is_true(Makeover:Due(), 'the next login shows it again')
+		assert.is_true(Makeover.shown, 'but not again in this session')
+	end)
+
+	it("is closed for good by Don't show again", function()
+		Fresh()
+		InstallKit()
+		Makeover:Show()
+		Click(Makeover.card.never)
+		assert.equal(P.Migrate:MakeoverState(), 'done')
+		assert.is_false(Makeover:Due())
+		assert.is_nil(H.sui.openedTo, 'nothing opens')
+	end)
+
+	it('closes the toast for good with its close button, and says where the styles are', function()
+		Fresh()
+		H.libatCalls = {}
+		Makeover:Show()
+		local call
+		for _, item in ipairs(H.libatCalls) do
+			if item.path == 'LibAT.Setup.Hub.ShowToast' then
+				call = item
+			end
+		end
+		assert.not_nil(call, 'a toast without the window kit')
+		assert.equal(call[3], 'Pick a style')
+		assert.equal(type(call[5].onDismiss), 'function')
+		call[5].onDismiss()
+		assert.equal(P.Migrate:MakeoverState(), 'done')
+		assert.is_true(Said('under Nameplates'), 'the way back to the styles')
+	end)
+
+	it('says it once in chat, and closes for good, when nothing else can show it', function()
+		Fresh()
+		local hub = LibAT.Setup.Hub
+		rawset(hub, 'ShowToast', false)
+		Makeover:Show()
+		rawset(hub, 'ShowToast', nil)
+		assert.is_true(Said('Your nameplates got a makeover'))
+		assert.is_true(Said('under Nameplates'))
+		assert.equal(P.Migrate:MakeoverState(), 'done', 'it does not repeat at every login')
+	end)
+
+	it('only says how to turn off the other plates while ElvUI draws them', function()
+		Fresh()
+		M.loadedAddons = { ElvUI = true }
+		rawset(_G, 'ElvUI', { { private = { nameplates = { enable = true } } } })
+		assert.equal(Makeover:PickLabel(), 'Got it')
+		local before = #M.FnCalls('C_AddOns.DisableAddOn')
+		InstallKit()
+		Makeover:Show()
+		assert.is_false(Makeover.card.never:IsShown(), '"Got it" already closes the card for good')
+		Click(Makeover.card.pick)
+		assert.equal(#M.FnCalls('C_AddOns.DisableAddOn'), before, 'its nameplates can only be turned off in its own settings')
+		assert.equal(reloads, 0)
+		assert.is_true(Said('Turn its nameplates off in its own settings, then reload'))
+		assert.equal(P.Migrate:MakeoverState(), 'done')
+		assert.is_true(P.db.profile.enabled, 'ours start once it is off')
+	end)
+
+	it('reloads after turning another addon off, and opens the Style page after the reload', function()
+		Fresh()
+		M.loadedAddons = { Plater = true }
+		Makeover:Pick()
+		M.loadedAddons = nil
+		assert.equal(reloads, 1)
+		assert.is_true(P.Store:Get('styleAfterReload', 'char'))
+		assert.is_nil(H.sui.openedTo, 'the page opens after the reload, not before')
+		-- The next session
+		Makeover:ResumeAfterReload()
+		assert.is_nil(P.Store:Get('styleAfterReload', 'char'), 'asked for once')
+		M.Advance(20)
+		assert.same(H.sui.openedTo.path, { 'Nameplates', 'style' })
+		H.sui.openedTo = nil
+		Makeover:ResumeAfterReload()
+		M.Advance(20)
+		assert.is_nil(H.sui.openedTo, 'not again')
+	end)
+
+	it('says what to do when the other addon cannot be turned off from here', function()
+		Fresh()
+		M.loadedAddons = { Plater = true }
+		local disable = C_AddOns.DisableAddOn
+		rawset(C_AddOns, 'DisableAddOn', nil)
+		local ok, err = pcall(Makeover.Pick, Makeover)
+		rawset(C_AddOns, 'DisableAddOn', disable)
+		M.loadedAddons = nil
+		assert.is_true(ok, tostring(err))
+		assert.equal(reloads, 0)
+		assert.is_true(Said('Turn it off in your addon list, then reload'))
+	end)
+end)
+
+describe('LibAT stub', function()
+	local function Run(libat)
+		local saved = rawget(_G, 'LibAT')
+		rawset(_G, 'LibAT', libat)
+		M.ResetRecords()
+		local chunk = assert(loadfile(HARNESS_ROOT .. 'Core/LibATStub.lua'))
+		local ok, err = pcall(chunk, 'SpartanUI', {})
+		rawset(_G, 'LibAT', saved)
+		assert.is_true(ok, tostring(err))
+		local asks = 0
+		for _, event in ipairs(M.rec.events) do
+			if event.event == 'PLAYER_LOGIN' and tostring(event.where):find('LibATStub', 1, true) then
+				asks = asks + 1
+			end
+		end
+		return asks
+	end
+
+	local function Current()
+		return { UI = { Options = {} }, Capabilities = { cardArtDraw = 1, searchSynonyms = 2 } }
+	end
+
+	it('stays quiet for a LibAT that has the settings window and the new capabilities', function()
+		assert.equal(Run(Current()), 0)
+	end)
+
+	it('asks for an update when the card art hook is missing', function()
+		local libat = Current()
+		libat.Capabilities.cardArtDraw = nil
+		assert.equal(Run(libat), 1)
+	end)
+
+	it('asks for an update when the search words are an older revision', function()
+		local libat = Current()
+		libat.Capabilities.searchSynonyms = 1
+		assert.equal(Run(libat), 1)
+	end)
+
+	it('asks for an update for a LibAT that does not list capabilities, and lists none for it', function()
+		local libat = { UI = { Options = {} } }
+		assert.equal(Run(libat), 1)
+		assert.equal(type(libat.Capabilities), 'table', 'reading an entry gives nil, never an error')
+		assert.is_nil(libat.Capabilities.cardArtDraw)
+		assert.is_nil(libat.Capabilities.searchSynonyms, 'nothing is claimed')
+	end)
+
+	it('asks for the download when LibAT is missing', function()
+		assert.equal(Run(nil), 1)
+	end)
+end)

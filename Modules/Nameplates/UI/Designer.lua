@@ -1013,6 +1013,12 @@ function Designer:SetField(id, field, value, kind)
 	end
 	if below and value ~= nil then
 		local was = GetField(below, field)
+		if was == nil and below.kind == 'auras' then
+			was = GetField(P.Styles.Merge.PART_DEFAULTS.auras, field)
+			if (field == 'timerAnchor.size' or field == 'stackAnchor.size') and was == nil then
+				was = GetField(below, 'font.size') or P.Styles.Merge.PART_DEFAULTS.auras.font.size
+			end
+		end
 		if was == nil and field == 'hidden' then
 			was = false
 		end
@@ -1032,6 +1038,73 @@ function Designer:Change(id, field, value, key)
 	self:Edit('edit', function()
 		self:SetField(id, field, value)
 	end, key or ('field:' .. id .. ':' .. field))
+end
+
+local AURA_TEXT_FIELDS = { timerAnchor = true, stackAnchor = true }
+
+function Designer:AuraTextLocked(id)
+	local spec = self:Spec(id)
+	return not (spec and spec.kind == 'auras') or (P.Options and P.Options.Locked and P.Options.Locked()) or false
+end
+
+function Designer:AuraText(id, field)
+	if not AURA_TEXT_FIELDS[field] then
+		return nil
+	end
+	local spec = self:Spec(id)
+	if not (spec and spec.kind == 'auras') then
+		return nil
+	end
+	return P.Styles.Merge.AuraText(spec, field)
+end
+
+function Designer:SetAuraText(id, field, values, key)
+	if self:AuraTextLocked(id) or not AURA_TEXT_FIELDS[field] then
+		return false
+	end
+	local report = P.Styles.Schema.NewReport()
+	local checked = P.Styles.Schema:CheckPart({ kind = 'auras', [field] = values }, 'auraText', report)
+	local anchor = checked and checked[field]
+	if not anchor or report.dropped > 0 then
+		return false
+	end
+	local editKey
+	if key ~= false then
+		editKey = key or ('auraText:' .. id .. ':' .. field)
+	end
+	return self:Edit(key == false and 'move' or 'edit', function()
+		for name, value in pairs(anchor) do
+			self:SetField(id, field .. '.' .. name, value)
+		end
+	end, editKey)
+end
+
+function Designer:SetAuraTextCell(id, field, cell)
+	return self:SetAuraText(id, field, { point = cell, relPoint = cell, x = 0, y = 0 }, false)
+end
+
+function Designer:NudgeAuraText(id, field, dx, dy)
+	local anchor = self:AuraText(id, field)
+	if not anchor then
+		return false
+	end
+	return self:SetAuraText(id, field, { x = Half(anchor.x + dx), y = Half(anchor.y + dy) }, 'auraTextNudge:' .. id .. ':' .. field)
+end
+
+function Designer:ResetAuraText(id)
+	if self:AuraTextLocked(id) then
+		return false
+	end
+	return self:Edit('reset', function()
+		self:SetField(id, 'timerAnchor', nil)
+		self:SetField(id, 'stackAnchor', nil)
+	end)
+end
+
+function Designer:AuraTextOpen()
+	local id = self:Primary()
+	local spec = id and self:Spec(id)
+	return self.state.auraText ~= false and #self.state.selection == 1 and spec and spec.kind == 'auras' or false
 end
 
 ---Kinds that have the player's own changes for this part ("Only for these plates").
@@ -1101,6 +1174,9 @@ end
 ---Take back the last designer or Customize page edit.
 ---@return boolean done
 function Designer:Undo()
+	if P.Options and P.Options.Locked() then
+		return false
+	end
 	local step = self.history:Undo(Current)
 	if not step then
 		return false
@@ -1114,6 +1190,9 @@ end
 ---Put back the last undone edit.
 ---@return boolean done
 function Designer:Redo()
+	if P.Options and P.Options.Locked() then
+		return false
+	end
 	local step = self.history:Redo(Current)
 	if not step then
 		return false
@@ -1691,15 +1770,225 @@ function Designer:Detail(id, plate)
 	return table.concat(lines, '\n')
 end
 
+function Designer.AuraTextBounds(spec)
+	local size = spec.size or 20
+	local parts = { icon = { kind = 'icon', size = size, anchor = { 'CENTER', 'plate', 'CENTER', 0, 0 } } }
+	for _, field in ipairs({ 'timerAnchor', 'stackAnchor' }) do
+		local anchor = P.Styles.Merge.AuraText(spec, field)
+		parts[field] = {
+			kind = 'text',
+			width = anchor.size * (field == 'timerAnchor' and 1.6 or 0.8),
+			font = { size = anchor.size },
+			anchor = { anchor.point, 'icon', anchor.relPoint, anchor.x, anchor.y },
+		}
+	end
+	local rects = P.Styles.Merge.PartRects({ width = size, height = size, parts = parts, order = { 'icon', 'timerAnchor', 'stackAnchor' } })
+	local box = util.Copy(rects.icon)
+	for _, rect in pairs(rects) do
+		box.left, box.right = math.min(box.left, rect.left), math.max(box.right, rect.right)
+		box.bottom, box.top = math.min(box.bottom, rect.bottom), math.max(box.top, rect.top)
+	end
+	return box
+end
+
+function Designer:OptionsPathChanged(path)
+	if not self:IsCustomizePath(path) then
+		self:Detach()
+	end
+end
+
+local function RegisterPageCleanup()
+	if Designer.pageCleanup then
+		return
+	end
+	local dialog = LibStub and LibStub('AceConfigDialog-3.0-LibAT', true)
+	if dialog and dialog.RegisterCallback then
+		Designer.pageCleanup = true
+		dialog.RegisterCallback(Designer, 'GroupSelected', function(_, appName, path)
+			Designer:OptionsPathChanged(path)
+		end)
+	end
+end
+
+local auraViews = setmetatable({}, { __mode = 'k' })
+
+function Designer:BeginAuraTextDrag(id, field, frame)
+	if self:AuraTextLocked(id) or not frame or not self:AuraText(id, field) then
+		return
+	end
+	self.auraDrag = {
+		id = id,
+		field = field,
+		frame = frame,
+		points = SavePoints(frame),
+		anchor = self:AuraText(id, field),
+		styleId = self:StyleId(),
+		kind = self:ScopeKind(),
+		before = Current(self:StyleId()),
+		dx = 0,
+		dy = 0,
+	}
+end
+
+function Designer:DragAuraTextTo(dx, dy)
+	local drag = self.auraDrag
+	if not drag then
+		return
+	end
+	drag.dx, drag.dy = Half(dx), Half(dy)
+	local limits = P.Styles.Schema:FieldSpec('auras', drag.field).fields
+	drag.dx = math.max(limits.x.min, math.min(limits.x.max, drag.anchor.x + drag.dx)) - drag.anchor.x
+	drag.dy = math.max(limits.y.min, math.min(limits.y.max, drag.anchor.y + drag.dy)) - drag.anchor.y
+	ApplyPoints(drag.frame, drag.points, drag.dx, drag.dy)
+end
+
+function Designer:EndAuraTextDrag()
+	local drag = self.auraDrag
+	self.auraDrag = nil
+	if not drag then
+		return false
+	end
+	local valid = not self:AuraTextLocked(drag.id) and self:StyleId() == drag.styleId and self:ScopeKind() == drag.kind and self:Primary() == drag.id and util.Equal(drag.before, Current(drag.styleId))
+	local changed = false
+	if valid and (drag.dx ~= 0 or drag.dy ~= 0) then
+		changed = self:SetAuraText(drag.id, drag.field, { x = drag.anchor.x + drag.dx, y = drag.anchor.y + drag.dy }, false)
+	end
+	if not changed then
+		ApplyPoints(drag.frame, drag.points, 0, 0)
+	end
+	return changed
+end
+
+---The enlarged icon runs the same sample renderer as the row, outside the options page.
+function Designer:AttachAuraText(ctx, plate)
+	local id = self:Primary()
+	local spec = id and self:Spec(id)
+	if not (plate.isPreview and plate.src and plate.src.isSample and spec and spec.kind == 'auras' and ctx.canvas) then
+		return false
+	end
+	local view = auraViews[ctx.canvas]
+	if not view then
+		local holder = CreateFrame('Frame', nil, ctx.canvas)
+		holder:SetPoint('CENTER', ctx.canvas, 'BOTTOM', 0, 100)
+		holder:SetSize(1, 1)
+		view = { holder = holder, plate = P.Plate.New(holder, true, plate.env.ctx) }
+		view.title = P.Widgets.Draw.Text(holder, 14, 'text')
+		auraViews[ctx.canvas] = view
+	end
+	self.auraView = view
+	local piece = P.Styles.Merge.ResolveTokens(P.Styles.Merge.Deep(P.Styles.Merge.PART_DEFAULTS.auras, spec), plate.style.tokens)
+	piece.anchor = { 'CENTER', 'plate', 'CENTER', 0, 0 }
+	piece.max, piece.perRow, piece.timer, piece.stacks = 1, 1, true, true
+	piece.state, piece.hidden = nil, nil
+	local sample = { facts = util.Copy(plate.facts), auras = {} }
+	local entries = plate.src and plate.src.isSample and plate.src:SampleAuras(piece.row) or {}
+	local entry = util.Copy(entries[1] or P.AuraScan.FillIcons(piece.row)[1])
+	entry.duration, entry.remaining, entry.stacks = 18, 12, 5
+	entry.spellId = nil
+	sample.auras[piece.row] = { entry }
+	local resolved = {
+		id = plate.style.id,
+		key = plate.style.key .. ':auraText:' .. id .. ':' .. (self:ScopeKind() or 'all'),
+		width = piece.size,
+		height = piece.size,
+		parts = { icon = piece },
+		order = { 'icon' },
+		tokens = plate.style.tokens,
+		states = {},
+		regions = {},
+	}
+	local preview = view.plate
+	preview.auraTextSample = true
+	preview:SetContext(plate.env.ctx)
+	preview:ApplyStyle(resolved)
+	preview:BindSample(P.Source.NewSample(sample))
+	local icon = preview:GetWidget('icon').icons[1]
+	local cw = ctx.canvas:GetWidth()
+	local box = Designer.AuraTextBounds(piece)
+	local scale = math.min(4, 96 / piece.size, (cw - 40) / (box.right - box.left), 110 / (box.top - box.bottom))
+	preview.root:SetScale(math.max(0.5, scale))
+	preview.root:ClearAllPoints()
+	preview.root:SetPoint('CENTER', view.holder, 'CENTER', -(box.left + box.right) / 2, -(box.top + box.bottom) / 2)
+	view.title:ClearAllPoints()
+	view.title:SetPoint('BOTTOM', view.holder, 'CENTER', 0, 65)
+	view.title:SetText(L['Aura text'])
+	view.holder:Show()
+	local designer = self
+	for _, def in ipairs({ { field = 'timerAnchor', frame = icon.timer, label = L['Time left'] }, { field = 'stackAnchor', frame = icon.count, label = L['Stacks'] } }) do
+		local field, frame = def.field, def.frame
+		local target = {
+			label = def.label,
+			auraText = field,
+			selected = (self.state.auraTextField or 'timerAnchor') == field,
+			detail = self:AuraTextLocked(id) and P.Options.LOCKED_REASON or L['Drag this text. Arrow keys move it a little. Ctrl-Z undoes.'],
+			onClick = function()
+				designer.state.auraTextField = field
+				return true
+			end,
+		}
+		if not self:AuraTextLocked(id) then
+			target.drag = {
+				Start = function()
+					designer.state.auraTextField = field
+					designer:BeginAuraTextDrag(id, field, frame)
+				end,
+				Move = function(dx, dy)
+					designer:DragAuraTextTo(dx, dy)
+				end,
+				Stop = function()
+					designer:EndAuraTextDrag()
+				end,
+				Nudge = function(dx, dy)
+					designer:NudgeAuraText(id, field, dx, dy)
+				end,
+				Key = function(name)
+					if name == 'DELETE' or name == 'BACKSPACE' then
+						return false
+					end
+					return designer:HandleKey(name)
+				end,
+			}
+		end
+		ctx.Region(frame, target)
+	end
+	return true
+end
+
 ---Register the parts of the Customize plate as Stage regions (see the file header).
 ---@param ctx table Stage context (ctx.Region, ctx.canvas)
 ---@param plate table The large preview plate, laid out and filled
 function Designer:Attach(ctx, plate)
-	if not (ctx and ctx.Region and plate and plate.style) then
+	if not (ctx and ctx.Region and plate and plate.isPreview and plate.style) then
 		return
 	end
 	self.attached = { ctx = ctx, plate = plate }
 	self:ValidateSelection()
+	if self.auraView then
+		self.auraView.holder:Hide()
+		self.auraView.plate:Unbind()
+		self.auraView = nil
+	end
+	RegisterPageCleanup()
+	local pool = P.Scenes and P.Scenes.pools[ctx.canvas]
+	if pool then
+		pool.holder:ClearAllPoints()
+		pool.holder:SetPoint('CENTER', ctx.canvas, 'CENTER', 0, 0)
+	end
+	if self:AuraTextOpen() and pool then
+		local w, h = ctx.canvas:GetSize()
+		local scene = P.Scenes:Render(ctx.canvas, 'focus', {
+			width = w,
+			height = math.max(80, h - 190),
+			kind = self:PreviewKind(),
+			focusStyleId = self:StyleId(),
+			revealAll = P.Regions and P.Regions:IsShowingAll() or false,
+		})
+		pool.holder:ClearAllPoints()
+		pool.holder:SetPoint('CENTER', ctx.canvas, 'CENTER', 0, 95)
+		if P.Preview then
+			P.Preview.lastScene = scene
+		end
+	end
 	local resolved = plate.style
 	local rects = P.Styles.Merge.PartRects(resolved)
 	local items = {}
@@ -1766,6 +2055,9 @@ function Designer:Attach(ctx, plate)
 		ctx.Region(item.frame, target)
 	end
 	self:AttachHandle(ctx, plate, Nudge, Key)
+	if self:AuraTextOpen() then
+		self:AttachAuraText(ctx, plate)
+	end
 end
 
 ---The resize handle on the primary part's bottom right corner (Phase 7).
@@ -1827,8 +2119,21 @@ end
 function Designer:Detach()
 	local attached = self.attached
 	self.attached = nil
-	self.drag, self.resize = nil, nil
+	if self.auraDrag then
+		ApplyPoints(self.auraDrag.frame, self.auraDrag.points, 0, 0)
+	end
+	self.drag, self.resize, self.auraDrag = nil, nil, nil
+	if self.auraView then
+		self.auraView.holder:Hide()
+		self.auraView.plate:Unbind()
+		self.auraView = nil
+	end
 	local plate = attached and attached.plate
+	local pool = attached and P.Scenes and P.Scenes.pools[attached.ctx.canvas]
+	if pool then
+		pool.holder:ClearAllPoints()
+		pool.holder:SetPoint('CENTER', attached.ctx.canvas, 'CENTER', 0, 0)
+	end
 	if plate then
 		HideGuides(plate)
 		local c = chrome[plate]
@@ -1860,6 +2165,9 @@ function Designer:Hint()
 	local primary = self:Primary()
 	if not primary then
 		return L['Click a part to change it. Shift-click picks more than one.']
+	end
+	if self:AuraTextOpen() then
+		return self:AuraTextLocked(primary) and P.Options.LOCKED_REASON or L['Drag the time left or stacks on the larger icon. Ctrl-Z undoes.']
 	end
 	if not Designer.Movable(self:Spec(primary)) then
 		return L['Change this part with the settings on the left. Delete hides it. Ctrl-Z undoes.']
@@ -1902,6 +2210,19 @@ function Designer:ToolbarItems()
 			align = 'right',
 		},
 	}
+	local primary = self:Primary()
+	local spec = primary and self:Spec(primary)
+	if spec and spec.kind == 'auras' and #self.state.selection == 1 then
+		items[#items + 1] = {
+			kind = 'toggle',
+			text = L['Aura text'],
+			active = self:AuraTextOpen(),
+			tooltip = L['Show a larger sample icon to move time left and stacks.'],
+			onClick = function()
+				designer.state.auraText = not designer:AuraTextOpen()
+			end,
+		}
+	end
 	if self.history:CanRedo() then
 		items[#items + 1] = {
 			kind = 'button',

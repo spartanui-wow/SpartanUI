@@ -111,7 +111,8 @@ end
 -- showStealableBuffs, elements.Health.{height,texture}, elements.Name.textSize,
 -- elements.Castbar.{enabled,height,texture,Icon.enabled,Icon.size}, elements.Power.{enabled,height},
 -- elements.RaidTargetIndicator.{enabled,size}, elements.QuestMob.{enabled,size},
--- elements.TargetHighlight.enabled, elements.PvPIndicator.enabled, elements.PvPRoleIndicator.enabled.
+-- elements.TargetHighlight.enabled, elements.PvPIndicator.enabled, elements.PvPRoleIndicator.enabled,
+-- elements.ClassIcon.enabled (the last three only as profile.legacy flags).
 -- Values are read with rawget only, so AceDB wildcard tables and literal '**' keys saved as data
 -- are never followed.
 --
@@ -324,6 +325,12 @@ function Migrate.LegacyOverlay(settings, defaults)
 	if Effective('elements', 'PvPIndicator', 'enabled') == true then
 		legacy = legacy or {}
 		legacy.pvpIcon = true
+	end
+	-- The class icon above player plates has no part to land on yet: kept for the plate parts that
+	-- show a player's class or specialization
+	if Effective('elements', 'ClassIcon', 'enabled') == true then
+		legacy = legacy or {}
+		legacy.classIcon = true
 	end
 
 	if next(parts) then

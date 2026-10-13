@@ -676,6 +676,10 @@ function Scan.LayoutIcons(widget, spec, ctx)
 	local size = spec.size or 20
 	local border = spec.borderStyle ~= 'none'
 	local px = border and ctx:Pixel() or 0
+	local timer = P.Styles.Merge.AuraText(spec, 'timerAnchor')
+	local stacks = P.Styles.Merge.AuraText(spec, 'stackAnchor')
+	local timerFont = P.Styles.Merge.AuraTextFont(spec, 'timerAnchor')
+	local stackFont = P.Styles.Merge.AuraTextFont(spec, 'stackAnchor')
 	for i = 1, #icons do
 		local icon = icons[i]
 		if i <= count then
@@ -691,8 +695,12 @@ function Scan.LayoutIcons(widget, spec, ctx)
 			else
 				icon.border:Hide()
 			end
-			ctx:ApplyFont(icon.timer, spec.font)
-			ctx:ApplyFont(icon.count, spec.font)
+			icon.timer:ClearAllPoints()
+			icon.timer:SetPoint(timer.point, icon, timer.relPoint, timer.x, timer.y)
+			icon.count:ClearAllPoints()
+			icon.count:SetPoint(stacks.point, icon, stacks.relPoint, stacks.x, stacks.y)
+			ctx:ApplyFont(icon.timer, timerFont)
+			ctx:ApplyFont(icon.count, stackFont)
 			if spec.pandemic == true then
 				LayoutGlow(icon, ctx)
 			end
@@ -1038,7 +1046,7 @@ function Scan.DrawSamples(widget, src)
 		list = Scan.FillIcons(row)
 	end
 	local settings = Scan.RowSettings(row, scanEnv.settings)
-	local limit = settings.on and math.min(widget.count or 0, spec.max or 6) or 0
+	local limit = (settings.on or (widget.plate.isPreview and widget.plate.auraTextSample)) and math.min(widget.count or 0, spec.max or 6) or 0
 	P.util.Wipe(widget.shownIDs)
 	local now = P.services.GetTime()
 	local data = drawData

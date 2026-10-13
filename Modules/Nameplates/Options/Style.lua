@@ -347,6 +347,8 @@ local function PendingName()
 	return style and style.name or ''
 end
 
+---@param page string
+---@param optionKey? string|string[] A control of the page, or a path inside it (see SharingPage.FOCUS)
 local function OpenPage(page, optionKey)
 	local host = P.host
 	if host and host.OpenOptions then
@@ -372,7 +374,7 @@ function Style:Do(action, value)
 		if P.SharingPage then
 			P.SharingPage:ShowExport('style', value)
 		end
-		OpenPage('sharing', 'export')
+		OpenPage('sharing', P.SharingPage and P.SharingPage.FOCUS.export)
 	elseif action == 'rename' then
 		self:Ask('rename', value)
 	elseif action == 'delete' then
@@ -627,7 +629,7 @@ Options:AddPage('style', 1, function()
 				desc = L['Paste a text from another player to add their style, colors or settings.'],
 				order = 34,
 				func = function()
-					OpenPage('sharing', 'import')
+					OpenPage('sharing', P.SharingPage and P.SharingPage.FOCUS.import)
 				end,
 			},
 			width = {

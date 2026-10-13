@@ -455,7 +455,13 @@ function Plate.New(parent, isPreview, ctx)
 	plate.isPreview = isPreview and true or false
 	plate.root = CreateFrame('Frame', nil, parent)
 	plate.root:SetSize(1, 1)
-	plate.art = CreateFrame('Frame', nil, plate.root)
+	-- The "When" fade (Engine/Actions.lua) sits between root and art: the Driver fades root (range,
+	-- only fighting), the plate eases art (target, healer emphasis), and a fade the game decides
+	-- needs a frame of its own for SetAlphaFromBoolean. Alphas multiply down the chain.
+	plate.fader = CreateFrame('Frame', nil, plate.root)
+	plate.fader:SetSize(1, 1)
+	plate.fader:SetPoint('CENTER', plate.root, 'CENTER', 0, 0)
+	plate.art = CreateFrame('Frame', nil, plate.fader)
 	plate.art:SetPoint('CENTER', plate.root, 'CENTER', 0, 0)
 	plate.art:SetSize(1, 1)
 	plate.artLevel = (Secret.Plain(plate.art:GetFrameLevel()))
@@ -500,6 +506,47 @@ end
 function Plate:SetContext(ctx)
 	self.env.ctx = ctx or P.Context
 	self:RebuildEvents()
+end
+
+---The shared layout context pointed at this plate (for drawing outside a part's Layout).
+---@return Plates.LayoutContext
+function Plate:LayoutContext()
+	return PointCtx(self)
+end
+
+---Run the "When" actions of this plate (Engine/Actions.lua) when it has any or drew any.
+---@param plate Plates.Plate
+local function RunActions(plate)
+	local Actions = P.Actions
+	if Actions and plate.actionsOn then
+		Actions:Run(plate)
+	end
+end
+
+---Pick this plate's "When" actions again (new style, unit or kind), so their events register.
+---@param plate Plates.Plate
+local function AttachActions(plate)
+	local Actions = P.Actions
+	if Actions then
+		Actions:Attach(plate)
+	end
+end
+
+---The role or the healer emphasis setting changed: lay out with the role's version of the style
+---(healers get a stronger removable buffs row) and ease size and alpha to the new emphasis.
+function Plate:RefreshRole()
+	local base = self.baseStyle
+	if not base then
+		return
+	end
+	if self:ApplyStyle(base) then
+		if self.src then
+			self:UpdateAll('FULL')
+			self:Configure()
+		end
+	else
+		self:ApplyEmphasis(false)
+	end
 end
 
 ---@param id string Part id
@@ -613,11 +660,13 @@ function Plate:RegisterUnitEvents()
 	if not (frame and self.unit) then
 		return
 	end
+	-- The parts' events plus the events of this plate's "When" actions
+	local extra = self.actionEvents or EMPTY
 	local old = self.registeredMap
 	local same = self.registeredUnit == self.unit and old ~= nil
 	if same then
 		for event in pairs(old) do
-			if not self.eventWidgets[event] then
+			if not self.eventWidgets[event] and not extra[event] then
 				same = false
 				break
 			end
@@ -628,14 +677,29 @@ function Plate:RegisterUnitEvents()
 				break
 			end
 		end
+		for event in pairs(extra) do
+			if not old[event] then
+				same = false
+				break
+			end
+		end
 	end
 	if same then
-		self.registeredMap = self.eventWidgets
 		return
 	end
 	frame:UnregisterAllEvents()
-	self.registeredUnit, self.registeredMap = self.unit, self.eventWidgets
-	for event in pairs(self.eventWidgets) do
+	local map = self.eventWidgets
+	if next(extra) then
+		map = {}
+		for event in pairs(self.eventWidgets) do
+			map[event] = true
+		end
+		for event in pairs(extra) do
+			map[event] = true
+		end
+	end
+	self.registeredUnit, self.registeredMap = self.unit, map
+	for event in pairs(map) do
 		pcall(frame.RegisterUnitEvent, frame, event, self.unit)
 	end
 end
@@ -669,6 +733,10 @@ end
 ---@param resolved Plates.ResolvedStyle
 ---@return boolean
 function Plate:ApplyStyle(resolved)
+	resolved = resolved.roleBase or resolved
+	self.baseStyle = resolved
+	-- The role's version of the style (Roles.StyleFor: healers get a stronger removable buffs row)
+	resolved = P.Roles.StyleFor(resolved, self)
 	if self.styleKey == resolved.key then
 		return false
 	end
@@ -724,7 +792,11 @@ function Plate:ApplyStyle(resolved)
 		end
 	end
 	self.styleKey = resolved.key
+	AttachActions(self)
 	self:RebuildEvents()
+	if P.Actions then
+		P.Actions:Layout(self)
+	end
 	self:ApplyEmphasis(true)
 	P:Fire('STYLE_APPLIED', self, resolved.key)
 	return true
@@ -732,7 +804,7 @@ end
 
 ---Lay out again with the current style (used by Scheduler:QueueLayout).
 function Plate:Layout()
-	local resolved = self.style
+	local resolved = self.baseStyle or self.style
 	if not resolved then
 		return
 	end
@@ -759,6 +831,7 @@ function Plate:UpdateAll(event)
 		local widget = self.active[i]
 		widget.impl.Update(widget, src, event or 'FULL')
 	end
+	RunActions(self)
 	if begin then
 		src:EndRead()
 	end
@@ -787,6 +860,9 @@ function Plate:FlushThreat()
 			end
 		end
 	end
+	if self.actionRepaint or (self.actionEvents and (self.actionEvents.UNIT_THREAT_LIST_UPDATE or self.actionEvents.UNIT_THREAT_SITUATION_UPDATE)) then
+		RunActions(self)
+	end
 	if src.EndRead then
 		src:EndRead()
 	end
@@ -805,16 +881,20 @@ function Plate:OnEvent(event, ...)
 	end
 	local list = self.eventWidgets[event]
 	local src = self.src
-	if not list or not src then
+	local actions = self.actionsOn and ((self.actionEvents and self.actionEvents[event]) or (list and self.actionRepaint))
+	if not src or not (list or actions) then
 		return
 	end
 	local begin = src.BeginRead
 	if begin then
 		begin(src)
 	end
-	for i = 1, #list do
+	for i = 1, #(list or EMPTY) do
 		local widget = list[i]
 		widget.impl.Update(widget, src, event, ...)
+	end
+	if actions then
+		RunActions(self)
 	end
 	if begin then
 		src:EndRead()
@@ -826,13 +906,15 @@ end
 function Plate:OnMessage(message, ...)
 	local list = self.messageWidgets[message]
 	local src = self.src
-	if not list or not src then
+	local actions = self.actionsOn and ((self.actionMessages and self.actionMessages[message]) or (list and self.actionRepaint))
+	if not src or not (list or actions) then
 		return
 	end
 	local begin = src.BeginRead
 	if begin then
 		begin(src)
 	end
+	list = list or EMPTY
 	local keys = message == 'CONTEXT_CHANGED' and select(1, ...) or nil
 	for i = 1, #list do
 		local widget = list[i]
@@ -860,6 +942,9 @@ function Plate:OnMessage(message, ...)
 			widget.impl.Update(widget, src, message, ...)
 		end
 	end
+	if actions then
+		RunActions(self)
+	end
 	if begin then
 		src:EndRead()
 	end
@@ -872,6 +957,7 @@ function Plate:Bind(unit, src)
 	self.unit = unit
 	self.src = src
 	self.env.src = src
+	AttachActions(self)
 	if self:EventMapsCurrent() then
 		self:RegisterUnitEvents()
 	else
@@ -890,6 +976,7 @@ function Plate:BindSample(src)
 	for state, on in pairs(src.sample and src.sample.states or {}) do
 		self.states[state] = on
 	end
+	AttachActions(self)
 	self.root:Show()
 	self:UpdateAll('FULL')
 	self:ApplyEmphasis(true)
@@ -905,6 +992,9 @@ function Plate:Unbind()
 	end
 	for _, widget in pairs(self.widgets) do
 		widget.impl.Reset(widget)
+	end
+	if P.Actions then
+		P.Actions:Clear(self)
 	end
 	self.unit = nil
 	self.src = nil
@@ -946,6 +1036,9 @@ function Plate:SetState(state, on)
 		end
 	end
 	self:ApplyEmphasis(false)
+	if self.actionStates then
+		RunActions(self)
+	end
 end
 
 ---A state known only as a possibly-secret boolean (the S4 fallback when the target plate cannot
@@ -968,6 +1061,9 @@ function Plate:SetStateSecret(state, boolSecret)
 		end
 	end
 	self:ApplyEmphasis(false)
+	if self.actionStates then
+		RunActions(self)
+	end
 end
 
 local EASE_TIME = 0.15
@@ -983,6 +1079,11 @@ function Plate:ApplyEmphasis(instant)
 	local states = self.states
 	local ctx = self.env.ctx or P.Context
 	local width, height = resolved.width, resolved.height
+	-- Healer emphasis (Roles): enemy plates stay small and soft until they matter
+	local quiet = P.Roles.Quiet(self)
+	if quiet then
+		width, height = P.Roles.QuietSize(width, height)
+	end
 	local grow = states.target and stateSpecs.target and stateSpecs.target.grow
 	if grow then
 		width, height = width + grow[1], height + grow[2]
@@ -1002,6 +1103,9 @@ function Plate:ApplyEmphasis(instant)
 	end
 	if states.focus and stateSpecs.focus and stateSpecs.focus.alpha then
 		alpha = math.max(alpha, stateSpecs.focus.alpha)
+	end
+	if quiet then
+		alpha = math.min(alpha, P.Roles.QUIET.alpha)
 	end
 
 	local art = self.art

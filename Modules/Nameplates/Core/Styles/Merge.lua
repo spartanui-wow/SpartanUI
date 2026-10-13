@@ -63,7 +63,20 @@ Merge.PART_DEFAULTS = {
 	},
 	text = { font = { face = '$font', size = 10, flags = 'OUTLINE' }, justify = 'CENTER', alpha = 1 },
 	icon = { size = 16, alpha = 1 },
-	auras = { size = 20, max = 6, grow = 'RIGHT', spacing = 2, timer = true, stacks = true, borderStyle = 'pixel', sort = 'default', font = { face = '$font', size = 9, flags = 'OUTLINE' }, alpha = 1 },
+	auras = {
+		size = 20,
+		max = 6,
+		grow = 'RIGHT',
+		spacing = 2,
+		timer = true,
+		stacks = true,
+		borderStyle = 'pixel',
+		sort = 'default',
+		font = { face = '$font', size = 9, flags = 'OUTLINE' },
+		alpha = 1,
+		timerAnchor = { point = 'CENTER', relPoint = 'CENTER', x = 0, y = 0 },
+		stackAnchor = { point = 'BOTTOMRIGHT', relPoint = 'BOTTOMRIGHT', x = 1, y = 0 },
+	},
 	highlight = { art = 'arrows', color = '$accent', pad = 2, blend = 'BLEND', alpha = 1 },
 	glow = { size = 4, color = '$accent', alpha = 1 },
 	art = { color = { 1, 1, 1, 1 }, alpha = 1 },
@@ -218,6 +231,25 @@ local function ResolveTokens(value, tokens, hostLook)
 	return value
 end
 Merge.ResolveTokens = ResolveTokens
+
+---Icon-relative text positions. An omitted size follows the row font, including old styles.
+function Merge.AuraText(spec, field)
+	local defaults = Merge.PART_DEFAULTS.auras[field]
+	local anchor = spec[field] or {}
+	return {
+		point = anchor.point or defaults.point,
+		relPoint = anchor.relPoint or defaults.relPoint,
+		x = anchor.x or defaults.x,
+		y = anchor.y or defaults.y,
+		size = anchor.size or (spec.font and spec.font.size) or Merge.PART_DEFAULTS.auras.font.size,
+	}
+end
+
+function Merge.AuraTextFont(spec, field)
+	local font = Merge.Deep(Merge.PART_DEFAULTS.auras.font, spec.font)
+	font.size = Merge.AuraText(spec, field).size
+	return font
+end
 
 local PX = { TOPLEFT = -1, TOP = 0, TOPRIGHT = 1, LEFT = -1, CENTER = 0, RIGHT = 1, BOTTOMLEFT = -1, BOTTOM = 0, BOTTOMRIGHT = 1 }
 local PY = { TOPLEFT = 1, TOP = 1, TOPRIGHT = 1, LEFT = 0, CENTER = 0, RIGHT = 0, BOTTOMLEFT = -1, BOTTOM = -1, BOTTOMRIGHT = -1 }

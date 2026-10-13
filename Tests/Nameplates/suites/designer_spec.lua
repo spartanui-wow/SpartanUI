@@ -570,3 +570,317 @@ describe('designer: the preview panel', function()
 		D:Detach()
 	end)
 end)
+
+describe('designer: aura text', function()
+	local optionsLocked = P.Options.Locked
+	local textLocked = false
+	before_each(function()
+		Reset()
+		D.state.auraText = nil
+		textLocked = false
+		P.Options.Locked = function()
+			return textLocked
+		end
+	end)
+	after_each(function()
+		D:Detach()
+		P.Options.Locked = optionsLocked
+	end)
+
+	local function TextAttached()
+		D:Select('mine')
+		local plate = P.Plate.New(UIParent, true, P.Scenes.PreviewContext({ role = 'tank' }))
+		plate:ApplyStyle(P.Styles.Merge:Resolve('clean', 'enemyNPC', 'medium'))
+		plate:BindSample(P.Source.NewSample('casterTarget'))
+		local canvas = CreateFrame('Frame', nil, UIParent)
+		canvas:SetSize(338, 416)
+		local ctx = { canvas = canvas, texts = {} }
+		ctx.Region = function(frame, target)
+			if target.auraText then
+				ctx.texts[target.auraText] = { frame = frame, target = target }
+			end
+		end
+		D:Attach(ctx, plate)
+		return ctx, plate
+	end
+
+	it('shows a larger sample with both text regions and the preview context', function()
+		P.Store:Set('auras.myDebuffs.on', false)
+		local ctx, plate = TextAttached()
+		assert.not_nil(ctx.texts.timerAnchor)
+		assert.not_nil(ctx.texts.stackAnchor)
+		assert.equal(M.Get(ctx.texts.timerAnchor.frame, 'text'), '12')
+		assert.equal(M.Get(ctx.texts.stackAnchor.frame, 'text'), '5')
+		assert.is_true(D.auraView.plate.isPreview)
+		assert.is_true(D.auraView.plate.src.isSample)
+		assert.equal(D.auraView.plate.env.ctx, plate.env.ctx)
+		assert.truthy(D.auraView.plate.root:GetScale() > 1)
+		assert.is_nil(D.auraView.plate.events)
+	end)
+
+	it('drags timer text in icon pixels and writes one undo step on drop', function()
+		local ctx = TextAttached()
+		local drag = ctx.texts.timerAnchor.target.drag
+		drag.Start()
+		drag.Move(4.3, -2.2)
+		assert.is_nil(P.Store:Get('tweaks.clean'))
+		drag.Move(5, -3)
+		drag.Stop()
+		assert.equal(D:AuraText('mine', 'timerAnchor').x, 5)
+		assert.equal(D:AuraText('mine', 'timerAnchor').y, -3)
+		assert.equal(#D.history.undo, 1)
+		D:Undo()
+		assert.is_nil(P.Store:Get('tweaks.clean'))
+		D:Redo()
+		assert.equal(D:AuraText('mine', 'timerAnchor').x, 5)
+	end)
+
+	it('does not coalesce separate drops and leaves clicks out of history', function()
+		local ctx = TextAttached()
+		local drag = ctx.texts.stackAnchor.target.drag
+		drag.Start()
+		drag.Move(0.1, 0)
+		drag.Stop()
+		assert.is_false(D:CanUndo())
+		for i = 1, 2 do
+			drag.Start()
+			drag.Move(2, 0)
+			drag.Stop()
+		end
+		assert.equal(D:AuraText('mine', 'stackAnchor').x, 5)
+		assert.equal(#D.history.undo, 2)
+	end)
+
+	it('nudges only the picked text, coalesces repeats, and handles undo keys', function()
+		local ctx = TextAttached()
+		local drag = ctx.texts.stackAnchor.target.drag
+		drag.Nudge(0.5, 0)
+		drag.Nudge(0.5, 0)
+		assert.equal(D:AuraText('mine', 'stackAnchor').x, 2)
+		assert.equal(D:AuraText('mine', 'timerAnchor').x, 0)
+		assert.is_nil(Change('mine', 'anchor'))
+		assert.equal(#D.history.undo, 1)
+		assert.is_true(drag.Key('CTRL-Z'))
+		assert.is_true(drag.Key('CTRL-Y'))
+		assert.is_false(drag.Key('DELETE'))
+		assert.is_nil(Change('mine', 'hidden'))
+	end)
+
+	it('writes in the selected kind and resets just its text changes', function()
+		D:SetPreviewKind('enemyPlayer')
+		D:SetScope('kind')
+		D:SetAuraText('mine', 'timerAnchor', { x = 2, size = 14 })
+		assert.equal(P.Store:Get('tweaks.clean.situations.enemyPlayer.parts.mine.timerAnchor.x'), 2)
+		assert.is_nil(P.Store:Get('tweaks.clean.changes'))
+		D:ResetAuraText('mine')
+		assert.is_nil(P.Store:Get('tweaks.clean'))
+		D:Undo()
+		assert.equal(D:AuraText('mine', 'timerAnchor').size, 14)
+	end)
+
+	it('cancels a drop when restrictions or the edit scope change', function()
+		local ctx = TextAttached()
+		local drag = ctx.texts.timerAnchor.target.drag
+		drag.Start()
+		drag.Move(6, 0)
+		textLocked = true
+		drag.Stop()
+		assert.is_nil(P.Store:Get('tweaks.clean'))
+		textLocked = false
+		drag.Start()
+		drag.Move(6, 0)
+		D:SetScope('kind')
+		drag.Stop()
+		assert.is_nil(P.Store:Get('tweaks.clean'))
+	end)
+
+	it('does not overwrite a style change made during a drag', function()
+		local ctx = TextAttached()
+		local drag = ctx.texts.timerAnchor.target.drag
+		drag.Start()
+		drag.Move(6, 0)
+		P.Store:Set('tweaks.clean.changes.parts.mine.size', 28)
+		drag.Stop()
+		assert.equal(Change('mine', 'size'), 28)
+		assert.is_nil(Change('mine', 'timerAnchor'))
+		assert.is_false(D:CanUndo())
+	end)
+
+	it('keeps undo and redo pending while changes are restricted', function()
+		D:SetAuraText('mine', 'timerAnchor', { x = 4 })
+		textLocked = true
+		assert.is_false(D:Undo())
+		assert.equal(D:AuraText('mine', 'timerAnchor').x, 4)
+		textLocked = false
+		assert.is_true(D:Undo())
+		textLocked = true
+		assert.is_false(D:Redo())
+		textLocked = false
+		assert.is_true(D:Redo())
+	end)
+
+	it('returns to the whole row with the toolbar switch and reuses its editor', function()
+		local ctx, plate = TextAttached()
+		local editor = D.auraView.plate
+		local toggle
+		for _, item in ipairs(D:ToolbarItems()) do
+			if item.text == 'Aura text' then
+				toggle = item
+			end
+		end
+		assert.is_true(toggle.active)
+		toggle.onClick()
+		assert.is_false(D:AuraTextOpen())
+		D:Attach(ctx, plate)
+		assert.is_nil(D.auraView)
+		toggle.onClick()
+		D:Attach(ctx, plate)
+		assert.equal(D.auraView.plate, editor)
+		D:Detach()
+		assert.is_nil(editor.src)
+	end)
+end)
+
+describe('designer: aura panel lifecycle', function()
+	before_each(function()
+		Reset()
+		D:Detach()
+		D.state.auraText = nil
+	end)
+	after_each(function()
+		D:Detach()
+	end)
+
+	it('keeps plates visible above the enlarged icon and restores the scene on leaving Customize', function()
+		D:Select('mine')
+		local provider = P:BuildPreviewProvider()
+		local canvas = CreateFrame('Frame', nil, UIParent)
+		canvas:SetSize(338, 416)
+		local targets = {}
+		local ctx = {
+			canvas = canvas,
+			path = P.Options.Path('customize'),
+			Region = function(frame, target)
+				targets[#targets + 1] = { frame = frame, target = target }
+			end,
+		}
+		provider:Render(ctx)
+		local pool = P.Scenes:Pool(canvas)
+		assert.is_true(pool.holder:IsShown())
+		assert.equal(select(5, pool.holder:GetPoint()), 95)
+		assert.not_nil(D.auraView)
+		local view = D.auraView
+		local hasRow, hasTimer = false, false
+		for _, rec in ipairs(targets) do
+			if rec.target.partId == 'mine' then
+				hasRow = true
+			end
+			if rec.target.auraText == 'timerAnchor' then
+				hasTimer = true
+				assert.is_true(rec.target.selected)
+			end
+		end
+		assert.is_true(hasRow)
+		assert.is_true(hasTimer)
+		D:OptionsPathChanged(P.Options.Path('style'))
+		assert.is_nil(D.auraView)
+		assert.is_false(view.holder:IsShown())
+		assert.is_nil(view.plate.src)
+		assert.equal(select(5, pool.holder:GetPoint()), 0)
+		ctx.path = P.Options.Path('style')
+		provider:Render(ctx)
+		assert.is_false(view.holder:IsShown())
+	end)
+
+	it('keeps controls in Customize open while navigating to the selected part', function()
+		D:Select('mine')
+		local plate = P.Plate.New(UIParent, true, P.Scenes.PreviewContext({}))
+		plate:ApplyStyle(P.Styles.Merge:Resolve('clean', 'enemyNPC', 'medium'))
+		plate:BindSample(P.Source.NewSample('casterTarget'))
+		local canvas = CreateFrame('Frame', nil, UIParent)
+		canvas:SetSize(338, 416)
+		D:Attach({ canvas = canvas, Region = function() end }, plate)
+		local path = P.Options.Path('customize')
+		path[#path + 1] = 'part_mine'
+		D:OptionsPathChanged(path)
+		assert.not_nil(D.auraView)
+	end)
+
+	it('clamps drag offsets to schema limits before writing and ignores invalid fields', function()
+		D:Select('mine')
+		local frame = CreateFrame('Frame', nil, UIParent)
+		frame:SetPoint('CENTER')
+		D:BeginAuraTextDrag('mine', 'wrong', frame)
+		assert.is_nil(D.auraDrag)
+		D:BeginAuraTextDrag('mine', 'timerAnchor', frame)
+		D:DragAuraTextTo(100, -100)
+		assert.equal(D.auraDrag.dx, 64)
+		assert.equal(D.auraDrag.dy, -64)
+		D:EndAuraTextDrag()
+		assert.equal(D:AuraText('mine', 'timerAnchor').x, 64)
+		assert.equal(D:AuraText('mine', 'timerAnchor').y, -64)
+	end)
+end)
+
+describe('designer: aura text edit layers', function()
+	before_each(function()
+		Reset()
+		D:Detach()
+		D.state.auraText = nil
+	end)
+	after_each(function()
+		D:Detach()
+	end)
+	it('shows the layer being edited even if the row is hidden or has changes for one kind', function()
+		P.Store:Set('tweaks.clean.situations.enemyPlayer.parts.mine.timerAnchor', { x = 3, size = 15 })
+		P.Store:Set('tweaks.clean.changes.parts.mine.hidden', true)
+		D:SetPreviewKind('enemyPlayer')
+		D:Select('mine')
+		local canvas = CreateFrame('Frame', nil, UIParent)
+		canvas:SetSize(338, 416)
+		local plate = P.Plate.New(canvas, true, P.Scenes.PreviewContext({}))
+		plate:ApplyStyle(P.Styles.Merge:Resolve('clean', 'enemyPlayer', 'medium'))
+		plate:BindSample(P.Source.NewSample('casterTarget'))
+		local ctx = { canvas = canvas, Region = function() end }
+		assert.is_nil(plate.style.parts.mine)
+		D:Attach(ctx, plate)
+		local editor = D.auraView.plate
+		assert.equal(M.Get(editor:GetWidget('icon').icons[1].timer, 'font')[2], 9)
+		D:SetScope('kind')
+		D:Attach(ctx, plate)
+		assert.equal(M.Get(editor:GetWidget('icon').icons[1].timer, 'font')[2], 15)
+		assert.equal(D:AuraText('mine', 'timerAnchor').x, 3)
+	end)
+end)
+
+describe('designer: cancelled aura text drag', function()
+	it('restores the sample text before releasing the editor', function()
+		Reset()
+		D.state.auraText = nil
+		D:Select('mine')
+		local canvas = CreateFrame('Frame', nil, UIParent)
+		canvas:SetSize(338, 416)
+		local plate = P.Plate.New(canvas, true, P.Scenes.PreviewContext({}))
+		plate:ApplyStyle(P.Styles.Merge:Resolve('clean', 'enemyNPC', 'medium'))
+		plate:BindSample(P.Source.NewSample('casterTarget'))
+		local drag, frame
+		local ctx = {
+			canvas = canvas,
+			Region = function(region, target)
+				if target.auraText == 'timerAnchor' then
+					drag, frame = target.drag, region
+				end
+			end,
+		}
+		D:Attach(ctx, plate)
+		drag.Start()
+		drag.Move(7, 3)
+		assert.equal(select(4, frame:GetPoint()), 7)
+		D:Detach()
+		assert.equal(select(4, frame:GetPoint()), 0)
+		assert.is_nil(P.Store:Get('tweaks.clean'))
+		D:Attach(ctx, plate)
+		assert.equal(select(4, frame:GetPoint()), 0)
+		D:Detach()
+	end)
+end)
