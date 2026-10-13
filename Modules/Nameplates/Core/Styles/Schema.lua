@@ -234,6 +234,19 @@ Schema.PART_FIELDS = {
 		width = Num(1, 512, true),
 		height = Num(1, 256, true),
 		fill = Enum({ 'plate' }),
+		-- A picture cut in nine: corners keep their shape, the edges and middle stretch. Texel
+		-- numbers are in the picture file; scale is drawn pixels per texel.
+		slice = Fields({
+			file = SIZE2,
+			size = SIZE2,
+			left = Num(0, 1024, true),
+			top = Num(0, 1024, true),
+			right = Num(0, 1024, true),
+			bottom = Num(0, 1024, true),
+			scale = Num(0.05, 4),
+		}),
+		-- How far a plate-filling picture reaches past the plate on each side, in pixels
+		outset = Fields({ left = Num(0, 64, true), top = Num(0, 64, true), right = Num(0, 64, true), bottom = Num(0, 64, true) }),
 	},
 	region = {
 		region = Enum({ 'click', 'stack' }),

@@ -217,6 +217,138 @@ function Painted.FrameHeight()
 	return L.frames.health + L.frames.power + L.frames.cast
 end
 
+----------------------------------------------------------------------------------------------------
+-- Nameplates
+----------------------------------------------------------------------------------------------------
+
+-- Each look's painted nameplate: one picture (Images/Nameplate.png, cut from the look's unit frame
+-- plate) that the nameplate art part cuts in nine around the health bar. slice and outset are that
+-- part's fields; band is how far the frame's paint shows above and below the bar (name: above the
+-- first pixels of the bar, where the name starts), which places the name and the cast bar.
+-- tools/painted/nameplates.py makes the pictures and prints this table; change the numbers only
+-- with the pictures (Tests/Nameplates/suites/painted_plates_spec.lua compares them with the files).
+Painted.NAMEPLATES = {
+	Atlas = {
+		slice = { file = { 64, 64 }, size = { 64, 42 }, left = 28, top = 16, right = 28, bottom = 22, scale = 0.5 },
+		outset = { left = 9, top = 5, right = 7, bottom = 8 },
+		band = { top = 4, bottom = 7, name = 4 },
+	},
+	Boughs = {
+		slice = { file = { 64, 64 }, size = { 64, 38 }, left = 34, top = 12, right = 22, bottom = 22, scale = 0.5 },
+		outset = { left = 12, top = 3, right = 8, bottom = 8 },
+		band = { top = 2, bottom = 5, name = 2 },
+	},
+	Meridian = {
+		slice = { file = { 128, 64 }, size = { 68, 44 }, left = 30, top = 18, right = 30, bottom = 22, scale = 0.5 },
+		outset = { left = 8, top = 6, right = 8, bottom = 8 },
+		band = { top = 3, bottom = 8, name = 5 },
+	},
+}
+
+local function CopyTable(source)
+	local out = {}
+	for key, value in pairs(source) do
+		out[key] = type(value) == 'table' and CopyTable(value) or value
+	end
+	return out
+end
+
+---A look's painted nameplate style: Clean's parts around the look's plate picture. The frame draws
+---under the health bar with its window on the bar, the name sits above the frame's paint and the
+---cast bar below it, and the target arrows, hover glow and threat glow wrap the whole frame.
+---@param name string look id
+---@param meta { root: string, name: string, description: string, accent: number[], trim: number[], frameLabel?: string }
+---@return table|nil style nil for a look without a painted plate
+function Painted.NameplateStyle(name, meta)
+	local art = Painted.NAMEPLATES[name]
+	if not art then
+		return nil
+	end
+	local out, band = art.outset, art.band
+	local accent, trim = meta.accent, meta.trim
+	local around = { 'CENTER', 'frame', 'CENTER', 0, 0 }
+	return {
+		id = 'painted' .. name,
+		name = meta.name,
+		description = meta.description,
+		version = 1,
+		schema = 1,
+		-- In the gallery after the built-in looks, before Blank
+		order = 65,
+		plate = { sizes = { small = { 112, 8 }, medium = { 132, 10 }, large = { 156, 12 } } },
+		regions = {
+			click = { auto = true, pad = { out.left, out.right, 6, 2 } },
+			stack = { auto = true, pad = { out.left + 2, out.right + 2, 4, 4 } },
+		},
+		tokens = {
+			accent = { accent[1], accent[2], accent[3], 1 },
+			font = '$host',
+			bar = 'SpartanUI Default',
+			ink = { 0, 0, 0, 1 },
+			shade = { 0, 0, 0, 0.55 },
+			trim = { trim[1], trim[2], trim[3], 1 },
+			plate = meta.root .. 'Nameplate.png',
+		},
+		parts = {
+			frame = { order = 5, kind = 'art', art = '$plate', fill = 'plate', slice = CopyTable(art.slice), outset = CopyTable(out), label = meta.frameLabel },
+			health = {
+				order = 10,
+				kind = 'bar',
+				source = 'health',
+				anchor = { 'CENTER', 'plate', 'CENTER', 0, 0 },
+				fill = 'plate',
+				texture = '$bar',
+				border = { kind = 'pixel', size = 1, color = '$ink' },
+				bg = '$shade',
+				colors = 'health',
+				borderColors = 'border',
+				absorb = true,
+				healAbsorb = true,
+			},
+			name = {
+				order = 20,
+				kind = 'text',
+				source = 'name',
+				anchor = { 'BOTTOMLEFT', 'health', 'TOPLEFT', 0, math.max(band.top, band.name) + 1 },
+				justify = 'LEFT',
+				colors = 'name',
+				font = { face = '$font', size = 10, flags = 'OUTLINE' },
+			},
+			hp = { order = 30, kind = 'text', source = 'healthPercent', anchor = { 'RIGHT', 'health', 'RIGHT', -2, 0 }, justify = 'RIGHT', font = { size = 9 } },
+			forces = { order = 35, kind = 'text', source = 'forces', anchor = { 'LEFT', 'health', 'LEFT', 14, 0 }, justify = 'LEFT', font = { size = 9 } },
+			elite = { order = 36, kind = 'icon', source = 'classification', anchor = { 'LEFT', 'health', 'LEFT', 2, 0 }, size = 10 },
+			cast = {
+				order = 40,
+				kind = 'cast',
+				anchor = { 'TOP', 'health', 'BOTTOM', 0, -(band.bottom + 2) },
+				height = 8,
+				icon = 'left',
+				target = true,
+				shield = true,
+				important = true,
+				aimedAtMe = true,
+				border = { kind = 'pixel', size = 1, color = '$trim' },
+			},
+			power = { order = 45, kind = 'classPower', state = 'target', anchor = { 'TOP', 'cast', 'BOTTOM', 0, -3 }, size = 5, spacing = 2 },
+			mine = { order = 50, kind = 'auras', row = 'myDebuffs', anchor = { 'BOTTOMLEFT', 'name', 'TOPLEFT', 0, 2 }, size = 20, max = 6, grow = 'RIGHT' },
+			cc = { order = 60, kind = 'auras', row = 'crowdControl', anchor = { 'LEFT', 'health', 'RIGHT', out.right + 4, 0 }, size = 24, max = 2 },
+			marker = { order = 70, kind = 'icon', source = 'raidMarker', anchor = { 'RIGHT', 'health', 'LEFT', -(out.left + 4), 0 }, size = 16 },
+			quest = { order = 75, kind = 'icon', source = 'quest', anchor = { 'BOTTOMRIGHT', 'health', 'TOPRIGHT', 0, band.top + 1 }, size = 14 },
+			arrows = { order = 80, kind = 'highlight', state = 'target', art = 'arrows', anchor = CopyTable(around) },
+			hover = { order = 79, kind = 'highlight', state = 'mouseover', art = 'glow', color = { 1, 1, 1, 1 }, anchor = CopyTable(around) },
+			threat = { order = 90, kind = 'glow', source = 'threat', anchor = CopyTable(around) },
+		},
+		states = {
+			target = { grow = { 14, 2 } },
+			notTarget = { alpha = 0.75 },
+			casting = { alpha = 1 },
+		},
+		situations = {
+			friendlyPlayer = { hide = { 'frame', 'health', 'cast', 'hp' }, parts = { name = { font = { size = 12 } } } },
+		},
+	}
+end
+
 if not SUI then
 	return Painted
 end
@@ -971,6 +1103,50 @@ local function StatusBars(name, root)
 	return bars
 end
 
+---The look's painted nameplate style (Painted.NameplateStyle) with its names and colors
+---@param spec SUI.ThemePainted.Spec
+---@param root string image folder
+---@return table|nil
+local function NameplateStyle(spec, root)
+	return Painted.NameplateStyle(spec.name, {
+		root = root,
+		name = spec.displayName,
+		description = string.format(SUI.L['The painted frame of the %s look, around a smooth bar.'], spec.displayName),
+		accent = spec.accent,
+		trim = spec.colors.frameBorder,
+		frameLabel = SUI.L['Painted frame'],
+	})
+end
+
+---The theme's nameplates block for "Match my look": the look's painted plate, in its accent. Looks
+---without a plate get Clean on a smooth bar with a dark frame.
+---@param spec SUI.ThemePainted.Spec
+---@param root string image folder
+---@return table
+function Painted.NameplateLook(spec, root)
+	return {
+		style = NameplateStyle(spec, root),
+		tokens = { bar = 'SpartanUI Default', ink = { 0, 0, 0, 1 }, shade = { 0, 0, 0, 0.55 } },
+	}
+end
+
+---Offer the look's painted plate as a nameplate style of its own, so the gallery lists it whatever
+---look is active (data only: nothing runs until the nameplates do)
+---@param spec SUI.ThemePainted.Spec
+---@param root string image folder
+local function OfferNameplateStyle(spec, root)
+	local nameplates = SUI:GetModule('Nameplates', true)
+	local api = nameplates and nameplates.API
+	local style = api and api.RegisterStyle and NameplateStyle(spec, root)
+	if not style then
+		return
+	end
+	local ok, reason = api:RegisterStyle(style)
+	if not ok and SUI.logger and SUI.logger.warning then
+		SUI.logger.warning('The ' .. spec.name .. ' nameplate style could not be registered: ' .. tostring(reason))
+	end
+end
+
 ----------------------------------------------------------------------------------------------------
 -- Registration
 ----------------------------------------------------------------------------------------------------
@@ -1035,8 +1211,8 @@ function Painted.Register(spec)
 				minimap = MinimapSettings(name),
 				buttonSkin = { texture = root .. 'Button.png', size = L.buttonFrame },
 				dataBars = SUI.ThemeDataBars.DataBars(name:lower()),
-				-- "Match my look" nameplates: Clean on a smooth bar with a dark frame, in the look's accent
-				nameplates = { tokens = { bar = 'SpartanUI Default', ink = { 0, 0, 0, 1 }, shade = { 0, 0, 0, 0.55 } } },
+				-- "Match my look" nameplates: the look's painted plate
+				nameplates = Painted.NameplateLook(spec, root),
 				statusBars = StatusBars(name, root),
 				slidingTrays = {
 					left = { enabled = true, collapsed = false },
@@ -1074,6 +1250,7 @@ function Painted.Register(spec)
 			Painted.ApplyVariant(name, root)
 		end
 		VariantOptions(name, spec.displayName)
+		OfferNameplateStyle(spec, root)
 	end
 
 	function module:OnEnable()

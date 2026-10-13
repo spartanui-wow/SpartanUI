@@ -26,7 +26,8 @@ local P = ns.Plates
 --   Highlight colors are always plain (style colors and state tints), so gradients are safe here.
 -- art: a static theme decoration (nine-slice plate, emblem). spec.art is a file path, or a
 --   LibSharedMedia key of type ArtAliases.MEDIA.art ('nameplateart') or 'background'. Nothing draws when it does not
---   resolve: decorations have no stand-in.
+--   resolve: decorations have no stand-in. spec.slice draws a painted plate cut in nine and
+--   spec.outset lets a plate-filling picture reach past the plate (see "Theme art" below).
 
 ---@class Plates.Highlight
 local Highlight = {}
@@ -576,6 +577,96 @@ P.Parts:Register({
 -- Theme art
 ----------------------------------------------------------------------------------------------------
 
+-- spec.slice cuts the picture in nine (a painted plate): the four corners keep their shape at
+--   slice.scale drawn pixels per texel, the edges stretch one way and the middle both ways, so the
+--   picture follows any plate width and bar height without stretching its painted ends. Texel
+--   numbers count from the top left of the file (slice.file); slice.size is the painted part when
+--   the file is padded to a power of two (default: the whole file). When the area is smaller than
+--   the two corners, each corner shows its outer part. Nine textures, placed once per layout.
+-- spec.outset (fill 'plate' only) lets the picture reach past the plate, so a frame's window can
+--   sit exactly on a plate-filling bar.
+
+---Drawn sizes of a sliced picture's corners for an area w x h (whole pixels), and the texels each
+---corner shows. Pure geometry, shared with the tests.
+---@param slice table spec.slice
+---@param w number drawn width of the area
+---@param h number drawn height of the area
+---@return table { left, right, top, bottom } drawn pixels
+---@return table { left, right, top, bottom } texels shown
+function Highlight.SliceGeometry(slice, w, h)
+	local scale = slice.scale or 1
+	local function Pair(a, b, room)
+		local da, db = math.floor(a * scale + 0.5), math.floor(b * scale + 0.5)
+		if da + db > room and da + db > 0 then
+			local share = room / (da + db)
+			local na = math.floor(da * share)
+			local nb = math.max(0, math.floor(room) - na)
+			return na, nb, na / scale, nb / scale
+		end
+		return da, db, a, b
+	end
+	local l, r, tl, tr = Pair(slice.left or 0, slice.right or 0, w)
+	local t, b, tt, tb = Pair(slice.top or 0, slice.bottom or 0, h)
+	return { left = l, right = r, top = t, bottom = b }, { left = tl, right = tr, top = tt, bottom = tb }
+end
+
+-- Pieces in order: corners, then edges, then the middle
+local PIECES = { 'TL', 'TR', 'BL', 'BR', 'T', 'B', 'L', 'R', 'C' }
+
+local function SlicedPieces(widget)
+	local pieces = widget.pieces
+	if not pieces then
+		pieces = {}
+		for i, key in ipairs(PIECES) do
+			local texture = widget.frame:CreateTexture(nil, 'BACKGROUND')
+			pieces[i] = texture
+			pieces[key] = texture
+		end
+		widget.pieces = pieces
+	end
+	return pieces
+end
+
+local function Place(texture, holder, x1, y1, from, x2, y2, to, u1, u2, v1, v2, shown)
+	texture:ClearAllPoints()
+	if not shown then
+		texture:Hide()
+		return
+	end
+	texture:SetPoint('TOPLEFT', holder, from, x1, y1)
+	texture:SetPoint('BOTTOMRIGHT', holder, to, x2, y2)
+	texture:SetTexCoord(u1, u2, v1, v2)
+	texture:Show()
+end
+
+---Lay a sliced picture over the holder: nine textures between the holder's corners.
+local function DrawSliced(widget, slice, path, w, h, r, g, b, a)
+	local pieces = SlicedPieces(widget)
+	local holder = widget.frame
+	local drawn, shown = Highlight.SliceGeometry(slice, w, h)
+	local fw, fh = slice.file[1], slice.file[2]
+	local sw, sh = slice.size and slice.size[1] or fw, slice.size and slice.size[2] or fh
+	-- Texture coordinates of the column and row edges
+	local u0, u1, u2, u3 = 0, shown.left / fw, (sw - shown.right) / fw, sw / fw
+	local v0, v1, v2, v3 = 0, shown.top / fh, (sh - shown.bottom) / fh, sh / fh
+	local L, R, T, B = drawn.left, drawn.right, drawn.top, drawn.bottom
+	local midW, midH = w - L - R > 0, h - T - B > 0
+	Place(pieces.TL, holder, 0, 0, 'TOPLEFT', L, -T, 'TOPLEFT', u0, u1, v0, v1, L > 0 and T > 0)
+	Place(pieces.TR, holder, -R, 0, 'TOPRIGHT', 0, -T, 'TOPRIGHT', u2, u3, v0, v1, R > 0 and T > 0)
+	Place(pieces.BL, holder, 0, B, 'BOTTOMLEFT', L, 0, 'BOTTOMLEFT', u0, u1, v2, v3, L > 0 and B > 0)
+	Place(pieces.BR, holder, -R, B, 'BOTTOMRIGHT', 0, 0, 'BOTTOMRIGHT', u2, u3, v2, v3, R > 0 and B > 0)
+	Place(pieces.T, holder, L, 0, 'TOPLEFT', -R, -T, 'TOPRIGHT', u1, u2, v0, v1, midW and T > 0)
+	Place(pieces.B, holder, L, B, 'BOTTOMLEFT', -R, 0, 'BOTTOMRIGHT', u1, u2, v2, v3, midW and B > 0)
+	Place(pieces.L, holder, 0, -T, 'TOPLEFT', L, B, 'BOTTOMLEFT', u0, u1, v1, v2, midH and L > 0)
+	Place(pieces.R, holder, -R, -T, 'TOPRIGHT', 0, B, 'BOTTOMRIGHT', u2, u3, v1, v2, midH and R > 0)
+	Place(pieces.C, holder, L, -T, 'TOPLEFT', -R, B, 'BOTTOMRIGHT', u1, u2, v1, v2, midW and midH)
+	for i = 1, #pieces do
+		local texture = pieces[i]
+		texture:SetTexture(path)
+		texture:SetVertexColor(r, g, b, a)
+	end
+end
+
 P.Parts:Register({
 	id = 'art',
 	kinds = { 'art' },
@@ -589,16 +680,40 @@ P.Parts:Register({
 		local holder = widget.frame
 		holder:ClearAllPoints()
 		local anchor = spec.anchor
+		-- Drawn size from the style, never read back from a frame
+		local w, h
 		if spec.fill == 'plate' then
 			local x, y = anchor and anchor[4] or 0, anchor and anchor[5] or 0
-			holder:SetPoint('TOPLEFT', ctx.plate.art, 'TOPLEFT', x, y)
-			holder:SetPoint('BOTTOMRIGHT', ctx.plate.art, 'BOTTOMRIGHT', x, y)
+			local out = spec.outset or {}
+			local ol, ot, orr, ob = out.left or 0, out.top or 0, out.right or 0, out.bottom or 0
+			holder:SetPoint('TOPLEFT', ctx.plate.art, 'TOPLEFT', x - ol, y + ot)
+			holder:SetPoint('BOTTOMRIGHT', ctx.plate.art, 'BOTTOMRIGHT', x + orr, y - ob)
+			w, h = ctx.width + ol + orr, ctx.height + ot + ob
 		else
-			holder:SetSize(spec.width or ctx.width, spec.height or ctx.height)
+			w, h = spec.width or ctx.width, spec.height or ctx.height
+			holder:SetSize(w, h)
 			ctx:Anchor(holder, anchor)
 		end
 		local path = ctx:Texture(spec.art, P.Data.ArtAliases.MEDIA.art) or ctx:Texture(spec.art, 'background')
 		local texture = widget.texture
+		local textures = widget.textures
+		P.util.Wipe(textures)
+		local slice = spec.slice
+		local sliced = path and type(slice) == 'table' and type(slice.file) == 'table' and slice.file[1] and slice.file[2]
+		if sliced then
+			texture:Hide()
+			DrawSliced(widget, slice, path, w, h, ctx:Color(spec.color))
+			for i = 1, #widget.pieces do
+				textures[i] = widget.pieces[i]
+			end
+			return
+		end
+		if widget.pieces then
+			for i = 1, #widget.pieces do
+				widget.pieces[i]:Hide()
+			end
+		end
+		textures[1] = texture
 		if path then
 			texture:SetTexture(path)
 			texture:SetVertexColor(ctx:Color(spec.color))

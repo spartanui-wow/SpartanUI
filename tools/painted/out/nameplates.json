@@ -1,0 +1,86 @@
+{
+  "Atlas": {
+    "slice": {
+      "file": [
+        64,
+        64
+      ],
+      "size": [
+        64,
+        42
+      ],
+      "left": 28,
+      "right": 28,
+      "top": 16,
+      "bottom": 22,
+      "scale": 0.5
+    },
+    "outset": {
+      "left": 9,
+      "right": 7,
+      "top": 5,
+      "bottom": 8
+    },
+    "band": {
+      "top": 4,
+      "bottom": 7,
+      "name": 4
+    }
+  },
+  "Boughs": {
+    "slice": {
+      "file": [
+        64,
+        64
+      ],
+      "size": [
+        64,
+        38
+      ],
+      "left": 34,
+      "right": 22,
+      "top": 12,
+      "bottom": 22,
+      "scale": 0.5
+    },
+    "outset": {
+      "left": 12,
+      "right": 8,
+      "top": 3,
+      "bottom": 8
+    },
+    "band": {
+      "top": 2,
+      "bottom": 5,
+      "name": 2
+    }
+  },
+  "Meridian": {
+    "slice": {
+      "file": [
+        128,
+        64
+      ],
+      "size": [
+        68,
+        44
+      ],
+      "left": 30,
+      "right": 30,
+      "top": 18,
+      "bottom": 22,
+      "scale": 0.5
+    },
+    "outset": {
+      "left": 8,
+      "right": 8,
+      "top": 6,
+      "bottom": 8
+    },
+    "band": {
+      "top": 3,
+      "bottom": 8,
+      "name": 5
+    }
+  }
+}
