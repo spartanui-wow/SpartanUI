@@ -17,8 +17,7 @@ end
 local ROOT = H.root
 local LOOKS = { 'Atlas', 'Boughs', 'Meridian' }
 
-local saved = { char = { [H.CharacterKey()] = { engine = 'new' } } }
-local SUI, ns = H.LoadNameplatesLikeTheGame({ saved = saved })
+local SUI, ns = H.LoadNameplatesLikeTheGame()
 local P = ns.Plates
 M.Login('SpartanUI')
 M.Advance(1)

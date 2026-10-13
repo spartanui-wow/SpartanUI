@@ -1,11 +1,11 @@
 -- @runtime lua51
--- "Inert when off" with the SpartanUI host loaded (Decision 21, 6.11, Phase 4a). The new plates are
--- the default, so the engine must stay completely off (no game events, hooks, game setting writes
--- or named frames from the core or the host) whenever it is not chosen:
+-- "Inert when off" with the SpartanUI host loaded (6.11, Phases 4a and 4b). The plates are the
+-- default, so the engine must stay completely off (no game events, hooks, game setting writes or
+-- named frames from the core or the host) whenever it is not chosen:
 --   * the module is turned off,
---   * another nameplate addon is loaded,
---   * the profile has plates off (an existing Retail profile before the player opts in),
---   * the old plates were picked for this character.
+--   * another nameplate addon is loaded, or ElvUI draws the nameplates,
+--   * the profile has plates off (an existing Retail profile before the player opts in).
+-- A choice of the old plates saved by an earlier version is not one of them: those plates are gone.
 -- One process: each case turns the module off and on again and checks that nothing was recorded
 -- since the start. The last case clears every condition and the engine starts, so the checks are
 -- not passing by accident. Runs in its own process so the core-only check stays independent.
@@ -92,19 +92,21 @@ describe('inert when off, with the SpartanUI host', function()
 		assert.is_false(root.args.turnOn.hidden())
 	end)
 
-	it('stays off while the old plates are picked', function()
+	it('stays off while ElvUI draws the nameplates', function()
 		P.db.profile.enabled = true
-		P.Config:SetEngineChoice('old')
+		M.loadedAddons = { ElvUI = true }
+		rawset(_G, 'ElvUI', { { private = { nameplates = { enable = true } } } })
 		Cycle()
-		AssertInert('old plates picked')
-		P.Config.sessionEngine = 'old'
+		AssertInert('ElvUI nameplates')
+		-- Its setting cannot be read: it counts as on, so two plate engines never run together
+		rawset(_G, 'ElvUI', {})
 		Cycle()
-		AssertInert('a session that started on the old plates')
+		AssertInert('ElvUI nameplates, unreadable')
+		M.loadedAddons = nil
+		rawset(_G, 'ElvUI', nil)
 	end)
 
 	it('starts once nothing keeps it off', function()
-		P.Config.sessionEngine = nil
-		P.Config:SetEngineChoice(nil)
 		Cycle()
 		assert.is_true(P.enabled, 'the engine runs')
 		assert.is_true(#M.rec.events > 0, 'and now registers its events')

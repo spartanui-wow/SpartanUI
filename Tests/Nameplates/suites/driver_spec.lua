@@ -889,24 +889,9 @@ describe('driver: game settings by place and combat', function()
 		assert.is_true(Driver.yielded.nameplateShowEnemies)
 	end)
 
-	it('changes no settings after the tester switch is turned off', function()
-		local session = P.Config.sessionEngine
-		P.Config.sessionEngine = 'new'
+	it('owns the settings while it draws, whatever an earlier version saved for this character', function()
 		P.db.char.engine = 'old'
-		M.SetCVarState('nameplateShowEnemies', { value = '0' })
-		Store:Set('behavior', { enemies = 'always' })
-		assert.equal(CVar('nameplateShowEnemies'), '0')
-		assert.is_false(Driver:OwnsSettings())
-		P.Config.sessionEngine = session
-		P.db.char.engine = nil
-	end)
-
-	it('changes no settings after the switch is turned off in a session that started on the default', function()
-		local session = P.Config.sessionEngine
-		P.Config.sessionEngine = nil
-		P.db.char.engine = 'old'
-		assert.is_false(Driver:OwnsSettings())
-		P.Config.sessionEngine = session
+		assert.is_true(Driver:OwnsSettings())
 		P.db.char.engine = nil
 	end)
 

@@ -1,9 +1,8 @@
 -- @runtime lua51
--- Last Tick on nameplates (plan 6.11, Phase 2): LastTick reaches the new engine's plates through
+-- Last Tick on nameplates (plan 6.11, Phases 2 and 4b): LastTick reaches the engine's plates through
 -- SpartanUI -> GetModule('Nameplates', true) -> .API:GetHealthBar(base) and draws on that bar.
--- When the engine does not draw a plate it keeps its old path (the old module's plate, then
--- Blizzard's health bar), and a plate the engine draws without a health bar gets no overlay
--- rather than Blizzard's hidden one.
+-- When the engine does not draw a plate it uses Blizzard's health bar, and a plate the engine draws
+-- without a health bar gets no overlay rather than Blizzard's hidden one.
 local M, H = ...
 local S = M.S
 
@@ -92,15 +91,17 @@ describe('LastTick hookup', function()
 		M.HidePlate(token)
 	end)
 
-	it('keeps the old module plate when the engine does not draw it', function()
+	it('never draws on a plate another addon puts on top (the old plates are gone)', function()
 		local token, base = M.ShowPlate({ name = 'Murloc', canAttack = true, reaction = 2 })
-		local old = CreateFrame('Frame', nil, base)
-		old.Health = CreateFrame('StatusBar', nil, old)
-		old:Show()
-		base.unitFrame = old
+		local other = CreateFrame('Frame', nil, base)
+		other.Health = CreateFrame('StatusBar', nil, other)
+		other:Show()
+		base.unitFrame = other
 		local slot = Slot(token)
 		assert.is_true(Hosts:Prepare(slot))
-		assert.equal(slot.bar, old.Health)
+		assert.not_equal(slot.bar, other.Health)
+		local blizzard = base.UnitFrame.healthBar or (base.UnitFrame.HealthBarsContainer and base.UnitFrame.HealthBarsContainer.healthBar)
+		assert.equal(slot.bar, blizzard)
 		base.unitFrame = nil
 		slot.overlay:Detach()
 		M.HidePlate(token)

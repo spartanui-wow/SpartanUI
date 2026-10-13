@@ -40,8 +40,7 @@
 
 	<!-- Load UnitFrames -->
 	<Include file="UnitFrames\Load.xml"/>
-	<Script file="Nameplates.lua" />
-	<!-- New nameplate core (core-only Load.xml), then its SpartanUI host -->
+	<!-- Nameplate core (core-only Load.xml), then its SpartanUI host, which creates the module -->
 	<Include file="Nameplates\Load.xml" />
 	<Script file="Nameplates\Host\SpartanUI.lua" />
 	<Include file="LastTick\Load.xml" />

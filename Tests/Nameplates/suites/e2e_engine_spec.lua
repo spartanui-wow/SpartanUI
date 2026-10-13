@@ -1,7 +1,7 @@
 -- @runtime lua51
--- End to end (stage B): the real old module, the core and the SpartanUI host load in LoadAll.xml
--- order with the tester switch on, and one play session runs on each client: 40 plates of mixed
--- kinds, target, focus and mouseover moves, casts with the interrupt ready and not ready, combat,
+-- End to end (stage B): the core and the SpartanUI host load in LoadAll.xml order, and one play
+-- session runs on each client: 40 plates of mixed kinds, target, focus and mouseover moves, casts
+-- with the interrupt ready and not ready, combat,
 -- restricted mode on clients with secrets, style, size and color changes through the Store, a
 -- profile switch, leaving combat, every plate removed, and the engine turned off.
 --
@@ -152,8 +152,7 @@ for name, c in pairs(M.cvars) do
 end
 local plateSizeBefore = { M.plateSize[1], M.plateSize[2] }
 
-local saved = { char = { [H.CharacterKey()] = { engine = 'new' } } }
-local SUI, ns, module = H.LoadNameplatesLikeTheGame({ saved = saved })
+local SUI, ns, module = H.LoadNameplatesLikeTheGame()
 local P = ns.Plates
 local Driver, Store = P.Driver, P.Store
 
@@ -420,10 +419,9 @@ end
 ----------------------------------------------------------------------------------------------------
 
 describe('engine end to end', function()
-	it('logs in with the tester switch on and starts the engine', function()
+	it('logs in and starts the engine', function()
 		M.Login('SpartanUI')
 		M.Advance(3)
-		assert.equal(P.Config:GetSessionEngine(), 'new')
 		assert.is_true(P.enabled, 'the engine is on')
 		assert.is_true(Driver.active)
 		assert.is_true(Driver.standing, 'drawing for this profile')

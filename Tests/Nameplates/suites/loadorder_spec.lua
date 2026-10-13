@@ -1,11 +1,10 @@
 -- @runtime lua51
--- Load order and attachment (plan 6.1, Decision 21): the TOC declares the new SavedVariable
--- account-wide and loads the core only through Modules/LoadAll.xml, where the old module comes
--- first, then the core's Load.xml, then the host, then LastTick. Then the real old module file,
--- the core and the host are loaded in that order against the SpartanUI stand-in and logged in with
--- the tester switch off: the host attaches to the module the old file made (or makes a hidden one
--- on Retail, where the old file stops early), the old plates start as before, and the core does
--- nothing to the game.
+-- Load order (plan 6.1, Phase 4b): the TOC declares the nameplate SavedVariable account-wide and
+-- loads the core only through Modules/LoadAll.xml, where the core's Load.xml comes first, then the
+-- host, then LastTick. The old module file is gone from the folder and from the load list. Then the
+-- core and the host are loaded in that order against the SpartanUI stand-in for a character that
+-- picked the old plates in an earlier version: the host creates the one Nameplates module, the saved
+-- choice is dropped, the old settings come over to Clean and the plates start.
 --
 -- Loading SpartanUI's whole TOC in the mock is not attempted: the strict client lacks most of
 -- FrameXML (RegisterStateDriver, Minimap, Blizzard templates) and Libs-AddonTools, so about 140 of
@@ -101,13 +100,19 @@ end)
 describe('load order: Modules/LoadAll.xml', function()
 	local entries, first, last, all = H.NameplateLoadEntries()
 
-	it('finds the old module and the host', function()
-		assert.not_nil(first, 'Modules/Nameplates.lua is in LoadAll.xml')
+	it('finds the core and the host', function()
+		assert.not_nil(first, 'the core is in LoadAll.xml')
 		assert.not_nil(last, 'Modules/Nameplates/Host/SpartanUI.lua is in LoadAll.xml')
 		assert.truthy(first < last)
 	end)
 
-	it('loads old module, every core file in Load.xml order, the host, then LastTick', function()
+	it('no longer has the old module', function()
+		assert.is_false(H.Exists(H.oldModuleFile), 'Modules/Nameplates.lua is deleted')
+		assert.is_nil(IndexOf(all, H.oldModuleFile), 'and not in LoadAll.xml')
+		assert.is_false(H.Exists(ROOT .. 'Core/Handlers/BackgroundBorder_Examples.lua'))
+	end)
+
+	it('loads every core file in Load.xml order, the host, then LastTick', function()
 		local core = {}
 		for _, entry in ipairs(H.ParseLoadXml(H.moduleXml)) do
 			if entry.kind == 'script' then
@@ -115,13 +120,13 @@ describe('load order: Modules/LoadAll.xml', function()
 			end
 		end
 		assert.truthy(#core > 10)
-		local between = {}
-		for i = 2, #entries - 1 do
+		local loaded = {}
+		for i = 1, #entries - 1 do
 			if entries[i].kind == 'script' then
-				between[#between + 1] = entries[i].path
+				loaded[#loaded + 1] = entries[i].path
 			end
 		end
-		assert.same(between, core, 'exactly the core files, in order, between the old module and the host')
+		assert.same(loaded, core, 'exactly the core files, in order, right before the host')
 		local lastTick
 		for i, entry in ipairs(all) do
 			if entry.kind == 'script' and entry.path:find('/Modules/LastTick/', 1, true) then
@@ -156,59 +161,70 @@ describe('load order: Modules/LoadAll.xml', function()
 	end)
 end)
 
--- Phase 4a: the new plates are the default, so this character picked "Use the old nameplates"
-describe('load order: the old module and the host, old plates picked', function()
+-- An earlier version saved "Use the old nameplates" for this character, on a SpartanUI profile that
+-- went through setup and saved an old plate width
+describe('load order: the host, for a character that was on the old plates', function()
+	rawset(_G, 'SpartanUIDB', {
+		profileKeys = {},
+		profiles = { Default = { SetupWizard = { FirstLaunch = false } } },
+		namespaces = { Nameplates = { profiles = { Default = { width = '140', elements = { TargetIndicator = { enabled = false } } } } } },
+	})
 	local SUI, ns, module = H.LoadNameplatesLikeTheGame({ saved = { char = { [H.CharacterKey()] = { engine = 'old' } } } })
 	local P = ns.Plates
 
-	it('ends up with one Nameplates module carrying the core API', function()
+	it('ends up with one Nameplates module, made by the host, carrying the core API', function()
 		assert.not_nil(module)
 		assert.is_true(rawequal(module.API, P.API))
-		if SUI.IsRetail then
-			assert.is_true(module.createdByHost, 'Retail: the old file stops early, the host makes the module')
-		else
-			assert.is_nil(module.createdByHost, 'the old file made it')
-		end
+		assert.is_true(rawequal(SUI:GetModule('Nameplates'), module))
 	end)
 
-	it('logs in without errors and runs the old plates, not the new engine', function()
+	it('logs in without errors and starts the plates where the profile wants them', function()
 		M.Login('SpartanUI')
 		M.Advance(1)
 		assert.is_true(P.initialized, 'the core opened its database')
-		assert.is_false(P.enabled, 'the engine stays off')
-		assert.equal(P:RegisteredEventCount(), 0)
-		assert.empty(M.rec.cvarWrites, 'CVar writes')
-		-- Nothing under Modules/Nameplates/ (core or host) touched the game; the old file may
-		local function Ours(list)
-			local out = {}
-			for _, rec in ipairs(list) do
-				if tostring(rec.where or ''):find('Modules/Nameplates/', 1, true) then
-					out[#out + 1] = (rec.event or rec.name or rec.label or '?') .. ' at ' .. tostring(rec.where)
-				end
-			end
-			return out
-		end
-		assert.empty(Ours(M.rec.events), 'events registered by the core or host')
-		assert.empty(Ours(M.rec.hooks), 'hooks installed by the core or host')
-		assert.empty(Ours(M.rec.globals), 'named frames made by the core or host')
-		assert.empty(Ours(M.rec.tickers), 'timers started by the core or host')
-		local spawned = false
-		for _, call in ipairs(H.oldCalls) do
-			if call.path == 'SUIUF.SpawnNamePlates' then
-				spawned = true
-			end
-		end
-		assert.equal(spawned, not SUI.IsRetail, 'the old module spawns its plates outside Retail')
+		assert.equal(P.enabled, not SUI.IsRetail, 'Retail waits for the player to pick a style')
 		assert.not_nil(H.sui.commands.np, '/sui np is registered')
-		assert.empty(H.sui.options, 'no new options while the old plates run')
+		local errors = {}
+		for _, line in ipairs(H.logs.Nameplates or {}) do
+			if line:find('^error:') then
+				errors[#errors + 1] = line
+			end
+		end
+		assert.empty(errors, 'logged errors')
 	end)
 
-	it('switches back to the new plates for the next session only', function()
+	it('drops the saved choice and brings the old settings over', function()
+		assert.is_nil(rawget(P.db.char, 'engine'), 'the old choice is gone')
+		local profile = P.db.profile
+		assert.is_true(profile.migratedFromOld)
+		if SUI.IsRetail then
+			assert.is_false(profile.enabled, 'Retail never had the old plates: they wait for the player')
+			assert.equal(P.Migrate:MakeoverState(), 'off')
+		else
+			assert.equal(profile.style, 'clean')
+			assert.same(profile.tweaks.clean.changes.plate.sizes.medium, { 140, SUI.IsForever and 10 or 8 })
+			assert.is_true(profile.tweaks.clean.remove.arrows, 'the target arrows the player turned off, saved under their old name')
+			assert.equal(P.Migrate:MakeoverState(), 'import')
+			local _, text = module.Makeover:Text()
+			assert.is_nil(text:find('old nameplates', 1, true), 'no way back to plates that are gone')
+		end
+		assert.equal(SpartanUIDB.namespaces.Nameplates.profiles.Default.elements.TargetIndicator.enabled, false, 'the old saved data is left alone')
+	end)
+
+	it('has no switch to the old plates left', function()
+		H.sui.printed = {}
 		H.sui.commands.np.fn('preview')
-		assert.is_nil(P.Config:GetEngineChoice(), 'the launch default, not the tester mark')
-		assert.equal(P.Config:GetSessionEngine(), 'old')
-		assert.is_false(P.enabled)
-		H.sui.commands.np.fn('preview')
-		assert.equal(P.Config:GetEngineChoice(), 'old')
+		assert.is_nil(rawget(P.db.char, 'engine'))
+		assert.equal(#H.sui.printed, 1, 'only the help line')
+		assert.is_nil(H.sui.printed[1]:find('preview', 1, true), 'the help line does not offer it')
+		assert.is_nil(P.Config.GetEngineChoice)
+		assert.is_nil(P.Config.SetEngineChoice)
+		for _, entry in ipairs(H.sui.options) do
+			if entry.name == 'Nameplates' then
+				local sharing = entry.table.args.sharing
+				assert.is_nil(entry.table.args.useOldPlates)
+				assert.is_nil(sharing and sharing.args.useOldPlates)
+			end
+		end
 	end)
 end)

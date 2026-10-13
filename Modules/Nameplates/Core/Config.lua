@@ -56,7 +56,7 @@ local function Stamp(db)
 	profile.schema = Config.SCHEMA.profile
 end
 
----Open the database. Sets P.db and captures the session engine choice (reload-gated).
+---Open the database and set P.db.
 function Config:Open()
 	local host = P.host
 	local AceDB = LibStub('AceDB-3.0')
@@ -89,25 +89,9 @@ function Config:Open()
 	local _ = db.profile
 	P.Store:Track()
 
-	self.sessionEngine = db.char.engine
-end
-
----The tester switch value saved for this character: 'new' | 'old' | nil (Phases 2 to 4a only).
----@return string|nil
-function Config:GetEngineChoice()
-	return P.db and P.db.char.engine or nil
-end
-
----Change the tester switch. Takes effect after a reload (the session value never changes).
----@param value 'new'|'old'|nil
-function Config:SetEngineChoice(value)
-	if P.db then
-		P.db.char.engine = value
+	-- Earlier versions kept a per-character choice here between these plates and the ones they
+	-- replaced. Every character uses these plates now, whatever was saved.
+	if db.char.engine ~= nil then
+		db.char.engine = nil
 	end
-end
-
----The tester switch value this session started with.
----@return string|nil
-function Config:GetSessionEngine()
-	return self.sessionEngine
 end

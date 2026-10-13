@@ -166,20 +166,21 @@ FrameXML globals and templates. After adding an `FN.` or `framexml.lua` entry, r
   in `H.hostCalls`, logger lines in `H.logs`.
 - `H.LoadSpartanUIHost(opts)`: loads `Host/SpartanUI.lua` against the SUI mock (a real AceAddon with
   L, logger, DBM, Options, OptionsWindow.Stage, Setup, ThemeRegistry, Lib.LSM, DB, SpartanUIDB and the
-  module helpers). The old `Nameplates` module is created first, as in Phases 2 to 4a
-  (`oldModule = false` skips it). `H.suiMissing` lists SUI fields the host read that the mock lacks.
+  module helpers). The host creates the `Nameplates` module itself, as in game. `H.suiMissing` lists
+  SUI fields the host read that the mock lacks.
 - `H.InstallLibATStub()`: a permissive LibAT stand-in that records calls (`H.libatCalls`).
 - `H.FreshCore(opts)`: a new, separate copy of the core with its own SavedVariable
   (`NameplatesTestDB<n>`), so one suite can start from several database states. Options: `saved` (raw
   SavedVariable table to start from), `host` (HostStub overrides), `before(P)` (runs before
   `P:Initialize`, for adding patches or changing `Config.SCHEMA`), `initialize = false`.
   Returns `P, ns, savedVariableName`.
-- `H.LoadNameplatesLikeTheGame(opts)`: loads the real old `Modules/Nameplates.lua`, every core file and
-  the host in `Modules/LoadAll.xml` order with addon name `SpartanUI`, against the SUI mock without a
-  pre-made module. `SUI.UF` and `SUIUF` are `H.DeepProxy` stand-ins (calls in `H.oldCalls`). Option:
-  `saved` (raw `SpartanUINameplatesDB`, for example the tester switch). Returns `SUI, ns, module`.
-- `H.NameplateLoadEntries()`: the nameplate slice of `Modules/LoadAll.xml` (old module to host), its
-  first and last index, and every entry.
+- `H.LoadNameplatesLikeTheGame(opts)`: loads every core file and the host in `Modules/LoadAll.xml`
+  order with addon name `SpartanUI`, against the SUI mock; the host creates the module. Option:
+  `saved` (raw `SpartanUINameplatesDB`, for example a choice an earlier version saved for the
+  character). Returns `SUI, ns, module`.
+- `H.NameplateLoadEntries()`: the nameplate slice of `Modules/LoadAll.xml` (first core file to host),
+  its first and last index, and every entry. `H.oldModuleFile` is the retired `Modules/Nameplates.lua`,
+  which `loadorder_spec` checks stays gone.
 - `H.CharacterKey()`: the AceDB character key of the mock's player, for seeding `char` data.
 - `H.DeepProxy(path, calls)`: a stand-in where every index and call returns another stand-in.
 

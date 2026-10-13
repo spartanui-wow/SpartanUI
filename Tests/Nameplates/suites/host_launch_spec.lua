@@ -1,11 +1,10 @@
 -- @runtime lua51
--- Phase 4a launch through the real host (plan 3.1, 5.4, 6.10, 7.4): the old module, the core and
--- the host load in LoadAll.xml order for an existing SpartanUI profile with nothing saved for the
--- new plates. The new plates are the default: on the Classic family and Forever the profile
--- switches to Clean with its old plate width and sizes and the engine starts; on Retail the plates
--- stay off (the engine does not start) until the player picks a style. Both get the What's new
--- card. Also: the War look, profile tools, setup decoration, the old plates switch and the launch
--- options.
+-- The launch through the real host (plan 3.1, 5.4, 6.10, 7.4; Phases 4a and 4b): the core and the
+-- host load in LoadAll.xml order for an existing SpartanUI profile with nothing saved for these
+-- plates. On the Classic family and Forever the profile switches to Clean with the old plates'
+-- width and sizes and the engine starts; on Retail the plates stay off (the engine does not start)
+-- until the player picks a style. Both get the What's new card. Also: the War look, profile tools,
+-- setup decoration, the launch options and the Convenience tweaks button.
 local M, H = ...
 
 if not (H.ModuleExists() and H.Exists(H.hostFile)) then
@@ -45,15 +44,6 @@ local function LibATCall(path)
 	return found
 end
 
-local function OldPlatesSpawned()
-	for _, call in ipairs(H.oldCalls or {}) do
-		if call.path == 'SUIUF.SpawnNamePlates' then
-			return true
-		end
-	end
-	return false
-end
-
 local function RootOptions()
 	for _, entry in ipairs(H.sui.options) do
 		if entry.name == 'Nameplates' and entry.parent == 'Root' then
@@ -64,10 +54,9 @@ local function RootOptions()
 end
 
 describe('host launch', function()
-	it('starts the new plates by default at login where the old ones ran', function()
+	it('starts the plates by default at login where the old ones ran', function()
 		M.Login('SpartanUI')
 		M.Advance(1)
-		assert.is_nil(P.Config:GetSessionEngine(), 'no switch saved')
 		if retail then
 			assert.is_false(P.enabled, 'an existing Retail profile waits for the player')
 			assert.equal(P:RegisteredEventCount(), 0, 'and the plates leave the game alone meanwhile')
@@ -75,7 +64,6 @@ describe('host launch', function()
 			assert.is_true(P.enabled, 'the engine is on')
 		end
 		assert.not_nil(RootOptions(), 'Nameplates is a top-level settings entry')
-		assert.is_false(OldPlatesSpawned(), 'the old plates do not run')
 	end)
 
 	it('shows the module as a normal SpartanUI part that knows its conflicts', function()
@@ -104,13 +92,21 @@ describe('host launch', function()
 		assert.equal(SpartanUIDB.namespaces.Nameplates.profiles.Default.width, '150', 'the old settings stay for one release')
 	end)
 
-	it('reads the old defaults the old module registered', function()
+	it("hands the import the old plates' defaults for this client", function()
+		local answer = module.ImportLegacy('Default')
 		if retail then
-			skip('no old module on Retail')
+			assert.equal(answer.action, 'off', 'Retail never had the old plates')
+			return
 		end
-		local database = rawget(module, 'Database')
-		assert.not_nil(database, 'the old module opened its namespace')
-		assert.equal(database.defaults.profile.width, SUI.IsForever and 152 or 128)
+		assert.equal(answer.action, 'import')
+		local defaults = answer.defaults
+		local forever = SUI.IsForever
+		assert.equal(defaults.width, forever and 152 or 128)
+		assert.equal(defaults.elements.Health.height, forever and 10 or 8)
+		assert.equal(defaults.elements.Name.textSize, forever and 10 or 7)
+		assert.equal(defaults.elements.Castbar.height, 5)
+		assert.is_false(defaults.elements.Power.enabled)
+		assert.is_true(rawequal(answer.settings, SpartanUIDB.namespaces.Nameplates.profiles.Default), 'read in place when nothing needs renaming')
 	end)
 
 	it("shows the What's new card once the player is in the world", function()
@@ -123,6 +119,7 @@ describe('host launch', function()
 		else
 			assert.matches(text, 'kept your plate size and text size')
 		end
+		assert.is_nil(text:find('old nameplates', 1, true), 'no pointer to plates that are gone')
 		M.Advance(10)
 		assert.is_true(module.Makeover.shown)
 		assert.not_nil(LibATCall('LibAT.Setup.Hub.ShowToast'), 'without the window kit the card falls back to a toast')
@@ -210,9 +207,9 @@ describe('host launch', function()
 		assert.not_nil(banner)
 		assert.equal(banner.step, 'conflicts')
 		assert.matches(banner.title, 'Plater')
-		P.Config:SetEngineChoice('old')
-		assert.is_true(step.hidden(), 'not asked while the old plates are picked')
-		P.Config:SetEngineChoice(nil)
+		SUI.DB.DisabledModules.Nameplates = true
+		assert.is_true(step.hidden(), 'not asked while the module is off')
+		SUI.DB.DisabledModules.Nameplates = nil
 	end)
 
 	it('adds its two links to the Done page, once', function()
@@ -233,26 +230,22 @@ describe('host launch', function()
 		assert.is_nil(P.Store:Get({ 'behavior', 'pinScale' }))
 	end)
 
-	it('waits to bring old settings over while this character still uses the old plates', function()
-		P.Config.sessionEngine = 'old'
-		local answer = module.ImportLegacy('Default')
-		P.Config.sessionEngine = nil
-		assert.equal(answer.action, 'later')
-	end)
-
-	it('still brings old settings over after switching back to the new plates', function()
+	it('reads an old profile saved before the target element was renamed, without changing it', function()
 		if retail then
 			skip('no old plates on Retail')
 		end
-		P.Config.sessionEngine = 'old'
-		P.Config:SetEngineChoice('old')
-		assert.equal(module.ImportLegacy('Default').action, 'later')
-		RootOptions().args.sharing.args.useOldPlates.set(nil, false)
-		-- The next session starts on the new plates
-		P.Config.sessionEngine = nil
-		local answer = module.ImportLegacy('Default')
-		assert.is_true(answer == nil or answer.action ~= 'later')
-		assert.is_false(P.Config:GetEngineChoice() == 'new', 'never marked as a tester')
+		local saved = SpartanUIDB.namespaces.Nameplates.profiles
+		saved.Renamed = { elements = { TargetIndicator = { enabled = false }, TargetHighlight = { mode = 'border' } } }
+		SpartanUIDB.profiles.Renamed = { SetupWizard = { FirstLaunch = false } }
+		local answer = module.ImportLegacy('Renamed')
+		assert.equal(answer.action, 'import')
+		assert.is_false(answer.settings.elements.TargetHighlight.enabled)
+		assert.equal(answer.settings.elements.TargetHighlight.mode, 'border', 'its other values stay')
+		assert.is_nil(answer.settings.elements.TargetIndicator)
+		assert.is_false(saved.Renamed.elements.TargetIndicator.enabled, 'the old saved data is left alone')
+		assert.is_nil(saved.Renamed.elements.TargetHighlight.enabled)
+		saved.Renamed = nil
+		SpartanUIDB.profiles.Renamed = nil
 	end)
 
 	it('reads the role from the unit frames setup answer', function()
@@ -322,32 +315,52 @@ describe('host launch', function()
 		root.args.turnOn.func()
 		assert.is_true(P.db.profile.enabled)
 		assert.is_true(root.args.style.args.turnOn.hidden())
-		assert.is_nil(root.args.useOldPlates, 'the root stays empty so it opens the Style page')
-		if retail then
-			assert.is_nil(root.args.sharing.args.useOldPlates, 'Retail has no old plates')
-		else
-			local old = root.args.sharing.args.useOldPlates
-			assert.not_nil(old)
-			assert.is_true(old.advanced)
-			assert.is_false(old.get())
-		end
+		assert.is_nil(root.args.useOldPlates, 'no way back to the old plates')
+		assert.is_nil(root.args.sharing.args.useOldPlates)
 	end)
 
-	it('switches to the old plates for the next session and gives the game its settings back now', function()
-		if retail then
-			skip('no old plates on Retail')
+	it('takes the nameplate half of the Convenience tweaks button, with a backup', function()
+		M.SetCVarState('nameplateShowAll', { value = '0', account = true })
+		M.SetCVarState('nameplateShowSelf', { value = '1', account = true })
+		P.CVars.info.nameplateShowAll, P.CVars.info.nameplateShowSelf = nil, nil
+		assert.is_true(P.Driver.standing, 'the plates draw for this profile (turned on by the tests above)')
+		assert.is_true(module:ApplyRecommendedSettings())
+		M.Advance(0.1)
+		assert.equal(P.Store:Get({ 'cvars', 'nameplateShowAll' }), true)
+		assert.equal(P.Store:Get({ 'cvars', 'nameplateShowSelf' }), false)
+		assert.equal(C_CVar.GetCVar('nameplateShowAll'), '1')
+		assert.equal(C_CVar.GetCVar('nameplateShowSelf'), '0')
+		assert.equal(P.CVars:GetBackup('nameplateShowAll'), '0', 'the player value is kept')
+		local labels = {}
+		for _, row in ipairs(P.Options.WhoAndWhere.GameRows()) do
+			labels[#labels + 1] = row.label
 		end
-		local name = 'nameplateMaxDistance'
-		M.SetCVarState(name, { value = '40', account = true })
-		P.CVars.info[name] = nil
-		P.CVars:Set(name, 60)
-		RootOptions().args.sharing.args.useOldPlates.set(nil, true)
-		assert.equal(P.Config:GetEngineChoice(), 'old')
-		assert.is_false(P.enabled, 'the new plates stop at once')
-		assert.equal(C_CVar.GetCVar(name), '40')
-		assert.is_true(RootOptions().args.sharing.args.useOldPlates.get())
-		RootOptions().args.sharing.args.useOldPlates.set(nil, false)
-		assert.is_nil(P.Config:GetEngineChoice(), 'the launch default, not the tester mark')
+		assert.contains(labels, 'Always show nameplates', 'listed in the game settings table')
+		H.sui.commands.np.fn('restore')
+		assert.equal(C_CVar.GetCVar('nameplateShowAll'), '0', 'and given back with the rest')
+		assert.equal(C_CVar.GetCVar('nameplateShowSelf'), '1')
+		P.Store:Reset('cvars')
+	end)
+
+	it('keeps the Convenience tweaks for later while the profile has plates off', function()
+		P.Store:Set('enabled', false)
+		M.Advance(0.1)
+		assert.is_true(module:ApplyRecommendedSettings())
+		M.Advance(0.1)
+		assert.equal(C_CVar.GetCVar('nameplateShowAll'), '0', 'the game draws the plates: its settings stay')
+		P.Store:Set('enabled', true)
+		M.Advance(0.1)
+		assert.equal(C_CVar.GetCVar('nameplateShowAll'), '1', 'written once these plates draw again')
+		H.sui.commands.np.fn('restore')
+		P.Store:Reset('cvars')
+	end)
+
+	it('leaves the Convenience tweaks alone while another nameplate addon draws the plates', function()
+		M.loadedAddons = { Plater = true }
+		local saved = module:ApplyRecommendedSettings()
+		M.loadedAddons = nil
+		assert.is_false(saved)
+		assert.is_nil(P.Store:Get({ 'cvars', 'nameplateShowAll' }))
 	end)
 end)
 

@@ -238,21 +238,15 @@ describe('migrate: legacy import', function()
 		assert.equal(P.Migrate:MakeoverState(), 'done')
 	end)
 
-	it('waits without marking the profile when the host says later, then imports', function()
-		local answer = { action = 'later' }
+	it('treats an answer it does not know as nothing to bring over', function()
 		local P = Fresh(function()
-			return answer
+			return { action = 'later' }
 		end)
-		assert.is_nil(P.db.profile.migratedFromOld)
-		assert.is_nil(P.db.global.migratedFromOld)
-		assert.equal(P.db.profile.style, 'host')
-		assert.is_nil(P.Migrate:MakeoverState())
-		answer = { action = 'import', settings = { width = 140 }, defaults = OldDefaults() }
-		P.Migrate:RunProfile()
-		assert.equal(P.db.profile.style, 'clean')
-		assert.same(P.db.profile.tweaks.clean.changes.plate.sizes.medium, { 140, defaultHeight })
 		assert.is_true(P.db.profile.migratedFromOld)
-		assert.equal(P.Migrate:MakeoverState(), 'import')
+		assert.equal(P.db.profile.style, 'host')
+		assert.is_true(P.db.profile.enabled)
+		assert.is_nil(P.db.profile.tweaks)
+		assert.is_nil(P.Migrate:MakeoverState())
 	end)
 
 	it('preserves profiles that already have their own settings', function()

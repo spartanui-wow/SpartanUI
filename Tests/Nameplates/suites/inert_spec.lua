@@ -2,7 +2,7 @@
 -- "Inert when off" (plan section 8, 6.12): loading the core with the engine switched off registers
 -- no events, installs no hooksecurefunc, writes no CVars and creates no global frames. Checked
 -- through a full login, a pull's worth of time and a few plates appearing, with the engine never
--- enabled. A second check loads the SpartanUI host too, with the tester switch off.
+-- enabled. The cases with the SpartanUI host loaded are in inert_host_spec.
 local M, H = ...
 
 local function where(rec)

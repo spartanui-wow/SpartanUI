@@ -1,39 +1,27 @@
 -- @runtime lua51
--- A character that picked the new plates (Decision 21; testers saved char.engine = 'new'): the real
--- old module, the core and the host load in LoadAll.xml order. At login the host starts the new
--- engine instead of the old plates, registers its options and "Match my look". Turning the module
--- off, or picking the old plates, stops the engine and gives the game every setting back at once;
--- turning either back on in the same session starts the new plates again.
+-- The engine through the real host: the core and the host load in LoadAll.xml order for a new
+-- profile. At login the host starts the engine, registers its options and "Match my look". Turning
+-- the module off stops the engine and gives the game every setting back at once; turning it back on
+-- in the same session starts the plates again. While another nameplate addon is loaded the module
+-- stays off and still gives back settings an earlier session left behind.
 local M, H = ...
 
 if not (H.ModuleExists() and H.Exists(H.hostFile)) then
-	describe('host with the switch on', function()
+	describe('host with the engine', function()
 		pending('all', 'the nameplate module or its host does not exist yet')
 	end)
 	return
 end
 
-local saved = { char = { [H.CharacterKey()] = { engine = 'new' } } }
-local SUI, ns, module = H.LoadNameplatesLikeTheGame({ saved = saved })
+local SUI, ns, module = H.LoadNameplatesLikeTheGame()
 local P = ns.Plates
 
-local function Called(path)
-	for _, call in ipairs(H.oldCalls) do
-		if call.path == path then
-			return true
-		end
-	end
-	return false
-end
-
-describe('host with the switch on', function()
-	it('starts the new engine at login instead of the old plates', function()
+describe('host with the engine', function()
+	it('starts the engine at login', function()
 		M.Login('SpartanUI')
 		M.Advance(1)
-		assert.equal(P.Config:GetSessionEngine(), 'new')
 		assert.is_true(P.enabled, 'the engine is on')
-		assert.is_false(Called('SUIUF.SpawnNamePlates'), 'the old plates are not spawned')
-		assert.is_nil(SUI.opt.args.Modules.args.Nameplates, 'the old options are not built')
+		assert.is_nil(SUI.opt.args.Modules, 'no settings page outside Nameplates')
 	end)
 
 	it('adds the new options as their own top-level entry', function()
@@ -157,22 +145,10 @@ describe('host with the switch on', function()
 		module:Enable()
 		M.Advance(1)
 		assert.is_true(P.enabled)
-		assert.is_false(Called('SUIUF.SpawnNamePlates'), 'the old plates still do not run')
 	end)
 
-	it('restores settings at once when the old plates are picked', function()
-		local name = 'nameplateMaxScale'
-		M.SetCVarState(name, { value = '1', account = true })
-		P.CVars.info[name] = nil
-		P.CVars:Set(name, 1.3)
-		H.sui.commands.np.fn('preview')
-		assert.equal(P.Config:GetEngineChoice(), 'old')
-		assert.is_false(P.enabled, 'the new plates stop at once')
-		assert.equal(C_CVar.GetCVar(name), '1')
-		assert.is_false(Called('SUIUF.SpawnNamePlates'), 'the old plates wait for a reload')
-	end)
-
-	it('does not start while the old plates are picked, even when the module is turned back on', function()
+	it('does not start while another nameplate addon is loaded, even when the module is turned back on', function()
+		M.loadedAddons = { Plater = true }
 		module:Disable()
 		module:Enable()
 		P.Store:Set('size', 'large')
@@ -189,13 +165,12 @@ describe('host with the switch on', function()
 		module:Disable()
 		assert.is_false(P.enabled)
 		assert.equal(C_CVar.GetCVar(name), '1')
+		M.loadedAddons = nil
 		module:Enable()
 	end)
 
-	it('starts the new plates again in the same session when they are picked again', function()
-		H.sui.commands.np.fn('preview')
-		assert.is_nil(P.Config:GetEngineChoice(), 'the launch default, not the tester mark')
+	it('starts the plates again in the same session once the other addon is gone', function()
 		M.Advance(1)
-		assert.is_true(P.enabled, 'the old plates never ran this session, so no reload is needed')
+		assert.is_true(P.enabled, 'no reload is needed')
 	end)
 end)

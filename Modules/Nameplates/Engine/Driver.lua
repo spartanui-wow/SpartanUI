@@ -4,8 +4,8 @@ local Secret = P.Secret
 
 -- The nameplate driver (6.5, 6.7, 6.8). Owner: Phase 2. The only owner of client-wide plate state
 -- (plate size, hit-test insets, the UpdateNamePlateOptions hook, the place settings it writes
--- through P.CVars), and only while the engine is on, the profile wants plates (profile.enabled)
--- and the tester switch was not turned off this session (OwnsSettings).
+-- through P.CVars), and only while the engine is on and the profile wants plates (profile.enabled,
+-- OwnsSettings).
 --
 -- NAME_PLATE_CREATED(base)
 --   plate = P.Pool:Acquire(base) (a warm plate when one is ready); attach the click-area frame
@@ -275,18 +275,11 @@ function Driver:Behavior(key)
 	return behavior[key]
 end
 
----True while the Driver may change client-wide state: the engine is on, the profile wants
----plates, and the tester switch was not turned off this session (its settings are already back).
+---True while the Driver may change client-wide state: the engine is on and the profile wants
+---plates.
 ---@return boolean
 function Driver:OwnsSettings()
-	if not (self.active and self.standing) then
-		return false
-	end
-	local Config = P.Config
-	if Config and Config.GetSessionEngine and Config:GetSessionEngine() ~= 'old' and Config:GetEngineChoice() == 'old' then
-		return false
-	end
-	return true
+	return (self.active and self.standing) and true or false
 end
 
 ----------------------------------------------------------------------------------------------------

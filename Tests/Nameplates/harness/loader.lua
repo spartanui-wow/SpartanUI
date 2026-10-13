@@ -309,9 +309,9 @@ function H.FreshCore(opts)
 	return P, ns, sv
 end
 
----Load the SpartanUI host file after the core, against the SUI mock.
----opts: ns (the core's addon table), oldModule (false to skip pre-creating the old Nameplates module),
----file (host path)
+---Load the SpartanUI host file after the core, against the SUI mock. The host creates the
+---Nameplates module itself.
+---opts: ns (the core's addon table), file (host path)
 ---@return table SUI, table ns
 function H.LoadSpartanUIHost(opts)
 	opts = opts or {}
@@ -322,9 +322,8 @@ function H.LoadSpartanUIHost(opts)
 	return SUI, ns
 end
 
----A permissive stand-in for SpartanUI systems the old nameplate module reaches into (unit frame
----elements and options, the oUF instance). Every index and call returns another stand-in, and
----calls are recorded in the returned list as { path, n, ... }.
+---A permissive stand-in for a SpartanUI system the mock does not model. Every index and call
+---returns another stand-in, and calls are recorded in the returned list as { path, n, ... }.
 ---@param path string
 ---@param calls? table
 ---@return table proxy, table calls
@@ -347,17 +346,19 @@ function H.DeepProxy(path, calls)
 end
 
 H.loadAllXml = ROOT .. 'Modules/LoadAll.xml'
+-- The old nameplate module, retired in Phase 4b; it must not come back
 H.oldModuleFile = ROOT .. 'Modules/Nameplates.lua'
 
----The nameplate entries of Modules/LoadAll.xml in load order: the old module file, every core file
----its Include lists, and the host, exactly as the client walks the XML.
+---The nameplate entries of Modules/LoadAll.xml in load order: every core file the Include of
+---Nameplates/Load.xml lists, then the host, exactly as the client walks the XML.
 ---@return table[] entries, integer firstIndex, integer lastIndex, table all
 function H.NameplateLoadEntries()
 	local all = H.ParseLoadXml(H.loadAllXml)
+	local folder = normalize(ROOT .. 'Modules/Nameplates') .. '/'
 	local first, last
 	for i, entry in ipairs(all) do
 		if entry.kind == 'script' then
-			if entry.path == normalize(H.oldModuleFile) then
+			if entry.path:sub(1, #folder) == folder then
 				first = first or i
 			end
 			if entry.path == normalize(H.hostFile) then
@@ -374,47 +375,16 @@ function H.NameplateLoadEntries()
 	return out, first, last, all
 end
 
----Load the real old module, the core and the host in LoadAll.xml order against the SUI mock
----(which does not pre-create the module, so the old file makes it as in game). The old module's
----SpartanUI dependencies are deep stand-ins (H.oldCalls records their calls).
+---Load the core and the host in LoadAll.xml order against the SUI mock, as the game does: the host
+---creates the Nameplates module.
 ---opts: saved (raw SpartanUINameplatesDB to start from)
 ---@return table SUI, table ns, table module
 function H.LoadNameplatesLikeTheGame(opts)
 	opts = opts or {}
 	H.LoadLibs()
 	H.InstallLibATStub()
-	local SUI = H.InstallSUIMock({ oldModule = false })
-	H.oldCalls = {}
-	rawset(SUI, 'UF', (H.DeepProxy('SUI.UF', H.oldCalls)))
-	rawset(_G, 'SUIUF', (H.DeepProxy('SUIUF', H.oldCalls)))
-	SUI.DBM.RegisterSequentialProfileRefresh = function() end
-	rawset(SUI, 'opt', { args = { Modules = { args = {} } } })
-	local function copy(t)
-		if type(t) ~= 'table' then
-			return t
-		end
-		local out = {}
-		for k, v in pairs(t) do
-			out[k] = copy(v)
-		end
-		return out
-	end
-	rawset(SUI, 'CopyData', function(_, current, default)
-		current = type(current) == 'table' and current or {}
-		for k, v in pairs(default or {}) do
-			if current[k] == nil then
-				current[k] = copy(v)
-			end
-		end
-		return current
-	end)
-	rawset(SUI, 'MergeData', function(_, target, source)
-		target = type(target) == 'table' and target or {}
-		for k, v in pairs(source or {}) do
-			target[k] = copy(v)
-		end
-		return target
-	end)
+	local SUI = H.InstallSUIMock({})
+	rawset(SUI, 'opt', { args = {} })
 	rawset(SUI, 'Print', function(_, text)
 		H.sui.printed = H.sui.printed or {}
 		H.sui.printed[#H.sui.printed + 1] = text

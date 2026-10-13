@@ -226,11 +226,6 @@ function SUI:AddChatCommand(name, fn, description)
 	H.sui.commands[name] = { fn = fn, description = description }
 end
 
--- The old Modules/Nameplates.lua creates the module at file load in Phases 2 to 4a (Decision 21)
-if opts.oldModule ~= false then
-	SUI:NewModule('Nameplates')
-end
-
 -- Record reads of fields the mock does not have. AceAddon reads some optional fields itself.
 local ACEADDON_OPTIONAL = {
 	defaultModuleLibraries = true,

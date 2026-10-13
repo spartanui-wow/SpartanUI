@@ -710,15 +710,6 @@ function Handler:SetupUnitFrame(frame, frameName, settings)
 	return self:Create(frame, id, settings)
 end
 
----Convenience method: Quick setup for nameplates
----@param frame Frame Nameplate frame
----@param settings? SUI.BackgroundBorder.Settings Initial settings
----@return SUI.BackgroundBorder.Instance
-function Handler:SetupNameplate(frame, settings)
-	local id = 'Nameplate_' .. (frame:GetName() or tostring(frame))
-	return self:Create(frame, id, settings)
-end
-
 ---Convenience method: Quick setup for artwork elements
 ---@param frame Frame Artwork frame
 ---@param elementName string Element identifier

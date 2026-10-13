@@ -332,7 +332,7 @@ function CVars:CancelQueued()
 end
 
 ---Give the game back every setting we changed ("Give the game back its settings", turning the
----module off, turning the tester switch off). Writes still waiting for combat are dropped first.
+---module off). Writes still waiting for combat are dropped first.
 ---Settings the game locks in combat are queued and written when combat ends.
 ---@return boolean done false when some settings wait for combat to end
 function CVars:RestoreAll()
@@ -492,6 +492,9 @@ CVars:Define('nameplateMaxDistance', { kind = 'number', label = L['How far away 
 CVars:Define('nameplateMinScale', { kind = 'number', label = L['Smallest size far away'], page = 'style', min = 0.5, max = 1 })
 CVars:Define('nameplateMaxScale', { kind = 'number', label = L['Largest size up close'], page = 'style', min = 0.5, max = 2 })
 CVars:Define('nameplateSelectedScale', { kind = 'number', label = L['Game target size'], min = 0.5, max = 2 })
+-- No page: the host may ask for these on the player's behalf (profile.cvars, like page controls)
+CVars:Define('nameplateShowAll', { kind = 'bool', label = L['Always show nameplates'] })
+CVars:Define('nameplateShowSelf', { kind = 'bool', label = L['Your own bar under your character'] })
 CVars:Define('nameplateTopInset', { kind = 'number', label = L['Space at the top of the screen'], page = 'whoAndWhere', min = 0, max = 0.5 })
 CVars:Define('nameplateBottomInset', { kind = 'number', label = L['Space at the bottom of the screen'], page = 'whoAndWhere', min = 0, max = 0.5 })
 CVars:Define('nameplateMotionSpeed', { kind = 'number', label = L['How fast plates move apart'], page = 'whoAndWhere', min = 0, max = 0.1 })

@@ -5,9 +5,9 @@ local module = SUI:GetModule('LastTick')
 local Overlay = module.Overlay
 
 -- Where overlays go. Target and focus use SpartanUI's unit frame when it is on, otherwise
--- Blizzard's frame. Nameplates use the health bar of the new nameplate engine when it draws the
--- plate (Nameplates module API:GetHealthBar), else the old module's plate when one is drawn on
--- top, else Blizzard's. Overlays live on the frame they draw on, so they hide with it.
+-- Blizzard's frame. Nameplates use the health bar of SpartanUI's nameplates when they draw the
+-- plate (Nameplates module API:GetHealthBar), else Blizzard's. Overlays live on the frame they draw
+-- on, so they hide with it.
 
 ---@class SUI.Module.LastTick.Slot
 ---@field key string
@@ -144,9 +144,9 @@ local function AttachFrame(slot)
 	overlay:Attach(bar, anchor, point, relative, icon.x, icon.y, Look(false))
 end
 
----The new nameplate engine's health bar for a base plate. `drawn` is true when the engine draws
----this plate (bound to a unit); its bar can still be nil when the plate's style has no health bar.
----Reached through the module's API only, so it works whichever nameplate code is running.
+---SpartanUI's nameplate health bar for a base plate. `drawn` is true when the nameplates draw this
+---plate (bound to a unit); its bar can still be nil when the plate's style has no health bar.
+---Reached through the module's API only, so a missing or turned off module is fine.
 ---@param plate Frame Blizzard's base nameplate
 ---@return boolean drawn
 ---@return StatusBar|nil bar
@@ -171,18 +171,13 @@ local function PlateBar(unit)
 	if not ok or not plate or (plate.IsForbidden and plate:IsForbidden()) then
 		return nil
 	end
-	-- The new engine hides Blizzard's plate and draws its own; never fall back to the hidden one
+	-- SpartanUI's nameplates hide Blizzard's plate and draw their own; never fall back to the hidden one
 	local drawn, engineBar = EnginePlateBar(plate)
 	if drawn then
 		if engineBar then
 			return engineBar, plate
 		end
 		return nil
-	end
-	-- SpartanUI (oUF) draws its plate as plate.unitFrame; Blizzard's is plate.UnitFrame
-	local spartan = plate.unitFrame
-	if spartan and spartan.Health and spartan:IsShown() then
-		return spartan.Health, plate
 	end
 	local blizzard = plate.UnitFrame
 	if blizzard then

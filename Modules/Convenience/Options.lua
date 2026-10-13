@@ -67,14 +67,17 @@ function module:BuildOptions()
 			},
 			applyTweaks = {
 				name = 'Apply Recommended Tweaks',
-				desc = 'Disables personal nameplate, enables all nameplates, and disables all tutorials',
+				desc = 'Turns off all tutorials. While SpartanUI draws your nameplates, it also shows them all the time and hides the bar under your character.',
 				type = 'execute',
 				order = 12,
 				width = 'full',
 				func = function()
-					SetCVar('nameplateShowSelf', 0)
-					SetCVar('nameplateShowAll', 1)
 					SetCVar('showTutorials', 0)
+					-- Nameplate settings go through the nameplates, which keep a backup and can give them back
+					local nameplates = SUI:GetModule('Nameplates', true)
+					if nameplates and nameplates.ApplyRecommendedSettings then
+						nameplates:ApplyRecommendedSettings()
+					end
 					SUI:Print('Recommended game tweaks applied.')
 				end,
 			},

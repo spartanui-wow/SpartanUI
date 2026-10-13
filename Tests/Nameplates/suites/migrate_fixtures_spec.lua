@@ -1,6 +1,6 @@
 -- @runtime lua51
--- Migration through the real host (plan 7): the old module, the core and the host load like the
--- game over a SpartanUIDB shaped like real saved files (fixtures/migrate/old_saved.lua), then every
+-- Migration through the real host (plan 7): the core and the host load like the game over a
+-- SpartanUIDB shaped like real saved files (fixtures/migrate/old_saved.lua), then every
 -- profile in it is switched to once. Checks 7.2 (effective per-client sizes in Clean's overlay,
 -- parts the player turned off, power bar, auras), 7.3 (wildcards and junk dropped, nothing
 -- clamped), 7.4 (Retail profiles off, new profiles on, no game settings), and that each profile is
