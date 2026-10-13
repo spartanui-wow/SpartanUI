@@ -757,10 +757,17 @@ describe('colors page: the lists', function()
 			local opened = {}
 			for _, call in ipairs(H.hostCalls) do
 				if call.name == 'OpenOptions' then
-					opened[#opened + 1] = call[2]
+					opened[#opened + 1] = type(call[2]) == 'table' and call[2][1] or call[2]
 				end
 			end
 			return opened
+		end
+		local function LastKey()
+			for i = #H.hostCalls, 1, -1 do
+				if H.hostCalls[i].name == 'OpenOptions' then
+					return H.hostCalls[i][2]
+				end
+			end
 		end
 		-- The threat colors are folded away: the page opens them, and the host goes there a frame later
 		assert.is_true(page.args.threat.hidden())
@@ -769,9 +776,13 @@ describe('colors page: the lists', function()
 		assert.is_false(Has(Opened(), 'threat'), 'not before the page is drawn with it')
 		M.Advance(0.5)
 		assert.is_true(Has(Opened(), 'threat'), 'the host was asked to open the threat colors')
+		assert.same(LastKey(), ColorsPage.FOCUS.threat, 'with a path to a control inside the group')
 		assert.is_true(arg.onEdit('mobType', 'color', 'boss'))
 		M.Advance(0.5)
 		assert.is_true(Has(Opened(), 'mobType'), 'the host was asked to open the mob type colors')
+		assert.same(LastKey(), ColorsPage.FOCUS.mobType)
+		assert.is_true(arg.onEdit('npc', 'color'))
+		assert.same(LastKey(), ColorsPage.FOCUS.npc)
 		-- Class colors are the game's: nothing to open, nothing to change
 		local before = #H.hostCalls
 		assert.is_true(arg.onEdit('class', 'color', 'WARRIOR'))
@@ -831,6 +842,21 @@ describe('colors page: the lists', function()
 		assert.equal(calls, 3)
 		assert.equal(P.Preview.colorPiece, 'health')
 		P.Preview.SetColorList = original
+	end)
+
+	it('lands the threat, mob type and special mob links on real controls inside their groups', function()
+		for name, path in pairs(ColorsPage.FOCUS) do
+			local node = page
+			for _, key in ipairs(path) do
+				assert.not_nil(node.args, name .. ': a group with controls before ' .. key)
+				node = node.args[key]
+				assert.not_nil(node, name .. ': ' .. key .. ' is on the Colors page')
+			end
+			assert.not_equal(node.type, 'group', name .. ' lands on a control, not on an inline group')
+			assert.not_equal(node.type, 'description', name .. ' lands on something the window can scroll to')
+		end
+		assert.equal(ColorsPage.FOCUS.threat[1], 'threat')
+		assert.equal(ColorsPage.FOCUS.mobType[1], 'mobType')
 	end)
 
 	it('takes the player to a list from a link', function()

@@ -330,7 +330,7 @@ describe('wording: the English fixes in Core/Locale.lua', function()
 	end)
 
 	it('call the list special cases and its editor When', function()
-		assert.equal(P.L['My special cases'], 'My special cases')
+		assert.equal(P.L['My special cases and rules'], 'My special cases and rules')
 		assert.matches(P.L['Special cases change how plates look in certain places. The first one that fits wins, so put the most specific ones at the top. Click one to edit it.'], 'Special cases')
 		assert.equal(P.L['When all of these are true'], 'When all of these are true')
 		assert.equal(P.L['Edit this special case'], 'Edit this special case')

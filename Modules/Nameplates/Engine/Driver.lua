@@ -94,7 +94,8 @@ local Secret = P.Secret
 -- Round-robin fact poller (6.4): a 0.1 s Scheduler task, only while plates show units, re-reads
 --   can-attack and in-combat (src:PollFacts) for about 4 checks per plate per second, plus range
 --   when range fade is on; re-runs Assign only when plate.assignment.deps has the fact; sends
---   FACTS_POLLED to the plate (also when the combat flag stays hidden, so engine color rows keep up).
+--   FACTS_POLLED to the plate (also when the combat flag stays hidden, so engine color rows and
+--   "When" rules that ask about the fight keep up).
 -- STORE_CHANGED(reasons): profile.enabled, place settings, plate size, RefreshAll(reasons).
 -- CONTEXT_CHANGED(keys) and TANKS_CHANGED (listeners below; keys is the set of P.Context keys
 --   that changed): Colors drops its programs first when the role changed (its listener loads
@@ -1322,8 +1323,13 @@ function Driver:PollPlate(plate)
 	if not self.bound[plate] then
 		return
 	end
-	local combatColors = P.Colors:Program('health').readsCombat or P.Colors:Program('border').readsCombat
-	if changed or (facts.inCombat == nil and combatColors) then
+	local send = changed
+	if not send and facts.inCombat == nil then
+		-- The fight is hidden: nothing can change in the answer, so whatever asks about it keeps
+		-- being told (combat color rows, and "When" rules about the fight)
+		send = P.Colors:Program('health').readsCombat or P.Colors:Program('border').readsCombat or (P.Actions ~= nil and P.Actions:ReadsCombat())
+	end
+	if send then
 		plate:OnMessage('FACTS_POLLED')
 	end
 	if self.onlyFighting and facts.inCombat == nil and FIGHT_KINDS[plate.situation] then

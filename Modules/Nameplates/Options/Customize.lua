@@ -802,6 +802,9 @@ function KindArgs.bar(id, spec, args)
 	args.bg = Color(id, 'bg', 102, L['Background'], L['The color behind the bar.'], { advanced = true })
 	args.interpolate = Toggle(id, 'interpolate', 103, L['Smooth changes'], L['The bar slides to its new value instead of jumping.'], { advanced = true })
 	args.reverse = Toggle(id, 'reverse', 104, L['Fill from the right'], nil, { advanced = true })
+	if spec.source == 'health' then
+		args.hideOnTotem = Toggle(id, 'hideOnTotem', 105, L['Hide the bar on totems'], L['On known totems the bar fades away, so a totem icon can show in its place.'], { advanced = true })
+	end
 end
 
 function KindArgs.cast(id, _, args)

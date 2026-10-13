@@ -153,6 +153,9 @@ function Style.SetPlateSize(width, height)
 end
 
 local FONT_KINDS = { text = true, cast = true, auras = true }
+-- Aura rows may give their timer and stack text a size of their own (aura text editor); one left
+-- out follows the row's font size
+local AURA_TEXT_FIELDS = { 'timerAnchor', 'stackAnchor' }
 
 ---Parts that draw text: id list in layout order.
 local function FontParts(resolved)
@@ -201,18 +204,26 @@ Style.TEXT_DELTA_MIN, Style.TEXT_DELTA_MAX = -4, 8
 Style.FONT_MIN, Style.FONT_MAX = 6, 40
 
 ---Text sizes the style sets for one kind of plate on its own (Clean makes the names of friendly
----players larger). A patch like that is applied after the player's changes, so it needs the
----same change to follow the text size.
+---players larger; an aura row's timer or stack text can have its own size). A patch like that is
+---applied after the player's changes, so it needs the same change to follow the text size.
 ---@param styleId string
----@return { kind: string, partId: string, size: number }[]
+---@return { kind: string, partId: string, field: string, size: number }[] field: 'font' or an aura text field
 local function PatchedSizes(styleId)
 	local out = {}
 	local base = Registry:Get(styleId)
 	for kind, patch in pairs(base and base.situations or {}) do
 		for partId, partial in pairs(patch.parts or {}) do
-			local size = type(partial) == 'table' and type(partial.font) == 'table' and partial.font.size
-			if type(size) == 'number' then
-				out[#out + 1] = { kind = kind, partId = partId, size = size }
+			if type(partial) == 'table' then
+				local size = type(partial.font) == 'table' and partial.font.size
+				if type(size) == 'number' then
+					out[#out + 1] = { kind = kind, partId = partId, field = 'font', size = size }
+				end
+				for _, field in ipairs(AURA_TEXT_FIELDS) do
+					local own = type(partial[field]) == 'table' and partial[field].size
+					if type(own) == 'number' then
+						out[#out + 1] = { kind = kind, partId = partId, field = field, size = own }
+					end
+				end
 			end
 		end
 	end
@@ -235,10 +246,18 @@ function Style.SetTextDelta(delta)
 	end
 	Overlay.Edit(id, function(overlay)
 		for _, partId in ipairs(FontParts(base)) do
-			Overlay.SetIn(overlay, { 'changes', 'parts', partId, 'font', 'size' }, Wanted(base.parts[partId].font.size))
+			local spec = base.parts[partId]
+			Overlay.SetIn(overlay, { 'changes', 'parts', partId, 'font', 'size' }, Wanted(spec.font.size))
+			if spec.kind == 'auras' then
+				for _, field in ipairs(AURA_TEXT_FIELDS) do
+					-- A size of its own moves with the rest; without one the text follows the row's font
+					local own = type(spec[field]) == 'table' and spec[field].size
+					Overlay.SetIn(overlay, { 'changes', 'parts', partId, field, 'size' }, type(own) == 'number' and Wanted(own) or nil)
+				end
+			end
 		end
 		for _, patched in ipairs(PatchedSizes(id)) do
-			Overlay.SetIn(overlay, { 'situations', patched.kind, 'parts', patched.partId, 'font', 'size' }, Wanted(patched.size))
+			Overlay.SetIn(overlay, { 'situations', patched.kind, 'parts', patched.partId, patched.field, 'size' }, Wanted(patched.size))
 		end
 	end)
 end

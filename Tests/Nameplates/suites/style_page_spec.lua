@@ -337,6 +337,20 @@ describe('gallery: cards', function()
 		end
 		assert.equal(Gallery:Art('clean'), Gallery.ART)
 	end)
+
+	it('shows plain cards with a name and a description on a LibAT that lists no capabilities', function()
+		LibAT.Capabilities = {}
+		assert.is_false(Gallery:CanDraw())
+		local cards = Gallery:Cards()
+		assert.truthy(#cards > 0)
+		for _, card in ipairs(cards) do
+			assert.is_nil(card.art, 'no art hook: ' .. card.value)
+			assert.truthy(type(card.title) == 'string' and card.title ~= '', card.value .. ' has a name')
+			assert.truthy(type(card.caption) == 'string' and card.caption ~= '', card.value .. ' has a description')
+		end
+		LibAT.Capabilities = { cardArtDraw = false }
+		assert.is_false(Gallery:CanDraw(), 'a hook that is turned off draws nothing')
+	end)
 end)
 
 ----------------------------------------------------------------------------------------------------
@@ -846,6 +860,55 @@ describe('style page: more settings', function()
 		page.args.textSize.set({}, 0)
 		assert.is_nil(Store:Get('tweaks'), 'back to the style: nothing is kept')
 		assert.equal(FriendlyName(), 12)
+	end)
+
+	it('moves aura timer and stack text that have sizes of their own', function()
+		if not Registry:Get('auraSized') then
+			local sized = Merge:Bake('clean')
+			sized.id, sized.name, sized.order, sized.internal = 'auraSized', 'Aura sized', 995, true
+			sized.parts.mine.timerAnchor = { size = 11 }
+			sized.situations.enemyPlayer.parts.cc.stackAnchor = { size = 13 }
+			local cleaned, report = Schema:ValidateStyle(sized)
+			assert.not_nil(cleaned)
+			assert.equal(report.dropped + report.clamped + report.fixed, 0)
+			Registry:RegisterBuiltin(sized)
+		end
+		Store:Set('style', 'auraSized')
+		local function Size(kind, part, field)
+			return Merge.AuraText(Merge:Resolve('auraSized', kind, 'medium').parts[part], field).size
+		end
+		assert.equal(Size('enemyNPC', 'mine', 'timerAnchor'), 11)
+		assert.equal(Size('enemyNPC', 'mine', 'stackAnchor'), 9, 'without a size of its own it follows the row')
+		assert.equal(Size('enemyPlayer', 'cc', 'stackAnchor'), 13)
+		local page = Page()
+		page.args.textSize.set({}, 2)
+		assert.equal(page.args.textSize.get(), 2)
+		assert.equal(Size('enemyNPC', 'mine', 'timerAnchor'), 13)
+		assert.equal(Size('enemyNPC', 'mine', 'stackAnchor'), 11)
+		assert.equal(Size('enemyPlayer', 'cc', 'stackAnchor'), 15, 'a size one kind of plate sets moves too')
+		assert.equal(Size('enemyPlayer', 'cc', 'timerAnchor'), 11)
+		assert.is_nil(Store:Get({ 'tweaks', 'auraSized', 'changes', 'parts', 'mine', 'stackAnchor' }), 'nothing is written for text that follows its row')
+		local overlay = Store:Get({ 'tweaks', 'auraSized' })
+		local cleaned, report = Schema:ValidateOverlay(overlay, Registry:Get('auraSized').parts)
+		assert.not_nil(cleaned)
+		assert.equal(report.dropped + report.clamped, 0)
+		page.args.textSize.set({}, -4)
+		assert.equal(Size('enemyNPC', 'mine', 'timerAnchor'), 7)
+		assert.equal(Size('enemyPlayer', 'cc', 'stackAnchor'), 9)
+		page.args.textSize.set({}, 0)
+		assert.is_nil(Store:Get('tweaks'), 'back to the style: nothing is kept')
+		assert.equal(Size('enemyNPC', 'mine', 'timerAnchor'), 11)
+		assert.equal(Size('enemyPlayer', 'cc', 'stackAnchor'), 13)
+	end)
+
+	it('takes back an aura text size changed by hand when all text moves', function()
+		Store:Set({ 'tweaks', 'clean' }, { schema = Schema.CURRENT, baseVersion = 1, changes = { parts = { mine = { timerAnchor = { size = 16 } } } } })
+		local page = Page()
+		page.args.textSize.set({}, 1)
+		local mine = Plain().parts.mine
+		assert.equal(Merge.AuraText(mine, 'timerAnchor').size, mine.font.size, 'it follows the row again, like every other text size')
+		page.args.textSize.set({}, 0)
+		assert.is_nil(Store:Get('tweaks'))
 	end)
 
 	it('keeps text sizes inside the range the schema allows', function()

@@ -51,6 +51,8 @@ local HOST_STYLE_ID = 'spartanui'
 local WAR_STYLE_ID = 'war'
 local WAR_BANNER = 'Interface\\AddOns\\SpartanUI\\images\\war\\Nameplate'
 local OPTIONS_APP = 'SpartanUI'
+-- LibAT.Capabilities.searchSynonyms: the first revision whose search takes one addon's own words
+local SEARCH_SYNONYMS_REVISION = 2
 local SETUP_ORDER = 22
 local PROFILE_ADDON_ID = 'spartanui_nameplates'
 local COMPONENT_ID = 'sui_nameplates'
@@ -1419,7 +1421,9 @@ local function HostConfig()
 		AddSearchWords = function(words)
 			local options = LibAT and LibAT.UI and LibAT.UI.Options
 			local search = options and options.Search
-			if search and search.AddSynonyms then
+			local caps = LibAT and LibAT.Capabilities
+			local revision = type(caps) == 'table' and caps.searchSynonyms or nil
+			if type(revision) == 'number' and revision >= SEARCH_SYNONYMS_REVISION and search and search.AddSynonyms then
 				search:AddSynonyms(OPTIONS_APP, words)
 			end
 		end,

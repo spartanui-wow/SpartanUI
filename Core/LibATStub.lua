@@ -2,40 +2,19 @@
 -- Shows a popup if Libs-AddonTools is not installed, or is too old for this SpartanUI
 -- This file uses ONLY raw WoW API (no Ace3, no LibAT)
 
--- The settings window and its controls live in Libs-AddonTools. Later additions are listed in
--- LibAT.Capabilities (name -> revision), set by the file that builds each feature. Dev builds have
--- no version number, so the feature is tested instead of a version. Every addition below is also
--- feature-detected where it is used, so an old copy never errors: this check only asks for the
--- update.
---   cardArtDraw      cards draw live pictures (the nameplate style cards)
---   searchSynonyms   2: settings search takes an addon's own everyday words
-local NEEDED = { cardArtDraw = 1, searchSynonyms = 2 }
-
-local function Current()
-	if not (LibAT and LibAT.UI and LibAT.UI.Options) then
-		return false
+-- The settings window and its controls live in Libs-AddonTools. Later additions (live card pictures,
+-- settings search words) are listed in LibAT.Capabilities (name -> revision) by the LibAT that has
+-- them. They are optional: each use is feature-detected, so an older copy only means plain cards
+-- and a search without extra words. Nothing here asks for an update because of them.
+if LibAT and LibAT.UI and LibAT.UI.Options then
+	-- An older copy has no capability list: give it an empty one, so code that reads an entry gets
+	-- nil (the feature is missing) and never an error. Nothing is claimed.
+	if type(LibAT.Capabilities) ~= 'table' then
+		LibAT.Capabilities = {}
 	end
-	local caps = LibAT.Capabilities
-	if type(caps) ~= 'table' then
-		return false
-	end
-	for name, revision in pairs(NEEDED) do
-		if type(caps[name]) ~= 'number' or caps[name] < revision then
-			return false
-		end
-	end
-	return true
-end
-
-if Current() then
 	return
 end
 local outdated = LibAT ~= nil
--- An old copy has no capability list: give it an empty one, so code that reads an entry gets nil
--- (the feature is missing) and never an error. Nothing is claimed.
-if outdated and type(LibAT.Capabilities) ~= 'table' then
-	LibAT.Capabilities = {}
-end
 
 local frame = CreateFrame('Frame')
 frame:RegisterEvent('PLAYER_LOGIN')

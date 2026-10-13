@@ -163,7 +163,9 @@ local function Define(id, def)
 end
 
 local PVP_MESSAGES = { 'ARENA_CHANGED', 'PVP_CHANGED', 'CONTEXT_CHANGED', 'FACTS_POLLED', 'IDENTITY_CHANGED' }
-local function FillDisplayIcon(widget, textureSecret, shownSecret)
+---A picture the game may hide (spec and role marks): the texture and the "show it" answer only
+---reach sinks (SetTexture takes hidden files; the answer fades the texture in or out).
+local function FillDisplayIconSecret(widget, textureSecret, shownSecret)
 	widget.artKey = nil
 	widget.texture:SetTexture(textureSecret)
 	widget.texture:SetTexCoord(0, 1, 0, 1)
@@ -176,14 +178,14 @@ Define('specIcon', {
 	events = { 'UNIT_NAME_UPDATE', 'UNIT_FACTION' },
 	messages = PVP_MESSAGES,
 	Fill = function(widget, src)
-		FillDisplayIcon(widget, src:SpecIconSecret(), src:HasSpecSecret())
+		FillDisplayIconSecret(widget, src:SpecIconSecret(), src:HasSpecSecret())
 	end,
 })
 Define('roleIcon', {
 	events = { 'UNIT_NAME_UPDATE', 'UNIT_FACTION' },
 	messages = PVP_MESSAGES,
 	Fill = function(widget, src)
-		FillDisplayIcon(widget, src:RoleIconSecret(), src:ShowRoleIconSecret())
+		FillDisplayIconSecret(widget, src:RoleIconSecret(), src:ShowRoleIconSecret())
 	end,
 })
 Define('totem', {

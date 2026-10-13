@@ -10,7 +10,9 @@ local L = P.L
 --     whole profile. Every replace keeps one Undo.
 --   * Strings are never trusted: styles go through Schema (upgrade chain, ranges, anchor cycles),
 --     and colors, "When" lists and profiles go through the cleaners below, which keep only the
---     keys and types the engine reads and count what they drop.
+--     keys and types the engine reads and count what they drop. "When" actions go through
+--     P.Actions:CleanList with the string's format number: a rule a newer version made is refused
+--     and counted (report.newer), never half imported.
 --   * BuildExport(what) makes the strings for the Sharing page.
 
 ---@class Plates.Exchange
@@ -26,13 +28,17 @@ Exchange.MAX_LENGTH = 400000
 
 ---Profile keys a profile string carries. Role, game settings (cvars) and the host switches stay
 ---with the player.
-Exchange.PROFILE_KEYS = { 'style', 'size', 'assign', 'modes', 'when', 'tweaks', 'scheme', 'colors', 'threat', 'colorBlind', 'behavior', 'auras' }
+Exchange.PROFILE_KEYS = { 'style', 'size', 'assign', 'modes', 'when', 'actions', 'tweaks', 'scheme', 'colors', 'threat', 'colorBlind', 'behavior', 'auras' }
 
 -- Profile keys a share string never carries on purpose: the player's own role and game settings
 -- (personal, not part of a look), this profile's own switches, bookkeeping, and keys no page
 -- writes yet. Every other key in Store.REASONS.profile must be in PROFILE_KEYS (a test checks
 -- this, so a page that writes a new key cannot have it dropped on import without anyone deciding).
-Exchange.PROFILE_KEYS_KEPT_OUT = { 'role', 'cvars', 'enabled', 'followHostProfile', 'schema', 'migratedFromOld', 'legacy', 'casts', 'actions' }
+Exchange.PROFILE_KEYS_KEPT_OUT = { 'role', 'cvars', 'enabled', 'followHostProfile', 'schema', 'migratedFromOld', 'legacy', 'casts' }
+
+---The first share format whose "When" and profile strings carry actions. An older string never
+---had them, so using it leaves the player's own rules alone.
+Exchange.ACTIONS_FORMAT = 2
 
 local ROLES = { auto = true, tank = true, damage = true, healer = true }
 
@@ -43,7 +49,7 @@ Exchange.EXPORT_KINDS = { 'style', 'colors', 'when', 'everything' }
 ----------------------------------------------------------------------------------------------------
 
 local function NewReport()
-	return { dropped = 0, clamped = 0, fixed = 0, droppedKeys = {} }
+	return { dropped = 0, clamped = 0, fixed = 0, newer = 0, droppedKeys = {} }
 end
 
 local function Drop(report, path)
@@ -260,6 +266,107 @@ local function CleanPiece(piece, report, path)
 	return out
 end
 
+-- The special mobs list: colors.npcs[tostring(creatureID)] = { hint, color?, rename? } (the Colors
+-- page writes it; Source and the npc color row read it)
+Exchange.NPC_MAX = 500
+Exchange.NPC_ID_MAX = 10000000
+Exchange.NPC_TEXT_MAX = 80
+local NPC_FIELDS = SetOf({ 'hint', 'color', 'rename' })
+
+---A mob id as the list keys it ('123'), or nil when it is not a whole number from 1 to NPC_ID_MAX.
+---@param key any
+---@return string|nil
+function Exchange.NPCKey(key)
+	if type(key) ~= 'number' and not (type(key) == 'string' and string.find(key, '^%d+$')) then
+		return nil
+	end
+	local id = tonumber(key)
+	if not id or id ~= id or id < 1 or id > Exchange.NPC_ID_MAX or id ~= math.floor(id) then
+		return nil
+	end
+	return tostring(id)
+end
+
+---Cut text to at most max bytes without splitting a letter written with several bytes.
+---@param text string
+---@param max integer
+---@return string
+local function CutText(text, max)
+	if #text <= max then
+		return text
+	end
+	text = string.sub(text, 1, max)
+	-- Walk back over a letter the cut left unfinished
+	local i = #text
+	while i > 0 do
+		local byte = string.byte(text, i)
+		if byte < 128 then
+			break
+		elseif byte >= 192 then
+			local need = (byte >= 240 and 4) or (byte >= 224 and 3) or 2
+			if #text - i + 1 < need then
+				text = string.sub(text, 1, i - 1)
+			end
+			break
+		end
+		i = i - 1
+	end
+	return text
+end
+Exchange.CutText = CutText
+
+---A mob name or note: no escape codes, no spaces at the ends, at most NPC_TEXT_MAX bytes.
+local function NPCText(value, report, path)
+	if type(value) ~= 'string' then
+		Drop(report, path)
+		return nil
+	end
+	local text = string.gsub(string.gsub(string.gsub(value, '|', ''), '^%s+', ''), '%s+$', '')
+	local cut = CutText(text, Exchange.NPC_TEXT_MAX)
+	if cut == '' then
+		Drop(report, path)
+		return nil
+	end
+	if cut ~= value then
+		report.clamped = report.clamped + 1
+	end
+	return cut
+end
+
+---Check the special mobs list.
+---@param value any
+---@param report table
+---@return table|nil
+local function CleanNPCs(value, report)
+	if type(value) ~= 'table' then
+		Drop(report, 'colors.npcs')
+		return nil
+	end
+	local out, n = {}, 0
+	for key, row in pairs(value) do
+		local id = Exchange.NPCKey(key)
+		local here = 'colors.npcs.' .. tostring(key)
+		if not id or type(row) ~= 'table' or n >= Exchange.NPC_MAX or out[id] then
+			Drop(report, here)
+		else
+			local clean = {}
+			for field, item in pairs(row) do
+				if not NPC_FIELDS[field] then
+					Drop(report, here .. '.' .. tostring(field))
+				elseif field == 'color' then
+					clean.color = Color(item, report, here .. '.color')
+				else
+					clean[field] = NPCText(item, report, here .. '.' .. field)
+				end
+			end
+			clean.hint = clean.hint or (L['Mob'] .. ' ' .. id)
+			out[id] = clean
+			n = n + 1
+		end
+	end
+	return next(out) and out or nil
+end
+
 ---Check the colors fields of a profile (scheme, colors, threat, colorBlind).
 ---@param source table
 ---@param report Plates.ValidationReport
@@ -281,7 +388,9 @@ local function CleanColorFields(source, report)
 					known = true
 				end
 			end
-			if known then
+			if piece == 'npcs' then
+				colors.npcs = CleanNPCs(item, report)
+			elseif known then
 				colors[piece] = CleanPiece(item, report, 'colors.' .. piece)
 			else
 				Drop(report, 'colors.' .. tostring(piece))
@@ -466,13 +575,38 @@ local function CleanWhenList(list, report, known)
 	return out
 end
 
----Check a "When" payload { when = list }.
+---Check a list of "When" actions with P.Actions:CleanList. Broken entries count as dropped, entries
+---a newer version made count in report.newer.
+---@param list any
+---@param report table
+---@param schema? integer The string's format number
+---@param path string
+---@return table[] cleaned
+local function CleanActionList(list, report, schema, path)
+	local clean, counts = P.Actions:CleanList(list, schema)
+	for _ = 1, counts.dropped do
+		Drop(report, path)
+	end
+	report.newer = report.newer + counts.newer
+	return clean
+end
+
+---Check a "When" payload { when = list, actions = list }. actions is nil when the string has none
+---(strings older than Exchange.ACTIONS_FORMAT never do).
 ---@param payload table
+---@param schema? integer The string's format number (default the current one)
 ---@return table[] cleaned
 ---@return Plates.ValidationReport report
-function Exchange:CleanWhen(payload)
+---@return table[]|nil actions
+function Exchange:CleanWhen(payload, schema)
 	local report = NewReport()
-	return CleanWhenList(type(payload) == 'table' and payload.when or nil, report), report
+	payload = type(payload) == 'table' and payload or nil
+	local list = CleanWhenList(payload and payload.when or nil, report)
+	local actions
+	if payload and payload.actions ~= nil then
+		actions = CleanActionList(payload.actions, report, schema, 'actions')
+	end
+	return list, report, actions
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -575,11 +709,13 @@ end
 
 ---Check a profile string's payload { profile, styles }. Styles come back checked and keyed by the
 ---ids they had in the string; the profile refers to those ids until Apply gives them new ones.
+---keepActions is true for strings older than Exchange.ACTIONS_FORMAT, which never carried actions.
 ---@param payload table
----@return table|nil cleaned { profile, styles = { [oldId] = { name, base, source } } }
+---@param schema? integer The string's format number (default the current one)
+---@return table|nil cleaned { profile, styles = { [oldId] = { name, base, source } }, keepActions? }
 ---@return Plates.ValidationReport report
 ---@return string|nil reason
-function Exchange:CleanProfile(payload)
+function Exchange:CleanProfile(payload, schema)
 	local report = NewReport()
 	if type(payload) ~= 'table' or type(payload.profile) ~= 'table' then
 		return nil, report, 'decode'
@@ -657,6 +793,9 @@ function Exchange:CleanProfile(payload)
 			profile.modes = modes
 		elseif key == 'when' then
 			profile.when = CleanWhenList(item, report, known)
+		elseif key == 'actions' then
+			local actions = CleanActionList(item, report, schema, 'profile.actions')
+			profile.actions = #actions > 0 and actions or nil
 		elseif key == 'tweaks' and type(item) == 'table' then
 			local tweaks, n = {}, 0
 			for styleId, overlay in pairs(item) do
@@ -693,7 +832,8 @@ function Exchange:CleanProfile(payload)
 	for key, value in pairs(CleanColorFields(source, report)) do
 		profile[key] = value
 	end
-	return { profile = profile, styles = styles }, report
+	local keepActions = (tonumber(schema) or Schema.CURRENT) < Exchange.ACTIONS_FORMAT or nil
+	return { profile = profile, styles = styles, keepActions = keepActions }, report
 end
 
 ----------------------------------------------------------------------------------------------------
@@ -765,7 +905,9 @@ end
 ---@field isNewer? boolean The string has a newer version than the saved copy
 ---@field keepCount? integer The player's changes that stay on an update
 ---@field payload? table Cleaned payload (colors, when, profile)
+---@field actions? table[] Cleaned "When" actions of a "When" string (nil: the string has none)
 ---@field count? integer Entries in a "When" list, styles in a profile
+---@field actionCount? integer Actions in a "When" string
 
 ---The saved copy of a shared style that a string with this style id, author and version belongs
 ---to. With several copies the most advanced one counts: when it already has this version (or a
@@ -845,10 +987,10 @@ function Exchange:Read(text)
 		local cleaned, report = self:CleanColors(decoded.payload)
 		return { kind = 'colors', payload = cleaned, report = report, count = Count(cleaned) }
 	elseif kind == 'when' then
-		local cleaned, report = self:CleanWhen(decoded.payload)
-		return { kind = 'when', payload = cleaned, report = report, count = #cleaned }
+		local cleaned, report, actions = self:CleanWhen(decoded.payload, decoded.schema)
+		return { kind = 'when', payload = cleaned, actions = actions, report = report, count = #cleaned, actionCount = actions and #actions or nil }
 	elseif kind == 'profile' then
-		local cleaned, report, why = self:CleanProfile(decoded.payload)
+		local cleaned, report, why = self:CleanProfile(decoded.payload, decoded.schema)
 		if not cleaned then
 			return nil, why
 		end
@@ -884,6 +1026,16 @@ function Exchange:Describe(info)
 		lines[#lines + 1] = L['A set of colors. Using it replaces your own colors.']
 	elseif info.kind == 'when' then
 		lines[#lines + 1] = Plural(info.count or 0, L['A list with 1 special case. Using it replaces your special cases.'], L['A list with %d special cases. Using it replaces your special cases.'])
+		local mine = P.Store:Get('actions')
+		if info.actionCount and info.actionCount > 0 then
+			lines[#lines + 1] = Plural(
+				info.actionCount,
+				L['It also has 1 rule for when something happens. Using it replaces your rules.'],
+				L['It also has %d rules for when something happens. Using it replaces your rules.']
+			)
+		elseif info.actionCount == 0 and type(mine) == 'table' and #mine > 0 then
+			lines[#lines + 1] = L['It has no rules for when something happens, so using it also clears yours.']
+		end
 	elseif info.kind == 'profile' then
 		lines[#lines + 1] = Plural(
 			info.count or 0,
@@ -892,6 +1044,11 @@ function Exchange:Describe(info)
 		)
 	end
 	local report = info.report or {}
+	if (report.newer or 0) == 1 then
+		lines[#lines + 1] = string.format(L['1 rule needs a newer version of %s, so it was left out.'], P:HostName())
+	elseif (report.newer or 0) > 1 then
+		lines[#lines + 1] = string.format(L['%d rules need a newer version of %s, so they were left out.'], report.newer, P:HostName())
+	end
 	if (report.dropped or 0) > 0 then
 		lines[#lines + 1] = Plural(report.dropped, L['1 setting was not recognized and was left out.'], L['%d settings were not recognized and were left out.'])
 	end
@@ -1058,15 +1215,26 @@ function Exchange:ApplyReplace(info)
 		}
 		return { ok = true, message = L['Using these colors now.'] }
 	elseif info.kind == 'when' then
-		local snapshot = SnapshotKeys({ 'when' })
+		-- A string with no actions (older strings) leaves the player's own rules alone
+		local keys = info.actions and { 'when', 'actions' } or { 'when' }
+		local snapshot = SnapshotKeys(keys)
 		local list = util.Copy(info.payload)
-		Store:Set('when', #list > 0 and list or nil)
+		local actions = util.Copy(info.actions)
+		Store:Batch(function()
+			Store:Set('when', #list > 0 and list or nil)
+			if actions then
+				Store:Set('actions', #actions > 0 and actions or nil)
+			end
+		end)
 		self.undo = {
-			label = L['special cases'],
+			label = actions and L['special cases and rules'] or L['special cases'],
 			restore = function()
-				RestoreKeys(snapshot, { 'when' })
+				RestoreKeys(snapshot, keys)
 			end,
 		}
+		if actions then
+			return { ok = true, message = L['Using these special cases and rules now.'] }
+		end
 		return { ok = true, message = L['Using these special cases now.'] }
 	elseif info.kind == 'profile' then
 		return self:ApplyProfile(info)
@@ -1082,6 +1250,15 @@ end
 function Exchange:ApplyProfile(info)
 	local Store = P.Store
 	local keys = self.PROFILE_KEYS
+	if info.payload.keepActions then
+		-- An older string never carried actions: the player's own rules stay
+		keys = {}
+		for _, key in ipairs(self.PROFILE_KEYS) do
+			if key ~= 'actions' then
+				keys[#keys + 1] = key
+			end
+		end
+	end
 	local snapshot = SnapshotKeys(keys)
 	local profile = util.Copy(info.payload.profile)
 	local added, map = {}, {}
@@ -1257,7 +1434,7 @@ function Exchange:BuildExport(what, opts)
 			colorBlind = Store:Get('colorBlind'),
 		})
 	elseif what == 'when' then
-		return P.Share:Encode('when', { when = Store:Get('when') or {} })
+		return P.Share:Encode('when', P.Actions:SharePayload())
 	elseif what == 'everything' then
 		local profile = {}
 		for _, key in ipairs(self.PROFILE_KEYS) do

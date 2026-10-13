@@ -102,6 +102,13 @@ describe('host with the switch on', function()
 	end)
 
 	it('teaches the settings search its words for SpartanUI settings only', function()
+		local listed = LibAT.Capabilities
+		LibAT.Capabilities = { searchSynonyms = 2 }
+		for i = #H.libatCalls, 1, -1 do
+			H.libatCalls[i] = nil
+		end
+		P.host.AddSearchWords(P.Options.SEARCH_WORDS)
+		LibAT.Capabilities = listed
 		local found
 		for _, call in ipairs(H.libatCalls or {}) do
 			if call.path == 'LibAT.UI.Options.Search.AddSynonyms' then

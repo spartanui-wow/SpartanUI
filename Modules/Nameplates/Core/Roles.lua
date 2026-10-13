@@ -200,11 +200,11 @@ function Roles.QuietSize(width, height)
 	return math.max(1, math.floor(width * Roles.QUIET.width + 0.5)), math.max(1, math.floor(height * Roles.QUIET.height + 0.5))
 end
 
--- Healer versions of resolved styles, one per resolved style (weak, rebuilt with the style)
-local healerStyles = setmetatable({}, { __mode = 'k' })
-
+-- The healer version lives on the resolved style itself (resolved.healerVariant, false when the
+-- style needs none). A weak-keyed side table would pin every old style: Lua 5.1 has no ephemerons,
+-- and the healer copy points back at its resolved style through roleBase.
 local function HealerStyle(resolved)
-	local cached = healerStyles[resolved]
+	local cached = resolved.healerVariant
 	if cached ~= nil then
 		return cached or resolved
 	end
@@ -216,12 +216,14 @@ local function HealerStyle(resolved)
 	end
 	-- The player hid the style's own removable row: leave it hidden
 	if not found and resolved.hidden and resolved.hidden.removable then
-		healerStyles[resolved] = false
+		resolved.healerVariant = false
 		return resolved
 	end
 	local derived = {}
 	for key, value in pairs(resolved) do
-		derived[key] = value
+		if key ~= 'healerVariant' then
+			derived[key] = value
+		end
 	end
 	local parts = {}
 	for id, spec in pairs(resolved.parts or {}) do
@@ -254,7 +256,7 @@ local function HealerStyle(resolved)
 	derived.parts = parts
 	derived.roleBase = resolved
 	derived.key = tostring(resolved.key) .. '|healer'
-	healerStyles[resolved] = derived
+	resolved.healerVariant = derived
 	return derived
 end
 

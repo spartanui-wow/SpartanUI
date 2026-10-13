@@ -13,6 +13,10 @@ local L = P.L
 --                                    line, else a plain sentence when the part cannot work on
 --                                    this client
 --   Inspector:Lines(plate)           every color line of a plate, for the Alt tooltip
+--   Inspector:RuleLines(plate)       the "When something happens" rules that apply to a plate in
+--                                    plain words (Actions:Describe, under a heading); empty when
+--                                    there are none. Added to Detail for colored parts and to the
+--                                    Alt tooltip.
 -- Alt-hover: while the engine runs, holding Alt over a real plate (the Driver's mouseover plate)
 -- shows a tooltip with a line per colored piece. It never reads secrets: rows the game decides
 -- are named with "One of:". The watcher is set up on ENGINE_ENABLED and removed on
@@ -275,6 +279,26 @@ local function LimitOf(spec)
 	return nil
 end
 
+---The "When" rules that apply to a plate, one line each, under a heading. Nothing is read from the
+---game here: Actions:Describe says "the game decides" for the rules it cannot settle.
+---@param plate Plates.Plate
+---@return string[] lines Empty when no rule applies
+function Inspector:RuleLines(plate)
+	local Actions = P.Actions
+	if not (plate and Actions and Actions.Describe) then
+		return {}
+	end
+	local ok, described = pcall(Actions.Describe, Actions, plate)
+	if not ok or type(described) ~= 'table' or #described == 0 then
+		return {}
+	end
+	local lines = { L['When something happens'] }
+	for _, line in ipairs(described) do
+		lines[#lines + 1] = line
+	end
+	return lines
+end
+
 ---The detail line for a part in the preview tooltip: its color, or why it may stay empty here.
 ---@param plate Plates.Plate
 ---@param widget Plates.Widget|string A widget, or a part id on that plate
@@ -296,6 +320,11 @@ function Inspector:Detail(plate, widget)
 	end
 	if borderPiece and borderPiece ~= piece then
 		lines[#lines + 1] = (self.PIECE_LABELS.border or L['Border']) .. ': ' .. self:Explain(plate, borderPiece)
+	end
+	if piece or borderPiece then
+		for _, line in ipairs(self:RuleLines(plate)) do
+			lines[#lines + 1] = line
+		end
 	end
 	local limit = LimitOf(spec)
 	if limit then
@@ -375,7 +404,8 @@ function Inspector:ShowTip()
 		return false
 	end
 	local lines = self:Lines(plate)
-	if #lines == 0 then
+	local rules = self:RuleLines(plate)
+	if #lines == 0 and #rules == 0 then
 		self:HideTip()
 		return false
 	end
@@ -388,7 +418,16 @@ function Inspector:ShowTip()
 	for _, line in ipairs(lines) do
 		GameTooltip:AddLine(line, 0.9, 0.9, 0.9, true)
 	end
-	GameTooltip:AddLine(L['The top color row that fits wins. Change the order on the Colors page.'], 0.55, 0.8, 1, true)
+	if #lines > 0 then
+		GameTooltip:AddLine(L['The top color row that fits wins. Change the order on the Colors page.'], 0.55, 0.8, 1, true)
+	end
+	for i, line in ipairs(rules) do
+		if i == 1 then
+			GameTooltip:AddLine(line, 1, 0.82, 0, true)
+		else
+			GameTooltip:AddLine(line, 0.9, 0.9, 0.9, true)
+		end
+	end
 	GameTooltip:Show()
 	self.tipShown = true
 	return true

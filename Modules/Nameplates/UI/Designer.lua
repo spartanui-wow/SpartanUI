@@ -82,6 +82,7 @@ Designer.TEXT_LABELS = {
 	castTarget = L['Cast target'],
 	arena = L['Arena number'],
 	nameFill = L['Name with health'],
+	specName = L['Player spec'],
 }
 Designer.ICON_LABELS = {
 	raidMarker = L['Raid marker'],
@@ -90,6 +91,9 @@ Designer.ICON_LABELS = {
 	faction = L['Faction icon'],
 	focus = L['Focus mark'],
 	shield = L['Shield icon'],
+	specIcon = L['Player spec icon'],
+	roleIcon = L['Role icon'],
+	totem = L['Totem icon'],
 }
 Designer.AURA_LABELS = {
 	myDebuffs = L['My debuffs'],
@@ -2200,7 +2204,6 @@ function Designer:ToolbarItems()
 	local items = {
 		{
 			kind = 'select',
-			label = L['Add'],
 			text = L['Add a part'],
 			choices = Designer.PALETTE,
 			tooltip = L['Add a new part to this style. It is picked right away so you can move it.'],

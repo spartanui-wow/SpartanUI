@@ -146,6 +146,9 @@ Scenes.SAMPLES = {
 		kickReady = true,
 		faction = 'Horde',
 		pvp = true,
+		specName = L['Holy'],
+		specIcon = ICON.specHoly,
+		role = 'HEALER',
 		cast = { kind = 'cast', name = L['Flash Heal'], icon = ICON.shield, duration = 2 },
 		auras = { removable = { { icon = ICON.shield, duration = 15, remaining = 11, dispel = 'Magic', spellId = 17 } } },
 		states = { target = true },
@@ -159,6 +162,9 @@ Scenes.SAMPLES = {
 		healthMax = 100,
 		faction = 'Horde',
 		pvp = true,
+		specName = L['Protection'],
+		specIcon = ICON.specProtection,
+		role = 'TANK',
 		auras = { crowdControl = { { icon = ICON.polymorph, duration = 8, remaining = 6, spellId = 118 } } },
 	},
 	bgRogue = {
@@ -170,6 +176,9 @@ Scenes.SAMPLES = {
 		healthMax = 100,
 		faction = 'Horde',
 		pvp = true,
+		specName = L['Subtlety'],
+		specIcon = ICON.specSubtlety,
+		role = 'DAMAGER',
 	},
 	bgPet = {
 		id = 'bgPet',
@@ -242,7 +251,7 @@ Scenes.DEFS = {
 	},
 	battleground = {
 		id = 'battleground',
-		samples = { 'bgHealer', 'bgWarrior', 'bgRogue', 'bgPet', 'bgFriend' },
+		samples = { 'bgHealer', 'bgWarrior', 'bgRogue', 'bgPet', 'totem', 'bgFriend' },
 		stagger = 6,
 		gap = 14,
 		labels = true,
@@ -362,8 +371,9 @@ local ALL_AURAS = {
 	custom = { { icon = ICON.fireball, duration = 10, remaining = 6, spellId = 133 } },
 }
 
----Every part that is usually hidden shows: raid marker, quest icon, focus mark and absorb (the
----eye toggle, "Show all parts").
+---Every part that is usually hidden shows: raid marker, quest icon, focus mark, absorb and the
+---enemy player spec and role marks (the eye toggle, "Show all parts"). A totem icon is never
+---revealed: on Mini it takes the bar's place.
 ---@param sample Plates.Sample
 ---@return Plates.Sample
 function Scenes:Revealed(sample)
@@ -372,6 +382,12 @@ function Scenes:Revealed(sample)
 		copy.quest = true
 		copy.facts.isQuest = true
 		copy.absorb = copy.absorb or 10
+		if copy.specName == nil and copy.specIcon == nil then
+			copy.specName, copy.specIcon = L['Holy'], ICON.specHoly
+		end
+		if copy.role == nil or copy.role == 'DAMAGER' then
+			copy.role = 'HEALER'
+		end
 		copy.states = copy.states or {}
 		copy.states.focus = true
 	end)
@@ -433,6 +449,7 @@ Scenes.ROW_GUESS = {
 	importantCast = 'boss',
 	aimedAtMe = 'enemyPlayer',
 	fixed = 'casterTarget',
+	npc = 'casterTarget',
 }
 
 local ROW_CANDIDATES = {
@@ -456,6 +473,22 @@ local ROW_CANDIDATES = {
 	'bgHealer',
 }
 
+---The special mob the npc row shows in previews: the lowest id on the player's list with a color
+---(read from the Store on every call). nil when no mob on the list has a color.
+---@return string|nil id
+---@return table|nil row
+function Scenes.SpecialMob()
+	local list = P.Store:Get({ 'colors', 'npcs' })
+	local best, bestRow
+	for key, row in pairs(type(list) == 'table' and list or {}) do
+		local id = tonumber(key)
+		if id and type(row) == 'table' and type(row.color) == 'table' and (best == nil or id < tonumber(best)) then
+			best, bestRow = key, row
+		end
+	end
+	return best, bestRow
+end
+
 ---Explain env for a sample (plain: samples are never secret).
 local function RowEnv(sample, ctx)
 	local facts = {}
@@ -476,6 +509,17 @@ function Scenes:RowSample(program, row, ctx)
 		guess = self:Variant(guess, 'focusOnly', function(copy)
 			copy.states = { focus = true }
 		end)
+	elseif row.id == 'npc' then
+		-- One of the player's own special mobs: the row reads the list, so the sample carries its id
+		local id, mob = Scenes.SpecialMob()
+		if id then
+			local hint = type(mob.hint) == 'string' and mob.hint or L['Special mob']
+			guess = self:Variant(guess, 'npc:' .. id .. ':' .. hint, function(copy)
+				copy.npcID = tonumber(id)
+				copy.name = hint
+				copy.label = hint
+			end)
+		end
 	end
 	local candidates = { guess }
 	for _, id in ipairs(ROW_CANDIDATES) do

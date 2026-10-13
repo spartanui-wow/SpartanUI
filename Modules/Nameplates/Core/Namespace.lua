@@ -65,7 +65,7 @@ P.log = { debug = noop, info = noop, warning = noop, error = noop }
 ---@field media? table LibSharedMedia-3.0; the core never loads its own copy
 ---@field AddOptions? fun(tbl: table) Insert the options table returned by P:BuildOptionsTable()
 ---@field OptionsPath? fun(page?: string): string[] Options path for a page, e.g. { 'Nameplates', 'colors' }
----@field OpenOptions? fun(page?: string, optionKey?: string)
+---@field OpenOptions? fun(page?: string, optionKey?: string|string[])
 ---@field AddSetupSteps? fun(steps: table[]) Add the core's setup steps to the host's first-run window
 ---@field RegisterCommand? fun(name: string, fn: fun(args?: string), description?: string)
 ---@field RegisterPreview? fun(provider: table) Register the options preview provider

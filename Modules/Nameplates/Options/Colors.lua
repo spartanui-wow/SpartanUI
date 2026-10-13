@@ -997,6 +997,15 @@ local function DescWhenLocked(text)
 	end
 end
 
+---Where each link lands. These settings sit in inline groups, and the window scrolls only to a real
+---control, never to a group's own key, so each is a path: the group first, the control last
+---(host.OpenOptions takes a path like this).
+ColorsPage.FOCUS = {
+	threat = { 'threat', 'color_' .. Roles.STATES[1] },
+	mobType = { 'mobType', MOB_STATES[1] },
+	npc = { 'specialMobs', 'target' },
+}
+
 ---Take the player to a setting this page keeps elsewhere (opening the threat row first, and
 ---waiting a frame for the page to be drawn with it).
 ---@param key string 'threat' | 'mobType'
@@ -1004,7 +1013,7 @@ function ColorsPage.OpenHome(key)
 	local host = P.host
 	local function Go()
 		if host and host.OpenOptions then
-			host.OpenOptions('colors', key)
+			host.OpenOptions('colors', ColorsPage.FOCUS[key] or key)
 		end
 	end
 	if key == 'threat' and not state.threatOpen then
@@ -1220,7 +1229,7 @@ local function ListArg()
 			elseif id == 'npc' then
 				local host = P.host
 				if host and host.OpenOptions then
-					host.OpenOptions('colors', 'target')
+					host.OpenOptions('colors', ColorsPage.FOCUS.npc)
 				end
 				return true
 			elseif id == 'class' then

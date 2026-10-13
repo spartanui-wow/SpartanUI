@@ -20,7 +20,10 @@ P.Styles.Schema = Schema
 
 ---Current style data format: the one number for saved styles, overlays and share strings. Raise
 ---it together with Schema:AddUpgrade.
-Schema.CURRENT = 1
+---  1  the first format
+---  2  "When" actions travel in share strings (no style data changed; the upgrade does nothing).
+---     Older copies refuse format 2 strings instead of dropping the rules they cannot read.
+Schema.CURRENT = 2
 P.VERSION.schema = Schema.CURRENT
 
 ---@class Plates.ValidationReport
@@ -88,8 +91,8 @@ Schema.PIECES = { 'health', 'border', 'name', 'cast' }
 Schema.STATES = { 'target', 'notTarget', 'focus', 'mouseover', 'casting' }
 Schema.SIZES = { 'small', 'medium', 'large' }
 Schema.BAR_SOURCES = { 'health', 'power' }
-Schema.TEXT_SOURCES = { 'name', 'level', 'healthPercent', 'healthValue', 'forces', 'title', 'threatPercent', 'threatLead', 'castName', 'castTime', 'castTarget', 'arena', 'nameFill' }
-Schema.ICON_SOURCES = { 'raidMarker', 'classification', 'quest', 'faction', 'focus', 'shield' }
+Schema.TEXT_SOURCES = { 'name', 'level', 'healthPercent', 'healthValue', 'forces', 'title', 'threatPercent', 'threatLead', 'castName', 'castTime', 'castTarget', 'arena', 'nameFill', 'specName' }
+Schema.ICON_SOURCES = { 'raidMarker', 'classification', 'quest', 'faction', 'focus', 'shield', 'specIcon', 'roleIcon', 'totem' }
 Schema.AURA_ROWS = { 'myDebuffs', 'removable', 'crowdControl', 'custom' }
 Schema.GLOW_SOURCES = { 'threat', 'importantCast', 'purge', 'pandemic', 'target' }
 
@@ -159,6 +162,9 @@ Schema.PART_FIELDS = {
 		lostHealth = BOOL,
 		execute = Num(0, 0.9),
 		executeColor = TOKEN_OR_COLOR,
+		-- On a known totem the bar steps aside (its fill, background and border fade out) so an
+		-- icon part with source 'totem' shows in its place
+		hideOnTotem = BOOL,
 	},
 	cast = {
 		width = Num(1, 512, true),
@@ -776,6 +782,9 @@ function Schema:AddUpgrade(number, styleFn, overlayFn)
 	self.upgrades[number] = styleFn
 	self.overlayUpgrades[number] = overlayFn
 end
+
+-- 2: share strings carry "When" actions. Style and overlay data did not change.
+Schema:AddUpgrade(2, function() end, function() end)
 
 local function Upgrade(data, chain)
 	local copy = P.util.Copy(data)

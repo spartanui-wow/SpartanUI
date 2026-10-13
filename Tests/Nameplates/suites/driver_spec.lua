@@ -78,6 +78,7 @@ local function Reset()
 		Store:Set('behavior', nil)
 		Store:Set('modes', nil)
 		Store:Set('when', nil)
+		Store:Set('actions', nil)
 		Store:Set('size', 'medium')
 		Store:Set('enabled', true)
 	end)
@@ -554,6 +555,41 @@ describe('driver: fighting and range', function()
 		M.SetTarget(token)
 		assert.equal(M.Get(plate.root, 'alpha'), 1, 'the target always shows')
 		assert.is_true(Driver:FeatureState('onlyFighting'))
+	end)
+
+	it('keeps a "When" rule about the fight current while the game hides the fight', function()
+		local _, base = Enemy({ inCombat = false })
+		local plate = P.API:GetPlate(base)
+		local Actions = P.Actions
+		local runs = 0
+		local original = Actions.Run
+		Actions.Run = function(self, drawn)
+			if drawn == plate then
+				runs = runs + 1
+			end
+			return original(self, drawn)
+		end
+		local realCombat = UnitAffectingCombat
+		Store:Set('actions', { { conditions = { { id = 'unitInCombat', negate = true } }, fade = 0.4 } })
+		assert.is_true(Actions:ReadsCombat())
+		rawset(_G, 'UnitAffectingCombat', function()
+			if M.secrets then
+				return S.Wrap(false)
+			end
+		end)
+		Driver:PollPlate(plate)
+		assert.is_nil(plate.facts.inCombat, 'the fight is hidden now')
+		runs = 0
+		Driver:PollPlate(plate)
+		Driver:PollPlate(plate)
+		assert.equal(runs, 2, 'every poll nudges the rule, since a hidden answer cannot be compared')
+		Store:Set('actions', { { conditions = { { id = 'canAttack' } }, glow = { 1, 1, 1, 1 } } })
+		assert.is_false(Actions:ReadsCombat())
+		runs = 0
+		Driver:PollPlate(plate)
+		assert.equal(runs, 0, 'a rule that does not ask about the fight is left alone')
+		rawset(_G, 'UnitAffectingCombat', realCombat)
+		Actions.Run = original
 	end)
 
 	it('leaves range fade off without the range library even when a melee interrupt is known', function()

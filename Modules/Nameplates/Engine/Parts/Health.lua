@@ -55,8 +55,17 @@ local BarLib = P.BarLib
 --     overlay clip (it never holds a value, so the game does not hide its size) and otherwise
 --     from the layout (BarLib.LayoutWidth). The clip's OnSizeChanged keeps them right while the
 --     target grows.
+--   * Known totems (spec.hideOnTotem, the Mini style): when src:IsTotemPlain() says yes, the bar
+--     steps aside so an icon part with source 'totem' shows in its place. Only the bar's own
+--     content fades (fill, background, border, overlays, clips); the plate keeps owning
+--     widget.frame and its alpha. A hidden answer keeps the bar. Re-read on a full update,
+--     UNIT_NAME_UPDATE, FACTS_POLLED and IDENTITY_CHANGED, like the totem icon.
 
 local HEALTH_EVENTS = { UNIT_HEALTH = true, UNIT_MAXHEALTH = true, UNIT_ABSORB_AMOUNT_CHANGED = true, UNIT_HEAL_ABSORB_AMOUNT_CHANGED = true }
+-- What a totem check follows (the same as the totem icon part)
+local TOTEM_EVENTS = { UNIT_NAME_UPDATE = true, FACTS_POLLED = true, IDENTITY_CHANGED = true }
+local TOTEM_MESSAGES = { 'FACTS_POLLED', 'IDENTITY_CHANGED' }
+local NO_MESSAGES = {} -- read only
 local LOSS_EVENTS = { UNIT_HEALTH = true, UNIT_MAXHEALTH = true }
 
 local DEFAULT_ABSORB = { 1, 1, 1, 0.45 }
@@ -508,6 +517,35 @@ local function Follows(program, event)
 	return program ~= nil and (program.events[event] or program.messages[event]) == true
 end
 
+---Fade the bar's own content in or out for a known totem (never widget.frame, which the plate owns).
+---@param widget table
+local function ApplyTotemAlpha(widget)
+	local alpha = widget.totemHidden and 0 or 1
+	local bar = widget.bar
+	bar:GetStatusBarTexture():SetAlpha(alpha)
+	bar.bg:SetAlpha(alpha)
+	bar.border:SetAlpha(alpha)
+	widget.low:SetAlpha(alpha)
+	widget.band:SetAlpha(alpha)
+	widget.over:SetAlpha(alpha)
+	widget.chunkClip:SetAlpha(alpha)
+end
+
+---Step aside while the unit is a known totem (spec.hideOnTotem). Plain reads only.
+---@param widget table
+---@param src Plates.Source
+local function UpdateTotem(widget, src)
+	local hide = false
+	if widget.spec.hideOnTotem then
+		local isTotem, readable = src:IsTotemPlain()
+		hide = readable == true and isTotem == true
+	end
+	if widget.totemHidden ~= hide then
+		widget.totemHidden = hide
+		ApplyTotemAlpha(widget)
+	end
+end
+
 ---Color the bar and its border. With `event` (one event or message), only the lists that follow it
 ---are worked out again (a target change recolors the border list, not the health list); an event
 ---neither list follows recolors both, as before.
@@ -587,6 +625,9 @@ local function EventsFor(spec)
 	if spec.healAbsorb then
 		events[#events + 1] = 'UNIT_HEAL_ABSORB_AMOUNT_CHANGED'
 	end
+	if spec.hideOnTotem then
+		events[#events + 1] = 'UNIT_NAME_UPDATE'
+	end
 	eventLists[spec] = events
 	return events
 end
@@ -607,6 +648,10 @@ function Health.match(spec)
 end
 
 Health.events = EventsFor
+
+function Health.messages(spec)
+	return spec.hideOnTotem and TOTEM_MESSAGES or NO_MESSAGES
+end
 
 function Health.Create(plate)
 	local bar = BarLib.Create(plate.art)
@@ -741,6 +786,14 @@ function Health.Layout(widget, spec, ctx)
 
 	Resize(widget, widget.over:GetWidth())
 	ApplyLevels(widget)
+
+	-- A new style may drop hideOnTotem; a kept one gets its faded content back after the restyle
+	if widget.totemHidden and not spec.hideOnTotem then
+		widget.totemHidden = false
+	end
+	if widget.totemHidden ~= nil then
+		ApplyTotemAlpha(widget)
+	end
 end
 
 ---Place the border, glow and mark again when the plate's pixel changed since the layout.
@@ -758,6 +811,19 @@ end
 function Health.Update(widget, src, event)
 	local full = event == 'FULL'
 	local health = HEALTH_EVENTS[event]
+	local env = widget.plate.env
+	local program = Program(widget.spec, env)
+	if full or TOTEM_EVENTS[event] then
+		UpdateTotem(widget, src)
+		-- A totem check alone recolors nothing unless a color list follows the same event
+		if not full then
+			local spec = widget.spec
+			local border = spec.borderColors and P.Colors:Program(spec.borderColors, env.ctx) or nil
+			if not (Follows(program, event) or Follows(border, event)) then
+				return
+			end
+		end
+	end
 	if full then
 		ApplyLevels(widget)
 		Resnap(widget)
@@ -765,8 +831,6 @@ function Health.Update(widget, src, event)
 	if full or health then
 		UpdateValues(widget, src, event, full)
 	end
-	local env = widget.plate.env
-	local program = Program(widget.spec, env)
 	if full or health or event == 'COLORS' or event == 'CONTEXT_CHANGED' then
 		UpdateOverlays(widget, src, program, env.ctx)
 	end
@@ -778,6 +842,10 @@ function Health.Update(widget, src, event)
 end
 
 function Health.Reset(widget)
+	if widget.totemHidden then
+		widget.totemHidden = false
+		ApplyTotemAlpha(widget)
+	end
 	P.Scheduler:StopEase(widget.chunkEase)
 	widget.chunkFading = false
 	widget.chunkReady = false

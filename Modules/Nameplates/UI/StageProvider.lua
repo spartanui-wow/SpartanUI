@@ -74,6 +74,7 @@ local TEXT_LABELS = {
 	castTime = L['Cast time'],
 	castTarget = L['Cast target'],
 	arena = L['Arena number'],
+	specName = L['Player spec'],
 }
 local ICON_LABELS = {
 	raidMarker = L['Raid marker'],
@@ -82,6 +83,9 @@ local ICON_LABELS = {
 	faction = L['Faction mark'],
 	focus = L['Focus mark'],
 	shield = L['Cast shield'],
+	specIcon = L['Player spec icon'],
+	roleIcon = L['Role icon'],
+	totem = L['Totem icon'],
 }
 local AURA_LABELS = {
 	myDebuffs = L['My debuffs'],

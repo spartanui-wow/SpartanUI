@@ -66,7 +66,7 @@ end
 local EXPORT_VALUES = {
 	style = L['This style'],
 	colors = L['My colors'],
-	when = L['My special cases'],
+	when = L['My special cases and rules'],
 	everything = L['Everything'],
 }
 

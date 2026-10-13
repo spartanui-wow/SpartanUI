@@ -4,6 +4,8 @@ local L = P.L
 
 -- Mini (internal): a tiny bar for minor enemies, pets and totems. Normal mobs never use it.
 -- The engine's own "simplified" shrink is turned off for plates drawn with it (6.5 step 3).
+-- A totem the game lets addons know about shows its own icon instead of the bar: the health part
+-- fades its content (hideOnTotem) and the totem icon part shows only on known totems.
 
 P.Styles.Registry:RegisterBuiltin({
 	id = 'mini',
@@ -28,7 +30,9 @@ P.Styles.Registry:RegisterBuiltin({
 			bg = '$shade',
 			colors = 'health',
 			borderColors = 'border',
+			hideOnTotem = true,
 		},
+		totem = { order = 15, kind = 'icon', source = 'totem', anchor = { 'CENTER', 'health', 'CENTER', 0, 0 }, size = 14 },
 		cast = {
 			order = 20,
 			kind = 'cast',

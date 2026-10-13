@@ -12,7 +12,8 @@ local L = P.L
 -- Payloads by kind:
 --   style   { style = <style>, name = string, author? = string, version = integer }
 --   colors  { scheme = string, colors = <profile.colors>, threat = <profile.threat> }
---   when    { when = <profile.when> }
+--   when    { when = <profile.when>, actions = <profile.actions> } (P.Actions:SharePayload; format 1
+--           strings have no actions, and the reader leaves the player's own rules alone then)
 --   profile { profile = <profile table>, styles = { [id] = <global.styles entry> } }
 
 ---@class Plates.Share

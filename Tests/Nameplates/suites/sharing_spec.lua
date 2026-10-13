@@ -467,7 +467,7 @@ describe('export', function()
 		local box = Page().args.export.args.exportText
 		Store:Set('style', 'clean')
 		local first = box.get()
-		assert.matches(first, '^!NP:1:style!')
+		assert.matches(first, '^!NP:' .. Schema.CURRENT .. ':style!')
 		local cache = Sharing.cache
 		assert.equal(box.get(), first)
 		assert.equal(Sharing.cache, cache, 'same cache entry')
@@ -479,7 +479,7 @@ describe('export', function()
 		local page = Page()
 		local args = page.args.export.args
 		args.what.set({}, 'colors')
-		assert.matches(args.exportText.get(), '^!NP:1:colors!')
+		assert.matches(args.exportText.get(), '^!NP:' .. Schema.CURRENT .. ':colors!')
 		assert.is_true(args.style.hidden())
 		assert.is_true(args.version.hidden())
 		args.what.set({}, 'style')

@@ -110,7 +110,8 @@ end
 ---@class Plates.ActionEffect
 ---@field id string
 ---@field needs string Conditions:AllowedActions key
----@field since integer Share format number (Schema.CURRENT) the effect first shipped in
+---@field since integer Share format number (Schema.CURRENT) the effect first shipped in. Every
+---effect so far shipped with format 2, the first format whose strings carry actions.
 ---@field fields table<string, boolean> Entry fields it owns
 ---@field Active fun(entry: table): boolean
 ---@field Clean fun(entry: table, out: table): boolean Copy its fields into out; false when they are broken
@@ -119,7 +120,7 @@ Actions.EFFECTS = {
 	grow = {
 		id = 'grow',
 		needs = 'grow',
-		since = 1,
+		since = 2,
 		fields = { grow = true },
 		Active = function(entry)
 			return type(entry.grow) == 'table'
@@ -137,7 +138,7 @@ Actions.EFFECTS = {
 	paint = {
 		id = 'paint',
 		needs = 'color',
-		since = 1,
+		since = 2,
 		fields = { paint = true, color = true },
 		Active = function(entry)
 			return type(entry.paint) == 'string'
@@ -160,7 +161,7 @@ Actions.EFFECTS = {
 	fade = {
 		id = 'fade',
 		needs = 'alpha',
-		since = 1,
+		since = 2,
 		fields = { fade = true },
 		Active = function(entry)
 			return type(entry.fade) == 'number'
@@ -173,7 +174,7 @@ Actions.EFFECTS = {
 	glow = {
 		id = 'glow',
 		needs = 'glow',
-		since = 1,
+		since = 2,
 		fields = { glow = true },
 		Active = function(entry)
 			return type(entry.glow) == 'table'
@@ -186,7 +187,7 @@ Actions.EFFECTS = {
 	mark = {
 		id = 'mark',
 		needs = 'mark',
-		since = 1,
+		since = 2,
 		fields = { mark = true, markColor = true },
 		Active = function(entry)
 			return type(entry.mark) == 'string'
@@ -964,8 +965,15 @@ local function HasPaint(st, piece)
 	return false
 end
 
+---True while the health bar stepped aside for a totem icon (Health.lua hideOnTotem, the Mini
+---style): paints over it stay clear so nothing shows where the bar was.
+local function BarSteppedAside(plate)
+	local health = HealthWidget(plate)
+	return health ~= nil and health.totemHidden == true
+end
+
 local function RunPaintHealth(plate, st, env)
-	if not HasPaint(st, 'health') then
+	if not HasPaint(st, 'health') or BarSteppedAside(plate) then
 		if st.tint then
 			st.tint:SetVertexColor(1, 1, 1, 0)
 			st.lowTint:SetVertexColor(1, 1, 1, 0)
@@ -995,7 +1003,7 @@ local function RunPaintHealth(plate, st, env)
 end
 
 local function RunPaintBorder(plate, st, env)
-	if not HasPaint(st, 'border') then
+	if not HasPaint(st, 'border') or BarSteppedAside(plate) then
 		if st.border then
 			st.borderTarget:SetVertexColor(1, 1, 1, 0)
 		end

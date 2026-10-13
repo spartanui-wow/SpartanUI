@@ -608,27 +608,86 @@ describe('LibAT stub', function()
 		assert.equal(Run(Current()), 0)
 	end)
 
-	it('asks for an update when the card art hook is missing', function()
-		local libat = Current()
-		libat.Capabilities.cardArtDraw = nil
-		assert.equal(Run(libat), 1)
+	it('never asks for an update because an optional capability is missing or older', function()
+		local noArt = Current()
+		noArt.Capabilities.cardArtDraw = nil
+		assert.equal(Run(noArt), 0, 'live card pictures are optional')
+		local oldWords = Current()
+		oldWords.Capabilities.searchSynonyms = 1
+		assert.equal(Run(oldWords), 0, 'search words are optional')
+		local none = Current()
+		none.Capabilities = {}
+		assert.equal(Run(none), 0)
 	end)
 
-	it('asks for an update when the search words are an older revision', function()
-		local libat = Current()
-		libat.Capabilities.searchSynonyms = 1
-		assert.equal(Run(libat), 1)
-	end)
-
-	it('asks for an update for a LibAT that does not list capabilities, and lists none for it', function()
+	it('stays quiet for a LibAT that does not list capabilities, and lists none for it', function()
 		local libat = { UI = { Options = {} } }
-		assert.equal(Run(libat), 1)
+		assert.equal(Run(libat), 0)
 		assert.equal(type(libat.Capabilities), 'table', 'reading an entry gives nil, never an error')
 		assert.is_nil(libat.Capabilities.cardArtDraw)
 		assert.is_nil(libat.Capabilities.searchSynonyms, 'nothing is claimed')
+		assert.is_nil(next(libat.Capabilities))
+	end)
+
+	it('keeps the capabilities a LibAT lists', function()
+		local libat = Current()
+		local list = libat.Capabilities
+		assert.equal(Run(libat), 0)
+		assert.is_true(rawequal(libat.Capabilities, list))
+		assert.equal(list.cardArtDraw, 1)
+		assert.equal(list.searchSynonyms, 2)
+	end)
+
+	it('still asks for an update when LibAT has no settings window', function()
+		assert.equal(Run({}), 1, 'a copy too old for the settings window')
+		assert.equal(Run({ UI = {} }), 1)
 	end)
 
 	it('asks for the download when LibAT is missing', function()
 		assert.equal(Run(nil), 1)
+	end)
+end)
+
+describe('host: optional LibAT features', function()
+	local words = { aggro = 'threat' }
+
+	local function Teach(libat)
+		local saved = rawget(_G, 'LibAT')
+		rawset(_G, 'LibAT', libat)
+		local ok, err = pcall(P.host.AddSearchWords, words)
+		rawset(_G, 'LibAT', saved)
+		assert.is_true(ok, tostring(err))
+	end
+
+	local function WithSearch(capabilities)
+		local taught = {}
+		local search = {
+			AddSynonyms = function(_, app, list)
+				taught[#taught + 1] = { app = app, words = list }
+			end,
+		}
+		return { UI = { Options = { Search = search } }, Capabilities = capabilities }, taught
+	end
+
+	it('teaches the settings search its words when LibAT lists search words, revision 2', function()
+		local libat, taught = WithSearch({ searchSynonyms = 2 })
+		Teach(libat)
+		assert.equal(#taught, 1)
+		assert.equal(taught[1].app, 'SpartanUI')
+		assert.is_true(rawequal(taught[1].words, words))
+	end)
+
+	it('leaves the search alone on an older or silent LibAT, without an error', function()
+		local oldWords, taughtOld = WithSearch({ searchSynonyms = 1 })
+		Teach(oldWords)
+		local noList, taughtNone = WithSearch(nil)
+		Teach(noList)
+		local empty, taughtEmpty = WithSearch({})
+		Teach(empty)
+		assert.equal(#taughtOld + #taughtNone + #taughtEmpty, 0)
+		Teach({ Capabilities = { searchSynonyms = 2 } })
+		Teach({ UI = { Options = {} }, Capabilities = { searchSynonyms = 2 } })
+		Teach({})
+		Teach(nil)
 	end)
 end)

@@ -48,6 +48,11 @@ P.Data = P.Data or {}
 ---@field faction? string 'Alliance' | 'Horde' (faction mark, players)
 ---@field pvp? boolean Flagged for PvP (faction mark)
 ---@field arena? integer Arena opponent number (arena text)
+---@field specName? string Enemy player spec (specName text)
+---@field specIcon? string|integer Enemy player spec picture (specIcon icon)
+---@field role? 'TANK'|'HEALER'|'DAMAGER' Enemy player role (roleIcon icon; damage shows no mark)
+---@field totemIcon? string|integer A known totem's picture (totem icon; Mini shows it instead of the bar)
+---@field npcID? integer Creature id (special mobs list, npc color row)
 ---@field cast? Plates.SampleCast
 ---@field kickReady? boolean
 ---@field auras? table<string, Plates.SampleAura[]> Row id -> icons
@@ -63,6 +68,12 @@ local ICON = {
 	polymorph = 'Interface\\Icons\\Spell_Nature_Polymorph',
 	shield = 'Interface\\Icons\\Spell_Holy_PowerWordShield',
 	sunder = 'Interface\\Icons\\Ability_Warrior_Sunder',
+	specFrost = 'Interface\\Icons\\Spell_Frost_FrostBolt02',
+	specHoly = 'Interface\\Icons\\Spell_Holy_GuardianSpirit',
+	specArms = 'Interface\\Icons\\Ability_Warrior_SavageBlow',
+	specSubtlety = 'Interface\\Icons\\Ability_Stealth',
+	specProtection = 'Interface\\Icons\\Ability_Paladin_ShieldoftheTemplar',
+	groundingTotem = 'Interface\\Icons\\Spell_Nature_GroundingTotem',
 }
 P.Data.SampleIcons = ICON
 
@@ -137,6 +148,9 @@ P.Data.Samples = {
 		facts = { reaction = 2, canAttack = true, isPlayer = true, playerControlled = true, classification = 'normal', effectiveLevel = 62, classToken = 'MAGE' },
 		health = 64,
 		healthMax = 100,
+		specName = L['Frost'],
+		specIcon = ICON.specFrost,
+		role = 'DAMAGER',
 		cast = { kind = 'cast', name = L['Frostbolt'], icon = ICON.frostbolt, duration = 2, aimedAtMe = true, target = L['You'] },
 		auras = {
 			crowdControl = { { icon = ICON.polymorph, duration = 8, remaining = 5, spellId = 118 } },
@@ -199,6 +213,16 @@ P.Data.Samples = {
 		health = 60,
 		healthMax = 100,
 		cast = { kind = 'cast', name = L['Fireball'], icon = ICON.fireball, duration = 3, notInterruptible = true },
+	},
+	totem = {
+		id = 'totem',
+		label = L['Totem'],
+		name = L['Grounding Totem'],
+		facts = { reaction = 2, canAttack = true, isPlayer = false, playerControlled = true, isMinion = true, classification = 'normal', effectiveLevel = 62 },
+		health = 100,
+		healthMax = 100,
+		npcID = 5925,
+		totemIcon = ICON.groundingTotem,
 	},
 	tankDebuffs = {
 		id = 'tankDebuffs',

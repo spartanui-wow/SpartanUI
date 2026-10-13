@@ -451,6 +451,61 @@ describe('preview: inspector', function()
 		assert.truthy(line:find(P.L['One of:'], 1, true), line)
 	end)
 
+	it('adds the "When" rules of a plate to the part details and the Alt tooltip', function()
+		P.Store:Set('actions', { { conditions = { { id = 'canAttack' } }, glow = { 1, 1, 1, 1 } }, { conditions = { { id = 'target' } }, mark = 'star' } })
+		local result = Scenes:Render(canvas, 'pull', { width = 338, height = 560 })
+		local plate = result.plates[1]
+		local rules = Inspector:RuleLines(plate)
+		assert.equal(3, #rules, 'a heading and one line per rule')
+		assert.equal(P.L['When something happens'], rules[1])
+		assert.truthy(rules[2]:find('1', 1, true), rules[2])
+		assert.truthy(rules[3]:find('2', 1, true), rules[3])
+		local detail = Inspector:Detail(plate, 'health')
+		assert.truthy(detail:find(rules[2], 1, true), 'a colored part says which rules apply')
+		local checked = 0
+		for id, spec in pairs(plate.style.parts) do
+			local piece, borderPiece = Inspector:PieceOf(spec)
+			if not piece and not borderPiece then
+				local plain = Inspector:Detail(plate, id)
+				assert.falsy(plain and plain:find(rules[1], 1, true), id .. ': a part with no color list has no rule lines')
+				checked = checked + 1
+			end
+		end
+		assert.truthy(checked > 0, 'the style has a part without a color list')
+		local added = {}
+		M.Override(GameTooltip, 'SetOwner', function() end)
+		M.Override(GameTooltip, 'AddLine', function(_, text)
+			added[#added + 1] = text
+		end)
+		local original = Inspector.MouseoverPlate
+		Inspector.MouseoverPlate = function()
+			return plate
+		end
+		assert.is_true(Inspector:ShowTip())
+		Inspector.MouseoverPlate = original
+		Inspector:HideTip()
+		local found = 0
+		for _, text in ipairs(added) do
+			for _, line in ipairs(rules) do
+				if text == line then
+					found = found + 1
+				end
+			end
+		end
+		assert.equal(#rules, found, 'the tooltip lists the heading and every rule')
+		P.Store:Set('actions', nil)
+		Scenes:Release(canvas)
+		local fresh = Scenes:Render(canvas, 'pull', { width = 338, height = 560 }).plates[1]
+		assert.same(Inspector:RuleLines(fresh), {}, 'no rules, no lines')
+	end)
+
+	it('leaves the part details alone for a plate with no rules', function()
+		P.Store:Set('actions', nil)
+		local plate = Scenes:Render(canvas, 'pull', { width = 338, height = 560 }).plates[1]
+		assert.same(Inspector:RuleLines(plate), {})
+		assert.same(Inspector:RuleLines(nil), {})
+	end)
+
 	it('shows the Alt tooltip for the plate under the mouse', function()
 		local result = Scenes:Render(canvas, 'pull', { width = 338, height = 560 })
 		local plate = result.plates[1]
