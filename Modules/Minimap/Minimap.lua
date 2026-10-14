@@ -620,7 +620,13 @@ function module:UpdateMinimapSize()
 	if UsesModernMinimap then
 		-- Retail: Include BorderTop height
 		local borderHeight = MinimapCluster.BorderTop and MinimapCluster.BorderTop:GetHeight() or 28
-		SUIMinimap:SetSize(Minimap:GetWidth(), (Minimap:GetHeight() + borderHeight + 15))
+		-- Looks that keep the zone text inside the map leave no room below it, so a map low on the
+		-- screen is not pushed up to keep that room on screen
+		if module.Settings.holderFitsMap then
+			SUIMinimap:SetSize(Minimap:GetWidth(), Minimap:GetHeight())
+		else
+			SUIMinimap:SetSize(Minimap:GetWidth(), (Minimap:GetHeight() + borderHeight + 15))
+		end
 		PinMinimap()
 
 		-- Set size of MinimapCluster BorderTop

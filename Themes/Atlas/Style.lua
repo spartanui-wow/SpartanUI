@@ -11,6 +11,8 @@ SUI.ThemePainted.Register({
 	narrowBridge = 66,
 	-- The plate has no name strip; the name sits above it
 	nameAbove = true,
+	-- The map in the bar reaches past the round mask's soft edge
+	dockedMinimapSize = 182,
 	kit = 'atlas',
 	colors = {
 		frameBg = { 0.098, 0.082, 0.071, 0.93 },

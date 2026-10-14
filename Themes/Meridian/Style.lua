@@ -9,6 +9,10 @@ SUI.ThemePainted.Register({
 	narrowCentre = true,
 	-- The name strip ends in sea-glass beads
 	nameInset = 16,
+	-- The top right map reaches past the round mask's soft edge
+	cornerMinimapPad = 4,
+	-- The map in the bar covers the dark rim inside the ring
+	dockedMinimapSize = 188,
 	kit = 'meridian',
 	colors = {
 		frameBg = { 0.047, 0.078, 0.075, 0.93 },

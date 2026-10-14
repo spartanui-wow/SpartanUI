@@ -762,15 +762,17 @@ end
 -- Art units the top right map grows past its scaled size, so it meets the bezel's inner edge
 Painted.cornerPad = {}
 
+-- The map's size in the bar, for looks whose ring has a dark rim inside its opening
+Painted.dockedSize = {}
+
 ---The map's size for the look's current variant, in art units
 ---@param name string
 ---@return number
 function Painted.MinimapSize(name)
-	local size = L.minimap.size * Painted.MinimapScale(name)
 	if Painted.GetVariant(name) == 'corner' then
-		size = size + (Painted.cornerPad[name] or 0)
+		return L.minimap.size * Painted.MinimapScale(name) + (Painted.cornerPad[name] or 0)
 	end
-	return size
+	return Painted.dockedSize[name] or L.minimap.size
 end
 
 ---The top right bezel rides on the map itself, so it follows the map wherever the player moves or
@@ -876,6 +878,12 @@ function Painted.QueueAlignMinimap(name)
 	end)
 end
 
+-- While the map sits in the bar, the zone text block goes above it and the coordinates inside its bottom
+local DOCKED_MINIMAP_ELEMENTS = {
+	BorderTop = 'BOTTOM,Minimap,TOP,0,9',
+	coords = 'BOTTOM,Minimap,BOTTOM,0,10',
+}
+
 ---@param name string
 local function RefreshMinimap(name)
 	local module = SUI:GetModule('Minimap', true)
@@ -888,6 +896,18 @@ local function RefreshMinimap(name)
 		local data = SUI.ThemeRegistry:GetData(name)
 		if data and data.minimap then
 			data.minimap.size = { size, size }
+			-- In the bar the map sits low on the screen, so the holder is only the map (nothing hangs
+			-- off the screen and pushes the map up) and the zone text block sits above it
+			local docked = Painted.GetVariant(name) ~= 'corner'
+			data.minimap.holderFitsMap = docked or nil
+			local elements = data.minimap.elements or {}
+			data.minimap.elements = elements
+			for key, position in pairs(DOCKED_MINIMAP_ELEMENTS) do
+				elements[key] = docked and { position = position } or nil
+			end
+			if module.Update then
+				module:Update()
+			end
 		end
 		if module.Settings and module.UpdateMinimapSize and not (custom and rawget(custom, 'size')) then
 			module.Settings.size = { size, size }
@@ -1176,6 +1196,7 @@ function Painted.Register(spec)
 	Painted.inner[name] = spec.portraits == 'inner' or nil
 	Painted.cornerScale[name] = spec.cornerMinimapScale
 	Painted.cornerPad[name] = spec.cornerMinimapPad
+	Painted.dockedSize[name] = spec.dockedMinimapSize
 
 	function module:OnInitialize()
 		-- The first variant is the look's default
