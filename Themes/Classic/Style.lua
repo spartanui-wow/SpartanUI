@@ -1251,7 +1251,7 @@ function module:OnInitialize()
 			},
 			minimap = SUI.BlizzAPI.HasModernMinimap() and {
 				size = { 155, 155 },
-				position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,-29,38',
+				position = 'BOTTOM,SUI_Art_Classic_Center,BOTTOM,-29,6',
 				elements = {
 					background = {
 						enabled = false,
