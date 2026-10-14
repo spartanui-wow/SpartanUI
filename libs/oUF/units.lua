@@ -51,7 +51,8 @@ local function updateArenaPreparationElements(self, event, elementName, specID)
 			local color
 			-- if(element.colorPower and elementName == 'Power') then
 				-- FIXME: no idea if we can get power type here without the unit
-			if(element.colorClass) then
+			-- SUI: specID is secret since 12.1.5; it cannot pick a class color then
+			if(element.colorClass and (not canaccessvalue or canaccessvalue(specID))) then
 				local _, _, _, _, _, class = GetSpecializationInfoByID(specID)
 				color = self.colors.class[class]
 			elseif(element.colorReaction) then

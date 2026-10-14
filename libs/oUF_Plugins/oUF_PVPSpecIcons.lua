@@ -25,12 +25,20 @@ local Update = function(frame, event, unit)
 	local arenaIndex = frame.unit and frame.unit:match('arena(%d)')
 	if instanceType == 'arena' then
 		local unitID = tonumber(arenaIndex or frame:GetID() or 0)
-		local specID, icon, _ = unitID and GetArenaOpponentSpec(unitID)
-		if specID and specID > 0 then
-			_, _, _, icon = GetSpecializationInfoByID(specID)
-		end
+		local util = UnitFrameUtil
+		if unitID and util and util.GetArenaOpponentSpecDisplayInfo then
+			-- SUI: GetArenaOpponentSpec is always secret since 12.1.5; the icon may be secret too
+			local icon = util.GetArenaOpponentSpecDisplayInfo(unitID).specIcon
+			if (not canaccessvalue or canaccessvalue(icon)) and (not icon or icon == 0) then icon = factions.Unknown end
+			element.Icon:SetTexture(icon)
+		else
+			local specID, icon, _ = unitID and GetArenaOpponentSpec(unitID)
+			if specID and (not canaccessvalue or canaccessvalue(specID)) and specID > 0 then
+				_, _, _, icon = GetSpecializationInfoByID(specID)
+			end
 
-		element.Icon:SetTexture(icon or factions.Unknown)
+			element.Icon:SetTexture(icon or factions.Unknown)
+		end
 	else
 		element.Icon:SetTexture(GetSpecIconByFaction(arenaIndex or (frame.isForced and 'player')))
 	end
