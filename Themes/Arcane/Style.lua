@@ -209,7 +209,7 @@ function module:OnInitialize()
 				},
 				minimap = SUI.BlizzAPI.HasModernMinimap() and {
 					size = { 180, 180 },
-					position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,-30,52',
+					position = 'CENTER,SUI_Art_Arcane_Left,RIGHT,-30,29',
 					elements = {
 						background = {
 							texture = 'Interface\\AddOns\\SpartanUI\\Themes\\Arcane\\Images\\minimap',

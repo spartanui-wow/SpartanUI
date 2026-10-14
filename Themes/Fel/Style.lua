@@ -205,7 +205,7 @@ function module:OnInitialize()
 					variants = {
 						Fel = SUI.IsRetail and {
 							size = { 180, 180 },
-							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,22',
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,-8',
 							engulfed = true,
 							elements = {
 								background = {
@@ -226,7 +226,7 @@ function module:OnInitialize()
 						},
 						FelCalmed = SUI.IsRetail and {
 							size = { 180, 180 },
-							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,22',
+							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,-8',
 							engulfed = false,
 							elements = {
 								background = {

@@ -176,7 +176,7 @@ function module:OnInitialize()
 			barPositions = barPositions,
 			minimap = SUI.BlizzAPI.HasModernMinimap() and {
 				size = { 180, 180 },
-				position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,-19,22',
+				position = 'BOTTOM,SUI_Art_War_Left,BOTTOMRIGHT,-19,-1',
 				elements = {
 					background = {
 						texture = 'Interface\\AddOns\\SpartanUI\\Themes\\War\\Images\\minimap',
