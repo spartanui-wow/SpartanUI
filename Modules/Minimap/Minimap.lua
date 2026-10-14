@@ -278,7 +278,11 @@ local PvPColors = {
 local function ApplyElementFont(fontString, defaultSize, fontSettings)
 	if fontSettings and (fontSettings.face or fontSettings.size or fontSettings.outline) then
 		local LSM = LibStub('LibSharedMedia-3.0', true)
-		local face = fontSettings.face and LSM and LSM:Fetch('font', fontSettings.face) or fontString:GetFont()
+		-- A new font string has no font yet, so GetFont alone can come back empty
+		local face = (fontSettings.face and LSM and LSM:Fetch('font', fontSettings.face, true))
+			or fontString:GetFont()
+			or (LSM and LSM:Fetch('font', SUI.Font:GetFace('Minimap'), true))
+			or STANDARD_TEXT_FONT
 		local size = fontSettings.size or defaultSize
 		local outline = fontSettings.outline or ''
 		fontString:SetFont(face, size, outline)
