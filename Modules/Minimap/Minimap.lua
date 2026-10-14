@@ -594,6 +594,21 @@ function module:ModifyMinimapLayout()
 	end
 end
 
+-- Theme positions were tuned while Blizzard centred the map in a container of this width (the
+-- Retail XML size). Forever's container is wider, which pushed the map off its art, so the map is
+-- pinned to the holder at the offset the Retail container gave it.
+local THEME_CONTAINER_WIDTH = 215
+
+local function PinMinimap()
+	if not UsesModernMinimap or InCombatLockdown() then
+		return
+	end
+	MinimapCluster.MinimapContainer:ClearAllPoints()
+	MinimapCluster.MinimapContainer:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', 0, 0)
+	Minimap:ClearAllPoints()
+	Minimap:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', (THEME_CONTAINER_WIDTH - Minimap:GetWidth()) / 2, 0)
+end
+
 function module:UpdateMinimapSize()
 	local oldWidth, oldHeight = Minimap:GetSize()
 	-- Set size of Minimap
@@ -606,6 +621,7 @@ function module:UpdateMinimapSize()
 		-- Retail: Include BorderTop height
 		local borderHeight = MinimapCluster.BorderTop and MinimapCluster.BorderTop:GetHeight() or 28
 		SUIMinimap:SetSize(Minimap:GetWidth(), (Minimap:GetHeight() + borderHeight + 15))
+		PinMinimap()
 
 		-- Set size of MinimapCluster BorderTop
 		if MinimapCluster.BorderTop then
@@ -2832,21 +2848,14 @@ function module:UpdatePosition()
 	-- Update MinimapCluster position relative to SUIMinimap
 	-- MinimapContainer only exists in Retail, not Classic
 	if MinimapCluster.MinimapContainer then
-		MinimapCluster.MinimapContainer:ClearAllPoints()
-		MinimapCluster.MinimapContainer:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', 0, 0)
+		PinMinimap()
 
 		-- Hook MinimapCluster:SetPoint once so EditMode repositioning immediately
 		-- re-anchors MinimapContainer rather than waiting for the 30-second timer.
 		-- We hook MinimapCluster (what EditMode drives) and correct MinimapContainer
 		-- (what SUI controls) -- never touching MinimapCluster itself to avoid recursion/taint.
 		if not MinimapCluster.SUI_Hooked then
-			hooksecurefunc(MinimapCluster, 'SetPoint', function()
-				if InCombatLockdown() then
-					return
-				end
-				MinimapCluster.MinimapContainer:ClearAllPoints()
-				MinimapCluster.MinimapContainer:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', 0, 0)
-			end)
+			hooksecurefunc(MinimapCluster, 'SetPoint', PinMinimap)
 			MinimapCluster.SUI_Hooked = true
 		end
 
