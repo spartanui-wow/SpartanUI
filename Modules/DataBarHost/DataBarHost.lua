@@ -114,6 +114,8 @@ end
 ---@return table<string, table>
 local function MiniBarDefinitions()
 	local definitions = {}
+	-- Minimap bar off for now (it was added for testing)
+	--[[
 	if Minimap then
 		definitions[MINIMAP_BAR] = {
 			name = L['Minimap bar'],
@@ -126,6 +128,7 @@ local function MiniBarDefinitions()
 			pluginDefaults = { mode = 'text', showLabel = false },
 		}
 	end
+	--]]
 	if _G.ChatFrame1 then
 		definitions[CHAT_BAR] = {
 			name = L['Chat bar'],
@@ -151,6 +154,7 @@ local function MiniBarSlots()
 		-- A Lib's DataBar from before small bars
 		return list
 	end
+	--[[ Minimap bar off for now (it was added for testing)
 	if Minimap then
 		list[MINIMAP_BAR] = {
 			position = 'TOP,Minimap,BOTTOM,0,' .. MinimapBarOffset(),
@@ -162,6 +166,7 @@ local function MiniBarSlots()
 			end,
 		}
 	end
+	--]]
 	if _G.ChatFrame1 then
 		list[CHAT_BAR] = {
 			position = 'BOTTOMLEFT,ChatFrame1,TOPLEFT,0,' .. ChatBarOffset(),
@@ -466,7 +471,8 @@ function module:BuildOptions()
 				fontSize = 'medium',
 				order = 0,
 			},
-			minimap = BarToggle(MINIMAP_BAR, L['Show a bar under the minimap'], L['Shows who is online in your guild and friends list, your time played, or the clock, depending on which addons you have.'], 1),
+			-- Minimap bar off for now (it was added for testing)
+			-- minimap = BarToggle(MINIMAP_BAR, L['Show a bar under the minimap'], L['Shows who is online in your guild and friends list, your time played, or the clock, depending on which addons you have.'], 1),
 			chat = BarToggle(CHAT_BAR, L['Show a bar above the chat window'], L['Shows your messages, bag space and the clock, depending on which addons you have.'], 2),
 			move = {
 				type = 'execute',
@@ -484,7 +490,7 @@ function module:BuildOptions()
 				width = 'double',
 				func = function()
 					if LibsDataBar and LibsDataBar.OpenConfig then
-						LibsDataBar:OpenConfig('bars', MINIMAP_BAR)
+						LibsDataBar:OpenConfig('bars', CHAT_BAR)
 					end
 				end,
 			},
