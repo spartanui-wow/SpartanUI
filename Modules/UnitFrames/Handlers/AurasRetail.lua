@@ -784,11 +784,30 @@ local pendingRebuilds = {}
 local rebuildWatcher
 
 local function DrainPendingRebuilds()
+	if SUI.BlizzAPI.AreAurasRestricted() then
+		return
+	end
 	for frame in pairs(pendingRebuilds) do
 		pendingRebuilds[frame] = nil
-		for _, name in ipairs({ 'BuffContainer', 'DebuffContainer', 'CustomAuras' }) do
+		for _, name in ipairs({ 'BuffContainer', 'DebuffContainer', 'CustomAuras', 'AuraTracker' }) do
 			UF.Elements:Update(frame, name)
 		end
+	end
+end
+
+---Redo a frame's aura setup once restrictions lift. A mythic+ run stays restricted out of combat,
+---so leaving combat alone is not enough: the restriction change has to be watched too.
+---@param frame table
+local function QueueRebuild(frame)
+	pendingRebuilds[frame] = true
+
+	if not rebuildWatcher then
+		rebuildWatcher = CreateFrame('Frame')
+		rebuildWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
+		if C_EventUtils and C_EventUtils.IsEventValid and C_EventUtils.IsEventValid('ADDON_RESTRICTION_STATE_CHANGED') then
+			rebuildWatcher:RegisterEvent('ADDON_RESTRICTION_STATE_CHANGED')
+		end
+		rebuildWatcher:SetScript('OnEvent', DrainPendingRebuilds)
 	end
 end
 
@@ -1115,13 +1134,7 @@ function Auras:RepointVariants(frame, element, DB)
 	-- a rated match each do so on their own, and any of them can be active
 	-- while out of combat.
 	if SUI.BlizzAPI.AreAurasRestricted() then
-		pendingRebuilds[frame] = true
-
-		if not rebuildWatcher then
-			rebuildWatcher = CreateFrame('Frame')
-			rebuildWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
-			rebuildWatcher:SetScript('OnEvent', DrainPendingRebuilds)
-		end
+		QueueRebuild(frame)
 		return
 	end
 
@@ -1296,13 +1309,7 @@ function Auras:RepointGroups(frame, element, DB)
 	-- a rated match each do so on their own, and any of them can be active
 	-- while out of combat.
 	if SUI.BlizzAPI.AreAurasRestricted() then
-		pendingRebuilds[frame] = true
-
-		if not rebuildWatcher then
-			rebuildWatcher = CreateFrame('Frame')
-			rebuildWatcher:RegisterEvent('PLAYER_REGEN_ENABLED')
-			rebuildWatcher:SetScript('OnEvent', DrainPendingRebuilds)
-		end
+		QueueRebuild(frame)
 		return
 	end
 
@@ -1685,6 +1692,12 @@ function Auras:RefreshSlots(element, DB)
 		return
 	end
 
+	-- Slot buttons turn forbidden while auras are restricted, which a mythic+ run keeps on out of combat
+	if SUI.BlizzAPI.AreAurasRestricted() then
+		QueueRebuild(frame)
+		return
+	end
+
 	for index = 1, self.MAX_TRACKER_SLOTS do
 		local key = element.slotKeys and element.slotKeys[index]
 		if key then
@@ -1714,7 +1727,9 @@ function Auras:RefreshSlots(element, DB)
 				slot = element:GetAuraGroupFrame(key)
 			end
 
-			if slot and slot.ClearAllPoints then
+			if slot and slot.IsForbidden and slot:IsForbidden() then
+				QueueRebuild(frame)
+			elseif slot and slot.ClearAllPoints then
 				slot:ClearAllPoints()
 				local anchor = type(entry.anchor) == 'string' and entry.anchor or 'CENTER'
 				local offsetX = type(entry.x) == 'number' and entry.x or 0

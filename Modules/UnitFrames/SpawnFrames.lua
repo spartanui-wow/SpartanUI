@@ -207,8 +207,9 @@ local function CreateUnitFrame(self, unit)
 						self[element].bg:Hide()
 					end
 				end
-				-- SUI Update (size, position, etc)
-				self:ElementUpdate(element)
+				-- SUI Update (size, position, etc). Every element's anchors were cleared above, so one
+				-- failing here must not stop the rest being placed: they would stay invisible.
+				xpcall(self.ElementUpdate, geterrorhandler(), self, element)
 			end
 		end
 

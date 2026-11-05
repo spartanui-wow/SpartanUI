@@ -182,7 +182,7 @@ function BlizzAPI.HasDurationTextBinding()
 	return durationBindingAvailable
 end
 
----Build a SecondsFormatter that renders short countdowns (e.g. "1h", "5m", "12", "3.4").
+---Build a SecondsFormatter that renders short countdowns (e.g. "1h", "5m", "12s", "3.4").
 ---Enum/method availability is feature-detected: the formatter still works if a
 ---given knob is missing on the current build, it just uses the engine default.
 ---@return NumericFormatter|nil
@@ -195,7 +195,7 @@ local function CreateCountdownFormatter()
 		formatter:SetDefaultAbbreviation(Enum.SecondsFormatterAbbreviation.OneLetter)
 	end
 	if formatter.SetStripIntervalWhitespace and Enum.SecondsFormatterIntervalWhitespace then
-		formatter:SetStripIntervalWhitespace(Enum.SecondsFormatterIntervalWhitespace.Strip)
+		formatter:SetStripIntervalWhitespace(Enum.SecondsFormatterIntervalWhitespace.StripIgnoreLocale or Enum.SecondsFormatterIntervalWhitespace.Strip)
 	end
 	if formatter.SetMillisecondsThreshold then
 		formatter:SetMillisecondsThreshold(5)
@@ -322,9 +322,13 @@ end
 ---
 ---Combat is not the only one: an encounter, a mythic+ run and a rated match
 ---each restrict auras on their own, and any of them can be active while out
----of combat. Asking only about combat misses all three.
+---of combat. Asking only about combat misses all three. Aura buttons deny addon access for as long
+---as auras are secret, so the game's own answer to that counts too.
 ---@return boolean
 function BlizzAPI.AreAurasRestricted()
+	if C_Secrets and C_Secrets.ShouldAurasBeSecret and C_Secrets.ShouldAurasBeSecret() then
+		return true
+	end
 	return BlizzAPI.IsRestrictedBy('Combat') or BlizzAPI.IsRestrictedBy('Encounter') or BlizzAPI.IsRestrictedBy('ChallengeMode') or BlizzAPI.IsRestrictedBy('PvPMatch')
 end
 
