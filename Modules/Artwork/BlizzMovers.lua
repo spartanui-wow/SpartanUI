@@ -293,6 +293,7 @@ local function AlertFrame()
 	if not MoverEnabled(moverName) then
 		RestoreOriginalPosition(moverName)
 		if groupLootContainer and module.BlizzMoverCache[moverName .. '_GroupLoot'] then
+			groupLootContainer.ignoreFramePositionManager = nil
 			RestoreOriginalPosition(moverName .. '_GroupLoot')
 		end
 		return
@@ -309,6 +310,8 @@ local function AlertFrame()
 
 	AttachToHolder(alertFrame, holder, 'BOTTOM')
 	if groupLootContainer then
+		-- Blizzard's bottom frame manager would otherwise clear its anchors
+		groupLootContainer.ignoreFramePositionManager = true
 		AttachToHolder(groupLootContainer, holder, 'BOTTOM')
 	end
 
