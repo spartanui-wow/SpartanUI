@@ -216,12 +216,8 @@ end
 ---@return table|nil
 local function SecondsFormatter()
 	if secondsFormatter == nil then
-		secondsFormatter = false
-		local util = C_StringUtil
-		if util and util.CreateSecondsFormatter then
-			local ok, made = pcall(util.CreateSecondsFormatter)
-			secondsFormatter = (ok and made) or false
-		end
+		local castBar = P.CastBar
+		secondsFormatter = castBar and castBar.ShortSecondsFormatter and castBar.ShortSecondsFormatter() or false
 	end
 	return secondsFormatter or nil
 end

@@ -843,40 +843,9 @@ function Scan.TickingCount()
 	return n
 end
 
----Countdown text bound in the engine (where Caps 'durationText' says it works), else plain.
----@param icon table
----@param expiration number
----@param duration number
----@return boolean bound
-local function BindTimer(icon, expiration, duration)
-	if not (P.Caps:Get('durationText') and C_DurationUtil and C_DurationUtil.CreateDurationTextBinding and C_DurationUtil.CreateDuration) then
-		return false
-	end
-	local binding = icon.binding
-	if not binding then
-		binding = C_DurationUtil.CreateDurationTextBinding()
-		binding:SetFontString(icon.timer)
-		local formatter = C_StringUtil and C_StringUtil.CreateSecondsFormatter and C_StringUtil.CreateSecondsFormatter()
-		if formatter then
-			binding:SetFormatter(formatter)
-		end
-		binding:SetExpiredText('')
-		binding:SetZeroDurationText('')
-		icon.binding = binding
-		icon.duration = C_DurationUtil.CreateDuration()
-	end
-	icon.duration:SetTimeFromEnd(expiration, duration)
-	binding:SetDuration(icon.duration)
-	binding:SetEnabled(true)
-	return true
-end
-
----Stop the engine binding and the shared tick for an icon.
+---Take an icon off the shared tick.
 ---@param icon table
 local function UnbindTimer(icon)
-	if icon.binding then
-		icon.binding:SetEnabled(false)
-	end
 	icon.plainTimer = nil
 	icon.watchPandemic = nil
 	ticking[icon] = nil
@@ -937,7 +906,9 @@ local function DrawIcon(widget, icon, data, now)
 			end
 			if spec.timer == false then
 				icon.timer:SetText('')
-			elseif not BindTimer(icon, expiration, duration) then
+			else
+				-- Scan rows only run where aura times are readable, so the plain text is always
+				-- possible, and the game's seconds formatter writes "9 Seconds" on a small icon
 				icon.plainTimer = true
 				icon.timer:SetText(Scan.FormatRemaining(remaining))
 			end

@@ -207,6 +207,28 @@ function Cast.FormatSeconds(seconds)
 	return string.format('%d', math.floor(seconds))
 end
 
+---The game's seconds formatter, short ("9s", not "9 Seconds"), or nil where the client has none.
+---@return table|nil
+function Cast.ShortSecondsFormatter()
+	local util = C_StringUtil
+	if not (util and util.CreateSecondsFormatter) then
+		return nil
+	end
+	local ok, made = pcall(util.CreateSecondsFormatter)
+	if not (ok and made) then
+		return nil
+	end
+	local abbreviation = Enum.SecondsFormatterAbbreviation
+	if made.SetDefaultAbbreviation and abbreviation then
+		pcall(made.SetDefaultAbbreviation, made, abbreviation.OneLetter)
+	end
+	local whitespace = Enum.SecondsFormatterIntervalWhitespace
+	if made.SetStripIntervalWhitespace and whitespace then
+		pcall(made.SetStripIntervalWhitespace, made, whitespace.StripIgnoreLocale or whitespace.Strip)
+	end
+	return made
+end
+
 local formatter
 ---A numeric formatter for duration text bindings, or nil where the client has none.
 ---@return table|nil
@@ -224,10 +246,7 @@ function Cast.Formatter()
 				formatter = set and made or false
 			end
 		end
-		if not formatter and util and util.CreateSecondsFormatter then
-			local ok, made = pcall(util.CreateSecondsFormatter)
-			formatter = ok and made or false
-		end
+		formatter = formatter or Cast.ShortSecondsFormatter() or false
 	end
 	return formatter or nil
 end
@@ -241,12 +260,7 @@ end
 ---and cast time text share it). Returns it, or nil when the client has none.
 ---@return table|nil
 function Cast.UseSecondsFormatter()
-	local util = C_StringUtil
-	local made
-	if util and util.CreateSecondsFormatter then
-		local ok, result = pcall(util.CreateSecondsFormatter)
-		made = ok and result or nil
-	end
+	local made = Cast.ShortSecondsFormatter()
 	if formatter and formatter ~= made then
 		P.log.info('Cast times use the game seconds format here')
 	end
