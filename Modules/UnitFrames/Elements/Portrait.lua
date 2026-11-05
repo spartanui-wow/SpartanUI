@@ -1,4 +1,26 @@
 local UF, L = SUI.UF, SUI.L
+local canAccess = SUI.BlizzAPI.canaccessvalue
+
+-- 3D models do not reliably take their parent's alpha, so the model's own alpha carries both the
+-- portrait's Alpha setting and the frame's fade. An alpha the game hides counts as fully shown.
+---@param frame table unit frame
+---@param frameAlpha? number the alpha on screen, for fades that have not reached the frame yet
+function UF:SyncPortraitAlpha(frame, frameAlpha)
+	local model = frame.Portrait3D
+	local DB = frame.DB and frame.DB.elements and frame.DB.elements.Portrait
+	if not model or not DB or not model.SetModelAlpha then
+		return
+	end
+
+	local fade = 1
+	if DB.followFade ~= false then
+		fade = frameAlpha or frame:GetAlpha()
+		if not canAccess(fade) then
+			fade = 1
+		end
+	end
+	model:SetModelAlpha((DB.alpha or 1) * fade)
+end
 
 ---@param frame table
 ---@param DB table
@@ -9,7 +31,15 @@ local function Build(frame, DB)
 	Portrait3D:SetScale(DB.scale)
 	Portrait3D:SetFrameStrata('BACKGROUND')
 	Portrait3D:SetFrameLevel(2)
+	if Portrait3D.SetIgnoreParentAlpha then
+		Portrait3D:SetIgnoreParentAlpha(true)
+	end
+	hooksecurefunc(frame, 'SetAlpha', function(self, alpha)
+		UF:SyncPortraitAlpha(self, canAccess(alpha) and alpha or nil)
+	end)
 	Portrait3D.PostUpdate = function(unit, event, shouldUpdate)
+		-- Loading a model resets its alpha
+		UF:SyncPortraitAlpha(frame)
 		if frame:IsObjectType('PlayerModel') then
 			frame:SetAlpha(DB.alpha)
 
@@ -159,7 +189,6 @@ local function Update(frame)
 
 	if DB.type == '3D' then
 		frame.Portrait3D:Show()
-		frame.Portrait:SetAlpha(DB.alpha)
 
 		local rotation = DB.rotation
 
@@ -173,6 +202,7 @@ local function Update(frame)
 		--Refresh model to fix incorrect display issues
 		frame.Portrait:ClearModel()
 		frame.Portrait:SetUnit(frame.unitOnCreate)
+		UF:SyncPortraitAlpha(frame)
 	else
 		frame.Portrait2D:Show()
 	end
@@ -261,6 +291,15 @@ local function Options(frameName, OptionSet)
 					return UF.CurrentSettings[frameName].elements.Portrait.position == 'overlay'
 				end,
 			},
+			followFade = {
+				name = L['Fade with the frame'],
+				desc = L['Turn this off to keep the 3D portrait visible when the frame fades out'],
+				type = 'toggle',
+				order = 32,
+				hidden = function()
+					return UF.CurrentSettings[frameName].elements.Portrait.type ~= '3D'
+				end,
+			},
 		},
 	}
 end
@@ -277,6 +316,7 @@ local Settings = {
 	yOffset = 0,
 	position = 'left',
 	clickOverlay = false,
+	followFade = true,
 	config = {
 		NoBulkUpdate = true,
 		type = 'General',

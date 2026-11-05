@@ -95,7 +95,8 @@ local function ApplyAlpha(frame, DB)
 	-- Apply with smooth transition if enabled
 	if DB.smooth and frame._faderAnim then
 		local currentAlpha = frame:GetAlpha()
-		if math.abs(currentAlpha - targetAlpha) > 0.01 then
+		local alreadyFading = frame._faderAnimGroup:IsPlaying() and frame._faderTargetAlpha == targetAlpha
+		if not alreadyFading and math.abs(currentAlpha - targetAlpha) > 0.01 then
 			frame._faderAnim:SetFromAlpha(currentAlpha)
 			frame._faderAnim:SetToAlpha(targetAlpha)
 			frame._faderAnim:SetDuration(DB.smoothSpeed or 0.3)
@@ -140,6 +141,10 @@ local function Build(frame, DB)
 	anim:SetSmoothing('IN_OUT')
 	animGroup:SetScript('OnFinished', function()
 		frame:SetAlpha(anim:GetToAlpha())
+	end)
+	animGroup:SetScript('OnUpdate', function()
+		local from = anim:GetFromAlpha()
+		UF:SyncPortraitAlpha(frame, from + (anim:GetToAlpha() - from) * anim:GetSmoothProgress())
 	end)
 
 	frame._faderAnimGroup = animGroup
