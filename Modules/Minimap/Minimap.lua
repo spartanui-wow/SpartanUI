@@ -16,11 +16,38 @@ module.UsesModernMinimap = UsesModernMinimap
 
 local borderTop
 
----The strip under the map. Newer clients keep it inside the zone button; it moves up to the cluster
+---Forever's zone button has no strip and its own header art, so it gets a strip of ours and the
+---button takes the size and text position of the Retail template, which the theme positions assume.
+---@param zoneButton Button
+---@return Frame
+local function CreateBorderTop(zoneButton)
+	local strip = CreateFrame('Frame', nil, MinimapCluster)
+	strip.ignoreInLayout = true
+	strip:SetFrameLevel(MinimapCluster:GetFrameLevel())
+	strip:SetSize(175, 34)
+	strip:SetPoint('TOP', Minimap, 'BOTTOM', 0, -5)
+
+	-- Blizzard shows and sizes these again on every hover, so they move out of sight instead
+	local hiddenArt = CreateFrame('Frame')
+	hiddenArt:Hide()
+	for _, texture in pairs({ zoneButton.StateTexture, zoneButton.AddTexture }) do
+		texture:SetParent(hiddenArt)
+	end
+
+	zoneButton:SetSize(175, 12)
+	if MinimapZoneText then
+		MinimapZoneText:SetWidth(130)
+		MinimapZoneText:ClearAllPoints()
+		MinimapZoneText:SetPoint('LEFT', zoneButton, 'LEFT', 4, 0)
+	end
+	return strip
+end
+
+---The strip under the map. Retail 12.1.7 keeps it inside the zone button; it moves up to the cluster
 ---there, because the zone button hangs from the strip and a child anchor would make a loop.
 ---@return Frame|nil
 local function GetBorderTop()
-	if borderTop or not MinimapCluster then
+	if borderTop or not UsesModernMinimap then
 		return borderTop
 	end
 	local zoneButton = MinimapCluster.ZoneTextButton
@@ -29,6 +56,8 @@ local function GetBorderTop()
 	elseif zoneButton and zoneButton.BorderTop then
 		borderTop = zoneButton.BorderTop
 		borderTop:SetParent(MinimapCluster)
+	elseif zoneButton then
+		borderTop = CreateBorderTop(zoneButton)
 	end
 	return borderTop
 end
