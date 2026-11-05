@@ -750,7 +750,7 @@ end
 
 ---Handle NPC kills (approximate)
 function StatsTracker:COMBAT_LOG_EVENT_UNFILTERED()
-	local _, eventType, _, sourceGUID, _, _, _, destGUID, destName = CombatLogGetCurrentEventInfo()
+	local _, eventType, _, sourceGUID, _, _, _, destGUID, destName = (C_CombatLog and C_CombatLog.GetCurrentEventInfo or CombatLogGetCurrentEventInfo)()
 
 	if eventType == 'UNIT_DIED' and sourceGUID == UnitGUID('player') then
 		-- Player killed something

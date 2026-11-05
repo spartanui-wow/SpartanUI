@@ -88,7 +88,9 @@ local function COMBAT_LOG_EVENT_UNFILTERED()
 		continue = true
 	end
 
-	local timeStamp, eventType, _, sourceGUID, _, _, _, destGUID, destName, _, _, sourceID, _, _, spellID, spellName, spellSchool = CombatLogGetCurrentEventInfo()
+	local timeStamp, eventType, _, sourceGUID, _, _, _, destGUID, destName, _, _, sourceID, _, _, spellID, spellName, spellSchool = (
+		C_CombatLog and C_CombatLog.GetCurrentEventInfo or CombatLogGetCurrentEventInfo
+	)()
 
 	-- Check if time and ID was same as last
 	-- Note: This is to prevent flooding announcements on AoE taunts.

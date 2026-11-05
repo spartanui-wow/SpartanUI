@@ -5,7 +5,7 @@ local Private = oUF.Private
 local argcheck = Private.argcheck
 local frame_metatable = Private.frame_metatable
 
-local CombatLogGetCurrentEventInfo = _G.CombatLogGetCurrentEventInfo
+local CombatLogGetCurrentEventInfo = C_CombatLog and C_CombatLog.GetCurrentEventInfo or _G.CombatLogGetCurrentEventInfo -- SUI: the global is only a deprecation fallback now
 
 local event_metatable = {
 	__call = function(funcs, ...)

@@ -118,7 +118,7 @@ function module:COMBAT_LOG_EVENT_UNFILTERED()
 		return
 	end
 
-	local timeStamp, subEvent, _, _, srcName, _, _, _, dstName, _, _, spellID, spellName = CombatLogGetCurrentEventInfo()
+	local timeStamp, subEvent, _, _, srcName, _, _, _, dstName, _, _, spellID, spellName = (C_CombatLog and C_CombatLog.GetCurrentEventInfo or CombatLogGetCurrentEventInfo)()
 	-- Check if we have been here before
 	if
 		(SUI.IsRetail and timeStamp == lastTimeStamp and spellID == lastSpellID)
