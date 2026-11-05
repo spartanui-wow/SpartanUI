@@ -14,6 +14,25 @@ module.Core = true
 local UsesModernMinimap = (MinimapCluster and MinimapCluster.IndicatorFrame) and true or false
 module.UsesModernMinimap = UsesModernMinimap
 
+local borderTop
+
+---The strip under the map. Newer clients keep it inside the zone button; it moves up to the cluster
+---there, because the zone button hangs from the strip and a child anchor would make a loop.
+---@return Frame|nil
+local function GetBorderTop()
+	if borderTop or not MinimapCluster then
+		return borderTop
+	end
+	local zoneButton = MinimapCluster.ZoneTextButton
+	if MinimapCluster.BorderTop then
+		borderTop = MinimapCluster.BorderTop
+	elseif zoneButton and zoneButton.BorderTop then
+		borderTop = zoneButton.BorderTop
+		borderTop:SetParent(MinimapCluster)
+	end
+	return borderTop
+end
+
 module.Settings = nil ---@type SUI.Style.Settings.Minimap
 module.styleOverride = nil ---@type string|nil
 module.layoutModificationPending = false ---@type boolean Track if layout modification was skipped during combat
@@ -581,8 +600,8 @@ function module:ModifyMinimapLayout()
 			MinimapCompassTexture:Hide()
 		end
 
-		if MinimapCluster.BorderTop then
-			MinimapCluster.BorderTop:Hide()
+		if GetBorderTop() then
+			GetBorderTop():Hide()
 		end
 	end
 
@@ -619,7 +638,7 @@ function module:UpdateMinimapSize()
 	-- Set size of SUIMinimap (our holder)
 	if UsesModernMinimap then
 		-- Retail: Include BorderTop height
-		local borderHeight = MinimapCluster.BorderTop and MinimapCluster.BorderTop:GetHeight() or 28
+		local borderHeight = GetBorderTop() and GetBorderTop():GetHeight() or 28
 		-- Looks that keep the zone text inside the map leave no room below it, so a map low on the
 		-- screen is not pushed up to keep that room on screen
 		if module.Settings.holderFitsMap then
@@ -630,9 +649,9 @@ function module:UpdateMinimapSize()
 		PinMinimap()
 
 		-- Set size of MinimapCluster BorderTop
-		if MinimapCluster.BorderTop then
-			MinimapCluster.BorderTop:SetWidth(Minimap:GetWidth() / 1.1)
-			MinimapCluster.BorderTop:SetHeight(MinimapCluster.ZoneTextButton:GetHeight() * 2.8)
+		if GetBorderTop() then
+			GetBorderTop():SetWidth(Minimap:GetWidth() / 1.1)
+			GetBorderTop():SetHeight(MinimapCluster.ZoneTextButton:GetHeight() * 2.8)
 		end
 	else
 		-- Classic: Simpler calculation
@@ -784,7 +803,9 @@ function module:PositionItem(obj, position)
 	local point, anchor, secondaryPoint, x, y = strsplit(',', position)
 	x = tonumber(x) or 0
 	y = tonumber(y) or 0
-	if MinimapCluster[anchor] then
+	if anchor == 'BorderTop' and GetBorderTop() then
+		anchor = GetBorderTop()
+	elseif MinimapCluster[anchor] then
 		anchor = MinimapCluster[anchor]
 	elseif type(anchor) == 'string' and not _G[anchor] then
 		-- Anchor region doesn't exist (Classic compatibility), fall back to Minimap
@@ -817,7 +838,7 @@ function module:RepositionElement(element)
 	elseif element == 'expansionButton' then
 		obj = ExpansionLandingPageMinimapButton
 	elseif element == 'BorderTop' then
-		obj = MinimapCluster and MinimapCluster.BorderTop
+		obj = GetBorderTop()
 	elseif element == 'background' then
 		obj = SUIMinimap and SUIMinimap.BG
 	elseif element == 'ZoneText' then
@@ -883,7 +904,7 @@ end
 
 function module:SetupBorderTop()
 	-- BorderTop is Retail only
-	if not UsesModernMinimap or not MinimapCluster.BorderTop then
+	if not UsesModernMinimap or not GetBorderTop() then
 		return
 	end
 
@@ -893,29 +914,29 @@ function module:SetupBorderTop()
 	end
 
 	if borderSettings.enabled == false then
-		MinimapCluster.BorderTop:Hide()
+		GetBorderTop():Hide()
 		return
 	end
 
 	-- Position BorderTop
 	if borderSettings.position then
-		module:PositionItem(MinimapCluster.BorderTop, borderSettings.position)
+		module:PositionItem(GetBorderTop(), borderSettings.position)
 	else
-		MinimapCluster.BorderTop:ClearAllPoints()
-		MinimapCluster.BorderTop:SetPoint('TOP', Minimap, 'BOTTOM', 0, -5)
+		GetBorderTop():ClearAllPoints()
+		GetBorderTop():SetPoint('TOP', Minimap, 'BOTTOM', 0, -5)
 	end
 
 	-- Set alpha
 	local alpha = borderSettings.alpha or 0.8
-	MinimapCluster.BorderTop:SetAlpha(alpha)
+	GetBorderTop():SetAlpha(alpha)
 
 	-- Set scale
 	local scale = borderSettings.scale or 1
-	MinimapCluster.BorderTop:SetScale(scale)
+	GetBorderTop():SetScale(scale)
 
 	-- Strip Blizzard's NineSlice textures
-	for i = 1, MinimapCluster.BorderTop:GetNumRegions() do
-		local region = select(i, MinimapCluster.BorderTop:GetRegions())
+	for i = 1, GetBorderTop():GetNumRegions() do
+		local region = select(i, GetBorderTop():GetRegions())
 		if region and region:GetObjectType() == 'Texture' and not region.isSUI then
 			region:SetTexture(nil)
 			region:Hide()
@@ -936,7 +957,7 @@ function module:SetupBorderTop()
 		r, g, b, a = unpack(borderSettings.color)
 	end
 
-	local bt = MinimapCluster.BorderTop
+	local bt = GetBorderTop()
 	if not bt.SUI_NineSlice then
 		local ns = {}
 
@@ -1012,13 +1033,13 @@ function module:SetupBorderTop()
 		tex:Show()
 	end
 
-	MinimapCluster.BorderTop:Show()
+	GetBorderTop():Show()
 
 	-- Position ZoneTextButton relative to BorderTop
 	if MinimapCluster.ZoneTextButton then
 		MinimapCluster.ZoneTextButton:ClearAllPoints()
-		MinimapCluster.ZoneTextButton:SetPoint('TOPLEFT', MinimapCluster.BorderTop, 'TOPLEFT', 4, -4)
-		MinimapCluster.ZoneTextButton:SetPoint('TOPRIGHT', MinimapCluster.BorderTop, 'TOPRIGHT', -15, -4)
+		MinimapCluster.ZoneTextButton:SetPoint('TOPLEFT', GetBorderTop(), 'TOPLEFT', 4, -4)
+		MinimapCluster.ZoneTextButton:SetPoint('TOPRIGHT', GetBorderTop(), 'TOPRIGHT', -15, -4)
 	end
 end
 
@@ -2906,8 +2927,8 @@ function module:InitializeVehicleMover()
 
 	-- Create the vehicle mover with our new reusable function
 	local borderHeight = 0
-	if MinimapCluster.BorderTop then
-		borderHeight = MinimapCluster.BorderTop:GetHeight()
+	if GetBorderTop() then
+		borderHeight = GetBorderTop():GetHeight()
 	end
 
 	VehicleMover = SUI.MoveIt:CreateCustomMover('Vehicle Minimap Position', module.Settings.vehiclePosition, {
