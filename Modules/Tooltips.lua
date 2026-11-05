@@ -604,7 +604,12 @@ local TooltipSetUnit = function(self, data)
 		colors = _G.RAID_CLASS_COLORS[classToken]
 		local nameString = UnitPVPName(unit) or uName
 
-		if uRealm and uRealm ~= '' then
+		if RegionalUniqueNamesEnabled and RegionalUniqueNamesEnabled() then
+			-- No realms here: the second name is the character's surname
+			if uRealm and uRealm ~= '' and not UnitPVPName(unit) then
+				nameString = nameString .. ' ' .. uRealm
+			end
+		elseif uRealm and uRealm ~= '' then
 			local tmp = ''
 			if gRealm ~= uRealm then
 				tmp = ' ' .. uRealm
