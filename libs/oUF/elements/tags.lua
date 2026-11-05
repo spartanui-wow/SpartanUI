@@ -152,19 +152,7 @@ local tagStrings = {
 	['arenaspec'] = [[function(u)
 		local id = u:match('arena(%d)$')
 		if(id) then
-			-- SUI: 12.1.5 made GetArenaOpponentSpec always secret; the spec name comes
-			-- from Blizzard's secret-safe helper as a (possibly secret) display string.
-			local util = UnitFrameUtil
-			if(util and util.GetArenaOpponentSpecDisplayInfo) then
-				local info = util.GetArenaOpponentSpecDisplayInfo(tonumber(id))
-				return info and info.specName
-			end
-
-			local specID = GetArenaOpponentSpec(tonumber(id))
-			if(specID and (not canaccessvalue or canaccessvalue(specID)) and specID > 0) then
-				local _, specName = GetSpecializationInfoByID(specID)
-				return specName
-			end
+			return UnitFrameUtil.GetArenaOpponentSpecDisplayInfo(tonumber(id)).specName
 		end
 	end]],
 
@@ -256,14 +244,14 @@ local tagStrings = {
 	end]],
 
 	['leader'] = [[function(u)
-		local isLeader = UnitIsGroupLeader(unit)
+		local isLeader = UnitIsGroupLeader(u)
 		if(not issecretvalue(isLeader) and isLeader) then
 			return 'L'
 		end
 	end]],
 
 	['leaderlong']  = [[function(u)
-		local isLeader = UnitIsGroupLeader(unit)
+		local isLeader = UnitIsGroupLeader(u)
 		if(not issecretvalue(isLeader) and isLeader) then
 			return 'Leader'
 		end
@@ -362,12 +350,8 @@ local tagStrings = {
 		else
 			local id = u:match('arena(%d)$')
 			if(id) then
-				local specID = GetArenaOpponentSpec(tonumber(id))
-				-- SUI: secret since 12.1.5; no color rather than an error
-				if(specID and (not canaccessvalue or canaccessvalue(specID)) and specID > 0) then
-					_, _, _, _, _, class = GetSpecializationInfoByID(specID)
-					return _COLORS.class[class]:GenerateHexColorMarkup()
-				end
+				local info = UnitFrameUtil.GetArenaOpponentSpecDisplayInfo(tonumber(id))
+				return Hex(info.barColorR, info.barColorG, info.barColorB)
 			end
 		end
 	end]],
