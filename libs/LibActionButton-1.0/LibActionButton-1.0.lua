@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ]]
 local MAJOR_VERSION = "LibActionButton-1.0"
-local MINOR_VERSION = 160
+local MINOR_VERSION = 168
 
 if not LibStub then error(MAJOR_VERSION .. " requires LibStub.") end
 local lib, oldversion = LibStub:NewLibrary(MAJOR_VERSION, MINOR_VERSION)
@@ -61,6 +61,7 @@ local Feat_UseCustomFlyout = true
 local Feat_ButtonCastBars = WoWMainline
 local Feat_CooldownDurationObject = WoWMainline
 local Feat_Secrets = WoWMainline
+local Feat_PingableButton = WoWMainline
 
 local KeyBound = LibStub("LibKeyBound-1.0", true)
 local CBH = LibStub("CallbackHandler-1.0")
@@ -75,6 +76,8 @@ lib.activeButtons = lib.activeButtons or {}
 lib.actionButtons = lib.actionButtons or {}
 lib.nonActionButtons = lib.nonActionButtons or {}
 lib.actionButtonsNonUI = lib.actionButtonsNonUI or {}
+lib.onUpdateButtons = lib.onUpdateButtons or {}
+lib.buttonsByAction = lib.buttonsByAction or {}
 
 lib.NumChargeCooldowns = lib.NumChargeCooldowns or 0
 
@@ -116,7 +119,7 @@ local type_meta_map = {
 	custom = Custom_MT
 }
 
-local ButtonRegistry, ActiveButtons, ActionButtons, NonActionButtons, ActionButtonsNonUI = lib.buttonRegistry, lib.activeButtons, lib.actionButtons, lib.nonActionButtons, lib.actionButtonsNonUI
+local ButtonRegistry, ActiveButtons, ActionButtons, NonActionButtons, ActionButtonsNonUI, OnUpdateButtons, ButtonsByAction = lib.buttonRegistry, lib.activeButtons, lib.actionButtons, lib.nonActionButtons, lib.actionButtonsNonUI, lib.onUpdateButtons, lib.buttonsByAction
 
 local Update, UpdateButtonState, UpdateUsable, UpdateCount, UpdateCooldown, UpdateCooldownNumberHidden, UpdateTooltip, UpdateNewAction, UpdateSpellHighlight, ClearNewActionHighlight, UpdateAssistedCombatRotationFrame, UpdatedAssistedHighlightFrame
 local StartFlash, StopFlash, UpdateFlash, UpdateHotkeys, UpdateRangeTimer, UpdateOverlayGlow
@@ -130,6 +133,7 @@ local SpellVFX_CastingAnim_OnHide, SpellVFX_CastingAnim_Finish_OnFinished
 local GetFlyoutHandler
 
 local InitializeEventHandler, OnEvent, ForAllButtons, ForAllButtonsWithSpell, OnUpdate
+local CheckNeedsUpdate, UpdateRangeIndicator
 
 local function GameTooltip_GetOwnerForbidden()
 	if GameTooltip:IsForbidden() then
@@ -247,6 +251,8 @@ function lib:CreateButton(id, name, header, config)
 	button:SetScript("PreClick", Generic.PreClick)
 	button:SetScript("PostClick", Generic.PostClick)
 	button:SetScript("OnEvent", Generic.OnButtonEvent)
+	button:SetScript("OnShow", Generic.OnShow)
+	button:SetScript("OnHide", Generic.OnHide)
 	button:SetScript("OnAttributeChanged", nil) -- inherited templates bring in a handler here which we don't want, so get rid of it
 
 	-- unwanted mixin functions, which we override through the metatable
@@ -299,6 +305,13 @@ function lib:CreateButton(id, name, header, config)
 		InitializeEventHandler()
 	end
 
+	-- remove default ping functions which we implement through MTs below
+	if Feat_PingableButton then
+		button.UpdatePingAttributes = nil
+		button.GetIsPingable = nil
+		button.GetTargetInfo = nil
+	end
+
 	-- somewhat of a hack for the Flyout buttons to not error.
 	button.action = 0
 
@@ -325,6 +338,18 @@ function SetupSecureSnippets(button)
 			local action_field = (type == "pet") and "action" or type
 			self:SetAttribute(action_field, action)
 			self:SetAttribute("action_field", action_field)
+
+			if type == "action" then
+				if HasAction(action) then
+					self:SetAttribute("ping-receiver", true)
+				else
+					self:SetAttribute("ping-receiver", nil)
+				end
+			else
+				self:SetAttribute("ping-receiver", true)
+			end
+		else
+			self:SetAttribute("ping-receiver", nil)
 		end
 		if IsPressHoldReleaseSpell then
 			local pressAndHold = false
@@ -712,6 +737,50 @@ function Generic:OnActionBarSlotChanged()
 	Update(self)
 end
 
+-- PingableType
+function Generic:UpdatePingAttributes()
+	-- handled in the UpdateState RE script
+end
+
+function Generic:GetIsPingable()
+	-- Only certain kinds of actions are pingable. This only checks high level types, the client will determine if a specific spell or item etc. is valid later.
+	local isPingable = false
+
+	if self._state_type == "action" then
+		local actionType = GetActionInfo(self._state_action)
+		if actionType then
+			-- Only allow spells and items to be pinged if this action button allows different types of actions.
+			if actionType == "spell" or actionType == "item" then
+				isPingable = true
+			end
+		end
+	elseif self._state_type == "spell" or self._state_type == "item" then
+		isPingable = true
+	end
+
+	return isPingable
+end
+
+function Generic:GetTargetInfo()
+	local targetInfo = {}
+
+	if self._state_type == "action" then
+		local actionType, id = GetActionInfo(self._state_action)
+		if actionType and actionType == "item" then
+			targetInfo.itemID = id
+		else
+			-- this is under the assumption that invalid actionType has been blocked by GetIsPingable
+			-- so id passed back by Script_GetActionInfo should only be spellID
+			targetInfo.spellID = self:GetSpellId()
+		end
+	elseif self._state_type == "spell" then
+		targetInfo.spellID = self:GetSpellId()
+	elseif self._state_type == "item" then
+		targetInfo.itemID = self._state_action:match("^item:(%d+)")
+	end
+
+	return targetInfo
+end
 
 -----------------------------------------------------------
 --- flyouts
@@ -1130,6 +1199,15 @@ function Generic:OnLeave()
 	GameTooltip:Hide()
 end
 
+function Generic:OnShow()
+	CheckNeedsUpdate(self)
+	Update(self)
+end
+
+function Generic:OnHide()
+	CheckNeedsUpdate(self)
+end
+
 -- Insecure drag handler to allow clicking on the button with an action on the cursor
 -- to place it on the button. Like action buttons work.
 function Generic:PreClick()
@@ -1285,9 +1363,14 @@ function InitializeEventHandler()
 	lib.eventFrame:RegisterEvent("UPDATE_SHAPESHIFT_FORM")
 	lib.eventFrame:RegisterEvent("PLAYER_MOUNT_DISPLAY_CHANGED")
 	lib.eventFrame:RegisterEvent("UPDATE_VEHICLE_ACTIONBAR")
+	lib.eventFrame:RegisterEvent("ACTION_RANGE_CHECK_UPDATE")
+
+	-- ACTIONBAR_UPDATE_USABLE fires without any detail on which action changed,
+	-- instead favor the newer ACTION_USABLE_CHANGED, which lets us update individual buttons
+	--lib.eventFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
+	lib.eventFrame:RegisterEvent("ACTION_USABLE_CHANGED")
 
 	lib.eventFrame:RegisterEvent("ACTIONBAR_UPDATE_STATE")
-	lib.eventFrame:RegisterEvent("ACTIONBAR_UPDATE_USABLE")
 	lib.eventFrame:RegisterEvent("ACTIONBAR_UPDATE_COOLDOWN")
 	lib.eventFrame:RegisterEvent("PLAYER_TARGET_CHANGED")
 	lib.eventFrame:RegisterEvent("TRADE_SKILL_SHOW")
@@ -1297,14 +1380,14 @@ function InitializeEventHandler()
 	lib.eventFrame:RegisterEvent("PLAYER_LEAVE_COMBAT")
 	lib.eventFrame:RegisterEvent("START_AUTOREPEAT_SPELL")
 	lib.eventFrame:RegisterEvent("STOP_AUTOREPEAT_SPELL")
-	lib.eventFrame:RegisterEvent("UNIT_INVENTORY_CHANGED")
+	lib.eventFrame:RegisterUnitEvent("UNIT_INVENTORY_CHANGED", "player")
 
 	lib.eventFrame:RegisterEvent("PET_STABLE_UPDATE")
 	lib.eventFrame:RegisterEvent("PET_STABLE_SHOW")
 	lib.eventFrame:RegisterEvent("SPELL_UPDATE_CHARGES")
 	lib.eventFrame:RegisterEvent("SPELL_UPDATE_ICON")
-	lib.eventFrame:RegisterEvent("UNIT_ENTERED_VEHICLE")
-	lib.eventFrame:RegisterEvent("UNIT_EXITED_VEHICLE")
+	lib.eventFrame:RegisterUnitEvent("UNIT_ENTERED_VEHICLE", "player")
+	lib.eventFrame:RegisterUnitEvent("UNIT_EXITED_VEHICLE", "player")
 	lib.eventFrame:RegisterEvent("ARCHAEOLOGY_CLOSED")
 	lib.eventFrame:RegisterEvent("UPDATE_SUMMONPETS_ACTION")
 	lib.eventFrame:RegisterEvent("SPELL_ACTIVATION_OVERLAY_GLOW_SHOW")
@@ -1318,8 +1401,8 @@ function InitializeEventHandler()
 	lib.eventFrame:RegisterEvent("SPELL_UPDATE_USABLE")
 	lib.eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 
-	lib.eventFrame:RegisterEvent("LOSS_OF_CONTROL_ADDED")
-	lib.eventFrame:RegisterEvent("LOSS_OF_CONTROL_UPDATE")
+	lib.eventFrame:RegisterUnitEvent("LOSS_OF_CONTROL_ADDED", "player")
+	lib.eventFrame:RegisterUnitEvent("LOSS_OF_CONTROL_UPDATE", "player")
 
 	if Feat_ButtonCastBars then
 		lib.eventFrame:RegisterEvent("UNIT_SPELLCAST_SENT")
@@ -1335,6 +1418,10 @@ function InitializeEventHandler()
 		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_START", "player")
 		lib.eventFrame:RegisterUnitEvent("UNIT_SPELLCAST_EMPOWER_STOP", "player")
 	end
+
+	lib.eventFrame:RegisterEvent("PET_BAR_UPDATE")
+	lib.eventFrame:RegisterUnitEvent("UNIT_FLAGS", "pet")
+	lib.eventFrame:RegisterUnitEvent("UNIT_AURA", "pet")
 
 	if Feat_UseCustomFlyout then
 		lib.eventFrame:RegisterEvent("PLAYER_LOGIN")
@@ -1418,6 +1505,13 @@ function OnEvent(frame, event, arg1, ...)
 		ForAllButtons(UpdateHotkeys)
 	elseif event == "PLAYER_TARGET_CHANGED" then
 		UpdateRangeTimer()
+	elseif event == "UNIT_FLAGS" or event == "UNIT_AURA" or event == "PET_BAR_UPDATE" then
+		-- pet actions can change action button state
+		for button in next, ActiveButtons do
+			button.flashDirty = true
+			button.stateDirty = true
+			CheckNeedsUpdate(button)
+		end
 	elseif event == "ACTIONBAR_UPDATE_STATE" then
 		for button in next, ActionButtonsNonUI do
 			UpdateButtonState(button)
@@ -1429,6 +1523,17 @@ function OnEvent(frame, event, arg1, ...)
 		for button in next, ActionButtons do
 			UpdateUsable(button)
 		end
+	elseif event == "ACTION_USABLE_CHANGED" then
+		if arg1 then
+			for _, change in ipairs(arg1) do
+				local buttons = ButtonsByAction[change.slot]
+				if buttons then
+					for button in next, buttons do
+						UpdateUsable(button, change.usable, change.noMana)
+					end
+				end
+			end
+		end
 	elseif event == "SPELL_UPDATE_USABLE" then
 		for button in next, NonActionButtons do
 			UpdateUsable(button)
@@ -1438,23 +1543,26 @@ function OnEvent(frame, event, arg1, ...)
 			UpdateUsable(button)
 		end
 	elseif event == "ACTIONBAR_UPDATE_COOLDOWN" then
+		local tooltipOwner = GameTooltip_GetOwnerForbidden()
 		for button in next, ActionButtons do
 			UpdateCooldown(button)
-			if GameTooltip_GetOwnerForbidden() == button then
+			if tooltipOwner == button then
 				UpdateTooltip(button)
 			end
 		end
 	elseif event == "SPELL_UPDATE_COOLDOWN" then
+		local tooltipOwner = GameTooltip_GetOwnerForbidden()
 		for button in next, NonActionButtons do
 			UpdateCooldown(button)
-			if GameTooltip_GetOwnerForbidden() == button then
+			if tooltipOwner == button then
 				UpdateTooltip(button)
 			end
 		end
 	elseif event == "LOSS_OF_CONTROL_ADDED" then
+		local tooltipOwner = GameTooltip_GetOwnerForbidden()
 		for button in next, ActiveButtons do
 			UpdateCooldown(button)
-			if GameTooltip_GetOwnerForbidden() == button then
+			if tooltipOwner == button then
 				UpdateTooltip(button)
 			end
 		end
@@ -1489,7 +1597,7 @@ function OnEvent(frame, event, arg1, ...)
 		end
 	elseif event == "STOP_AUTOREPEAT_SPELL" then
 		for button in next, ActiveButtons do
-			if button.flashing == 1 and not button:IsAttack() then
+			if button.flashing and not button:IsAttack() then
 				StopFlash(button)
 			end
 		end
@@ -1549,6 +1657,17 @@ function OnEvent(frame, event, arg1, ...)
 		end
 	elseif event == "SPELL_UPDATE_ICON" then
 		ForAllButtons(Update, true)
+	elseif event == "ACTION_RANGE_CHECK_UPDATE" then
+		local slot, isInRange, checksRange = arg1, ...
+		local buttons = ButtonsByAction[slot]
+		if buttons then
+			-- translate to three stage range value (nil for no range, true/false for in/out of range)
+			local inRange
+			if checksRange then inRange = isInRange end
+			for button in next, buttons do
+				UpdateRangeIndicator(button, inRange)
+			end
+		end
 	elseif event == "AssistedCombatManager.OnSetActionSpell" then
 		for button in next, ActiveButtons do
 			if button._state_type == "action" then
@@ -1605,56 +1724,84 @@ function OnEvent(frame, event, arg1, ...)
 	end
 end
 
-local flashTime = 0
 local rangeTimer = -1
 function OnUpdate(_, elapsed)
-	flashTime = flashTime - elapsed
-	rangeTimer = rangeTimer - elapsed
-	-- Run the loop only when there is something to update
-	if rangeTimer <= 0 or flashTime <= 0 then
-		for button in next, ActiveButtons do
-			-- Flashing
-			if button.flashing == 1 and flashTime <= 0 then
-				if button.Flash:IsShown() then
-					button.Flash:Hide()
+	-- update buttons which registered for updates
+	for button in next, OnUpdateButtons do
+		if button.stateDirty then
+			UpdateButtonState(button)
+			button.stateDirty = nil
+		end
+
+		if button.flashDirty then
+			UpdateFlash(button)
+			button.flashDirty = nil
+		end
+
+		if button.flashing then
+			local flashtime = button.flashtime
+			flashtime = flashtime - elapsed
+
+			if flashtime <= 0 then
+				local overtime = -flashtime
+				if overtime >= ATTACK_BUTTON_FLASH_TIME then
+					overtime = 0
+				end
+				flashtime = ATTACK_BUTTON_FLASH_TIME - overtime
+
+				local flashTexture = button.Flash
+				if flashTexture:IsShown() then
+					flashTexture:Hide()
 				else
-					button.Flash:Show()
+					flashTexture:Show()
 				end
 			end
 
+			button.flashtime = flashtime
+		end
+
+		-- check if updates are still needed
+		CheckNeedsUpdate(button)
+	end
+
+	rangeTimer = rangeTimer - elapsed
+	-- Run the loop only when there is something to update
+	if rangeTimer <= 0 then
+		for button in next, NonActionButtons do
 			-- Range
 			if rangeTimer <= 0 then
-				local inRange = button:IsInRange()
-				local oldRange = button.outOfRange
-				button.outOfRange = (inRange == false)
-				if oldRange ~= button.outOfRange then
-					if button.config.outOfRangeColoring == "button" then
-						UpdateUsable(button)
-					elseif button.config.outOfRangeColoring == "hotkey" then
-						local hotkey = button.HotKey
-						if hotkey:GetText() == RANGE_INDICATOR then
-							if inRange == false then
-								hotkey:Show()
-							else
-								hotkey:Hide()
-							end
-						end
-						if inRange == false then
-							hotkey:SetVertexColor(unpack(button.config.colors.range))
-						else
-							hotkey:SetVertexColor(unpack(button.config.text.hotkey.color))
-						end
-					end
-				end
+				UpdateRangeIndicator(button, button:IsInRange())
 			end
 		end
 
 		-- Update values
-		if flashTime <= 0 then
-			flashTime = flashTime + ATTACK_BUTTON_FLASH_TIME
-		end
 		if rangeTimer <= 0 then
 			rangeTimer = TOOLTIP_UPDATE_TIME
+		end
+	end
+end
+
+function UpdateRangeIndicator(button, isInRange)
+	local oldRange = button.outOfRange
+	button.outOfRange = (isInRange == false)
+
+	if oldRange ~= button.outOfRange then
+		if button.config.outOfRangeColoring == "button" then
+			UpdateUsable(button)
+		elseif button.config.outOfRangeColoring == "hotkey" then
+			local hotkey = button.HotKey
+			if hotkey:GetText() == RANGE_INDICATOR then
+				if isInRange == false then
+					hotkey:Show()
+				else
+					hotkey:Hide()
+				end
+			end
+			if isInRange == false then
+				hotkey:SetVertexColor(unpack(button.config.colors.range))
+			else
+				hotkey:SetVertexColor(unpack(button.config.text.hotkey.color))
+			end
 		end
 	end
 end
@@ -1772,9 +1919,33 @@ function Generic:UpdateAction(force)
 		self._state_action = action
 
 		-- set action attribute for action buttons
+		local previousAction = self.action
 		self.action = self._state_type == "action" and action or 0
-		if self.config.actionButtonUI then
-			SetActionUIButton(self, self.action, self.cooldown)
+		if self.action ~= 0 then
+			-- track button by its action
+			if ButtonsByAction[self.action] == nil then
+				ButtonsByAction[self.action] = {}
+			end
+			ButtonsByAction[self.action][self] = true
+
+			if self.config.actionButtonUI then
+				C_ActionBar.RegisterActionUIButton(self, self.action, self.cooldown)
+			else
+				C_ActionBar.UnregisterActionUIButton(self)
+			end
+
+			C_ActionBar.EnableActionRangeCheck(self.action, true)
+		else
+			C_ActionBar.UnregisterActionUIButton(self)
+		end
+
+		-- stop tracking under the previous action
+		if previousAction ~= self.action and ButtonsByAction[previousAction] then
+			ButtonsByAction[previousAction][self] = nil
+
+			if next(ButtonsByAction[previousAction]) == nil then
+				C_ActionBar.EnableActionRangeCheck(previousAction, false)
+			end
 		end
 
 		Update(self)
@@ -1940,13 +2111,15 @@ function UpdateButtonState(self)
 	end
 end
 
-function UpdateUsable(self)
+function UpdateUsable(self, isUsable, notEnoughMana)
 	-- TODO: make the colors configurable
 	-- TODO: allow disabling of the whole recoloring
 	if self.config.outOfRangeColoring == "button" and self.outOfRange then
 		self.icon:SetVertexColor(unpack(self.config.colors.range))
 	else
-		local isUsable, notEnoughMana = self:IsUsable()
+		if isUsable == nil or notEnoughMana == nil then
+			isUsable, notEnoughMana = self:IsUsable()
+		end
 		-- SUI: usable and unusable tints come from the config
 		if isUsable then
 			self.icon:SetVertexColor(unpack(self.config.colors.usable or { 1.0, 1.0, 1.0 }))
@@ -2113,14 +2286,26 @@ else
 	end
 end
 
+function CheckNeedsUpdate(self)
+	local needsUpdate = (self.stateDirty or self.flashDirty or self.flashing) and self:IsVisible()
+	if (needsUpdate ~= self.needsUpdate) then
+		if needsUpdate then
+			OnUpdateButtons[self] = true
+		else
+			OnUpdateButtons[self] = nil
+		end
+		self.needsUpdate = needsUpdate
+	end
+end
+
 function StartFlash(self)
 	self.flashing = 1
-	flashTime = 0
+	self.flashtime = 0
 	UpdateButtonState(self)
 end
 
 function StopFlash(self)
-	self.flashing = 0
+	self.flashing = nil
 	self.Flash:Hide()
 	UpdateButtonState(self)
 end

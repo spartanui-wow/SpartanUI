@@ -67,7 +67,7 @@ The actual frames are `SUI_ActionBar<N>` (buttons `SUI_ActionBar<N>Button<i>`), 
 
 **Micro menu and bag bar fall back to Blizzard.** With either bar turned off, SpartanUI leaves Blizzard's `MicroMenu`/`BagsBar` alone instead of hiding the buttons; toggling it asks for a reload. While Blizzard's vehicle bar or pet battle UI takes the micro menu (`MicroMenu:SetParent` hook), the buttons are lent back and reclaimed afterwards.
 
-**Local LibActionButton patches.** `libs/LibActionButton-1.0` carries SpartanUI changes marked `-- SUI:`: `colors.usable`/`colors.notUsable` tints in `UpdateUsable`, and `handleOverlay = false` suppressing the proc glow in `ShowOverlayGlow`/`UpdateOverlayGlow`. LibActionButton's config merge drops any key missing from its `DefaultConfig`, so the new keys are added there too. Re-apply these after updating the library.
+**Local LibActionButton patches.** `libs/LibActionButton-1.0` carries SpartanUI changes marked `-- SUI:`: `colors.usable`/`colors.notUsable` tints in `UpdateUsable`, and `handleOverlay = false` suppressing the proc glow in `ShowOverlayGlow`/`UpdateOverlayGlow`. LibActionButton's config merge drops any key missing from its `DefaultConfig`, so the new keys are added there too. Re-apply these after updating the library. Upstream is github.com/Nevcairiel/LibActionButton-1.0; merge with `git merge-file` against the upstream commit last taken (bc1da7a, minor 168, 2026-11-04).
 
 **Text styling.** `text.hotkey/count/macro` in the module root is the shared style; an action bar with `customText = true` merges its own `bars[id].text` over it. Importers set this for bars whose fonts differ from bar 1 (ElvUI) or were changed (Bartender4).
 
