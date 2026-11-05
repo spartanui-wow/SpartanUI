@@ -1309,7 +1309,12 @@
     "TutorialManager",
     "NPE_LoadUI",
     "ActionBarController_GetCurrentActionBarState",
-    "LE_ACTIONBAR_STATE_OVERRIDE"
+    "LE_ACTIONBAR_STATE_OVERRIDE",
+    "AnchorUtil",
+    "SPEC_MAGE_ARCANE",
+    "SPEC_MONK_WINDWALKER",
+    "SPEC_PRIEST_SHADOW",
+    "SPEC_WARLOCK_AFFLICTION"
   ],
   "Lua.workspace.ignoreDir": [".vscode", "libs/*"],
   "Lua.diagnostics.enable": true,
