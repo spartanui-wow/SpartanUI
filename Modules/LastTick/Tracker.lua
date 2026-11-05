@@ -4,6 +4,7 @@ local SUI = SUI
 local module = SUI:GetModule('LastTick')
 local Spells = module.Spells
 local canaccess = SUI.BlizzAPI.canaccessvalue
+local GetCombatLogEvent = C_CombatLog and C_CombatLog.GetCurrentEventInfo or CombatLogGetCurrentEventInfo
 
 -- Follows the player's DoTs on every enemy by GUID and works out the damage still to come.
 --
@@ -311,7 +312,7 @@ end
 
 ---Record a tick for a DoT
 ---@param dot SUI.Module.LastTick.Dot
----@param amount number
+---@param amount number|nil Nil where the game hides hit sizes: timing still counts, the tick size stays
 ---@param crit boolean
 ---@param now number
 local function OnTick(dot, amount, crit, now)
@@ -338,10 +339,12 @@ local function OnTick(dot, amount, crit, now)
 		-- Combo points were unknown: the first tick's size tells how many were spent. Attack
 		-- power only adds to a tick, so take the most points whose plain tick fits under it.
 		local chosen
-		for count, entry in pairs(dot.info.points) do
-			local plain = entry.total / Spells:TickCount(entry.duration, dot.interval)
-			if plain <= amount * 1.05 and (not chosen or count > chosen) then
-				chosen = count
+		if amount then
+			for count, entry in pairs(dot.info.points) do
+				local plain = entry.total / Spells:TickCount(entry.duration, dot.interval)
+				if plain <= amount * 1.05 and (not chosen or count > chosen) then
+					chosen = count
+				end
 			end
 		end
 		chosen = chosen or 1
@@ -354,10 +357,12 @@ local function OnTick(dot, amount, crit, now)
 
 	dot.count = math.max(dot.ticks, Spells:TickCount(dot.expires - dot.start, dot.interval))
 	local factor = Spells:RampFactor(dot.info.ramp, dot.ticks, dot.count)
-	local plain = crit and amount / 1.5 or amount
-	if not crit or not dot.tickKnown then
-		dot.tick = plain / factor
-		dot.tickKnown = true
+	if amount then
+		local plain = crit and amount / 1.5 or amount
+		if not crit or not dot.tickKnown then
+			dot.tick = plain / factor
+			dot.tickKnown = true
+		end
 	end
 	dot.previous = nil
 	Remember(dot)
@@ -388,11 +393,11 @@ end
 
 ---Does the hit's size fit the DoT's expected tick?
 ---@param dot SUI.Module.LastTick.Dot
----@param amount number
+---@param amount number|nil
 ---@param crit boolean
 ---@return boolean
 local function SizeFits(dot, amount, crit)
-	if dot.waitForTick then
+	if dot.waitForTick or not amount then
 		return true
 	end
 	local expected = TickAmount(dot, dot.ticks + 1)
@@ -406,7 +411,7 @@ end
 
 ---Match a hit on an enemy to one of the player's DoTs (restricted clients)
 ---@param guid string
----@param amount number
+---@param amount number|nil
 ---@param school number
 ---@param crit boolean
 ---@param now number
@@ -426,7 +431,7 @@ local function MatchHit(guid, amount, school, crit, now)
 	end
 	if best then
 		OnTick(best, amount, crit, now)
-		module:Log(('Tick %s on %s: %d%s (tick %.0f, every %.2fs)'):format(best.info.name, guid, amount, crit and ' crit' or '', best.tick, best.interval))
+		module:Log(('Tick %s on %s: %s%s (tick %.0f, every %.2fs)'):format(best.info.name, guid, tostring(amount), crit and ' crit' or '', best.tick, best.interval))
 	end
 end
 
@@ -580,8 +585,12 @@ end
 local lastHit = {}
 
 local function OnUnitCombat(unit, action, flag, amount, school)
-	if not (canaccess(action) and canaccess(amount) and canaccess(school)) then
+	if not (canaccess(action) and canaccess(school)) then
 		return
+	end
+	-- The hit's size is secret on Retail and WoW Forever; its kind, school and timing are not
+	if not canaccess(amount) then
+		amount = nil
 	end
 	local guid = module:SafeGUID(unit)
 	if not guid or not byGUID[guid] then
@@ -595,7 +604,7 @@ local function OnUnitCombat(unit, action, flag, amount, school)
 	lastHit.guid, lastHit.time, lastHit.action, lastHit.amount, lastHit.school = guid, now, action, amount, school
 
 	if action == 'WOUND' then
-		if amount and amount > 0 then
+		if not amount or amount > 0 then
 			MatchHit(guid, amount, school, canaccess(flag) and flag == 'CRITICAL', now)
 		end
 	elseif AVOIDED[action] then
@@ -604,7 +613,7 @@ local function OnUnitCombat(unit, action, flag, amount, school)
 end
 
 local function OnCombatLog()
-	local _, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, spellID, spellName, _, amount, _, _, _, _, _, critical = CombatLogGetCurrentEventInfo()
+	local _, subEvent, _, sourceGUID, _, _, _, destGUID, _, _, _, spellID, spellName, _, amount, _, _, _, _, _, critical = GetCombatLogEvent()
 	if subEvent == 'UNIT_DIED' or subEvent == 'PARTY_KILL' then
 		byGUID[destGUID] = nil
 		return
