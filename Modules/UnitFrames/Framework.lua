@@ -759,6 +759,10 @@ function UF:OnEnable()
 		end
 	end
 
+	-- CreateMover pins a frame anchored inside SpartanUI's art (a look's frame sockets) to the
+	-- screen. Place the movers on their anchors again; frames the player moved keep their place.
+	UF:PositionFrame()
+
 	-- Build options (must happen after movers are created so AddPosition can reference them)
 	UF.Options:Initialize()
 
