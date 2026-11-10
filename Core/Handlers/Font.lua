@@ -28,7 +28,7 @@ SUI.Lib.LSM:Register('font', 'NotoSans Bold', [[Interface\AddOns\SpartanUI\fonts
 SUI.Lib.LSM:Register('font', 'Roboto Medium', [[Interface\AddOns\SpartanUI\fonts\Roboto-Medium.ttf]])
 SUI.Lib.LSM:Register('font', 'Roboto Bold', [[Interface\AddOns\SpartanUI\fonts\Roboto-Bold.ttf]])
 SUI.Lib.LSM:Register('font', 'Roboto Condensed Bold', [[Interface\AddOns\SpartanUI\fonts\RobotoCondensed-Bold.ttf]], SUI.Lib.LSM.LOCALE_BIT_western + SUI.Lib.LSM.LOCALE_BIT_ruRU)
-SUI.Lib.LSM:Register('font', 'Myriad', [[Interface\AddOns\SpartanUI\fonts\myriad.ttf]])
+SUI.Lib.LSM:Register('font', 'Myriad', [[Interface\AddOns\SpartanUI\fonts\Myriad.ttf]])
 SUI.Lib.LSM:SetDefault('font', 'Roboto Bold')
 
 ---@param value string
