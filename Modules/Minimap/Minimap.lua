@@ -474,6 +474,9 @@ function module:UpdateSettings()
 	end
 end
 
+local configHooked = false
+local ReapplyAfterBlizzardConfig
+
 function module:ModifyMinimapLayout()
 	module:UpdateMinimapSize()
 	module:UpdateMinimapShape()
@@ -516,6 +519,12 @@ function module:ModifyMinimapLayout()
 				region.suiHideHooked = true
 				hooksecurefunc(region, 'Show', region.Hide)
 			end
+		end
+		-- Forever re-runs its minimap setup whenever rotateMinimap changes (including our own
+		-- redraw toggle), which puts back Blizzard's mask, container size and compass art.
+		if MinimapCluster.UpdateMinimapConfig and not configHooked then
+			configHooked = true
+			hooksecurefunc(MinimapCluster, 'UpdateMinimapConfig', ReapplyAfterBlizzardConfig)
 		end
 		module:SetupBorderTop()
 	else
@@ -655,6 +664,16 @@ local function PinMinimap()
 	MinimapCluster.MinimapContainer:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', 0, 0)
 	Minimap:ClearAllPoints()
 	Minimap:SetPoint('TOPLEFT', SUIMinimap, 'TOPLEFT', (THEME_CONTAINER_WIDTH - Minimap:GetWidth()) / 2, 0)
+end
+
+function ReapplyAfterBlizzardConfig()
+	if SUI:IsModuleDisabled('Minimap') then
+		return
+	end
+	module.appliedMask = nil
+	module:UpdateMinimapShape()
+	MinimapCompassTexture:Hide()
+	PinMinimap()
 end
 
 function module:UpdateMinimapSize()
