@@ -1,5 +1,7 @@
 # LibCustomGlow
 
+If you want to use LCG in your addon, please make sure to add it and `Masque` to your `OptionalDependencies` array in your TOC file.
+
 Adds functions:
 
 ## Pixel Glow
