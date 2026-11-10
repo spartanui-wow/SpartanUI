@@ -3,11 +3,11 @@
 --------------------------------------------------------------------------------
 
 local Version = {
-	Major = 'LibQTip-2.0',
-	Minor = 1,
+    Major = "LibQTip-2.0",
+    Minor = 2,
 }
 
-assert(LibStub, ('%s requires LibStub'):format(Version.Major))
+assert(LibStub, ("%s requires LibStub"):format(Version.Major))
 
 ---@class LibQTip-2.0
 ---@field CallbackRegistry LibQTip-2.0.CallbackRegistry CallbackHandler-1.0 interface.
@@ -27,15 +27,15 @@ assert(LibStub, ('%s requires LibStub'):format(Version.Major))
 local QTip, oldMinor = LibStub:NewLibrary(Version.Major, Version.Minor)
 
 if not QTip then
-	return
+    return
 end -- No upgrade needed
 
 QTip.Version = Version
 QTip.Version.OldMinor = oldMinor or 0
 
-QTip.FrameMetatable = QTip.FrameMetatable or { __index = CreateFrame('Frame') }
+QTip.FrameMetatable = QTip.FrameMetatable or { __index = CreateFrame("Frame") }
 
-QTip.CallbackRegistry = QTip.CallbackRegistry or LibStub:GetLibrary('CallbackHandler-1.0'):New(QTip)
+QTip.CallbackRegistry = QTip.CallbackRegistry or LibStub:GetLibrary("CallbackHandler-1.0"):New(QTip)
 
 QTip.CellProviderPrototype = QTip.CellProviderPrototype or {}
 QTip.CellProviderMetatable = QTip.CellProviderMetatable or { __index = QTip.CellProviderPrototype }
@@ -45,20 +45,20 @@ QTip.CellMetatable = QTip.CellMetatable or { __index = QTip.CellPrototype }
 
 QTip.DefaultCellPrototype = QTip.DefaultCellPrototype or setmetatable({}, QTip.CellMetatable)
 QTip.DefaultCellProvider = QTip.DefaultCellProvider
-	or setmetatable({
-		CellHeap = {},
-		CellMetatable = { __index = QTip.DefaultCellPrototype },
-		CellPrototype = QTip.DefaultCellPrototype,
-		Cells = {},
-	}, QTip.CellProviderMetatable)
+    or setmetatable({
+        CellHeap = {},
+        CellMetatable = { __index = QTip.DefaultCellPrototype },
+        CellPrototype = QTip.DefaultCellPrototype,
+        Cells = {},
+    }, QTip.CellProviderMetatable)
 
-QTip.CellProviderKeys = QTip.CellProviderKeys or { 'LibQTip-2.0 Default' }
+QTip.CellProviderKeys = QTip.CellProviderKeys or { "LibQTip-2.0 Default" }
 QTip.CellProviderRegistry = QTip.CellProviderRegistry or {
-	['LibQTip-2.0 Default'] = QTip.DefaultCellProvider,
+    ["LibQTip-2.0 Default"] = QTip.DefaultCellProvider,
 }
 
 QTip.ScriptManager = QTip.ScriptManager or {}
-QTip.TooltipManager = QTip.TooltipManager or CreateFrame('Frame')
+QTip.TooltipManager = QTip.TooltipManager or CreateFrame("Frame")
 
 --------------------------------------------------------------------------------
 ---- Methods
@@ -66,161 +66,164 @@ QTip.TooltipManager = QTip.TooltipManager or CreateFrame('Frame')
 
 local TooltipManager = QTip.TooltipManager
 
--- Create or retrieve the Tooltip with the given key.
---
--- If additional arguments are passed, they are passed to :SetColumnLayout for the acquired Tooltip.
+--- Create or retrieve the Tooltip with the given key.
+---
+--- If additional arguments are passed, they are passed to :SetColumnLayout for the acquired Tooltip.
 ---@param key string The Tooltip key. A key unique to this Tooltip should be provided to avoid conflicts.
 ---@param numColumns? number Minimum number of Columns
 ---@param ... JustifyHorizontal Column horizontal justifications ("CENTER", "LEFT" or "RIGHT"). Defaults to "LEFT".
--- ***
--- Example Tooltip with 5 Columns justified as left, center, left, left, left:
--- ``` lua
--- local tooltip = LibStub('LibQTip-2.0'):Acquire('MyFooBarTooltip', 5, "LEFT", "CENTER")
--- ```
--- ***
+--- ***
+--- Example Tooltip with 5 Columns justified as left, center, left, left, left:
+--- ``` lua
+--- local tooltip = LibStub('LibQTip-2.0'):Acquire('MyFooBarTooltip', 5, "LEFT", "CENTER")
+--- ```
+--- ***
 ---@return LibQTip-2.0.Tooltip
 function QTip:AcquireTooltip(key, numColumns, ...)
-	if type(key) ~= 'string' then
-		error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
-	end
+    if type(key) ~= "string" then
+        error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
+    end
 
-	local tooltip = TooltipManager.ActiveTooltips[key]
+    local tooltip = TooltipManager.ActiveTooltips[key]
 
-	if not tooltip then
-		tooltip = TooltipManager:AcquireTooltip(key)
-		TooltipManager.ActiveTooltips[key] = tooltip
-	end
+    if not tooltip then
+        tooltip = TooltipManager:AcquireTooltip(key)
+        TooltipManager.ActiveTooltips[key] = tooltip
+    end
 
-	local isOk, message = pcall(tooltip.SetColumnLayout, tooltip, numColumns, ...)
+    local isOk, message = pcall(tooltip.SetColumnLayout, tooltip, numColumns, ...)
 
-	if not isOk then
-		error(message, 2)
-	end
+    if not isOk then
+        error(message, 2)
+    end
 
-	return tooltip
+    return tooltip
 end
 
--- Return an iterator on the registered CellProviders.
+--- Return an iterator on the registered CellProviders.
+---@return fun(table: table<string, LibQTip-2.0.CellProvider?>, index?: string): string, LibQTip-2.0.CellProvider?
 function QTip:CellProviderPairs()
-	return pairs(self.CellProviderRegistry)
+    return pairs(self.CellProviderRegistry)
 end
 
 do
-	---@param templateCellProvider? LibQTip-2.0.CellProvider An existing provider used as a template for the new provider.
-	---@return LibQTip-2.0.Cell
-	---@return table<"__index", LibQTip-2.0.Cell>
-	local function GetCellPrototype(templateCellProvider)
-		if not templateCellProvider then
-			return QTip.DefaultCellProvider:GetCellPrototype()
-		end
+    ---@param templateCellProvider? LibQTip-2.0.CellProvider An existing provider used as a template for the new provider.
+    ---@return LibQTip-2.0.Cell
+    ---@return table<"__index", LibQTip-2.0.Cell>
+    local function GetCellPrototype(templateCellProvider)
+        if not templateCellProvider then
+            return QTip.DefaultCellProvider:GetCellPrototype()
+        end
 
-		if not templateCellProvider.GetCellPrototype then
-			error("The supplied CellProvider has no 'GetCellPrototype' method.", 3)
-		end
+        if not templateCellProvider.GetCellPrototype then
+            error("The supplied CellProvider has no 'GetCellPrototype' method.", 3)
+        end
 
-		return templateCellProvider:GetCellPrototype()
-	end
+        return templateCellProvider:GetCellPrototype()
+    end
 
-	-- Creates a new CellProvider, using an existing CellProvider or the LibQTip-2.0 default CellProvider as a template.
-	---@param templateCellProvider? LibQTip-2.0.CellProvider An existing CellProvider used as a template for the new CellProvider.
-	---@return LibQTip-2.0.CreateCellProviderValues values The new CellProvider, new Cell prototype, and base Cell prototype.
-	---@nodiscard
-	function QTip:CreateCellProvider(templateCellProvider)
-		local baseCellPrototype, baseCellMetatable = GetCellPrototype(templateCellProvider)
+    --- Creates a new CellProvider, using an existing CellProvider or the LibQTip-2.0 default CellProvider as a template.
+    ---@param templateCellProvider? LibQTip-2.0.CellProvider An existing CellProvider used as a template for the new CellProvider.
+    ---@return LibQTip-2.0.CreateCellProviderValues values The new CellProvider, new Cell prototype, and base Cell prototype.
+    ---@nodiscard
+    function QTip:CreateCellProvider(templateCellProvider)
+        local baseCellPrototype, baseCellMetatable = GetCellPrototype(templateCellProvider)
 
-		---@type LibQTip-2.0.Cell
-		local newCellPrototype = setmetatable({}, baseCellMetatable)
+        ---@type LibQTip-2.0.Cell
+        local newCellPrototype = setmetatable({}, baseCellMetatable)
 
-		return {
-			newCellProvider =
-				---@type LibQTip-2.0.CellProvider
-				setmetatable({
-					CellHeap = {},
-					Cells = {},
-					CellPrototype = newCellPrototype,
-					CellMetatable = { __index = newCellPrototype },
-				}, self.CellProviderMetatable),
-			newCellPrototype = newCellPrototype,
-			baseCellPrototype = baseCellPrototype,
-		}
-	end
+        ---@type LibQTip-2.0.CellProvider
+        local newCellProvider = setmetatable({
+            CellHeap = {},
+            Cells = {},
+            CellPrototype = newCellPrototype,
+            CellMetatable = { __index = newCellPrototype },
+        }, self.CellProviderMetatable)
+
+        return {
+            newCellProvider = newCellProvider,
+            newCellPrototype = newCellPrototype,
+            baseCellPrototype = baseCellPrototype,
+        }
+    end
 end
 
--- Retrieves a registered CellProvider using the provided key.
+--- Retrieves a registered CellProvider using the provided key.
 ---@param key string The CellProvider key.
 ---@return LibQTip-2.0.CellProvider|nil
 function QTip:GetCellProvider(key)
-	if type(key) ~= 'string' then
-		error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
-	end
+    if type(key) ~= "string" then
+        error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
+    end
 
-	return self.CellProviderRegistry[key]
+    return self.CellProviderRegistry[key]
 end
 
--- Returns an alphabetically-sorted list of all registered CellProvider keys.
----@return LibQTip-2.0.CellProvider[]
+--- Returns an alphabetically-sorted list of all registered CellProvider keys.
+---@return string[]
 function QTip:GetCellProviderKeys()
-	return self.CellProviderKeys
+    return self.CellProviderKeys
 end
 
--- Check if a Tooltip has been acquired with the specified key.
+--- Check if a Tooltip has been acquired with the specified key.
 ---@param key string The Tooltip key.
 ---@return boolean
 function QTip:IsAcquiredTooltip(key)
-	if type(key) ~= 'string' then
-		error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
-	end
+    if type(key) ~= "string" then
+        error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
+    end
 
-	return not not TooltipManager.ActiveTooltips[key]
+    return not not TooltipManager.ActiveTooltips[key]
 end
 
--- Registers a CellProvider using the provided key. Registration fails if the key has already been used.
+--- Registers a CellProvider using the provided key. Registration fails if the key has already been used.
 ---@param key string The CellProvider key.
 ---@param cellProvider LibQTip-2.0.CellProvider The CellProvider to register.
 ---@return boolean isSuccess Whether or not the CellProvider was successfully registered.
 function QTip:RegisterCellProvider(key, cellProvider)
-	if type(key) ~= 'string' then
-		error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
-	end
+    if type(key) ~= "string" then
+        error(("Parameter 'key' must be of type 'string', not '%s'"):format(type(key)), 2)
+    end
 
-	local registry = self.CellProviderRegistry
+    local registry = self.CellProviderRegistry
 
-	if registry[key] then
-		return false
-	end
+    if registry[key] then
+        return false
+    end
 
-	registry[key] = cellProvider
+    registry[key] = cellProvider
 
-	local list = self.CellProviderKeys
+    local list = self.CellProviderKeys
 
-	table.wipe(list)
+    table.wipe(list)
 
-	for registryKey in pairs(registry) do
-		table.insert(list, registryKey)
-	end
+    for registryKey in pairs(registry) do
+        table.insert(list, registryKey)
+    end
 
-	table.sort(list)
+    table.sort(list)
 
-	self.CallbackRegistry:Fire('OnRegisterCellProvider', key)
+    self.CallbackRegistry:Fire("OnRegisterCellProvider", key)
 
-	return true
+    return true
 end
 
--- Return an acquired Tooltip to the heap. The Tooltip is cleared and hidden.
+--- Return an acquired Tooltip to the heap. The Tooltip is cleared and hidden.
 ---@param tooltip LibQTip-2.0.Tooltip The Tooltip to release. Any invalid values are silently ignored.
 function QTip:ReleaseTooltip(tooltip)
-	local key = tooltip and tooltip.Key
+    local key = tooltip and tooltip.Key
 
-	if not key or TooltipManager.ActiveTooltips[key] ~= tooltip then
-		return
-	end
+    if not key or TooltipManager.ActiveTooltips[key] ~= tooltip then
+        return
+    end
 
-	TooltipManager:ReleaseTooltip(tooltip)
+    TooltipManager:ReleaseTooltip(tooltip)
 end
 
--- Return an iterator on the acquired Tooltips.
+--- Return an iterator on the acquired Tooltips.
+---@return fun(table: table<string, LibQTip-2.0.Tooltip>, index?: string): string, LibQTip-2.0.Tooltip?
 function QTip:TooltipPairs()
-	return pairs(TooltipManager.ActiveTooltips)
+    return pairs(TooltipManager.ActiveTooltips)
 end
 
 --------------------------------------------------------------------------------

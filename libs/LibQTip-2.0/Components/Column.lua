@@ -2,7 +2,7 @@
 ---- Library Namespace
 --------------------------------------------------------------------------------
 
-local QTip = LibStub:GetLibrary('LibQTip-2.0')
+local QTip = LibStub:GetLibrary("LibQTip-2.0")
 
 local ScriptManager = QTip.ScriptManager
 local TooltipManager = QTip.TooltipManager
@@ -23,37 +23,36 @@ local Column = TooltipManager.ColumnPrototype
 ---@param cellProvider? LibQTip-2.0.CellProvider CellProvider to use instead of the default one. Defaults to LibQTip.DefaultCellProvider.
 ---@return LibQTip-2.0.Cell
 function Column:GetCell(rowIndex, cellProvider)
-	return self.Tooltip:GetRow(rowIndex):GetCell(self.Index, cellProvider)
+    return self.Tooltip:GetRow(rowIndex):GetCell(self.Index, cellProvider)
 end
 
--- Returns the RGBA numbers for the Column.
+--- Returns the RGBA numbers for the Column.
 ---@return number red Red color, from 0 to 1
 ---@return number green Green color, from 0 to 1
 ---@return number blue Blue color, from 0 to 1
 ---@return number alpha Alpha level, from 0 to 1
 function Column:GetColor()
-	return self:GetBackdropColor()
+    return self:GetBackdropColor()
 end
 
--- Sets the background color for the Column.
+--- Sets the background color for the Column.
 ---@param r? number Red color value of the Column. Defaults to the Tooltip's current red value.
 ---@param g? number Green color value of the Column. Defaults to the Tooltip's current green value.
 ---@param b? number Blue color value of the Column. Defaults to the Tooltip's current blue value.
 ---@param a? number Alpha level of the Column. Defaults to 1.
 ---@return LibQTip-2.0.Column column
 function Column:SetColor(r, g, b, a)
-	local red, green, blue, alpha
+    local tooltipRed ---@type number
+    local tooltipGreen ---@type number
+    local tooltipBlue ---@type number
+    local tooltipAlpha ---@type number
 
-	if r and g and b and a then
-		red, green, blue, alpha = r, g, b, a
-	else
-		red, green, blue, alpha = self.Tooltip:GetBackdropColor()
-	end
+    tooltipRed, tooltipGreen, tooltipBlue, tooltipAlpha = self.Tooltip:GetBackdropColor()
 
-	self:SetBackdrop(TooltipManager.DefaultBackdrop)
-	self:SetBackdropColor(red, green, blue, alpha)
+    self:SetBackdrop(TooltipManager.DefaultBackdrop)
+    self:SetBackdropColor(r or tooltipRed, g or tooltipGreen, b or tooltipBlue, a or tooltipAlpha)
 
-	return self
+    return self
 end
 
 ---@param scriptType LibQTip-2.0.ScriptType The ScriptType to assign to the Column.
@@ -61,21 +60,21 @@ end
 ---@param arg? unknown Data to be passed to the script function.
 ---@return LibQTip-2.0.Column column
 function Column:SetScript(scriptType, handler, arg)
-	ScriptManager:SetScript(self, scriptType, handler, arg)
+    ScriptManager:SetScript(self, scriptType, handler, arg)
 
-	return self
+    return self
 end
 
--- Sets the text color for every Cell in the Column.
+--- Sets the text color for every Cell in the Column.
 ---@param r? number Red color value of the Cell's text. Defaults to the red value of the Cell's FontString.
 ---@param g? number Green color value of the Cell's text. Defaults to the green value of the Cell's FontString.
 ---@param b? number Blue color value of the Cell's text. Defaults to the blue value of the Cell's FontString.
 ---@param a? number Alpha level of the Cell's text. Defaults to 1.
 ---@return LibQTip-2.0.Column column
 function Column:SetTextColor(r, g, b, a)
-	for rowIndex = 1, #self.Tooltip.Rows do
-		self:GetCell(rowIndex):SetTextColor(r, g, b, a)
-	end
+    for rowIndex = 1, #self.Tooltip.Rows do
+        self:GetCell(rowIndex):SetTextColor(r, g, b, a)
+    end
 
-	return self
+    return self
 end

@@ -2,7 +2,7 @@
 ---- Library Namespace
 --------------------------------------------------------------------------------
 
-local QTip = LibStub:GetLibrary('LibQTip-2.0')
+local QTip = LibStub:GetLibrary("LibQTip-2.0")
 
 ---@class LibQTip-2.0.ScriptManager
 ---@field FrameScriptMetadata table<LibQTip-2.0.ScriptFrame, LibQTip-2.0.ScriptTypeMetadata?>
@@ -32,33 +32,33 @@ ScriptManager.FrameScriptMetadata = ScriptManager.FrameScriptMetadata or {}
 
 ---@type table<LibQTip-2.0.ScriptType, fun(frame: LibQTip-2.0.ScriptFrame, ...)>
 local FrameScriptHandler = {
-	OnEnter = function(frame, ...)
-		local highlightFrame = frame.Tooltip.HighlightFrame
+    OnEnter = function(frame, ...)
+        local highlightFrame = frame.Tooltip.HighlightFrame
 
-		highlightFrame:SetParent(frame)
-		highlightFrame:SetAllPoints(frame)
-		highlightFrame:Show()
+        highlightFrame:SetParent(frame)
+        highlightFrame:SetAllPoints(frame)
+        highlightFrame:Show()
 
-		ScriptManager:CallScriptHandler(frame, 'OnEnter', ...)
-	end,
-	OnLeave = function(frame, ...)
-		local highlightFrame = frame.Tooltip.HighlightFrame
+        ScriptManager:CallScriptHandler(frame, "OnEnter", ...)
+    end,
+    OnLeave = function(frame, ...)
+        local highlightFrame = frame.Tooltip.HighlightFrame
 
-		highlightFrame:Hide()
-		highlightFrame:ClearAllPoints()
-		highlightFrame:SetParent(nil)
+        highlightFrame:Hide()
+        highlightFrame:ClearAllPoints()
+        highlightFrame:SetParent(nil)
 
-		ScriptManager:CallScriptHandler(frame, 'OnLeave', ...)
-	end,
-	OnMouseDown = function(frame, ...)
-		ScriptManager:CallScriptHandler(frame, 'OnMouseDown', ...)
-	end,
-	OnMouseUp = function(frame, ...)
-		ScriptManager:CallScriptHandler(frame, 'OnMouseUp', ...)
-	end,
-	OnReceiveDrag = function(frame, ...)
-		ScriptManager:CallScriptHandler(frame, 'OnReceiveDrag', ...)
-	end,
+        ScriptManager:CallScriptHandler(frame, "OnLeave", ...)
+    end,
+    OnMouseDown = function(frame, ...)
+        ScriptManager:CallScriptHandler(frame, "OnMouseDown", ...)
+    end,
+    OnMouseUp = function(frame, ...)
+        ScriptManager:CallScriptHandler(frame, "OnMouseUp", ...)
+    end,
+    OnReceiveDrag = function(frame, ...)
+        ScriptManager:CallScriptHandler(frame, "OnReceiveDrag", ...)
+    end,
 }
 
 --------------------------------------------------------------------------------
@@ -67,39 +67,46 @@ local FrameScriptHandler = {
 
 ---@param frame LibQTip-2.0.ScriptFrame
 ---@param scriptType LibQTip-2.0.ScriptType
+---@param ... unknown
 function ScriptManager:CallScriptHandler(frame, scriptType, ...)
-	local scriptMetadata = ScriptManager.FrameScriptMetadata[frame][scriptType]
+    local scriptMetadata = ScriptManager.FrameScriptMetadata[frame][scriptType]
 
-	if scriptMetadata then
-		scriptMetadata.Handler(frame, unpack(scriptMetadata.Parameters), ...)
-	end
+    if scriptMetadata then
+        scriptMetadata.Handler(frame, unpack(scriptMetadata.Parameters), ...)
+    end
 end
 
 -- Clears all scripts matching a LibQTip-2.0.ScriptType from the frame.
 ---@param frame LibQTip-2.0.ScriptFrame
 function ScriptManager:ClearScripts(frame)
-	for scriptType in pairs(FrameScriptHandler) do
-		self:RawSetScript(frame, scriptType, nil)
-	end
+    for scriptType in pairs(FrameScriptHandler) do
+        self:RawSetScript(frame, scriptType, nil)
+    end
 
-	local scriptTypeMetadata = self.FrameScriptMetadata[frame]
+    local scriptTypeMetadata = self.FrameScriptMetadata[frame]
 
-	if not scriptTypeMetadata then
-		return
-	end
+    if not scriptTypeMetadata then
+        return
+    end
 
-	if scriptTypeMetadata.OnEnter or scriptTypeMetadata.OnLeave or scriptTypeMetadata.OnMouseDown or scriptTypeMetadata.OnMouseUp or scriptTypeMetadata.OnReceiveDrag then
-		frame:EnableMouse(false)
-	end
+    if
+        scriptTypeMetadata.OnEnter
+        or scriptTypeMetadata.OnLeave
+        or scriptTypeMetadata.OnMouseDown
+        or scriptTypeMetadata.OnMouseUp
+        or scriptTypeMetadata.OnReceiveDrag
+    then
+        frame:EnableMouse(false)
+    end
 
-	self.FrameScriptMetadata[frame] = nil
+    self.FrameScriptMetadata[frame] = nil
 end
 
 ---@param frame Frame
 ---@param scriptType ScriptFrame
 ---@param handler? function
 function ScriptManager:RawSetScript(frame, scriptType, handler)
-	QTip.FrameMetatable.__index.SetScript(frame, scriptType, handler)
+    QTip.FrameMetatable.__index.SetScript(frame, scriptType, handler)
 end
 
 ---@param frame LibQTip-2.0.ScriptFrame
@@ -107,44 +114,50 @@ end
 ---@param handler? fun(arg, ...)
 ---@param ...? unknown Data to be passed to the script function.
 function ScriptManager:SetScript(frame, scriptType, handler, ...)
-	if not FrameScriptHandler[scriptType] then
-		return
-	end
+    if not FrameScriptHandler[scriptType] then
+        return
+    end
 
-	local scriptTypeMetadata = self.FrameScriptMetadata[frame]
+    local scriptTypeMetadata = self.FrameScriptMetadata[frame]
 
-	if not scriptTypeMetadata then
-		scriptTypeMetadata = {}
+    if not scriptTypeMetadata then
+        scriptTypeMetadata = {}
 
-		self.FrameScriptMetadata[frame] = scriptTypeMetadata
-	end
+        self.FrameScriptMetadata[frame] = scriptTypeMetadata
+    end
 
-	if handler then
-		scriptTypeMetadata[scriptType] = {
-			Handler = handler,
-			Parameters = { ... },
-		}
-	else
-		scriptTypeMetadata[scriptType] = nil
-	end
+    if handler then
+        scriptTypeMetadata[scriptType] = {
+            Handler = handler,
+            Parameters = { ... },
+        }
+    else
+        scriptTypeMetadata[scriptType] = nil
+    end
 
-	if scriptType == 'OnMouseDown' or scriptType == 'OnMouseUp' or scriptType == 'OnReceiveDrag' then
-		if handler then
-			self:RawSetScript(frame, scriptType, FrameScriptHandler[scriptType])
-		else
-			self:RawSetScript(frame, scriptType, nil)
-		end
-	end
+    if scriptType == "OnMouseDown" or scriptType == "OnMouseUp" or scriptType == "OnReceiveDrag" then
+        if handler then
+            self:RawSetScript(frame, scriptType, FrameScriptHandler[scriptType])
+        else
+            self:RawSetScript(frame, scriptType, nil)
+        end
+    end
 
-	if scriptTypeMetadata.OnEnter or scriptTypeMetadata.OnLeave or scriptTypeMetadata.OnMouseDown or scriptTypeMetadata.OnMouseUp or scriptTypeMetadata.OnReceiveDrag then
-		frame:EnableMouse(true)
+    if
+        scriptTypeMetadata.OnEnter
+        or scriptTypeMetadata.OnLeave
+        or scriptTypeMetadata.OnMouseDown
+        or scriptTypeMetadata.OnMouseUp
+        or scriptTypeMetadata.OnReceiveDrag
+    then
+        frame:EnableMouse(true)
 
-		self:RawSetScript(frame, 'OnEnter', FrameScriptHandler.OnEnter)
-		self:RawSetScript(frame, 'OnLeave', FrameScriptHandler.OnLeave)
-	else
-		frame:EnableMouse(false)
+        self:RawSetScript(frame, "OnEnter", FrameScriptHandler.OnEnter)
+        self:RawSetScript(frame, "OnLeave", FrameScriptHandler.OnLeave)
+    else
+        frame:EnableMouse(false)
 
-		self:RawSetScript(frame, 'OnEnter', nil)
-		self:RawSetScript(frame, 'OnLeave', nil)
-	end
+        self:RawSetScript(frame, "OnEnter", nil)
+        self:RawSetScript(frame, "OnLeave", nil)
+    end
 end
