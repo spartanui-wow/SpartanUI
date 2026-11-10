@@ -23,6 +23,9 @@ R.lastOutgoing = nil
 -- Chat line IDs of this session's messages, kept out of the saved messages because a line ID
 -- means nothing after a reload. The game's player menu needs one to offer "Report".
 local lineIDs = setmetatable({}, { __mode = 'k' })
+-- Battle.net senders ({ name, id }) of this session's messages; the account name token changes
+-- every session, so it is never saved either.
+local bnSenders = setmetatable({}, { __mode = 'k' })
 
 ----------------------------------------------------------------------------------------------------
 -- Helpers
@@ -132,16 +135,7 @@ end
 -- Recording
 ----------------------------------------------------------------------------------------------------
 
----Stores one readable chat line.
----@param event string
----@param text string
----@param sender string
----@param guid any
----@param bnID any
----@param flags any
----@param channelBase any
----@param channelString any
----@param stamp? number
+---The chat line ID of a message received this session.
 ---@param msg? table
 ---@return number|nil
 function R:LineID(msg)
@@ -177,6 +171,46 @@ function R:PlayerLink(name, lineID, chatType)
 	return 'player:' .. name .. ':' .. lineID .. ':' .. (chatType or 0) .. ':' .. (chatType == 'WHISPER' and name:upper() or '')
 end
 
+---A Battle.net player link that carries the chat line, the same way the game's chat does.
+---@param msg? table
+---@return string|nil
+function R:BNetLink(msg)
+	local bn = msg and bnSenders[msg]
+	if not bn then
+		return nil
+	end
+	local lineID = lineIDs[msg] or 0
+	return 'BNplayer:' .. bn.name .. ':' .. bn.id .. ':' .. lineID .. ':BN_WHISPER:' .. bn.name
+end
+
+---The newest message the other person sent in a conversation that has a Battle.net link.
+---@param convo? table
+---@return table|nil
+function R:LatestBNetMessage(convo)
+	local msgs = convo and convo.msgs
+	if type(msgs) ~= 'table' then
+		return nil
+	end
+	for i = #msgs, math.max(1, #msgs - 50), -1 do
+		local msg = msgs[i]
+		if not msg.o and bnSenders[msg] then
+			return msg
+		end
+	end
+	return nil
+end
+
+---Stores one readable chat line.
+---@param event string
+---@param text string
+---@param sender string
+---@param guid any
+---@param bnID any
+---@param flags any
+---@param channelBase any
+---@param channelString any
+---@param stamp? number
+---@param lineID? number
 function R:Record(event, text, sender, guid, bnID, flags, channelBase, channelString, stamp, lineID)
 	local kind = M.KindByEvent[event]
 	if not kind then
@@ -190,6 +224,12 @@ function R:Record(event, text, sender, guid, bnID, flags, channelBase, channelSt
 	local outgoing = kind.events[event] == true
 	local msg = { t = stamp or time(), x = text }
 	lineIDs[msg] = U.Num(lineID)
+	if kind.key == 'BN_WHISPER' and not outgoing then
+		local id, name = U.Num(bnID), U.Str(sender)
+		if id and name then
+			bnSenders[msg] = { name = name, id = id }
+		end
+	end
 	if IsStaff(flags) then
 		msg.gm = true
 	end

@@ -335,6 +335,11 @@ function CP.Create(parent, showHeader)
 			local convo = pane.key and M.Store:Get(pane.key)
 			if button == 'RightButton' and convo and convo.kind == 'WHISPER' and convo.target then
 				SetItemRef(M.Router:PlayerLink(convo.target, M.Router:LatestLineID(convo), 'WHISPER'), '[' .. convo.name .. ']', 'RightButton', DEFAULT_CHAT_FRAME)
+			elseif button == 'RightButton' and convo and convo.kind == 'BN_WHISPER' then
+				local bnLink = M.Router:BNetLink(M.Router:LatestBNetMessage(convo))
+				if bnLink then
+					SetItemRef(bnLink, '[' .. M:GetTitle(convo) .. ']', 'RightButton', DEFAULT_CHAT_FRAME)
+				end
 			end
 		end)
 		header.nameButton:SetScript('OnDoubleClick', function()
@@ -342,7 +347,7 @@ function CP.Create(parent, showHeader)
 		end)
 		header.nameButton:SetScript('OnEnter', function(self)
 			local convo = pane.key and M.Store:Get(pane.key)
-			local hint = convo and convo.kind == 'WHISPER' and L['Right-click for player options'] or nil
+			local hint = convo and (convo.kind == 'WHISPER' or convo.kind == 'BN_WHISPER') and L['Right-click for player options'] or nil
 			W.ShowTip(self, L['Double-click to set a nickname'], hint)
 		end)
 		header.nameButton:SetScript('OnLeave', function()

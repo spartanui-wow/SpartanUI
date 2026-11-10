@@ -902,6 +902,10 @@ function Log:SenderLabel(msg)
 		if convo.kind == 'WHISPER' then
 			return '|H' .. M.Router:PlayerLink(convo.target, M.Router:LineID(msg), 'WHISPER') .. '|h' .. M:GetTitle(convo) .. '|h', r, g, b
 		end
+		local bnLink = convo.kind == 'BN_WHISPER' and M.Router:BNetLink(msg)
+		if bnLink then
+			return '|H' .. bnLink .. '|h' .. M:GetTitle(convo) .. '|h', r, g, b
+		end
 		return M:GetTitle(convo), r, g, b
 	end
 	return '?', 1, 1, 1
