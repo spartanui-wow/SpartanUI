@@ -1,6 +1,23 @@
 local UF, L = SUI.UF, SUI.L
 local canAccess = SUI.BlizzAPI.canaccessvalue
 
+local modelFrames = setmetatable({}, { __mode = 'k' })
+
+-- The model ignores every ancestor's alpha, not just the frame's, so UIParent and holder fades
+-- are carried over by hand. Effective alpha turns secret once any ancestor faded from a hidden
+-- answer; then only UIParent's own alpha is used.
+local function AncestorAlpha(frame)
+	local parent = frame:GetParent()
+	if parent and parent.GetEffectiveAlpha then
+		local ok, alpha = pcall(parent.GetEffectiveAlpha, parent)
+		if ok and canAccess(alpha) and type(alpha) == 'number' then
+			return alpha
+		end
+	end
+	local alpha = UIParent:GetAlpha()
+	return canAccess(alpha) and alpha or 1
+end
+
 -- 3D models do not reliably take their parent's alpha, so the model's own alpha carries both the
 -- portrait's Alpha setting and the frame's fade. An alpha the game hides counts as fully shown.
 ---@param frame table unit frame
@@ -19,8 +36,14 @@ function UF:SyncPortraitAlpha(frame, frameAlpha)
 			fade = 1
 		end
 	end
-	model:SetModelAlpha((DB.alpha or 1) * fade)
+	model:SetModelAlpha((DB.alpha or 1) * fade * AncestorAlpha(frame))
 end
+
+hooksecurefunc(UIParent, 'SetAlpha', function()
+	for frame in pairs(modelFrames) do
+		UF:SyncPortraitAlpha(frame)
+	end
+end)
 
 ---@param frame table
 ---@param DB table
@@ -59,6 +82,7 @@ local function Build(frame, DB)
 	end
 	Portrait3D:Hide()
 	frame.Portrait3D = Portrait3D
+	modelFrames[frame] = true
 
 	-- 2D Portrait
 	local Portrait2D = frame:CreateTexture(nil, 'OVERLAY')
