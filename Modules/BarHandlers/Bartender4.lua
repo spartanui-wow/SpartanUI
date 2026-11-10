@@ -159,6 +159,16 @@ local FrameList = {
 }
 ------------------------------------------------------------
 
+-- Theme data and movers keep the 'MultiCastActionBarFrame' key. When Bartender4 runs its own
+-- totem bar it holds Blizzard's frame inside BT4BarMultiCast and re-anchors it on every layout
+-- (including in combat on Edit Mode clients), so move Bartender4's bar instead of the frame inside it.
+local function GetBarFrame(key)
+	if key == 'MultiCastActionBarFrame' and _G.BT4BarMultiCast then
+		return _G.BT4BarMultiCast
+	end
+	return _G[key]
+end
+
 -- Bartender4 Items
 
 -- Creates the SUI BT4 Profile
@@ -256,8 +266,8 @@ local function RefreshConfig()
 
 	-- Position Bars
 	for _, v in ipairs(FrameList) do
-		if _G[v] and positionData[v] and type(positionData[v]) == 'string' and positionData[v] ~= '' then
-			local f = _G[v]
+		local f = GetBarFrame(v)
+		if f and positionData[v] and type(positionData[v]) == 'string' and positionData[v] ~= '' then
 			if f.scale then
 				-- Use forced=true so theme scale changes apply even if bar was moved.
 				-- But skip bars the user has manually scaled via the scroll wheel (AdjustedScale).
@@ -280,7 +290,7 @@ local function BTMover(BarName, DisplayName)
 	if not BarName then
 		return
 	end
-	local bar = _G[BarName]
+	local bar = GetBarFrame(BarName)
 	if bar then
 		function bar:LoadPosition() end
 		function bar:GetConfigScale()
