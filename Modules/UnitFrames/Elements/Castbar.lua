@@ -47,12 +47,34 @@ local ChannelTicks = {
 	-- Demon Hunter
 	[198013] = 10, -- Eye Beam
 	[212084] = 10, -- Fel Devastation
+
+	-- Priest: Penance hits 3 times over 2s with the first at the cast; Castigation adds a hit
+	[47757] = 2, -- Penance (Heal)
+	[47758] = 2, -- Penance (Damage)
+	[373129] = 2, -- Dark Reprimand (Damage)
+	[400171] = 2, -- Dark Reprimand (Heal)
 }
+
+local CASTIGATION = 193134
+local CastigationSpells = { [47757] = true, [47758] = true, [373129] = true, [400171] = true }
+
+-- Classic clients (WoW Forever included) give every rank its own spell ID
+if not SUI.IsRetail then
+	for _, id in ipairs({ 15407, 17311, 17312, 17313, 17314, 18807 }) do
+		ChannelTicks[id] = 3 -- Mind Flay
+	end
+	for _, id in ipairs({ 402174, 402284, 402289, 1240720, 1240723, 1240727, 1240721, 1240724, 1240730, 1316991, 1316993, 1316995 }) do
+		ChannelTicks[id] = 2 -- Penance (WoW Forever)
+	end
+end
 
 -- Allow user-defined overrides to be merged in
 local function GetTickCount(spellID, customTicks)
 	if customTicks and customTicks[spellID] then
 		return customTicks[spellID]
+	end
+	if CastigationSpells[spellID] and IsPlayerSpell and IsPlayerSpell(CASTIGATION) then
+		return 3
 	end
 	return ChannelTicks[spellID]
 end
