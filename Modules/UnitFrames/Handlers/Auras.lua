@@ -621,6 +621,7 @@ function Auras:ApplyTextSettings(button, DB)
 		button.Duration:SetFontObject(SUI.Font:GetFontObject('UnitFrames', size, outline))
 		button.Duration:ClearAllPoints()
 		button.Duration:SetPoint(dt.anchor or 'CENTER', button, dt.anchor or 'CENTER', dt.x or 0, dt.y or 0)
+		button.Duration:SetShown(DB.showDuration ~= false)
 	end
 
 	-- Stack count text settings
@@ -631,6 +632,7 @@ function Auras:ApplyTextSettings(button, DB)
 		button.Count:SetFontObject(SUI.Font:GetFontObject('UnitFrames', size, outline))
 		button.Count:ClearAllPoints()
 		button.Count:SetPoint(st.anchor or 'BOTTOMRIGHT', button, st.anchor or 'BOTTOMRIGHT', st.x or 2, st.y or -2)
+		button.Count:SetShown(DB.showCount ~= false)
 	end
 end
 

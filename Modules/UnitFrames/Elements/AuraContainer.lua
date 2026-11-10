@@ -147,6 +147,25 @@ function Container:Update(frame, elementName, settings, baseFilter)
 	element:ForceUpdate()
 end
 
+-- How the time left and stack count look when nothing has been changed.
+Container.TEXT_DEFAULTS = {
+	durationText = {
+		size = 12,
+		outline = 'OUTLINE',
+		anchor = 'CENTER',
+		x = 0,
+		y = 0,
+		colorByTime = true,
+	},
+	stackText = {
+		size = 12,
+		outline = 'OUTLINE',
+		anchor = 'BOTTOMRIGHT',
+		x = -1,
+		y = 0,
+	},
+}
+
 ---Settings shared by all three containers. Each element adds its own defaults.
 ---@param displayName string
 ---@param overrides table
@@ -175,6 +194,10 @@ function Container:Settings(displayName, overrides)
 		perRow = 8,
 		-- Auras others cast are shown alongside your own by default.
 		showOthers = true,
+		showCount = true,
+		showDuration = true,
+		durationText = CopyTable(Container.TEXT_DEFAULTS.durationText),
+		stackText = CopyTable(Container.TEXT_DEFAULTS.stackText),
 	}
 
 	for key, value in pairs(overrides) do

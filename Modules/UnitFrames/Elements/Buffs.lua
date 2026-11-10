@@ -82,6 +82,14 @@ local function Update(frame, settings)
 	end
 
 	updateSettings(element)
+
+	for i = 1, element.createdButtons or 0 do
+		local button = element[i]
+		if button then
+			button.showDuration = DB.showDuration
+			UF.Auras:ApplyTextSettings(button, DB)
+		end
+	end
 end
 
 ---@param unitName string
@@ -209,21 +217,6 @@ local function Options(unitName, OptionSet)
 		end,
 		set = function(_, val)
 			OptUpdate('growthy', val)
-		end,
-	}
-
-	-- Duration text only works in Classic (Retail uses cooldown spiral instead due to secret values)
-	OptionSet.args.Display.args.showDuration = {
-		name = L['Show Duration'],
-		desc = SUI.IsRetail and L['Duration text unavailable in Retail - cooldown spiral shows duration instead'] or L['Display remaining duration text on aura icons'],
-		type = 'toggle',
-		order = 5,
-		disabled = SUI.IsRetail,
-		get = function()
-			return ElementSettings.showDuration
-		end,
-		set = function(_, val)
-			OptUpdate('showDuration', val)
 		end,
 	}
 
@@ -378,20 +371,40 @@ local function Options(unitName, OptionSet)
 		UF.Unit[unitName]:ElementUpdate('Buffs')
 	end
 
+	local function TextHidden(showKey)
+		return function()
+			return ElementSettings[showKey] == false
+		end
+	end
+
 	OptionSet.args.TextCustomization = {
-		name = L['Text customization'],
+		name = L['Text on icons'],
+		desc = L['The time left and stack count drawn on each icon'],
 		type = 'group',
 		order = 16,
 		inline = true,
 		args = {
 			durationHeader = {
-				name = L['Duration text'],
+				name = L['Time left'],
 				type = 'header',
 				order = 1,
+			},
+			showDuration = {
+				name = L['Show time left'],
+				desc = L['Show how long each aura has left, written on the icon'],
+				type = 'toggle',
+				order = 1.5,
+				get = function()
+					return ElementSettings.showDuration ~= false
+				end,
+				set = function(_, val)
+					OptUpdate('showDuration', val)
+				end,
 			},
 			durationSize = {
 				name = L['Size'],
 				type = 'range',
+				disabled = TextHidden('showDuration'),
 				order = 2,
 				min = 6,
 				max = 24,
@@ -406,6 +419,7 @@ local function Options(unitName, OptionSet)
 			durationOutline = {
 				name = L['Outline'],
 				type = 'select',
+				disabled = TextHidden('showDuration'),
 				order = 3,
 				values = outlineValues,
 				get = function()
@@ -418,6 +432,7 @@ local function Options(unitName, OptionSet)
 			durationAnchor = {
 				name = L['Position'],
 				type = 'select',
+				disabled = TextHidden('showDuration'),
 				order = 4,
 				values = anchorValues,
 				get = function()
@@ -431,6 +446,7 @@ local function Options(unitName, OptionSet)
 				name = L['Color by remaining time'],
 				desc = L['Red when expiring soon, yellow when moderate, white otherwise'],
 				type = 'toggle',
+				disabled = TextHidden('showDuration'),
 				order = 5,
 				get = function()
 					return ElementSettings.durationText and ElementSettings.durationText.colorByTime ~= false
@@ -440,13 +456,26 @@ local function Options(unitName, OptionSet)
 				end,
 			},
 			stackHeader = {
-				name = L['Stack count text'],
+				name = L['Stack count'],
 				type = 'header',
 				order = 10,
+			},
+			showCount = {
+				name = L['Show stack count'],
+				desc = L['Show how many stacks an aura has, written on the icon'],
+				type = 'toggle',
+				order = 10.5,
+				get = function()
+					return ElementSettings.showCount ~= false
+				end,
+				set = function(_, val)
+					OptUpdate('showCount', val)
+				end,
 			},
 			stackSize = {
 				name = L['Size'],
 				type = 'range',
+				disabled = TextHidden('showCount'),
 				order = 11,
 				min = 6,
 				max = 24,
@@ -461,6 +490,7 @@ local function Options(unitName, OptionSet)
 			stackOutline = {
 				name = L['Outline'],
 				type = 'select',
+				disabled = TextHidden('showCount'),
 				order = 12,
 				values = outlineValues,
 				get = function()
@@ -473,6 +503,7 @@ local function Options(unitName, OptionSet)
 			stackAnchor = {
 				name = L['Position'],
 				type = 'select',
+				disabled = TextHidden('showCount'),
 				order = 13,
 				values = anchorValues,
 				get = function()
@@ -662,6 +693,7 @@ local Settings = {
 	spacing = 1,
 	showType = true,
 	showDuration = true,
+	showCount = true,
 	clickThrough = false,
 	sortMode = 'priority',
 	onlyShowPlayer = false,

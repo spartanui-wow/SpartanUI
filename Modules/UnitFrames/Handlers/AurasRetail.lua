@@ -620,25 +620,23 @@ function Auras:CreateAuraButton(element, options, button)
 		textParent:SetFrameLevel(button.Cooldown:GetFrameLevel() + 1)
 	end
 
+	-- Both texts are always built so they can be turned on and off without a
+	-- reload. Turning one off hides it rather than leaving it unbuilt.
 	local stackDB = options.stackText or {}
-	if options.showCount or element.showCount then
-		local count = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
-		count:SetPoint(stackDB.anchor or 'BOTTOMRIGHT', stackDB.x or -1, stackDB.y or 0)
-		button.Count = count
-		button:SetApplicationCount(count, {})
-	end
+	local count = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
+	count:SetPoint(stackDB.anchor or 'BOTTOMRIGHT', stackDB.x or -1, stackDB.y or 0)
+	button.Count = count
+	button:SetApplicationCount(count, {})
 
 	local durationDB = options.durationText or {}
-	if options.showDuration or element.showDuration then
-		local time = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
-		time:SetPoint(durationDB.anchor or 'CENTER', durationDB.x or 0, durationDB.y or 0)
-		button.Time = time
-		button:SetDurationText(time, {
-			-- Colour by remaining time is the same curve the expiring highlight
-			-- uses, so turning it off simply passes no curve.
-			textColor = durationDB.colorByTime ~= false and (options.durationColors or element.durationColors) or nil,
-		})
-	end
+	local time = textParent:CreateFontString(nil, 'OVERLAY', 'NumberFontNormal')
+	time:SetPoint(durationDB.anchor or 'CENTER', durationDB.x or 0, durationDB.y or 0)
+	button.Time = time
+
+	-- Colour by remaining time is the same curve the expiring highlight uses,
+	-- so turning it off simply passes no curve.
+	local colors = durationDB.colorByTime ~= false and (options.durationColors or element.durationColors) or nil
+	Auras:SetButtonTextShown(button, (options.showCount or element.showCount) and true or false, (options.showDuration or element.showDuration) and true or false, colors)
 
 	if options.showBuffBorder or options.showDebuffBorder then
 		local border = button:CreateTexture(nil, 'OVERLAY')
@@ -666,6 +664,41 @@ function Auras:CreateAuraButton(element, options, button)
 
 	if options.cancelButton then
 		button:SetCancelAuraButtons(options.cancelButton)
+	end
+end
+
+---Show or hide an aura button's stack count and time left.
+---
+---The game owns the stack count's text and whether it is shown, so it is
+---hidden through its alpha. The time left is handed back to the game or taken
+---away from it, since the game owns its text and alpha but not whether it is shown.
+---@param button table
+---@param showCount boolean
+---@param showDuration boolean
+---@param durationColors? table
+function Auras:SetButtonTextShown(button, showCount, showDuration, durationColors)
+	if button.Count then
+		button.Count:SetAlpha(showCount and 1 or 0)
+	end
+
+	local time = button.Time
+	if not time then
+		return
+	end
+
+	local wasShown = button.durationTextShown
+	button.durationTextShown = showDuration
+
+	if showDuration then
+		-- Registered again on every change so a new colour setting takes effect.
+		button:SetDurationText(time, { textColor = durationColors })
+		time:Show()
+	elseif wasShown ~= false then
+		if wasShown and button.ClearDurationText then
+			button:ClearDurationText()
+		end
+		time:SetText('')
+		time:Hide()
 	end
 end
 
@@ -735,6 +768,9 @@ function Auras:StyleButtonWidgets(button, groupDB)
 		button.Time:ClearAllPoints()
 		button.Time:SetPoint(durationDB.anchor or 'CENTER', durationDB.x or 0, durationDB.y or 0)
 	end
+
+	local colors = durationDB.colorByTime ~= false and self:GetDurationColorCurve(groupDB.expiring) or nil
+	self:SetButtonTextShown(button, groupDB.showCount ~= false, groupDB.showDuration ~= false, colors)
 end
 
 ---Re-apply styling to every button a container has already created.
@@ -765,7 +801,7 @@ function Auras:RestyleButtons(element, DB)
 			stale = stale or {}
 			stale[#stale + 1] = button
 		else
-			local current = (button.auraGroupIndex and byIndex[button.auraGroupIndex]) or groupDB
+			local current = (button.auraGroupIndex and byIndex[button.auraGroupIndex]) or (button.auraVariant and DB) or groupDB
 			self:StyleButton(button, current, element)
 			self:StyleButtonWidgets(button, current)
 		end
@@ -1041,6 +1077,23 @@ local function TokenSignature(tokens)
 	return table.concat(parts, ',')
 end
 
+---@param text? table
+---@return string
+local function TextSignature(text)
+	if type(text) ~= 'table' then
+		return ''
+	end
+
+	return table.concat({
+		tostring(text.size or ''),
+		tostring(text.outline or ''),
+		tostring(text.anchor or ''),
+		tostring(text.x or ''),
+		tostring(text.y or ''),
+		tostring(text.colorByTime),
+	}, ',')
+end
+
 ---Describe everything that decides what the variants show.
 ---@param DB table
 ---@param baseFilter string
@@ -1070,6 +1123,11 @@ function Auras:GetVariantSignature(DB, baseFilter)
 		-- Tokens change the filter string, so a change here has to repoint the
 		-- groups or the setting writes to the database and does nothing.
 		TokenSignature(DB.tokens),
+		-- Text on the icons is restyled on live buttons in the same pass.
+		tostring(DB.showCount),
+		tostring(DB.showDuration),
+		TextSignature(DB.durationText),
+		TextSignature(DB.stackText),
 	}, ':')
 end
 
@@ -1267,8 +1325,6 @@ function Auras:GetGroupBuildSignature(DB)
 		local group = self:ResolveGroup(DB, index)
 		parts[#parts + 1] = table.concat({
 			index,
-			tostring(group.showCount),
-			tostring(group.showDuration),
 			tostring(group.showCooldown),
 			tostring(group.showBuffBorder),
 			tostring(group.showDebuffBorder),
@@ -1992,6 +2048,165 @@ function Auras:BuildContainerOptions(unitName, OptionSet, elementName, displayNa
 				end,
 			},
 		},
+	}
+
+	local anchorValues = {
+		TOPLEFT = L['Top Left'],
+		TOP = L['Top'],
+		TOPRIGHT = L['Top Right'],
+		LEFT = L['Left'],
+		CENTER = L['Center'],
+		RIGHT = L['Right'],
+		BOTTOMLEFT = L['Bottom Left'],
+		BOTTOM = L['Bottom'],
+		BOTTOMRIGHT = L['Bottom Right'],
+	}
+
+	local outlineValues = {
+		NONE = L['None'],
+		OUTLINE = L['Outline'],
+		THICKOUTLINE = L['Thick outline'],
+	}
+
+	---Options for one of the two texts drawn on each icon.
+	---@param key string 'durationText' or 'stackText'
+	---@param showKey string 'showDuration' or 'showCount'
+	---@param defaults table
+	---@param order number
+	local function TextOptions(key, showKey, defaults, order)
+		local function Hidden()
+			return DB()[showKey] == false
+		end
+		local function SubGet(subKey)
+			local value = SubDB(key)[subKey]
+			if type(value) ~= type(defaults[subKey]) then
+				return defaults[subKey]
+			end
+			return value
+		end
+
+		local args = {
+			size = {
+				name = L['Text size'],
+				type = 'range',
+				order = order + 1,
+				min = 6,
+				max = 32,
+				step = 1,
+				disabled = Hidden,
+				get = function()
+					return SubGet('size')
+				end,
+				set = function(_, val)
+					SetSub(key, 'size', val)
+				end,
+			},
+			outline = {
+				name = L['Outline'],
+				type = 'select',
+				order = order + 2,
+				values = outlineValues,
+				disabled = Hidden,
+				get = function()
+					return SubGet('outline')
+				end,
+				set = function(_, val)
+					SetSub(key, 'outline', val)
+				end,
+			},
+			anchor = {
+				name = L['Position'],
+				desc = L['Where the text sits on the icon'],
+				type = 'select',
+				order = order + 3,
+				values = anchorValues,
+				disabled = Hidden,
+				get = function()
+					return SubGet('anchor')
+				end,
+				set = function(_, val)
+					SetSub(key, 'anchor', val)
+				end,
+			},
+			x = {
+				name = L['Move left or right'],
+				type = 'range',
+				order = order + 4,
+				min = -30,
+				max = 30,
+				step = 1,
+				disabled = Hidden,
+				get = function()
+					return SubGet('x')
+				end,
+				set = function(_, val)
+					SetSub(key, 'x', val)
+				end,
+			},
+			y = {
+				name = L['Move up or down'],
+				type = 'range',
+				order = order + 5,
+				min = -30,
+				max = 30,
+				step = 1,
+				disabled = Hidden,
+				get = function()
+					return SubGet('y')
+				end,
+				set = function(_, val)
+					SetSub(key, 'y', val)
+				end,
+			},
+		}
+
+		local prefixed = {}
+		for name, option in pairs(args) do
+			prefixed[key .. name] = option
+		end
+		return prefixed
+	end
+
+	local textArgs = {
+		showDuration = {
+			name = L['Show time left'],
+			desc = L['Show how long each aura has left, written on the icon'],
+			type = 'toggle',
+			order = 1,
+			get = function()
+				return DB().showDuration ~= false
+			end,
+			set = function(_, val)
+				Set('showDuration', val)
+			end,
+		},
+		showCount = {
+			name = L['Show stack count'],
+			desc = L['Show how many stacks an aura has, written on the icon'],
+			type = 'toggle',
+			order = 10,
+			get = function()
+				return DB().showCount ~= false
+			end,
+			set = function(_, val)
+				Set('showCount', val)
+			end,
+		},
+	}
+	for name, option in pairs(TextOptions('durationText', 'showDuration', UF.AuraContainer.TEXT_DEFAULTS.durationText, 1.5)) do
+		textArgs[name] = option
+	end
+	for name, option in pairs(TextOptions('stackText', 'showCount', UF.AuraContainer.TEXT_DEFAULTS.stackText, 10)) do
+		textArgs[name] = option
+	end
+
+	OptionSet.args.text = {
+		name = L['Text on icons'],
+		desc = L['The time left and stack count drawn on each icon'],
+		type = 'group',
+		order = 15,
+		inline = true,
+		args = textArgs,
 	}
 
 	OptionSet.args.filtering = {
