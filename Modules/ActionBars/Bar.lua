@@ -72,7 +72,11 @@ local nativeSizes = setmetatable({}, { __mode = 'k' })
 local function GetNativeSize(button)
 	local size = nativeSizes[button]
 	if not size then
-		local w, h = button:GetSize()
+		-- Forever's keyring swaps its size when Blizzard's bag bar is vertical; its initial size does not
+		local w, h = button.initialWidth, button.initialHeight
+		if type(w) ~= 'number' or type(h) ~= 'number' then
+			w, h = button:GetSize()
+		end
 		size = { w = (w and w > 0) and w or 36, h = (h and h > 0) and h or 36 }
 		nativeSizes[button] = size
 	end
@@ -153,6 +157,10 @@ function Bar:LayoutButtons(count)
 			-- The keyring is a narrow button; stretching it to a square cell distorts its art
 			local buttonWidth, inset = width / scale, 0
 			if button == _G.KeyRingButton then
+				-- Undo the rotation Blizzard's bag bar applies when it is vertical
+				if button.UpdateOrientation then
+					button:UpdateOrientation(true)
+				end
 				buttonWidth = nativeWidth
 				inset = max(0, width - nativeWidth * scale) / 2
 			end
