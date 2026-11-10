@@ -8,6 +8,7 @@
 ---@field IsMOP boolean
 ---@field IsAnyClassic boolean
 ---@field IsForever boolean
+---@field ModernActionButtons boolean
 ---@field wowVersion string
 local SUI = LibStub('AceAddon-3.0'):NewAddon('SpartanUI', 'AceEvent-3.0', 'AceConsole-3.0', 'AceSerializer-3.0')
 SUI:SetDefaultModuleLibraries('AceEvent-3.0', 'AceTimer-3.0')
@@ -61,6 +62,9 @@ if SUI.IsForever then
 	SUI.IsRetail = false
 	SUI.wowVersion = 'Forever'
 end
+-- Forever loads the Mainline action, pet, stance and micro button templates (45px action
+-- buttons), so bar sizes and positions tuned for Retail fit it; Mists and older use Classic ones.
+SUI.ModernActionButtons = SUI.IsRetail or SUI.IsForever
 SUI.GitHash = '@project-abbreviated-hash@' -- The ZIP packager will replace this with the Git hash.
 --@alpha@
 SUI.releaseType = 'ALPHA ' .. SUI.BuildNum

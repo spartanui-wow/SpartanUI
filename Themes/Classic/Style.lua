@@ -1140,7 +1140,7 @@ function module:OnInitialize()
 			blizzMovers = {
 				['VehicleLeaveButton'] = 'BOTTOM,SpartanUI,BOTTOM,0,195',
 			},
-			barPositions = SUI.IsRetail
+			barPositions = SUI.ModernActionButtons
 					and {
 						['BT4Bar1'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,104',
 						['BT4Bar2'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-445,47',
@@ -1182,10 +1182,10 @@ function module:OnInitialize()
 					['BT4BarBagBar'] = SUI.IsMOP and 'BOTTOM,SUI_BottomAnchor,BOTTOM,660,163' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,620,163',
 				},
 			barScales = {
-				['BT4Bar5'] = SUI.IsRetail and 0.63 or 0.75,
-				['BT4Bar6'] = SUI.IsRetail and 0.63 or 0.75,
+				['BT4Bar5'] = SUI.ModernActionButtons and 0.63 or 0.75,
+				['BT4Bar6'] = SUI.ModernActionButtons and 0.63 or 0.75,
 				['BT4BarStanceBar'] = 0.7,
-				['BT4BarMicroMenu'] = SUI.IsRetail and 0.7 or 0.6,
+				['BT4BarMicroMenu'] = SUI.ModernActionButtons and 0.7 or 0.6,
 			},
 			unitframes = {
 				artwork = {

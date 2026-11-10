@@ -25,7 +25,7 @@ module.ACTION_BAR_IDS = _G.MultiBar5 and { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 13, 14
 
 -- Theme bar scales were tuned against 45px buttons on Retail and 36px everywhere else,
 -- so the defaults follow the same split to keep every theme's layout intact.
-module.DEFAULT_BUTTON_SIZE = SUI.IsRetail and 45 or 36
+module.DEFAULT_BUTTON_SIZE = SUI.ModernActionButtons and 45 or 36
 
 module.bars = {} ---@type table<string, SUI.ActionBars.Bar>
 
@@ -78,7 +78,7 @@ end
 
 -- Themes were tuned against SpartanUI's Bartender4 setup: 32px steps with -7 padding, plus
 -- Bartender4's extra -8 on modern micro menus. Match that step whatever the button width.
-local MICRO_STEP = SUI.IsRetail and 17 or 25
+local MICRO_STEP = SUI.ModernActionButtons and 17 or 25
 local MICRO_SPACING = MICRO_STEP - MICRO_WIDTH
 
 local UTILITY_VISIBILITY = HAS_PETBATTLE and '[petbattle] hide; show' or 'show'
@@ -224,7 +224,7 @@ local DBDefaults = {
 		zoom = false,
 	}),
 	bags = SpecialBarDefaults(7, {
-		buttonSize = SUI.IsRetail and 30 or 37,
+		buttonSize = SUI.ModernActionButtons and 30 or 37,
 		buttonSpacing = 0,
 		backdropSpacing = 0,
 		visibility = UTILITY_VISIBILITY,

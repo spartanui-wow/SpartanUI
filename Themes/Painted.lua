@@ -361,7 +361,7 @@ end
 ---@return number
 local function NativeButton()
 	local ActionBars = SUI:GetModule('ActionBars', true)
-	return (ActionBars and ActionBars.DEFAULT_BUTTON_SIZE) or (SUI.IsRetail and 45 or 36)
+	return (ActionBars and ActionBars.DEFAULT_BUTTON_SIZE) or (SUI.ModernActionButtons and 45 or 36)
 end
 
 ---Where each status bar sits: looks that close up their centre use shorter bars, flush with the

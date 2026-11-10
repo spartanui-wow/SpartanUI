@@ -75,7 +75,7 @@ function module:OnInitialize()
 			['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,70',
 			['MultiCastActionBarFrame'] = 'TOP,SpartanUI,TOP,-558,0',
 		}
-		if SUI.IsRetail then
+		if SUI.ModernActionButtons then
 			barPositions['BT4BarStanceBar'] = 'TOP,SpartanUI,TOP,-301,0'
 			barPositions['BT4BarPetBar'] = 'TOP,SpartanUI,TOP,-558,0'
 			barPositions['BT4BarMicroMenu'] = 'TOP,SpartanUI,TOP,324,0'

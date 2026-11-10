@@ -10,10 +10,10 @@ module.Registry = {}
 module.BarPosition = {
 	BT4 = {
 		default = {
-			['BT4Bar1'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-451,100' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,-367,80',
-			['BT4Bar2'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-451,33' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,-368,28',
-			['BT4Bar3'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,451,100' or 'BOTTOM,UIParent,BOTTOM,366,80',
-			['BT4Bar4'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,451,33' or 'BOTTOM,UIParent,BOTTOM,367,27',
+			['BT4Bar1'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-451,100' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,-367,80',
+			['BT4Bar2'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-451,33' or 'BOTTOM,SUI_BottomAnchor,BOTTOM,-368,28',
+			['BT4Bar3'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,451,100' or 'BOTTOM,UIParent,BOTTOM,366,80',
+			['BT4Bar4'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,451,33' or 'BOTTOM,UIParent,BOTTOM,367,27',
 			['BT4Bar5'] = 'BOTTOMRIGHT,SUI_BottomAnchor,BOTTOMLEFT,-15,0',
 			['BT4Bar6'] = 'BOTTOMLEFT,SUI_BottomAnchor,BOTTOMRIGHT,15,0',
 			['BT4Bar7'] = '',
@@ -24,11 +24,11 @@ module.BarPosition = {
 			['BT4BarZoneAbilityBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,87',
 			['BT4BarExtraActionBar'] = 'BOTTOM,SUI_BottomAnchor,TOP,0,87',
 			--
-			['BT4BarStanceBar'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,192' or 'TOP,SpartanUI,TOP,-336,0',
-			['BT4BarPetBar'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-661,191' or 'TOP,SpartanUI,TOP,-645,0',
+			['BT4BarStanceBar'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-285,192' or 'TOP,SpartanUI,TOP,-336,0',
+			['BT4BarPetBar'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,-661,191' or 'TOP,SpartanUI,TOP,-645,0',
 			--
-			['BT4BarMicroMenu'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,340,191' or 'TOP,SpartanUI,TOP,374,0',
-			['BT4BarBagBar'] = SUI.IsRetail and 'BOTTOM,SUI_BottomAnchor,BOTTOM,707,193' or 'TOP,SpartanUI,TOP,652,0',
+			['BT4BarMicroMenu'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,340,191' or 'TOP,SpartanUI,TOP,374,0',
+			['BT4BarBagBar'] = SUI.ModernActionButtons and 'BOTTOM,SUI_BottomAnchor,BOTTOM,707,193' or 'TOP,SpartanUI,TOP,652,0',
 			['BT4BarQueueStatus'] = 'BOTTOM,SUI_BottomAnchor,BOTTOM,-107,132',
 		},
 	},
@@ -36,16 +36,16 @@ module.BarPosition = {
 module.BarScale = {
 	BT4 = {
 		default = {
-			['BT4Bar1'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar2'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar3'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar4'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar5'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar6'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar7'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar8'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar9'] = SUI.IsRetail and 0.62 or 0.77,
-			['BT4Bar10'] = SUI.IsRetail and 0.62 or 0.77,
+			['BT4Bar1'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar2'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar3'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar4'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar5'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar6'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar7'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar8'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar9'] = SUI.ModernActionButtons and 0.62 or 0.77,
+			['BT4Bar10'] = SUI.ModernActionButtons and 0.62 or 0.77,
 			['BT4BarBagBar'] = 0.6,
 			['BT4BarZoneAbilityBar'] = 0.8,
 			['BT4BarExtraActionBar'] = 0.8,
@@ -276,6 +276,9 @@ function module:GetBarFrame(key)
 	if system == 'SpartanUI' then
 		return SUI.ActionBars and SUI.ActionBars:IsActive() and SUI.ActionBars:GetBar(key) or nil
 	elseif system == 'Bartender4' then
+		if key == 'MultiCastActionBarFrame' and _G.BT4BarMultiCast then
+			return _G.BT4BarMultiCast
+		end
 		return _G[key]
 	end
 	return nil
