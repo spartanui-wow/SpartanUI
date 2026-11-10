@@ -3,6 +3,10 @@ local SUI, L = SUI, SUI.L
 local module = SUI:GetModule('QuestTools')
 ----------------------------------------------------------------------------------------------------
 
+-- WoW Forever does not load the addon that defines the bare globals
+local GetSpecialization = C_SpecializationInfo and C_SpecializationInfo.GetSpecialization or GetSpecialization
+local GetSpecializationInfo = C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo or GetSpecializationInfo
+
 local SLOTS = {
 	['INVTYPE_AMMO'] = { 'AmmoSlot' },
 	['INVTYPE_HEAD'] = { 'HeadSlot' },
