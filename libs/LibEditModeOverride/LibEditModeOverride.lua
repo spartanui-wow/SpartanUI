@@ -1,6 +1,6 @@
--- Copyright 2022-2023 plusmouse. Licensed under terms found in LICENSE file.
+-- Copyright 2022-2026 plusmouse. Licensed under terms found in LICENSE file.
 
-local lib = LibStub:NewLibrary("LibEditModeOverride-1.0", 10)
+local lib = LibStub:NewLibrary("LibEditModeOverride-1.0", 11)
 
 if not lib then return end
 
@@ -106,22 +106,16 @@ function lib:SetFrameSetting(frame, setting, value)
       min = 0
       max = 1
     elseif restrictions.type == Enum.EditModeSettingDisplayType.Slider then
-      if restrictions.stepSize then
-        if frame:GetName():match("CooldownViewer") then
-          min = restrictions.minValue
-          max = restrictions.maxValue
-        else
-          min = 0
-          max = restrictions.maxValue - restrictions.minValue
-        end
-      else
-        min = restrictions.minValue
-        max = restrictions.maxValue
-      end
+      min = restrictions.minValue
+      max = restrictions.maxValue
     else
       error("Internal Error: Unknown setting restrictions")
     end
-    assert(min <= value and value <= max, string.format("Value %s invalid for this setting: min %s, max %s", value, min, max))
+    assert(min <= value and value <= max, string.format("Value %s invalid for setting %d on %s: min %s, max %s", value, setting, frame:GetDebugName(), min, max))
+
+    if restrictions.ConvertValue then
+      value = restrictions:ConvertValue(value)
+    end
   end
 
   for _, item in pairs(system.settings) do
