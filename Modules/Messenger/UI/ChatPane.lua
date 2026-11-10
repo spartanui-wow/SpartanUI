@@ -334,7 +334,7 @@ function CP.Create(parent, showHeader)
 		header.nameButton:SetScript('OnClick', function(_, button)
 			local convo = pane.key and M.Store:Get(pane.key)
 			if button == 'RightButton' and convo and convo.kind == 'WHISPER' and convo.target then
-				SetItemRef('player:' .. convo.target, '[' .. convo.name .. ']', 'RightButton', DEFAULT_CHAT_FRAME)
+				SetItemRef(M.Router:PlayerLink(convo.target, M.Router:LatestLineID(convo), 'WHISPER'), '[' .. convo.name .. ']', 'RightButton', DEFAULT_CHAT_FRAME)
 			end
 		end)
 		header.nameButton:SetScript('OnDoubleClick', function()

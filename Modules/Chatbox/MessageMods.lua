@@ -320,6 +320,32 @@ local bnetEvents = {
 	CHAT_MSG_BN_INLINE_TOAST_BROADCAST = true,
 }
 
+---The part of a player link after "player:". It carries the chat line the same way the game's own
+---chat does, because the right-click menu only offers to report a message when it has that line.
+---@param senderName string
+---@param event string
+---@param lineID any
+---@param channelIndex any
+---@return string
+local function playerLinkTarget(senderName, event, lineID, channelIndex)
+	if type(lineID) ~= 'number' or not SUI.BlizzAPI.canaccessvalue(lineID) or lineID <= 0 then
+		return senderName
+	end
+
+	local chatType = event:sub(10)
+	local chatGroup = chatType
+	if ChatFrameUtil and ChatFrameUtil.GetChatCategory then
+		chatGroup = ChatFrameUtil.GetChatCategory(chatType) or chatType
+	end
+
+	local chatTarget = ''
+	if FCFManager_GetChatTarget and SUI.BlizzAPI.canaccessvalue(channelIndex) then
+		chatTarget = FCFManager_GetChatTarget(chatGroup, senderName, channelIndex) or ''
+	end
+
+	return senderName .. ':' .. lineID .. ':' .. chatGroup .. ':' .. chatTarget
+end
+
 -- Build a native |Hplayer:Name|h or |HBNplayer:...|h link for native click behavior.
 -- Returns: plainName, playerLink
 local function buildCharacterStr(data)
@@ -382,11 +408,12 @@ local function buildCharacterStr(data)
 		levelPrefix = '|cff' .. color .. level .. '|r:'
 	end
 
+	local linkTarget = playerLinkTarget(senderName, event, data.lineID, data.channelIndex)
 	local playerLink
 	if hex then
-		playerLink = levelPrefix .. '|cFF' .. hex .. '|Hplayer:' .. senderName .. '|h' .. charStr .. '|h|r'
+		playerLink = levelPrefix .. '|cFF' .. hex .. '|Hplayer:' .. linkTarget .. '|h' .. charStr .. '|h|r'
 	else
-		playerLink = levelPrefix .. '|Hplayer:' .. senderName .. '|h' .. charStr .. '|h'
+		playerLink = levelPrefix .. '|Hplayer:' .. linkTarget .. '|h' .. charStr .. '|h'
 	end
 
 	return toPrefix .. charStr, toPrefix .. playerLink

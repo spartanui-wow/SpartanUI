@@ -894,13 +894,13 @@ function Log:SenderLabel(msg)
 	if msg.s then
 		local r, g, b = T.NameColor(msg.cl)
 		local display = M:PersonLabel(msg.s)
-		return '|Hplayer:' .. msg.s .. '|h' .. display .. '|h', r, g, b
+		return '|H' .. M.Router:PlayerLink(msg.s, M.Router:LineID(msg)) .. '|h' .. display .. '|h', r, g, b
 	end
 	if convo then
 		local presence = M.Contacts:GetPresence(convo)
 		local r, g, b = T.NameColor(presence.class or convo.class)
 		if convo.kind == 'WHISPER' then
-			return '|Hplayer:' .. convo.target .. '|h' .. M:GetTitle(convo) .. '|h', r, g, b
+			return '|H' .. M.Router:PlayerLink(convo.target, M.Router:LineID(msg), 'WHISPER') .. '|h' .. M:GetTitle(convo) .. '|h', r, g, b
 		end
 		return M:GetTitle(convo), r, g, b
 	end

@@ -20,6 +20,10 @@ local Contacts = M.Contacts
 R.lastIncoming = nil
 R.lastOutgoing = nil
 
+-- Chat line IDs of this session's messages, kept out of the saved messages because a line ID
+-- means nothing after a reload. The game's player menu needs one to offer "Report".
+local lineIDs = setmetatable({}, { __mode = 'k' })
+
 ----------------------------------------------------------------------------------------------------
 -- Helpers
 ----------------------------------------------------------------------------------------------------
@@ -138,7 +142,42 @@ end
 ---@param channelBase any
 ---@param channelString any
 ---@param stamp? number
-function R:Record(event, text, sender, guid, bnID, flags, channelBase, channelString, stamp)
+---@param msg? table
+---@return number|nil
+function R:LineID(msg)
+	return msg and lineIDs[msg]
+end
+
+---The chat line ID of the newest message the other person sent in a conversation.
+---@param convo? table
+---@return number|nil
+function R:LatestLineID(convo)
+	local msgs = convo and convo.msgs
+	if type(msgs) ~= 'table' then
+		return nil
+	end
+	for i = #msgs, math.max(1, #msgs - 50), -1 do
+		local msg = msgs[i]
+		if not msg.o and lineIDs[msg] then
+			return lineIDs[msg]
+		end
+	end
+	return nil
+end
+
+---A player link that carries the chat line when there is one, the same way the game's chat does.
+---@param name string
+---@param lineID? number
+---@param chatType? string
+---@return string
+function R:PlayerLink(name, lineID, chatType)
+	if not lineID then
+		return 'player:' .. name
+	end
+	return 'player:' .. name .. ':' .. lineID .. ':' .. (chatType or 0) .. ':' .. (chatType == 'WHISPER' and name:upper() or '')
+end
+
+function R:Record(event, text, sender, guid, bnID, flags, channelBase, channelString, stamp, lineID)
 	local kind = M.KindByEvent[event]
 	if not kind then
 		return
@@ -150,6 +189,7 @@ function R:Record(event, text, sender, guid, bnID, flags, channelBase, channelSt
 
 	local outgoing = kind.events[event] == true
 	local msg = { t = stamp or time(), x = text }
+	lineIDs[msg] = U.Num(lineID)
 	if IsStaff(flags) then
 		msg.gm = true
 	end
@@ -259,7 +299,7 @@ local function Drain()
 				bnID = entry and entry.id
 			end
 			if kind and (kind.key ~= 'BN_WHISPER' or bnID) then
-				R:Record(item.event, text, sender, guid, bnID, item.flags, item.channelBase, item.channelString, item.t)
+				R:Record(item.event, text, sender, guid, bnID, item.flags, item.channelBase, item.channelString, item.t, item.lineID)
 			else
 				M.log.debug('Could not place a restricted Battle.net line after the fight')
 			end
@@ -359,7 +399,7 @@ local function OnChatEvent(event, ...)
 	if not text or DroppedByOtherFilters(event, ...) then
 		return
 	end
-	R:Record(event, text, sender, guid, bnID, flags, channelBase, channelString)
+	R:Record(event, text, sender, guid, bnID, flags, channelBase, channelString, nil, lineID)
 end
 
 local function OnAwayMessage(event, text, sender)
