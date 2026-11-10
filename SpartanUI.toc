@@ -48,7 +48,7 @@ libs\LibActionButton-1.0\LibActionButton-1.0.lua
 # ============================================
 libs\TaintLess\TaintLess.xml [AllowLoadGameType mainline]
 libs\LibEditModeOverride\LibEditModeOverride.xml [AllowLoadGameType mainline]
-libs\LibDualSpec-1.0\LibDualSpec-1.0.lua [AllowLoadGameType mainline]
+libs\LibDualSpec-1.0\LibDualSpec-1.0.lua [AllowLoadGameType mainline, camelot]
 
 # ============================================
 # ERROR HANDLING (Custom SUI minimap icon using LibAT error handler)

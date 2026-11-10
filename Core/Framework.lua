@@ -503,7 +503,7 @@ function SUI:OnInitialize()
 
 	-- Add dual-spec support
 	local LibDualSpec = LibStub('LibDualSpec-1.0', true)
-	if SUI.IsRetail and not SUI.IsForever and LibDualSpec and LibDualSpec.EnhanceDatabase then
+	if (SUI.IsRetail or SUI.IsForever) and LibDualSpec and LibDualSpec.EnhanceDatabase then
 		LibDualSpec:EnhanceDatabase(self.SpartanUIDB, 'SpartanUI')
 		LibDualSpec:EnhanceOptions(SUI.opt.args['Profiles'], self.SpartanUIDB)
 	end
