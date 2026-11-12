@@ -227,6 +227,10 @@ local function CreateUnitFrame(self, unit)
 	---@param elementName SUI.UF.Elements.list
 	local function ElementUpdate(frame, elementName)
 		if not frame[elementName] then
+			-- Aura elements that were off at login build themselves once turned on
+			if frame.deferredAuras and frame.deferredAuras[elementName] then
+				UF.Elements:Update(frame, elementName)
+			end
 			return
 		end
 		local data = self.DB.elements[elementName]

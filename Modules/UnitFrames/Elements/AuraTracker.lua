@@ -64,6 +64,11 @@ local function Build(frame, DB)
 		return
 	end
 
+	if not DB.enabled then
+		UF.Auras:DeferContainer(frame, 'AuraTracker')
+		return
+	end
+
 	local element = frame:CreateAuras({
 		initialAnchor = 'CENTER',
 	})
@@ -88,6 +93,7 @@ local function Build(frame, DB)
 
 	-- Containers only receive their unit through oUF's 'Auras' meta element.
 	UF.Auras:ScheduleContainerStateSync(frame)
+	return element
 end
 
 ---@param frame table
@@ -95,6 +101,13 @@ end
 function Update(frame, settings)
 	local element = frame.AuraTracker
 	if not element then
+		if UF.Auras:GetDeferredContainer(frame, 'AuraTracker') and settings and settings.enabled and UF.Auras:CanBuildLateContainer(frame) then
+			element = Build(frame, settings)
+			if element then
+				UF.Auras:AttachLateContainer(frame, 'AuraTracker', element)
+				Update(frame, settings)
+			end
+		end
 		return
 	end
 

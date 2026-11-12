@@ -85,6 +85,11 @@ function Container:Build(frame, elementName, DB, baseFilter)
 		return frame[elementName]
 	end
 
+	if not DB.enabled then
+		UF.Auras:DeferContainer(frame, elementName, baseFilter)
+		return
+	end
+
 	-- A pixel of padding on the side the rows grow towards. Without it the
 	-- first row sits flush against the container edge and clips.
 	local growDown = (DB.growthy or 'UP') == 'DOWN'
@@ -124,6 +129,13 @@ end
 function Container:Update(frame, elementName, settings, baseFilter)
 	local element = frame[elementName]
 	if not element then
+		local deferredFilter = UF.Auras:GetDeferredContainer(frame, elementName)
+		if deferredFilter and settings and settings.enabled and UF.Auras:CanBuildLateContainer(frame) then
+			element = self:Build(frame, elementName, settings, baseFilter or deferredFilter)
+			if element then
+				UF.Auras:AttachLateContainer(frame, elementName, element)
+			end
+		end
 		return
 	end
 

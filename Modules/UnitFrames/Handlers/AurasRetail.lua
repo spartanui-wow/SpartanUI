@@ -1731,6 +1731,53 @@ function Auras:ScheduleContainerStateSync(frame)
 	end)
 end
 
+-- Aura elements that are turned off are not built at login: every container and its groups or slots
+-- cost real time, and building them all for every frame at once can run past the game's time limit.
+-- They are built the first time the element is turned on.
+
+---Remember an aura element that was skipped because it is turned off
+---@param frame table
+---@param elementName string
+---@param info any what the element needs to build itself later
+function Auras:DeferContainer(frame, elementName, info)
+	frame.deferredAuras = frame.deferredAuras or {}
+	frame.deferredAuras[elementName] = info or true
+end
+
+---@param frame table
+---@param elementName string
+---@return any info nil when the element was not deferred
+function Auras:GetDeferredContainer(frame, elementName)
+	return frame.deferredAuras and frame.deferredAuras[elementName]
+end
+
+---Can a deferred container be built right now? Building while auras are restricted is queued instead.
+---@param frame table
+---@return boolean
+function Auras:CanBuildLateContainer(frame)
+	if SUI.BlizzAPI.AreAurasRestricted() then
+		QueueRebuild(frame)
+		return false
+	end
+	return true
+end
+
+---Hook a container built after the frame spawned into oUF's Auras meta element, which only switches
+---itself on for frames that had a container when they were enabled, and give it the frame's unit.
+---@param frame table
+---@param elementName string
+---@param element table
+function Auras:AttachLateContainer(frame, elementName, element)
+	frame.deferredAuras[elementName] = nil
+	if frame.IsElementEnabled and not frame:IsElementEnabled('Auras') then
+		frame:EnableElement('Auras')
+	elseif frame.__unit and element.SetUnit then
+		element:SetUnit(frame.__unit)
+	end
+	-- Enabling the meta element turns every container on; put each back to its own setting
+	self:ScheduleContainerStateSync(frame)
+end
+
 ---@param buildSettings fun(element: table, entry: table): table
 function Auras:AttachSlots(element, DB, buildSettings)
 	element.slotKeys = element.slotKeys or {}
