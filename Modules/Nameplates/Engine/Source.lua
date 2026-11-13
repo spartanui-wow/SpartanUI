@@ -1813,6 +1813,8 @@ local function SpecRole()
 	return nil
 end
 
+local foundTanks = {}
+
 ---Fill the unit-based context fields: role, group, other tanks, pet, player level.
 ---@param ctx Plates.Context
 ---@param roleSetting string profile.role
@@ -1825,7 +1827,11 @@ function Source.ReadPlayerContext(ctx, roleSetting)
 	ctx.inGroup = inGroup and true or false
 	ctx.groupSize = (GetNumGroupMembers and GetNumGroupMembers()) or 1
 	local tanks = ctx.tanks or {}
-	P.util.Wipe(tanks)
+	local found = foundTanks
+	P.util.Wipe(found)
+	-- A role the game hides mid-combat (a roster change in an encounter) must not drop a tank:
+	-- keep the last full list until every role can be read again
+	local roleHidden = false
 	if inGroup and UnitGroupRolesAssigned then
 		local prefix = inRaid and 'raid' or 'party'
 		local count = inRaid and ctx.groupSize or math.max(ctx.groupSize - 1, 0)
@@ -1845,11 +1851,19 @@ function Source.ReadPlayerContext(ctx, roleSetting)
 				end
 			end
 			if not isMe then
-				local role = Plain(UnitGroupRolesAssigned(unit))
-				if role == 'TANK' then
-					tanks[#tanks + 1] = unit
+				local role, readable = Plain(UnitGroupRolesAssigned(unit))
+				if readable == false then
+					roleHidden = true
+				elseif role == 'TANK' then
+					found[#found + 1] = unit
 				end
 			end
+		end
+	end
+	if not roleHidden or not inGroup then
+		P.util.Wipe(tanks)
+		for i = 1, #found do
+			tanks[i] = found[i]
 		end
 	end
 	ctx.tanks = tanks
