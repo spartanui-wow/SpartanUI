@@ -524,6 +524,11 @@ do
 
 		self:RegisterEvent('SPELLS_CHANGED', ColorPath, true)
 
+		-- SUI: combo points belong to the target on WoW Forever (the only non-mainline client loading this oUF)
+		if(WOW_PROJECT_ID ~= WOW_PROJECT_MAINLINE) then
+			self:RegisterEvent('PLAYER_TARGET_CHANGED', VisibilityPath, true)
+		end
+
 		local element = self.ClassPower
 		STATE[element].enabled = true
 
@@ -540,6 +545,7 @@ do
 		self:UnregisterEvent('UNIT_MAXPOWER', Path)
 		self:UnregisterEvent('UNIT_POWER_POINT_CHARGE', Path)
 		self:UnregisterEvent('SPELLS_CHANGED', ColorPath)
+		self:UnregisterEvent('PLAYER_TARGET_CHANGED', VisibilityPath) -- SUI: see ClassPowerEnable
 
 		if(not unregisterOnly) then
 			local element = self.ClassPower
