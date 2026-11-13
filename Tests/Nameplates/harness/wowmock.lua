@@ -1769,6 +1769,36 @@ NS.C_AddOns = {
 	end,
 }
 
+-- LibSharedMedia rejects files the client does not know. SpartanUI's own files are known when they
+-- exist on disk (the game also finds .tga and .blp without the extension, never .png); every other
+-- path (game files, the test hosts' made-up folders, file IDs) is treated as known.
+local function fileOnDisk(rel)
+	local f = io.open(ROOT .. rel, 'rb')
+	if f then
+		f:close()
+		return true
+	end
+	return false
+end
+NS.C_UIFileAsset = {
+	IsKnownFile = function(path)
+		if type(path) ~= 'string' then
+			return true
+		end
+		local rel = path:gsub('\\', '/'):match('^[Ii]nterface/[Aa]dd[Oo]ns/SpartanUI/(.+)$')
+		if not rel then
+			return true
+		end
+		if fileOnDisk(rel) then
+			return true
+		end
+		if not rel:match('%.%w+$') then
+			return fileOnDisk(rel .. '.tga') or fileOnDisk(rel .. '.blp')
+		end
+		return false
+	end,
+}
+
 ----------------------------------------------------------------------------------------------------
 -- Units, plates, secrets predicates (units.lua fills FN/NS/W with the world model)
 ----------------------------------------------------------------------------------------------------
