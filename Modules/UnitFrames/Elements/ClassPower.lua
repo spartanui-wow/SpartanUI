@@ -1,25 +1,5 @@
 local UF, L = SUI.UF, SUI.L
 
--- On WoW Forever combo points stay on the target they were built on. UnitPower keeps reporting
--- the old target's points after a target switch, so read the current target's instead.
-local _, playerClass = UnitClass('player')
-local TARGET_BOUND_COMBO_POINTS = SUI.IsForever and GetComboPoints and (playerClass == 'ROGUE' or playerClass == 'DRUID')
-
----@param element table
----@param max number
-local function ShowTargetComboPoints(element, max)
-	local unit = UnitHasVehicleUI('player') and 'vehicle' or 'player'
-	local points = GetComboPoints(unit, 'target')
-	if not points or not max or not SUI.BlizzAPI.canaccessvalue(points) or not SUI.BlizzAPI.canaccessvalue(max) then
-		return
-	end
-	for i = 1, max do
-		if element[i] then
-			element[i]:SetValue(i <= points and 1 or 0)
-		end
-	end
-end
-
 ---@param frame table
 ---@param DB table
 local function Build(frame, DB)
@@ -52,10 +32,6 @@ local function Build(frame, DB)
 	ClassPower.PostUpdate = function(element, cur, max, hasCurChanged, hasMaxChanged, powerType)
 		if not element.DB then
 			return
-		end
-
-		if TARGET_BOUND_COMBO_POINTS and powerType == 'COMBO_POINTS' then
-			ShowTargetComboPoints(element, max)
 		end
 
 		local isPercentageFill = max == 1
@@ -102,17 +78,6 @@ local function Build(frame, DB)
 				end
 			end
 		end
-	end
-
-	if TARGET_BOUND_COMBO_POINTS then
-		local watcher = CreateFrame('Frame')
-		watcher:RegisterEvent('PLAYER_TARGET_CHANGED')
-		watcher:RegisterEvent('COMBO_TARGET_CHANGED')
-		watcher:SetScript('OnEvent', function()
-			if ClassPower.ForceUpdate and frame:IsElementEnabled('ClassPower') then
-				ClassPower:ForceUpdate()
-			end
-		end)
 	end
 
 	frame.ClassPower = ClassPower

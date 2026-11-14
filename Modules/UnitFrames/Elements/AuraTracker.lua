@@ -69,7 +69,7 @@ local function Build(frame, DB)
 		return
 	end
 
-	local element = frame:CreateAuras({
+	local element = frame:CreateAurasElement({
 		initialAnchor = 'CENTER',
 	})
 

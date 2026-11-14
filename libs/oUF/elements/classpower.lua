@@ -100,11 +100,19 @@ local function GetGenericPowerColor(element, powerType)
 	return element.__owner.colors.power[powerType]
 end
 
-local function GetComboPoints(unit)
-	return UnitPower(unit, Enum.PowerType.ComboPoints), GetUnitChargedPowerPoints(unit)
+local GetComboPointsPower
+if(GameCompatibility.Warlords) then
+	function GetComboPointsPower(unit)
+		return UnitPower(unit, Enum.PowerType.ComboPoints), GetUnitChargedPowerPoints(unit)
+	end
+else
+	function GetComboPointsPower(unit)
+		-- combo points are tied to the target unit before 6.x
+		return GetComboPoints(unit, 'target')
+	end
 end
 
-local function GetComboPointsMax(unit)
+local function GetComboPointsPowerMax(unit)
 	return UnitPowerMax(unit, Enum.PowerType.ComboPoints)
 end
 
@@ -152,7 +160,7 @@ if(playerClass == 'DEMONHUNTER' and GameCompatibility.Midnight) then
 	end
 elseif(playerClass == 'DRUID') then
 	GetPowerUpdaters = function()
-		return GetComboPoints, GetComboPointsMax, GetGenericPowerColor
+		return GetComboPointsPower, GetComboPointsPowerMax, GetGenericPowerColor
 	end
 
 	GetPowerInfo = function()
@@ -256,7 +264,7 @@ elseif(playerClass == 'PALADIN' and GameCompatibility.Cataclysm) then
 	end
 elseif(playerClass == 'ROGUE') then
 	GetPowerUpdaters = function()
-		return GetComboPoints, GetComboPointsMax, GetGenericPowerColor
+		return GetComboPointsPower, GetComboPointsPowerMax, GetGenericPowerColor
 	end
 
 	GetPowerInfo = function() -- might as well be static
@@ -343,6 +351,12 @@ end
 
 local function Update(self, event, unit, powerType)
 	local element = self.ClassPower
+	if(event == 'PLAYER_TARGET_CHANGED') then
+		-- event does not have valid args, need to fake it
+		unit = 'player'
+		powerType = STATE[element].powerType
+	end
+
 	if(not unit) then
 		return
 	elseif(unit == 'vehicle' and powerType ~= POWER_TYPE_COMBO_POINTS) then
@@ -462,7 +476,7 @@ local function Visibility(self, event, unit)
 
 	if(shouldEnable) then
 		if(unit == 'vehicle') then
-			GetPower, GetPowerMax, GetPowerColor = GetComboPoints, GetComboPointsMax, GetGenericPowerColor
+			GetPower, GetPowerMax, GetPowerColor = GetComboPointsPower, GetComboPointsPowerMax, GetGenericPowerColor
 		else
 			GetPower, GetPowerMax, GetPowerColor = GetPowerUpdaters()
 		end
@@ -524,9 +538,10 @@ do
 
 		self:RegisterEvent('SPELLS_CHANGED', ColorPath, true)
 
-		-- SUI: combo points belong to the target on WoW Forever (the only non-mainline client loading this oUF)
-		if(WOW_PROJECT_ID ~= WOW_PROJECT_MAINLINE) then
-			self:RegisterEvent('PLAYER_TARGET_CHANGED', VisibilityPath, true)
+		if(not GameCompatibility.Warlords) then
+			-- combo points are tied to the target before 6.x, so we need to
+			-- update the element whenever the target changes
+			self:RegisterEvent('PLAYER_TARGET_CHANGED', Path, true)
 		end
 
 		local element = self.ClassPower
@@ -545,7 +560,7 @@ do
 		self:UnregisterEvent('UNIT_MAXPOWER', Path)
 		self:UnregisterEvent('UNIT_POWER_POINT_CHARGE', Path)
 		self:UnregisterEvent('SPELLS_CHANGED', ColorPath)
-		self:UnregisterEvent('PLAYER_TARGET_CHANGED', VisibilityPath) -- SUI: see ClassPowerEnable
+		self:UnregisterEvent('PLAYER_TARGET_CHANGED', Path)
 
 		if(not unregisterOnly) then
 			local element = self.ClassPower

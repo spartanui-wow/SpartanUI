@@ -9,8 +9,8 @@ function Private.argcheck(value, num, ...)
 		if(type(value) == select(i, ...)) then return end
 	end
 
-	local types = string.join(', ', ...)
-	local name = debugstack(2,2,0):match(": in function [`<](.-)['>]")
+	local types = string.join('/', ...)
+	local name = debugstack(2,2,0):match(": in function [`'<](.-)['>]")
 	error(string.format("Bad argument #%d to '%s' (%s expected, got %s)", num, name, types, type(value)), 3)
 end
 
@@ -30,8 +30,8 @@ function Private.unitExists(unit)
 	return unit and (UnitExists(unit) or UnitIsVisible(unit))
 end
 
-function Private.unitIsUnit(unit1, unit2)
-	return C_Secrets.CanCompareUnitTokens(unit1, unit2) and UnitIsUnit(unit1, unit2)
+function Private.unitIsUnit(unit, compareUnit)
+	return scrubsecretvalues(UnitIsUnit(unit, compareUnit))
 end
 
 local validator = CreateFrame('Frame')

@@ -1587,7 +1587,7 @@ end
 
 ---Anchor an aura container to its unit frame and give it a starting size.
 ---
----`CreateAuras` only configures the flow layout, which decides how buttons
+---`CreateAurasElement` only configures the flow layout, which decides how buttons
 ---flow inside the container. The container is an ordinary child frame and
 ---still needs a real anchor.
 ---@param element table
@@ -1867,7 +1867,7 @@ end
 
 ---@return table? watcher
 function Auras:CreateWatcher(frame, name, filter, candidateFilters, decorate)
-	if not self:HasNativeContainers() or not frame.CreateAuras then
+	if not self:HasNativeContainers() or not frame.CreateAurasElement then
 		return
 	end
 
@@ -1876,7 +1876,7 @@ function Auras:CreateWatcher(frame, name, filter, candidateFilters, decorate)
 		return frame.auraWatchers[name]
 	end
 
-	local container = frame:CreateAuras({ initialAnchor = 'CENTER' })
+	local container = frame:CreateAurasElement({ initialAnchor = 'CENTER' })
 	container:ClearAllPoints()
 	container:SetAllPoints(frame)
 

@@ -94,7 +94,7 @@ function Container:Build(frame, elementName, DB, baseFilter)
 	-- first row sits flush against the container edge and clips.
 	local growDown = (DB.growthy or 'UP') == 'DOWN'
 
-	local element = frame:CreateAuras({
+	local element = frame:CreateAurasElement({
 		initialAnchor = DB.position and DB.position.anchor or 'TOPLEFT',
 		growthX = DB.growthx or 'RIGHT',
 		growthY = DB.growthy or 'UP',
