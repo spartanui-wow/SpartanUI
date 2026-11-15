@@ -82,7 +82,7 @@ local function GetRelativeToValues()
 
 	-- Add other Minimap elements - handle both Retail and Classic structures
 	local elementsToCheck = module.Settings.elements
-	if not elementsToCheck and not SUI.IsRetail then
+	if not elementsToCheck and not module.UsesModernMinimap then
 		-- For Classic, check known element keys at top level
 		elementsToCheck = {}
 		local classicKeys = { 'background', 'ZoneText', 'coords', 'zoomButtons', 'clock', 'tracking', 'mailIcon', 'instanceDifficulty', 'queueStatus', 'addonButtons' }
@@ -326,7 +326,7 @@ function module:BuildOptions()
 						type = 'toggle',
 						order = 6,
 						hidden = function()
-							return not SUI.IsRetail
+							return not module.UsesModernMinimap
 						end,
 						get = function()
 							return module.Settings.rightClickMenu ~= false
@@ -437,7 +437,7 @@ function module:BuildOptions()
 
 	-- Helper to get the elements table (Retail) or extract elements from flat structure (Classic)
 	local elementsSource = module.Settings.elements
-	if not elementsSource and not SUI.IsRetail then
+	if not elementsSource and not module.UsesModernMinimap then
 		-- Build elements source from flat Classic structure
 		elementsSource = {}
 		for key, value in pairs(module.Settings) do
@@ -448,8 +448,11 @@ function module:BuildOptions()
 	end
 
 	-- Helper functions to get/set element settings regardless of structure
+	-- Modern-engine clients (Retail, Forever) keep minimap pieces under `elements`
+	local nested = module.Settings.elements ~= nil
+
 	local function getElementSettings(elName)
-		if SUI.IsRetail then
+		if nested then
 			return module.Settings.elements and module.Settings.elements[elName]
 		else
 			return module.Settings[elName]
@@ -457,7 +460,7 @@ function module:BuildOptions()
 	end
 
 	local function getBaseElementSettings(elName)
-		if SUI.IsRetail then
+		if nested then
 			return module.BaseOpt.elements and module.BaseOpt.elements[elName]
 		else
 			return module.BaseOpt[elName]
@@ -469,7 +472,7 @@ function module:BuildOptions()
 		if not module.DB.customSettings[style] then
 			return nil
 		end
-		if SUI.IsRetail then
+		if nested then
 			return module.DB.customSettings[style].elements and module.DB.customSettings[style].elements[elName]
 		else
 			return module.DB.customSettings[style][elName]
@@ -481,7 +484,7 @@ function module:BuildOptions()
 		if not module.DB.customSettings[style] then
 			return
 		end
-		if SUI.IsRetail then
+		if nested then
 			if module.DB.customSettings[style].elements then
 				module.DB.customSettings[style].elements[elName] = nil
 			end
