@@ -57,6 +57,16 @@ local function SetTrayFrameShown(name, shown)
 	end
 end
 
+local function BelongsToTray(frame, side)
+	if not frame.isMoved or not frame.isMoved() then
+		return true
+	end
+
+	-- MoveIt anchors the bar to its mover. The mover holds the tray-relative point.
+	local _, anchor = (frame.mover or frame):GetPoint(1)
+	return anchor and anchor.GetName and anchor:GetName() == 'SlidingTray_' .. side
+end
+
 local SetBarVisibility = function(side, state)
 	-- A disabled tray still has to release the bars it was managing. Without this, bars
 	-- hidden by the tray stay hidden - or reappear on login and never get hidden again -
@@ -69,11 +79,8 @@ local SetBarVisibility = function(side, state)
 	local BarSystem = SUI.Handlers.BarSystem
 	for key, traySide in pairs(trayBars) do
 		local frame = BarSystem and BarSystem:GetBarFrame(key)
-		if frame and traySide == side then
-			local isMoved = (frame.isMoved and frame.isMoved()) or false
-			if not isMoved then
-				SetTrayFrameShown(key, state == 'show')
-			end
+		if frame and traySide == side and BelongsToTray(frame, side) then
+			SetTrayFrameShown(key, state == 'show')
 		end
 	end
 
@@ -1205,11 +1212,8 @@ function module:GetCombinedFrameList(side)
 		for _, frameName in ipairs(frames) do
 			local trimmed = strtrim(frameName)
 			local frame = trimmed ~= '' and ResolveTrayFrame(trimmed)
-			if frame then
-				local isMoved = (frame.isMoved and frame.isMoved()) or false
-				if not isMoved then
-					table.insert(filteredSkinFrames, trimmed)
-				end
+			if frame and BelongsToTray(frame, side) then
+				table.insert(filteredSkinFrames, trimmed)
 			end
 		end
 	end
