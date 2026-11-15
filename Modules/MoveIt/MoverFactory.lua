@@ -332,16 +332,17 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName)
 		anchorObj = _G[anchor]
 	end
 
-	-- A saved position can point at another mover that has not been created yet (load order).
-	-- Keep the saved position, use the default for now, and re-apply once that mover exists.
-	if not anchorObj and MoveIt.DB.movers[name].MovedPoints and type(anchor) == 'string' and anchor:find('^SUI_Mover_') then
+	-- Keep a saved anchor that may be created later, and use the default until it exists.
+	local isTrayAnchor = anchor == 'SlidingTray_left' or anchor == 'SlidingTray_right'
+	if not anchorObj and MoveIt.DB.movers[name].MovedPoints and type(anchor) == 'string' and (isTrayAnchor or anchor:find('^SUI_Mover_')) then
 		MoveIt.PendingAnchors[name] = anchor
 		point, anchor, secondaryPoint, x, y = strsplit(',', f.defaultPoint)
 		anchorObj = _G[anchor]
+		isTrayAnchor = anchor == 'SlidingTray_left' or anchor == 'SlidingTray_right'
 	end
 
 	local anchorInvalid = not anchorObj
-	if anchorObj and type(anchor) == 'string' and anchor ~= 'UIParent' then
+	if anchorObj and type(anchor) == 'string' and anchor ~= 'UIParent' and not isTrayAnchor then
 		-- Walk up the parent chain looking for UIParent. If we hit SpartanUI (which is scaled),
 		-- the anchor is inside a scaled frame and offsets will drift.
 		local p = anchorObj.GetParent and anchorObj:GetParent()
@@ -496,6 +497,11 @@ function MoveIt:CreateMover(parent, name, DisplayName, postdrag, groupName)
 
 		-- If the frame has been moved and we are not forcing the movement, exit
 		if MoveIt.DB.movers[name].MovedPoints and not forced then
+			if defaultPos then
+				local anchorName = type(newAnchor) == 'string' and newAnchor or (newAnchor and newAnchor:GetName()) or 'UIParent'
+				local x, y = Round(tonumber(newX) or 0), Round(tonumber(newY) or 0)
+				f.defaultPoint = format('%s,%s,%s,%d,%d', newPoint, anchorName, newSecondaryPoint or newPoint, x, y)
+			end
 			return
 		end
 
