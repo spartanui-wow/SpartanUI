@@ -203,7 +203,7 @@ function module:OnInitialize()
 				},
 				minimap = {
 					variants = {
-						Fel = SUI.IsRetail and {
+						Fel = SUI.ModernMinimap and {
 							size = { 180, 180 },
 							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,-8',
 							engulfed = true,
@@ -224,7 +224,7 @@ function module:OnInitialize()
 								position = 'CENTER,Minimap,CENTER,5,25',
 							},
 						},
-						FelCalmed = SUI.IsRetail and {
+						FelCalmed = SUI.ModernMinimap and {
 							size = { 180, 180 },
 							position = 'CENTER,SUI_Art_Fel_Left,RIGHT,-30,-8',
 							engulfed = false,
